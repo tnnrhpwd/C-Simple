@@ -1,0 +1,109 @@
+# Visual Studio
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build Results
+bin/
+obj/
+Debug/
+Release/
+[Bb]uild/
+
+# .NET
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Maui specific
+*.app
+*.apk
+*.aab
+*.ipa
+*.dsym
+*.dSYM.zip
+*.msix
+*.msixupload
+*.msixbundle
+*.appx
+*.appxsym
+*.appxupload
+*.appxbundle
+
+# Mac specific
+.DS_Store
+
+# Windows specific
+Thumbs.db
+*.rsuser
+*.rsuser.osl
+*.rsp
+*.pdb
+*.ilk
+*.idb
+*.ipch
+*.aps
+*.ncb
+*.sdf
+*.opensdf
+*.tlog
+*.log
+*.cache
+*.msp
+*.mpp
+*.mpx
+*.bak
+*.o
+*.obj
+*.tlb
+*.tlh
+*.tli
+*.pch
+*.pdb
+*.sbr
+*.tr
+*.tlog
+
+# Xamarin
+*.mdb
+*.pdb
+*.xaml.cs
+
+# Auto generated files (temporary)
+*.tmp
+*.temp
+*.bak
+*.swp
+
+# IDE Configurations
+.idea/
+*.tmproj
+*.tmproject
+*.codestyle
+
+# JetBrains Rider
+.idea/
+.idea/
+.idea/*
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Optional files
+*.env
+.env.*
+
+# Secrets and sensitive data
+secrets.json
+appsettings.json
+appsettings.Development.json
+
+# OS generated files
+.DS_Store
+*.swp
