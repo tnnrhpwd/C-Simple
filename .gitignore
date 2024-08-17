@@ -70,7 +70,7 @@ Thumbs.db
 # Xamarin
 *.mdb
 *.pdb
-*.xaml.cs
+# *.xaml.cs
 
 # Auto generated files (temporary)
 *.tmp
