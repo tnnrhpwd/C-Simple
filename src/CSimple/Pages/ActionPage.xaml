@@ -1,0 +1,14 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CSimple.Pages.ActionPage"
+             Title="Action">
+    <StackLayout Padding="10">
+        <Label Text="Action" 
+               FontSize="Title" 
+               HorizontalOptions="Center" 
+               VerticalOptions="StartAndExpand"/>
+        <Label Text="This page helps users to take action on their plans." 
+               FontSize="Body"
+               VerticalOptions="CenterAndExpand"/>
+    </StackLayout>
+</ContentPage>

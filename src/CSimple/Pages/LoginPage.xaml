@@ -1,0 +1,19 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CSimple.Pages.LoginPage"
+             Title="Login">
+    <StackLayout Padding="10">
+        <Label Text="Login" 
+               FontSize="Title" 
+               HorizontalOptions="Center" 
+               VerticalOptions="StartAndExpand"/>
+        <Entry Placeholder="Username" 
+               Keyboard="Default"/>
+        <Entry Placeholder="Password" 
+               IsPassword="True"/>
+        <Button Text="Login" 
+                Command="{Binding LoginCommand}" 
+                HorizontalOptions="Center" 
+                VerticalOptions="CenterAndExpand"/>
+    </StackLayout>
+</ContentPage>

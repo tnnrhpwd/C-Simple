@@ -38,6 +38,16 @@
                 Padding="{OnIdiom Phone='0,50',Default='0,50'}"
                 Spacing="{OnIdiom Phone=25,Default=50}">
                 
+                <Label Text="Welcome to CSimple!" 
+                    FontSize="Title" 
+                    HorizontalOptions="Center" 
+                    VerticalOptions="StartAndExpand"/>
+                <Button Text="Get Started" 
+                    Command="{Binding NavigateCommand}" 
+                    CommandParameter="LoginPage" 
+                    HorizontalOptions="Center" 
+                    VerticalOptions="CenterAndExpand"/>
+
                 <!-- Top widgets -->
                 <FlexLayout
                     IsVisible="{OnIdiom Phone=False, Default=True}"
@@ -46,9 +56,6 @@
                     AlignContent="Center"
                     JustifyContent="SpaceEvenly">
                     <v:CurrentWidget
-                        WidthRequest="200" />
-                    <v:WindLiveWidget 
-                        x:Name="WindWidget"
                         WidthRequest="200" />
                     
                 </FlexLayout>

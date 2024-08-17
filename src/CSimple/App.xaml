@@ -45,6 +45,36 @@
             <FlyoutItem Title="Settings" Route="settings" FlyoutItemIsVisible="False">
                 <ShellContent ContentTemplate="{DataTemplate page:SettingsPage}"/>
             </FlyoutItem>
+            <FlyoutItem Title="About" Route="about" FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:AboutPage}"/>
+            </FlyoutItem>
+            <FlyoutItem Title="Action" Route="action" FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:ActionPage}"/>
+            </FlyoutItem>
+            <FlyoutItem Title="Contact" Route="contact" FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:ContactPage}"/>
+            </FlyoutItem>
+            <FlyoutItem Title="Goal" Route="goal" FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:GoalPage}"/>
+            </FlyoutItem>
+            <FlyoutItem Title="Login" Route="login" FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:LoginPage}"/>
+            </FlyoutItem>
+            <FlyoutItem Title="Observe" Route="observe" FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:ObservePage}"/>
+            </FlyoutItem>
+            <FlyoutItem Title="Orient" Route="orient" FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:OrientPage}"/>
+            </FlyoutItem>
+            <FlyoutItem Title="Plan" Route="plan" FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:PlanPage}"/>
+            </FlyoutItem>
+            <FlyoutItem Title="Privacy" Route="privacy" FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:PrivacyPage}"/>
+            </FlyoutItem>
+            <FlyoutItem Title="Terms" Route="terms" FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:TermsPage}"/>
+            </FlyoutItem>
 
             <!-- Phone -->
             <TabBar x:Name="PhoneTabs">
@@ -60,6 +90,37 @@
                 <Tab Title="Settings" Icon="tab_settings.png">
                     <ShellContent ContentTemplate="{DataTemplate page:SettingsPage}"/>
                 </Tab>
+                <Tab Title="About" Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:AboutPage}"/>
+                </Tab>
+                <Tab Title="Action" Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:ActionPage}"/>
+                </Tab>
+                <Tab Title="Contact" Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:ContactPage}"/>
+                </Tab>
+                <Tab Title="Goal" Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:GoalPage}"/>
+                </Tab>
+                <Tab Title="Login" Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:LoginPage}"/>
+                </Tab>
+                <Tab Title="Observe" Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:ObservePage}"/>
+                </Tab>
+                <Tab Title="Orient" Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:OrientPage}"/>
+                </Tab>
+                <Tab Title="Plan" Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:PlanPage}"/>
+                </Tab>
+                <Tab Title="Privacy" Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:PrivacyPage}"/>
+                </Tab>
+                <Tab Title="Terms" Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:TermsPage}"/>
+                </Tab>
+
             </TabBar>
 
 

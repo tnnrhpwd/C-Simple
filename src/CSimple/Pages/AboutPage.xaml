@@ -1,0 +1,14 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CSimple.Pages.AboutPage"
+             Title="About">
+    <StackLayout Padding="10">
+        <Label Text="About CSimple" 
+               FontSize="Title" 
+               HorizontalOptions="Center" 
+               VerticalOptions="StartAndExpand"/>
+        <Label Text="This is the About page where you can describe the purpose of the application, the team behind it, and its features." 
+               FontSize="Body"
+               VerticalOptions="CenterAndExpand"/>
+    </StackLayout>
+</ContentPage>

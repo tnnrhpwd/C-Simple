@@ -1,0 +1,15 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CSimple.Pages.PrivacyPage"
+             Title="Privacy Policy">
+    <StackLayout Padding="10">
+        <Label Text="Privacy Policy" 
+               FontSize="Title" 
+               HorizontalOptions="Center" 
+               VerticalOptions="StartAndExpand"/>
+        <ScrollView>
+            <Label Text="Your privacy policy details go here. This should include how user data is collected, used, and protected." 
+                   FontSize="Body"/>
+        </ScrollView>
+    </StackLayout>
+</ContentPage>

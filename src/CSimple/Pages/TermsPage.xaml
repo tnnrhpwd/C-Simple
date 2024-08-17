@@ -1,0 +1,15 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CSimple.Pages.TermsPage"
+             Title="Terms of Service">
+    <StackLayout Padding="10">
+        <Label Text="Terms of Service" 
+               FontSize="Title" 
+               HorizontalOptions="Center" 
+               VerticalOptions="StartAndExpand"/>
+        <ScrollView>
+            <Label Text="Detailed terms of service content goes here. Make sure to include all necessary legal information." 
+                   FontSize="Body"/>
+        </ScrollView>
+    </StackLayout>
+</ContentPage>

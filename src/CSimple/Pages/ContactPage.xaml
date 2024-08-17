@@ -1,0 +1,14 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CSimple.Pages.ContactPage"
+             Title="Contact">
+    <StackLayout Padding="10">
+        <Label Text="Contact Us" 
+               FontSize="Title" 
+               HorizontalOptions="Center" 
+               VerticalOptions="StartAndExpand"/>
+        <Label Text="Feel free to reach out to us with any questions or concerns. You can provide contact information and a contact form here." 
+               FontSize="Body"
+               VerticalOptions="CenterAndExpand"/>
+    </StackLayout>
+</ContentPage>
