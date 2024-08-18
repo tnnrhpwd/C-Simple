@@ -77,7 +77,8 @@ namespace CSimple.Pages
 
             if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(actionArrayText))
             {
-                var actions = actionArrayText.Split(',').Select(a => a.Trim()).ToArray();
+                var actions = actionArrayText.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(a => a.Trim()).ToArray();
                 ActionGroups.Add(new ActionGroup { ActionName = actionName, ActionArray = actions });
                 DebugOutput = $"Saved Action Group: {actionName}";
 
@@ -90,30 +91,62 @@ namespace CSimple.Pages
             }
         }
 
-        private void SimulateActionGroup(ActionGroup actionGroup)
+private void SimulateActionGroup(ActionGroup actionGroup)
+{
+    DebugOutput = $"Simulating Actions for: {actionGroup.ActionName}";
+    
+    try
+    {
+        foreach (var action in actionGroup.ActionArray)
         {
-            DebugOutput = $"Simulating Actions for: {actionGroup.ActionName}";
-
-            foreach (var action in actionGroup.ActionArray)
+            DebugOutput = $"Processing Action: {action}";
+            
+            if (action.StartsWith("MouseMove"))
             {
-                if (action.StartsWith("MouseMove"))
+                var coordinates = action.Replace("MouseMove:", "").Trim();
+                var coordPairs = coordinates.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+                if (coordPairs.Length == 2 &&
+                    int.TryParse(coordPairs[0], out int x) &&
+                    int.TryParse(coordPairs[1], out int y))
                 {
-                    var coordinates = action.Replace("MouseMove:", "").Split(',');
-                    if (coordinates.Length == 2 &&
-                        int.TryParse(coordinates[0], out int x) &&
-                        int.TryParse(coordinates[1], out int y))
-                    {
-                        MoveMouse(x, y);
-                    }
+                    DebugOutput = $"Moving Mouse to X: {x}, Y: {y}";
+                    MoveMouse(x, y);
                 }
                 else
                 {
-                    ExecuteWindowsCommand(action);
+                    DebugOutput = $"Invalid MouseMove coordinates: {coordinates}";
                 }
             }
-
-            DebugOutput = $"Completed Simulation for: {actionGroup.ActionName}";
+            else if (action.StartsWith("KeyPress"))
+            {
+                var key = action.Replace("KeyPress:", "").Trim();
+                if (Enum.TryParse(key, out VirtualKey virtualKey))
+                {
+                    DebugOutput = $"Simulating KeyPress: {virtualKey}";
+                    SimulateKeyPress(virtualKey);
+                }
+                else
+                {
+                    DebugOutput = $"Invalid KeyPress command: {key}";
+                }
+            }
+            else
+            {
+                DebugOutput = $"Executing Command: {action}";
+                ExecuteWindowsCommand(action);
+            }
         }
+        
+        DebugOutput = $"Completed Simulation for: {actionGroup.ActionName}";
+    }
+    catch (Exception ex)
+    {
+        DebugOutput = $"Error during simulation: {ex.Message}";
+    }
+}
+
+
 
         private async Task SaveActionGroupsToFile()
         {
@@ -174,6 +207,26 @@ namespace CSimple.Pages
                     DebugOutput = $"Unknown Command: {command}";
                     break;
             }
+        }
+
+        public enum VirtualKey
+        {
+            F5 = 0x74,
+            // Add other key codes here
+            WindowsKeyLeft = 0x5B,
+            WindowsKeyRight = 0x5C
+            // Add more as needed
+        }
+
+        private const uint KEYEVENTF_KEYUP = 0x0002;
+
+        private void SimulateKeyPress(VirtualKey key)
+        {
+            // Simulate key down
+            keybd_event((byte)key, 0, 0, UIntPtr.Zero);
+            // Simulate key up
+            keybd_event((byte)key, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+            DebugOutput = $"Executed KeyPress: {key}";
         }
 
         private void SendVolumeCommand(byte volumeCommand)
