@@ -1,87 +1,163 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Microsoft.Maui.Controls;
+using System;
+using System.Runtime.InteropServices;
+using System.Linq;
+using CSimple.Models;
+using CSimple.Services;
 
 namespace CSimple.Pages
 {
     public partial class ActionPage : ContentPage
     {
-        public ObservableCollection<KeyboardKeyAction> KeyboardKeys { get; set; }
-        public ObservableCollection<MouseAction> MouseOutputs { get; set; }
-        public ObservableCollection<WindowsCommand> WindowsCommands { get; set; }
+        public ObservableCollection<ActionGroup> ActionGroups { get; set; }
+        public ICommand SaveActionCommand { get; set; }
+        public ICommand SimulateActionGroupCommand { get; set; }
+        public ICommand SaveToFileCommand { get; set; }
+        public ICommand LoadFromFileCommand { get; set; }
 
-        public ICommand AddNewKeyCommand { get; set; }
-        public ICommand AddNewMouseActionCommand { get; set; }
-        public ICommand AddNewCommandCommand { get; set; }
-        public ICommand SimulateKeyCommand { get; set; }
-        public ICommand SimulateMouseCommand { get; set; }
-        public ICommand ExecuteCommand { get; set; }
-
+        private string _debugOutput;
+        public string DebugOutput
+        {
+            get => _debugOutput;
+            set
+            {
+                _debugOutput = value;
+                OnPropertyChanged(nameof(DebugOutput));
+            }
+        }
+        private readonly FileService _fileService;
         public ActionPage()
         {
             InitializeComponent();
+            // Initialize collection with sample data
+            // ActionGroups = new ObservableCollection<ActionGroup>
+            // {
+            //     new ActionGroup { ActionName = "Increase Volume", ActionArray = new string[] { "VolumeUp", "VolumeUp", "VolumeUp" } },
+            //     new ActionGroup { ActionName = "Mute Volume", ActionArray = new string[] { "Mute" } },
+            //     new ActionGroup { ActionName = "Decrease Volume", ActionArray = new string[] { "VolumeDown", "VolumeDown", "VolumeDown" } },
+            //     new ActionGroup { ActionName = "Move Mouse", ActionArray = new string[] { "MouseMove:100,200", "MouseMove:200,400" } }
+            // };
 
-            KeyboardKeys = new ObservableCollection<KeyboardKeyAction>();
-            MouseOutputs = new ObservableCollection<MouseAction>();
-            WindowsCommands = new ObservableCollection<WindowsCommand>();
+            _fileService = new FileService();
 
-            AddNewKeyCommand = new Command(AddNewKey);
-            AddNewMouseActionCommand = new Command(AddNewMouseAction);
-            AddNewCommandCommand = new Command(AddNewCommand);
+            // Load existing action groups from file
+            LoadActionGroups();
 
-            SimulateKeyCommand = new Command<KeyboardKeyAction>(SimulateKey);
-            SimulateMouseCommand = new Command<MouseAction>(SimulateMouse);
-            ExecuteCommand = new Command<WindowsCommand>(ExecuteWindowsCommand);
+            // Initialize commands
+            SaveActionCommand = new Command(SaveAction);
+            SimulateActionGroupCommand = new Command<ActionGroup>(SimulateActionGroup);
+            SaveToFileCommand = new Command(async () => await SaveActionGroupsToFile());
+            LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
 
+            DebugOutput = "Ready";
             BindingContext = this;
         }
-
-        private void AddNewKey()
+        private void SaveAction()
         {
-            KeyboardKeys.Add(new KeyboardKeyAction());
+            string actionName = ActionNameEntry.Text?.Trim();
+            string actionArrayText = ActionArrayEntry.Text?.Trim();
+
+            if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(actionArrayText))
+            {
+                var actions = actionArrayText.Split(',').Select(a => a.Trim()).ToArray();
+                ActionGroups.Add(new ActionGroup { ActionName = actionName, ActionArray = actions });
+                DebugOutput = $"Saved Action Group: {actionName}";
+            }
+            else
+            {
+                DebugOutput = "Please enter both Action Name and Action Array.";
+            }
         }
 
-        private void AddNewMouseAction()
+    private void SimulateActionGroup(ActionGroup actionGroup)
         {
-            MouseOutputs.Add(new MouseAction());
+            DebugOutput = $"Simulating Actions for: {actionGroup.ActionName}";
+
+            foreach (var action in actionGroup.ActionArray)
+            {
+                if (action.StartsWith("MouseMove"))
+                {
+                    var coordinates = action.Replace("MouseMove:", "").Split(',');
+                    if (coordinates.Length == 2 &&
+                        int.TryParse(coordinates[0], out int x) &&
+                        int.TryParse(coordinates[1], out int y))
+                    {
+                        MoveMouse(x, y);
+                    }
+                }
+                else
+                {
+                    ExecuteWindowsCommand(action);
+                }
+            }
+
+            DebugOutput = $"Completed Simulation for: {actionGroup.ActionName}";
+        }
+        private async void LoadActionGroups()
+        {
+            ActionGroups = await _fileService.LoadActionGroupsAsync(); //Cannot implicitly convert type 'System.Collections.ObjectModel.ObservableCollection<CSimple.Models.ActionGroup>' to 'System.Collections.ObjectModel.ObservableCollection<CSimple.Pages.ActionGroup>'CS0029
+            DebugOutput = "Action Groups Loaded";
         }
 
-        private void AddNewCommand()
+        private async Task SaveActionGroupsToFile()
         {
-            WindowsCommands.Add(new WindowsCommand());
+            await _fileService.SaveActionGroupsAsync(ActionGroups); // Argument 1: cannot convert from 'System.Collections.ObjectModel.ObservableCollection<CSimple.Pages.ActionGroup>' to 'System.Collections.ObjectModel.ObservableCollection<CSimple.Models.ActionGroup>'CS1503
+            DebugOutput = "Action Groups Saved to File";
         }
 
-        private void SimulateKey(KeyboardKeyAction action)
+        private async Task LoadActionGroupsFromFile()
         {
-            // Implement key simulation logic here.
+            ActionGroups = await _fileService.LoadActionGroupsAsync(); //Cannot implicitly convert type 'System.Collections.ObjectModel.ObservableCollection<CSimple.Models.ActionGroup>' to 'System.Collections.ObjectModel.ObservableCollection<CSimple.Pages.ActionGroup>'CS0029
+            DebugOutput = "Action Groups Loaded from File";
         }
+        // P/Invoke for volume commands
+        [DllImport("user32.dll")]
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
-        private void SimulateMouse(MouseAction action)
+        // P/Invoke for mouse commands
+        [DllImport("user32.dll")]
+        private static extern bool SetCursorPos(int X, int Y);
+
+        [DllImport("user32.dll")]
+        private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+
+        private const byte VK_VOLUME_MUTE = 0xAD;
+        private const byte VK_VOLUME_DOWN = 0xAE;
+        private const byte VK_VOLUME_UP = 0xAF;
+        private const uint MOUSEEVENTF_MOVE = 0x0001;
+
+
+        private void ExecuteWindowsCommand(string command)
         {
-            // Implement mouse action simulation logic here.
+            switch (command.ToLower())
+            {
+                case "mute":
+                    SendVolumeCommand(VK_VOLUME_MUTE);
+                    break;
+                case "volumeup":
+                    SendVolumeCommand(VK_VOLUME_UP);
+                    break;
+                case "volumedown":
+                    SendVolumeCommand(VK_VOLUME_DOWN);
+                    break;
+                default:
+                    DebugOutput = $"Unknown Command: {command}";
+                    break;
+            }
         }
-
-        private void ExecuteWindowsCommand(WindowsCommand command)
+        private void SendVolumeCommand(byte volumeCommand)
         {
-            // Implement Windows command execution logic here.
+            keybd_event(volumeCommand, 0, 0, UIntPtr.Zero);
+            keybd_event(volumeCommand, 0, 0x0002, UIntPtr.Zero); // Key up
+            DebugOutput = $"Executed Volume Command: {(volumeCommand == VK_VOLUME_MUTE ? "Mute" : volumeCommand == VK_VOLUME_DOWN ? "Volume Down" : "Volume Up")}";
         }
-    }
-
-    public class KeyboardKeyAction
-    {
-        public string Key { get; set; }
-        public string ActionName { get; set; }
-    }
-
-    public class MouseAction
-    {
-        public string MouseAct { get; set; }
-        public string ActionName { get; set; }
-    }
-
-    public class WindowsCommand
-    {
-        public string Command { get; set; }
-        public string ActionName { get; set; }
+        private void MoveMouse(int x, int y)
+        {
+            SetCursorPos(x, y);
+            mouse_event(MOUSEEVENTF_MOVE, (uint)x, (uint)y, 0, UIntPtr.Zero);
+            DebugOutput = $"Moved Mouse to Position: {x},{y}";
+        }
     }
 }

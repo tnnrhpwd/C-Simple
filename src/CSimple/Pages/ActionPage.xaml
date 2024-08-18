@@ -11,82 +11,31 @@
 
     <StackLayout Padding="10" Spacing="20">
         <Label Text="Action"
-               FontSize="Title"
-               HorizontalOptions="Center"
-               VerticalOptions="StartAndExpand"/>
+            FontSize="Title"
+            HorizontalOptions="Center"
+            VerticalOptions="StartAndExpand"/>
 
-        <Label Text="Manage your actions and commands."
-               FontSize="Body"
-               VerticalOptions="CenterAndExpand"/>
+        <!-- Input Section -->
+        <StackLayout Orientation="Horizontal" Spacing="10" Margin="0,20,0,0">
+            <Entry x:Name="ActionNameEntry" Placeholder="Enter Action Name" WidthRequest="150"/>
+            <Entry x:Name="ActionArrayEntry" Placeholder="Enter Actions (comma separated)" WidthRequest="250"/>
+            <Button Text="Save" Command="{Binding SaveActionCommand}" VerticalOptions="Center"/>
+        </StackLayout>
 
-        <!-- Array View: Keyboard Keys -->
-        <Frame BorderColor="LightGray" Padding="10" Margin="10">
-            <StackLayout>
-                <Label Text="Keyboard Keys Array" FontSize="Subtitle"/>
-                <CollectionView ItemsSource="{Binding KeyboardKeys}">
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <StackLayout Orientation="Horizontal" Spacing="10">
-                                <Entry Text="{Binding Key}" Placeholder="Key" WidthRequest="100"/>
-                                <Entry Text="{Binding ActionName}" Placeholder="Action Name" WidthRequest="200"/>
-                                <Button Text="Simulate" 
-                                   Command="{Binding Source={RelativeSource 
-                                          AncestorType={x:Type local:ActionPage}}, 
-                                          Path=BindingContext.SimulateKeyCommand}" 
-                                   CommandParameter="{Binding .}"/>
-                            </StackLayout>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
-                <Button Text="Add New Key" Command="{Binding AddNewKeyCommand}"/>
-            </StackLayout>
-        </Frame>
+        <!-- Table Section -->
+        <CollectionView ItemsSource="{Binding ActionGroups}" Margin="0,20,0,0">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="10" ColumnDefinitions="*, *, Auto">
+                        <Label Grid.Column="0" Text="{Binding ActionName}" VerticalOptions="Center"/>
+                        <Label Grid.Column="1" Text="{Binding ActionArray}" VerticalOptions="Center"/>
+                        <Button Grid.Column="2" Text="Simulate" Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SimulateActionGroupCommand}" CommandParameter="{Binding .}" VerticalOptions="Center"/>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
 
-        <!-- Array View: Mouse Outputs -->
-        <Frame BorderColor="LightGray" Padding="10" Margin="10">
-            <StackLayout>
-                <Label Text="Mouse Outputs Array" FontSize="Subtitle"/>
-                <CollectionView ItemsSource="{Binding MouseOutputs}">
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <StackLayout Orientation="Horizontal" Spacing="10">
-                                <Entry Text="{Binding MouseAct}" Placeholder="Mouse Action" WidthRequest="100"/>
-                                <Entry Text="{Binding ActionName}" Placeholder="Action Name" WidthRequest="200"/>
-                                <Button Text="Simulate" 
-                                   Command="{Binding Source={RelativeSource 
-                                          AncestorType={x:Type local:ActionPage}}, 
-                                          Path=BindingContext.SimulateMouseCommand}" 
-                                   CommandParameter="{Binding .}"/>
-                            </StackLayout>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
-                <Button Text="Add New Mouse Action" Command="{Binding AddNewMouseActionCommand}"/>
-            </StackLayout>
-        </Frame>
-
-        <!-- Array View: Windows Commands -->
-        <Frame BorderColor="LightGray" Padding="10" Margin="10">
-            <StackLayout>
-                <Label Text="Windows Commands Array" FontSize="Subtitle"/>
-                <CollectionView ItemsSource="{Binding WindowsCommands}">
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <StackLayout Orientation="Horizontal" Spacing="10">
-                                <Entry Text="{Binding Command}" Placeholder="Command" WidthRequest="100"/>
-                                <Entry Text="{Binding ActionName}" Placeholder="Action Name" WidthRequest="200"/>
-                                <Button Text="Execute" 
-                                   Command="{Binding Source={RelativeSource 
-                                          AncestorType={x:Type local:ActionPage}}, 
-                                          Path=BindingContext.ExecuteCommand}" 
-                                   CommandParameter="{Binding .}"/>
-                            </StackLayout>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
-                <Button Text="Add New Command" Command="{Binding AddNewCommandCommand}"/>
-            </StackLayout>
-        </Frame>
-
+        <!-- Debug Output -->
+        <Label Text="{Binding DebugOutput}" FontSize="Body" VerticalOptions="CenterAndExpand" TextColor="Gray"/>
     </StackLayout>
 </ContentPage>
