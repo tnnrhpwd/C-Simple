@@ -105,8 +105,8 @@
             Light={StaticResource LightGray},
             Dark={StaticResource Background_Dark}}"/>
         <Setter Property="BarTextColor" Value="{AppThemeBinding 
-                                                Light={StaticResource DarkGray}, 
-                                                Dark={StaticResource White}}"/>
+            Light={StaticResource DarkGray}, 
+            Dark={StaticResource White}}"/>
     </Style>
 
     <Style TargetType="Label">
@@ -406,6 +406,17 @@
         </Style.Triggers>
     </Style>
 
-    
+    <Style TargetType="FlyoutItem" x:Key="ActionFlyout">
+        <Style.Triggers>
+            <Trigger TargetType="FlyoutItem"
+                        Property="IsChecked" Value="False">
+                <Setter Property="FlyoutIcon" Value="tab_map.png"/>
+            </Trigger>
+            <Trigger TargetType="FlyoutItem"
+                        Property="IsChecked" Value="True">
+                <Setter Property="FlyoutIcon" Value="tab_map_on.png"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>    
 
 </ResourceDictionary>

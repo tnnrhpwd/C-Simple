@@ -10,7 +10,7 @@
     <Application.MainPage>
         <Shell 
             FlyoutWidth="68" FlyoutBackgroundColor="{StaticResource Background_Mid}"
-            FlyoutBehavior="{OnIdiom Phone=Disabled, Default=Locked}">
+            FlyoutBehavior="{OnIdiom Phone=Enabled, Default=Locked}">
 
             <Shell.FlyoutFooterTemplate>
                 <DataTemplate>
@@ -21,8 +21,8 @@
                         <Image Source="tab_settings.png"
                                VerticalOptions="Center"
                                HorizontalOptions="Center"
-                               WidthRequest="50"
-                               HeightRequest="50"
+                               WidthRequest="34"
+                               HeightRequest="34"
                         />
 
                     </Grid>
@@ -48,7 +48,7 @@
             <FlyoutItem Title="About" Route="about" FlyoutItemIsVisible="False">
                 <ShellContent ContentTemplate="{DataTemplate page:AboutPage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Action" Route="action">
+            <FlyoutItem Title="Action" Style="{StaticResource ActionFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:ActionPage}"/>
             </FlyoutItem>
             <FlyoutItem Title="Contact" Route="contact">
@@ -128,8 +128,8 @@
                         <Image Source="{Binding FlyoutIcon}"
                             VerticalOptions="Center"
                             HorizontalOptions="Center"                               
-                            HeightRequest="38"
-                            WidthRequest="38"
+                            HeightRequest="34"
+                            WidthRequest="34"
                             />
                     </Grid>
                 </DataTemplate>
