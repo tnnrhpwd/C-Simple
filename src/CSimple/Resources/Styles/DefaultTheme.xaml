@@ -379,21 +379,7 @@
             </Trigger>
         </Style.Triggers>
     </Style>
-
-    <Style TargetType="FlyoutItem" x:Key="FavFlyout">
-        <Style.Triggers>
-            <Trigger TargetType="FlyoutItem"
-                        Property="IsChecked" Value="False">
-                <Setter Property="FlyoutIcon" Value="tab_favorites.png"/>
-            </Trigger>
-            <Trigger TargetType="FlyoutItem"
-                        Property="IsChecked" Value="True">
-                <Setter Property="FlyoutIcon" Value="tab_favorites_on.png"/>
-            </Trigger>
-        </Style.Triggers>
-    </Style>
-
-    <Style TargetType="FlyoutItem" x:Key="MapFlyout">
+    <Style TargetType="FlyoutItem" x:Key="ObserveFlyout">
         <Style.Triggers>
             <Trigger TargetType="FlyoutItem"
                         Property="IsChecked" Value="False">
@@ -404,9 +390,8 @@
                 <Setter Property="FlyoutIcon" Value="tab_map_on.png"/>
             </Trigger>
         </Style.Triggers>
-    </Style>
-
-    <Style TargetType="FlyoutItem" x:Key="ActionFlyout">
+    </Style>   
+        <Style TargetType="FlyoutItem" x:Key="OrientFlyout">
         <Style.Triggers>
             <Trigger TargetType="FlyoutItem"
                         Property="IsChecked" Value="False">
@@ -417,21 +402,7 @@
                 <Setter Property="FlyoutIcon" Value="tab_map_on.png"/>
             </Trigger>
         </Style.Triggers>
-    </Style>    
-
-    <Style TargetType="FlyoutItem" x:Key="ContactFlyout">
-        <Style.Triggers>
-            <Trigger TargetType="FlyoutItem"
-                        Property="IsChecked" Value="False">
-                <Setter Property="FlyoutIcon" Value="tab_map.png"/>
-            </Trigger>
-            <Trigger TargetType="FlyoutItem"
-                        Property="IsChecked" Value="True">
-                <Setter Property="FlyoutIcon" Value="tab_map_on.png"/>
-            </Trigger>
-        </Style.Triggers>
-    </Style>
-
+    </Style>   
     <Style TargetType="FlyoutItem" x:Key="GoalFlyout">
         <Style.Triggers>
             <Trigger TargetType="FlyoutItem"
@@ -444,4 +415,52 @@
             </Trigger>
         </Style.Triggers>
     </Style>   
+        <Style TargetType="FlyoutItem" x:Key="PlanFlyout">
+        <Style.Triggers>
+            <Trigger TargetType="FlyoutItem"
+                        Property="IsChecked" Value="False">
+                <Setter Property="FlyoutIcon" Value="tab_map.png"/>
+            </Trigger>
+            <Trigger TargetType="FlyoutItem"
+                        Property="IsChecked" Value="True">
+                <Setter Property="FlyoutIcon" Value="tab_map_on.png"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>  
+    <Style TargetType="FlyoutItem" x:Key="ActionFlyout">
+        <Style.Triggers>
+            <Trigger TargetType="FlyoutItem"
+                        Property="IsChecked" Value="False">
+                <Setter Property="FlyoutIcon" Value="tab_map.png"/>
+            </Trigger>
+            <Trigger TargetType="FlyoutItem"
+                        Property="IsChecked" Value="True">
+                <Setter Property="FlyoutIcon" Value="tab_map_on.png"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>    
+    <Style TargetType="FlyoutItem" x:Key="FavFlyout">
+        <Style.Triggers>
+            <Trigger TargetType="FlyoutItem"
+                        Property="IsChecked" Value="False">
+                <Setter Property="FlyoutIcon" Value="tab_favorites.png"/>
+            </Trigger>
+            <Trigger TargetType="FlyoutItem"
+                        Property="IsChecked" Value="True">
+                <Setter Property="FlyoutIcon" Value="tab_favorites_on.png"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style TargetType="FlyoutItem" x:Key="ContactFlyout">
+        <Style.Triggers>
+            <Trigger TargetType="FlyoutItem"
+                        Property="IsChecked" Value="False">
+                <Setter Property="FlyoutIcon" Value="tab_map.png"/>
+            </Trigger>
+            <Trigger TargetType="FlyoutItem"
+                        Property="IsChecked" Value="True">
+                <Setter Property="FlyoutIcon" Value="tab_map_on.png"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
 </ResourceDictionary>
