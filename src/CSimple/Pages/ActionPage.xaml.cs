@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Linq;
 using CSimple.Models;
 using CSimple.Services;
+using System.Threading.Tasks;
 
 namespace CSimple.Pages
 {
@@ -28,22 +29,12 @@ namespace CSimple.Pages
             }
         }
         private readonly FileService _fileService;
+
         public ActionPage()
         {
             InitializeComponent();
-            // Initialize collection with sample data
-            // ActionGroups = new ObservableCollection<ActionGroup>
-            // {
-            //     new ActionGroup { ActionName = "Increase Volume", ActionArray = new string[] { "VolumeUp", "VolumeUp", "VolumeUp" } },
-            //     new ActionGroup { ActionName = "Mute Volume", ActionArray = new string[] { "Mute" } },
-            //     new ActionGroup { ActionName = "Decrease Volume", ActionArray = new string[] { "VolumeDown", "VolumeDown", "VolumeDown" } },
-            //     new ActionGroup { ActionName = "Move Mouse", ActionArray = new string[] { "MouseMove:100,200", "MouseMove:200,400" } }
-            // };
 
             _fileService = new FileService();
-
-            // Load existing action groups from file
-            LoadActionGroups();
 
             // Initialize commands
             SaveActionCommand = new Command(SaveAction);
@@ -51,9 +42,34 @@ namespace CSimple.Pages
             SaveToFileCommand = new Command(async () => await SaveActionGroupsToFile());
             LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
 
+            // Initialize ActionGroups collection
+            ActionGroups = new ObservableCollection<ActionGroup>();
+
+            // Load existing action groups from file asynchronously
+            _ = LoadActionGroups(); // Ignore the returned task since we only need to ensure it's running
+
             DebugOutput = "Ready";
             BindingContext = this;
         }
+
+        private async Task LoadActionGroups()
+        {
+            try
+            {
+                var actionGroups = await _fileService.LoadActionGroupsAsync();
+                ActionGroups.Clear();
+                foreach (var actionGroup in actionGroups)
+                {
+                    ActionGroups.Add(actionGroup);
+                }
+                DebugOutput = "Action Groups Loaded";
+            }
+            catch (Exception ex)
+            {
+                DebugOutput = $"Error loading action groups: {ex.Message}";
+            }
+        }
+
         private void SaveAction()
         {
             string actionName = ActionNameEntry.Text?.Trim();
@@ -64,6 +80,9 @@ namespace CSimple.Pages
                 var actions = actionArrayText.Split(',').Select(a => a.Trim()).ToArray();
                 ActionGroups.Add(new ActionGroup { ActionName = actionName, ActionArray = actions });
                 DebugOutput = $"Saved Action Group: {actionName}";
+
+                // Trigger save to file after adding new action group
+                SaveActionGroupsToFile().ConfigureAwait(false);
             }
             else
             {
@@ -71,7 +90,7 @@ namespace CSimple.Pages
             }
         }
 
-    private void SimulateActionGroup(ActionGroup actionGroup)
+        private void SimulateActionGroup(ActionGroup actionGroup)
         {
             DebugOutput = $"Simulating Actions for: {actionGroup.ActionName}";
 
@@ -95,23 +114,33 @@ namespace CSimple.Pages
 
             DebugOutput = $"Completed Simulation for: {actionGroup.ActionName}";
         }
-        private async void LoadActionGroups()
-        {
-            ActionGroups = await _fileService.LoadActionGroupsAsync(); //Cannot implicitly convert type 'System.Collections.ObjectModel.ObservableCollection<CSimple.Models.ActionGroup>' to 'System.Collections.ObjectModel.ObservableCollection<CSimple.Pages.ActionGroup>'CS0029
-            DebugOutput = "Action Groups Loaded";
-        }
 
         private async Task SaveActionGroupsToFile()
         {
-            await _fileService.SaveActionGroupsAsync(ActionGroups); // Argument 1: cannot convert from 'System.Collections.ObjectModel.ObservableCollection<CSimple.Pages.ActionGroup>' to 'System.Collections.ObjectModel.ObservableCollection<CSimple.Models.ActionGroup>'CS1503
-            DebugOutput = "Action Groups Saved to File";
+            try
+            {
+                await _fileService.SaveActionGroupsAsync(ActionGroups);
+                DebugOutput = "Action Groups Saved to File";
+            }
+            catch (Exception ex)
+            {
+                DebugOutput = $"Error saving action groups: {ex.Message}";
+            }
         }
 
         private async Task LoadActionGroupsFromFile()
         {
-            ActionGroups = await _fileService.LoadActionGroupsAsync(); //Cannot implicitly convert type 'System.Collections.ObjectModel.ObservableCollection<CSimple.Models.ActionGroup>' to 'System.Collections.ObjectModel.ObservableCollection<CSimple.Pages.ActionGroup>'CS0029
-            DebugOutput = "Action Groups Loaded from File";
+            try
+            {
+                ActionGroups = await _fileService.LoadActionGroupsAsync();
+                DebugOutput = "Action Groups Loaded from File";
+            }
+            catch (Exception ex)
+            {
+                DebugOutput = $"Error loading action groups from file: {ex.Message}";
+            }
         }
+
         // P/Invoke for volume commands
         [DllImport("user32.dll")]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
@@ -127,7 +156,6 @@ namespace CSimple.Pages
         private const byte VK_VOLUME_DOWN = 0xAE;
         private const byte VK_VOLUME_UP = 0xAF;
         private const uint MOUSEEVENTF_MOVE = 0x0001;
-
 
         private void ExecuteWindowsCommand(string command)
         {
@@ -147,12 +175,14 @@ namespace CSimple.Pages
                     break;
             }
         }
+
         private void SendVolumeCommand(byte volumeCommand)
         {
             keybd_event(volumeCommand, 0, 0, UIntPtr.Zero);
             keybd_event(volumeCommand, 0, 0x0002, UIntPtr.Zero); // Key up
             DebugOutput = $"Executed Volume Command: {(volumeCommand == VK_VOLUME_MUTE ? "Mute" : volumeCommand == VK_VOLUME_DOWN ? "Volume Down" : "Volume Up")}";
         }
+
         private void MoveMouse(int x, int y)
         {
             SetCursorPos(x, y);
