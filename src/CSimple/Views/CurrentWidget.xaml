@@ -15,7 +15,7 @@
     </Image>
 
     <Label
-        Text="52℉"
+        Text="88℉"
         HorizontalOptions="Center"
         class="Title1" />
 

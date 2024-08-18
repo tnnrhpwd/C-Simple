@@ -17,7 +17,7 @@ C_Simple is a .NET MAUI application designed to provide a simple and intuitive i
 
 C_Simple is a beginner-friendly project that showcases how to build a multi-page .NET MAUI app with a navigation bar and tabbed navigation. It is ideal for those new to .NET MAUI and looking to learn the basics of mobile app development using .NET technologies.
 
-![alt text](image.png)
+![alt text](image-1.png)
 
 This app styling was inspired by https://github.com/dotnet/maui-samples/tree/main/8.0/Apps/WeatherTwentyOne
 

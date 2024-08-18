@@ -63,7 +63,7 @@
             <FlyoutItem Title="Action" Style="{StaticResource ActionFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:ActionPage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Contact" Style="{StaticResource ContactFlyout}">
+            <FlyoutItem Title="Contact" Route="contact" FlyoutItemIsVisible="False">
                 <ShellContent ContentTemplate="{DataTemplate page:ContactPage}"/>
             </FlyoutItem>
             <FlyoutItem Title="Login" Route="login" FlyoutItemIsVisible="False">
@@ -124,8 +124,8 @@
             </TabBar>
             <Shell.ItemTemplate>
                 <DataTemplate>
-                    <Grid WidthRequest="44" HeightRequest="68"
-                        ColumnDefinitions="44" RowDefinitions="68">
+                    <Grid WidthRequest="48" HeightRequest="64"
+                        ColumnDefinitions="36" RowDefinitions="64">
                         <Image Source="{Binding FlyoutIcon}"
                             VerticalOptions="Center"
                             HorizontalOptions="Center"                               
@@ -134,7 +134,6 @@
                             />
                     </Grid>
                 </DataTemplate>
-
             </Shell.ItemTemplate>
         </Shell>
     </Application.MainPage>
