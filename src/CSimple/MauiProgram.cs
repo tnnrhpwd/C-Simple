@@ -18,37 +18,34 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-SemiBold.ttf", "OpenSansSemiBold");
             });
         builder.ConfigureLifecycleEvents(lifecycle =>
-        {
-#if WINDOWS
-        //lifecycle
-        //    .AddWindows(windows =>
-        //        windows.OnNativeMessage((app, args) => {
-        //            if (WindowExtensions.Hwnd == IntPtr.Zero)
-        //            {
-        //                WindowExtensions.Hwnd = args.Hwnd;
-        //                WindowExtensions.SetIcon("Platforms/Windows/trayicon.ico");
-        //            }
-        //        }));
+            {
+            #if WINDOWS
+            //lifecycle
+            //    .AddWindows(windows =>
+            //        windows.OnNativeMessage((app, args) => {
+            //            if (WindowExtensions.Hwnd == IntPtr.Zero)
+            //            {
+            //                WindowExtensions.Hwnd = args.Hwnd;
+            //                WindowExtensions.SetIcon("Platforms/Windows/trayicon.ico");
+            //            }
+            //        }));
 
             lifecycle.AddWindows(windows => windows.OnWindowCreated((del) => {
                 del.ExtendsContentIntoTitleBar = true;
             }));
-#endif
+            #endif
         });
 
         var services = builder.Services;
-#if WINDOWS
+        #if WINDOWS
             services.AddSingleton<ITrayService, WinUI.TrayService>();
             services.AddSingleton<INotificationService, WinUI.NotificationService>();
-#elif MACCATALYST
+        #elif MACCATALYST
             services.AddSingleton<ITrayService, MacCatalyst.TrayService>();
             services.AddSingleton<INotificationService, MacCatalyst.NotificationService>();
-#endif
+        #endif
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<HomePage>();
-
-
-
 
         return builder.Build();
     }

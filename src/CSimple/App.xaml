@@ -21,8 +21,8 @@
                         <Image Source="tab_settings.png"
                                VerticalOptions="Center"
                                HorizontalOptions="Center"
-                               WidthRequest="40"
-                               HeightRequest="40"
+                               WidthRequest="50"
+                               HeightRequest="50"
                         />
 
                     </Grid>
@@ -48,13 +48,13 @@
             <FlyoutItem Title="About" Route="about" FlyoutItemIsVisible="False">
                 <ShellContent ContentTemplate="{DataTemplate page:AboutPage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Action" Route="action" FlyoutItemIsVisible="False">
+            <FlyoutItem Title="Action" Route="action">
                 <ShellContent ContentTemplate="{DataTemplate page:ActionPage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Contact" Route="contact" FlyoutItemIsVisible="False">
+            <FlyoutItem Title="Contact" Route="contact">
                 <ShellContent ContentTemplate="{DataTemplate page:ContactPage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Goal" Route="goal" FlyoutItemIsVisible="False">
+            <FlyoutItem Title="Goal" Route="goal">
                 <ShellContent ContentTemplate="{DataTemplate page:GoalPage}"/>
             </FlyoutItem>
             <FlyoutItem Title="Login" Route="login" FlyoutItemIsVisible="False">
@@ -120,21 +120,17 @@
                 <Tab Title="Terms" Icon="tab_settings.png">
                     <ShellContent ContentTemplate="{DataTemplate page:TermsPage}"/>
                 </Tab>
-
             </TabBar>
-
-
-
             <Shell.ItemTemplate>
                 <DataTemplate>
                     <Grid WidthRequest="44" HeightRequest="68"
-                          ColumnDefinitions="44" RowDefinitions="68">
+                        ColumnDefinitions="44" RowDefinitions="68">
                         <Image Source="{Binding FlyoutIcon}"
-                               VerticalOptions="Center"
-                               HorizontalOptions="Center"                               
-                               HeightRequest="38"
-                               WidthRequest="38"
-                               />
+                            VerticalOptions="Center"
+                            HorizontalOptions="Center"                               
+                            HeightRequest="38"
+                            WidthRequest="38"
+                            />
                     </Grid>
                 </DataTemplate>
 

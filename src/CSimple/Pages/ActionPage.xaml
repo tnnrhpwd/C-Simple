@@ -1,14 +1,21 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="CSimple.Pages.ActionPage"
-             Title="Action">
-    <StackLayout Padding="10">
-        <Label Text="Action" 
-               FontSize="Title" 
-               HorizontalOptions="Center" 
-               VerticalOptions="StartAndExpand"/>
-        <Label Text="This page helps users to take action on their plans." 
-               FontSize="Body"
-               VerticalOptions="CenterAndExpand"/>
-    </StackLayout>
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:m="clr-namespace:CSimple.Models"
+       xmlns:v="clr-namespace:CSimple.Views"
+       xmlns:c="clr-namespace:WeatherClient2021"
+       xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+       ios:Page.UseSafeArea="True"
+       Title="Action"
+       Shell.NavBarIsVisible="{OnIdiom True, Desktop=False}"
+       x:Class="CSimple.Pages.ActionPage">
+
+       <StackLayout Padding="10">
+              <Label Text="Action" 
+                     FontSize="Title" 
+                     HorizontalOptions="Center" 
+                     VerticalOptions="StartAndExpand"/>
+              <Label Text="This page helps users to take action on their plans." 
+                     FontSize="Body"
+                     VerticalOptions="CenterAndExpand"/>
+       </StackLayout>
 </ContentPage>
