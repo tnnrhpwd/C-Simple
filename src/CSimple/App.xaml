@@ -51,10 +51,10 @@
             <FlyoutItem Title="Action" Style="{StaticResource ActionFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:ActionPage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Contact" Route="contact">
+            <FlyoutItem Title="Contact" Style="{StaticResource ContactFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:ContactPage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Goal" Route="goal">
+            <FlyoutItem Title="Goal" Style="{StaticResource GoalFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:GoalPage}"/>
             </FlyoutItem>
             <FlyoutItem Title="Login" Route="login" FlyoutItemIsVisible="False">
