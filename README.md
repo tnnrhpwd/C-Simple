@@ -19,6 +19,8 @@ C_Simple is a beginner-friendly project that showcases how to build a multi-page
 
 ![alt text](image.png)
 
+This app styling was inspired by https://github.com/dotnet/maui-samples/tree/main/8.0/Apps/WeatherTwentyOne
+
 ## Features
 
 - **Multi-page Navigation:** Navigate between Home, Login, Inputs, Contact, and About pages.
