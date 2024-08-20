@@ -1,6 +1,19 @@
 ﻿using Microsoft.Maui.LifecycleEvents;
 using CSimple.Pages;
 using CSimple.ViewModels;
+using Microsoft.Maui;
+using Microsoft.Maui.Controls.Hosting;
+using Microsoft.Maui.Hosting;
+using Microsoft.UI.Xaml;
+using Microsoft.Maui;
+using Microsoft.Maui.Controls.Hosting;
+using Microsoft.Maui.Hosting;
+using Microsoft.UI.Windowing;
+using Windows.Graphics;
+using WinRT.Interop;
+using Microsoft.UI;
+using Microsoft.Maui.Hosting;
+using Microsoft.Maui.Controls.Hosting;
 
 namespace CSimple;
 
@@ -11,7 +24,7 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
-            .ConfigureFonts(fonts =>
+            .ConfigureFonts(static fonts =>
             {
                 fonts.AddFont("fa-solid-900.ttf", "FontAwesome");
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -20,6 +33,7 @@ public static class MauiProgram
         builder.ConfigureLifecycleEvents(lifecycle =>
             {
             #if WINDOWS
+
             //lifecycle
             //    .AddWindows(windows =>
             //        windows.OnNativeMessage((app, args) => {
@@ -30,8 +44,12 @@ public static class MauiProgram
             //            }
             //        }));
 
-            lifecycle.AddWindows(windows => windows.OnWindowCreated((del) => {
-                del.ExtendsContentIntoTitleBar = true;
+            lifecycle.AddWindows(windows => windows.OnWindowCreated((window) => {
+                // 'del.ExtendsContentIntoTitleBar = true;
+                        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                        var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
+                        var appWindow = AppWindow.GetFromWindowId(windowId);
+                        appWindow.Resize(new SizeInt32(800, 900));
             }));
             #endif
         });
