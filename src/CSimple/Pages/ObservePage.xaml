@@ -2,13 +2,60 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CSimple.Pages.ObservePage"
              Title="Observe">
-    <StackLayout Padding="10">
-        <Label Text="Observe" 
-               FontSize="Title" 
-               HorizontalOptions="Center" 
-               VerticalOptions="StartAndExpand"/>
-        <Label Text="This page allows users to observe data or metrics related to their goals." 
-               FontSize="Body"
-               VerticalOptions="CenterAndExpand"/>
-    </StackLayout>
+
+       <ScrollView>
+              <StackLayout Padding="10" Spacing="20">
+                     <Label Text="Observe" 
+                            FontSize="Title" 
+                            HorizontalOptions="Center" 
+                            VerticalOptions="StartAndExpand"/>
+                     <Label Text="This page allows users to observe data or metrics related to their goals." 
+                            FontSize="Body"
+                            VerticalOptions="CenterAndExpand"/>
+                     <!-- PC Visual Output -->
+                     <StackLayout>
+                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                                   <Label Text="PC Visual Output" FontSize="Title" VerticalOptions="Center" />
+                                   <Button Text="Read" Command="{Binding ReadPCVisualCommand}" HorizontalOptions="End" />
+                            </StackLayout>
+                            <Image x:Name="CapturedImage" HeightRequest="200" BackgroundColor="LightGray" /> <!-- Visual feed -->              
+                     </StackLayout>
+
+                     <!-- PC Audible Output -->
+                     <StackLayout>
+                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                            <Label Text="PC Audible Output" FontSize="Title" VerticalOptions="Center" />
+                            <Button Text="Read" Command="{Binding ReadPCAudibleCommand}" HorizontalOptions="End" />
+                            </StackLayout>
+                            <BoxView HeightRequest="100" BackgroundColor="LightGray" /> <!-- Placeholder for audio feed -->
+                     </StackLayout>
+                     
+                     <!-- User Visual Output -->
+                     <StackLayout>
+                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                            <Label Text="User Visual Output" FontSize="Title" VerticalOptions="Center" />
+                            <Button Text="Read" Command="{Binding ReadUserVisualCommand}" HorizontalOptions="End" />
+                            </StackLayout>
+                            <BoxView HeightRequest="200" BackgroundColor="LightGray" /> <!-- Placeholder for webcam feed -->
+                     </StackLayout>
+                     
+                     <!-- User Audible Output -->
+                     <StackLayout>
+                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                            <Label Text="User Audible Output" FontSize="Title" VerticalOptions="Center" />
+                            <Button Text="Read" Command="{Binding ReadUserAudibleCommand}" HorizontalOptions="End" />
+                            </StackLayout>
+                            <BoxView HeightRequest="100" BackgroundColor="LightGray" /> <!-- Placeholder for webcam audio feed -->
+                     </StackLayout>
+                     
+                     <!-- User Touch Output -->
+                     <StackLayout>
+                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                            <Label Text="User Touch Output" FontSize="Title" VerticalOptions="Center" />
+                            <Button Text="Read" Command="{Binding ReadUserTouchCommand}" HorizontalOptions="End" />
+                            </StackLayout>
+                            <BoxView HeightRequest="100" BackgroundColor="LightGray" /> <!-- Placeholder for keypress/mouse movement feed -->
+                     </StackLayout>
+              </StackLayout>
+       </ScrollView>
 </ContentPage>
