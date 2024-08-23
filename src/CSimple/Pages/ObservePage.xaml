@@ -54,7 +54,7 @@
                             <Label Text="User Touch Output" FontSize="Title" VerticalOptions="Center" />
                             <Button Text="Read" Command="{Binding ReadUserTouchCommand}" HorizontalOptions="End" />
                             </StackLayout>
-                            <BoxView HeightRequest="100" BackgroundColor="LightGray" /> <!-- Placeholder for keypress/mouse movement feed -->
+                            <Entry x:Name="UserTouchOutput" IsReadOnly="True" />
                      </StackLayout>
               </StackLayout>
        </ScrollView>
