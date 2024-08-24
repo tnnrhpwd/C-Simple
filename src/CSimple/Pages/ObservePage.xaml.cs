@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using CSimple.Services;
 using System.Collections.ObjectModel;
+using System.Windows.Input;
 
 #if WINDOWS
 using System.Windows.Input;
@@ -57,7 +58,7 @@ namespace CSimple.Pages
             SaveActionCommand = new Command(SaveAction);
             SaveToFileCommand = new Command(async () => await SaveActionGroupsToFile());
             LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
-            
+
             _ = LoadActionGroups();
 
             BindingContext = this;
@@ -155,9 +156,8 @@ namespace CSimple.Pages
         {
             try
             {
-                var actionGroupsToSave = ActionGroups.Cast<object>().ToList();
-                await _fileService.SaveActionGroupsAsync(actionGroupsToSave);
-                DebugOutput("Action Groups Saved to File");
+                // var actionGroupsToSave = ActionGroups.Cast<object>().ToList();
+                await _fileService.SaveActionGroupsAsync(ActionGroups);
                 DebugOutput("Action Groups Saved to File");
             }
             catch (Exception ex)
@@ -173,7 +173,7 @@ namespace CSimple.Pages
             try
             {
                 var loadedActionGroups = await _fileService.LoadActionGroupsAsync();
-                ActionGroups = new ObservableCollection<ActionGroup>(loadedActionGroups);
+                ActionGroups = new ObservableCollection<ActionGroup>((IEnumerable<ActionGroup>)loadedActionGroups);
                 DebugOutput("Action Groups Loaded from File");
             }
             catch (Exception ex)
@@ -299,25 +299,5 @@ namespace CSimple.Pages
         }
 
         #endif
-    }
-
-    public class ActionGroup
-    {
-        public string ActionName { get; set; }
-        public string[] ActionArray { get; set; }
-    }
-
-    public class FileService
-    {
-        public async Task<List<ActionGroup>> LoadActionGroupsAsync()
-        {
-            // Implement file loading logic here
-            return new List<ActionGroup>();
-        }
-
-        public async Task SaveActionGroupsAsync(List<object> actionGroups)
-        {
-            // Implement file saving logic here
-        }
     }
 }

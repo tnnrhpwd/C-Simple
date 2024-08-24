@@ -16,6 +16,8 @@ namespace CSimple.Services
         VK_PRIOR = 0x21, // Page Up
         VK_NEXT = 0x22, // Page Down
         VK_END = 0x23,
+        KEYEVENTF_KEYDOWN = 0x0000,
+        KEYEVENTF_KEYUP = 0x0002,
         VK_HOME = 0x24,
         VK_LEFT = 0x25,
         VK_UP = 0x26,
@@ -160,6 +162,12 @@ namespace CSimple.Services
         VK_GAMEPAD_RIGHT_THUMBSTICK_X = 0xD1,
         VK_GAMEPAD_RIGHT_THUMBSTICK_Y = 0xD2,
         VK_GAMEPAD_LEFT_THUMBSTICK_BUTTON = 0xD3,
-        VK_GAMEPAD_RIGHT_THUMBSTICK_BUTTON = 0xD4
+        VK_GAMEPAD_RIGHT_THUMBSTICK_BUTTON = 0xD4,
+        MOUSEEVENTF_MOVE = 0x0001,
+        WH_KEYBOARD_LL = 13,
+        WH_MOUSE_LL = 14,
+        WM_LBUTTONDOWN = 0x0201,
+        WM_RBUTTONDOWN = 0x0204,
+        WM_MOUSEMOVE = 0x0200
     }
 }
