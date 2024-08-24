@@ -2,66 +2,117 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
+using CSimple.Services;
 #if WINDOWS
 using System.Windows.Input;
 #endif
-using System.Linq;
 
 namespace CSimple.Pages
 {
     public partial class ObservePage : ContentPage
     {
-        public Command ReadPCVisualCommand { get; }
-        public Command ReadPCAudibleCommand { get; }
-        public Command ReadUserVisualCommand { get; }
-        public Command ReadUserAudibleCommand { get; }
-        public Command ReadUserTouchCommand { get; }
+        public Command TogglePCVisualCommand { get; }
+        public Command TogglePCAudibleCommand { get; }
+        public Command ToggleUserVisualCommand { get; }
+        public Command ToggleUserAudibleCommand { get; }
+        public Command ToggleUserTouchCommand { get; }
+
+        public string PCVisualButtonText { get; set; } = "Read";
+        public string PCAudibleButtonText { get; set; } = "Read";
+        public string UserVisualButtonText { get; set; } = "Read";
+        public string UserAudibleButtonText { get; set; } = "Read";
+        public string UserTouchButtonText { get; set; } = "Read";
 
 #if WINDOWS
         private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
-        private LowLevelKeyboardProc _proc;
-        private IntPtr _hookID = IntPtr.Zero;
+        private LowLevelKeyboardProc _keyboardProc;
+        private LowLevelKeyboardProc _mouseProc;
+        private IntPtr _keyboardHookID = IntPtr.Zero;
+        private IntPtr _mouseHookID = IntPtr.Zero;
+        private bool isUserTouchActive = false;
+
+        private POINT lastMousePos;
 #endif
+        private List<string> _recordedActions;
+        private FileService _fileService;
 
         public ObservePage()
         {
             InitializeComponent();
-            ReadPCVisualCommand = new Command(async () => InitializePCVisualOutput());
-            ReadPCAudibleCommand = new Command(InitializePCAudibleOutput);
-            ReadUserVisualCommand = new Command(InitializeUserVisualOutput);
-            ReadUserAudibleCommand = new Command(InitializeUserAudibleOutput);
-            ReadUserTouchCommand = new Command(InitializeUserTouchOutput);
+            _fileService = new FileService();
+            _recordedActions = new List<string>();
+
+            TogglePCVisualCommand = new Command(TogglePCVisualOutput);
+            TogglePCAudibleCommand = new Command(TogglePCAudibleOutput);
+            ToggleUserVisualCommand = new Command(ToggleUserVisualOutput);
+            ToggleUserAudibleCommand = new Command(ToggleUserAudibleOutput);
+            ToggleUserTouchCommand = new Command(ToggleUserTouchOutput);
+
+            _ = LoadRecordedActions(); // Ignore the returned task since we only need to ensure it's running
 
             BindingContext = this;
         }
 
-        private void InitializePCVisualOutput()
+        private void TogglePCVisualOutput()
         {
-            DebugOutput("Starting PC Visual Output capture.");
+            PCVisualButtonText = PCVisualButtonText == "Read" ? "Stop" : "Read";
+            DebugOutput($"PC Visual Output: {PCVisualButtonText}");
+            OnPropertyChanged(nameof(PCVisualButtonText));
         }
 
-        private void InitializePCAudibleOutput()
+        private void TogglePCAudibleOutput()
         {
-            DebugOutput("Starting PC Audible Output capture.");
+            PCAudibleButtonText = PCAudibleButtonText == "Read" ? "Stop" : "Read";
+            DebugOutput($"PC Audible Output: {PCAudibleButtonText}");
+            OnPropertyChanged(nameof(PCAudibleButtonText));
         }
 
-        private void InitializeUserVisualOutput()
+        private void ToggleUserVisualOutput()
         {
-            DebugOutput("Starting User Visual Output capture.");
+            UserVisualButtonText = UserVisualButtonText == "Read" ? "Stop" : "Read";
+            DebugOutput($"User Visual Output: {UserVisualButtonText}");
+            OnPropertyChanged(nameof(UserVisualButtonText));
         }
 
-        private void InitializeUserAudibleOutput()
+        private void ToggleUserAudibleOutput()
         {
-            DebugOutput("Starting User Audible Output capture.");
+            UserAudibleButtonText = UserAudibleButtonText == "Read" ? "Stop" : "Read";
+            DebugOutput($"User Audible Output: {UserAudibleButtonText}");
+            OnPropertyChanged(nameof(UserAudibleButtonText));
         }
 
-        private void InitializeUserTouchOutput()
+        private void ToggleUserTouchOutput()
         {
 #if WINDOWS
-            _proc = HookCallback;
-            _hookID = SetHook(_proc);
-            DebugOutput("User Touch Output capture initialized.");
+            if (!isUserTouchActive)
+            {
+                _keyboardProc = HookCallback;
+                _mouseProc = HookCallback;
+                _keyboardHookID = SetHook(_keyboardProc, WH_KEYBOARD_LL);
+                _mouseHookID = SetHook(_mouseProc, WH_MOUSE_LL);
+                GetCursorPos(out lastMousePos);
+                DebugOutput("User Touch Output capture initialized.");
+                UserTouchButtonText = "Stop";
+                isUserTouchActive = true;
+            }
+            else
+            {
+                if (_keyboardHookID != IntPtr.Zero)
+                {
+                    UnhookWindowsHookEx(_keyboardHookID);
+                    _keyboardHookID = IntPtr.Zero;
+                }
+                if (_mouseHookID != IntPtr.Zero)
+                {
+                    UnhookWindowsHookEx(_mouseHookID);
+                    _mouseHookID = IntPtr.Zero;
+                }
+                DebugOutput("User Touch Output capture stopped.");
+                UserTouchButtonText = "Read";
+                isUserTouchActive = false;
+            }
+
+            OnPropertyChanged(nameof(UserTouchButtonText));
 #endif
         }
 
@@ -71,53 +122,83 @@ namespace CSimple.Pages
             // Optionally update a UI label or text area with the debug message
         }
 
-#if WINDOWS
-        private IntPtr SetHook(LowLevelKeyboardProc proc)
+        private async Task LoadRecordedActions()
         {
-            using (var curProcess = System.Diagnostics.Process.GetCurrentProcess())
+            _recordedActions = await _fileService.LoadRecordedActionsAsync();
+        }
+
+        private async Task SaveRecordedActions()
+        {
+            await _fileService.SaveRecordedActionsAsync(_recordedActions);
+        }
+
+        public void AddRecordedAction(string action)
+        {
+            _recordedActions.Add(action);
+            // Save changes to file
+            _ = SaveRecordedActions(); // Ignore the returned task since we only need to ensure it's running
+        }
+
+#if WINDOWS
+        private IntPtr SetHook(LowLevelKeyboardProc proc, int hookType)
+        {
+            using (var curProcess = Process.GetCurrentProcess())
             using (var curModule = curProcess.MainModule)
             {
-                return SetWindowsHookEx(WH_KEYBOARD_LL, proc, GetModuleHandle(curModule.ModuleName), 0);
+                return SetWindowsHookEx(hookType, proc, GetModuleHandle(curModule.ModuleName), 0);
             }
         }
-        
+
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
             if (nCode >= 0)
             {
-                int vkCode = Marshal.ReadInt32(lParam);
+                string currentTime = DateTime.Now.ToString("HH:mm:ss.fff");
 
-                string keyPressed = string.Empty;
-
-                switch ((VirtualKey)vkCode)
+                if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN || wParam == (IntPtr)WM_MOUSEMOVE)
                 {
-                    case VirtualKey.VK_ESCAPE:
-                        keyPressed = "Escape";
-                        break;
-                    case VirtualKey.VK_LWIN:
-                    case VirtualKey.VK_RWIN:
-                        keyPressed = "Windows";
-                        break;
-                    case VirtualKey.VK_F5:
-                        keyPressed = "F5";
-                        break;
-                    default:
-                        keyPressed = ((VirtualKey)vkCode).ToString();
-                        break;
+                    GetCursorPos(out POINT currentMousePos);
+                    Dispatcher.Dispatch(() =>
+                    {
+                        if (wParam == (IntPtr)WM_LBUTTONDOWN)
+                        {
+                            UserTouchOutput.Text += $"{currentTime} - Left Mouse Button clicked at ({currentMousePos.X}, {currentMousePos.Y})\n";
+                        }
+                        else if (wParam == (IntPtr)WM_RBUTTONDOWN)
+                        {
+                            UserTouchOutput.Text += $"{currentTime} - Right Mouse Button clicked at ({currentMousePos.X}, {currentMousePos.Y})\n";
+                        }
+                        else if (wParam == (IntPtr)WM_MOUSEMOVE)
+                        {
+                            UserTouchOutput.Text += $"{currentTime} - Mouse Moved to ({currentMousePos.X}, {currentMousePos.Y})\n";
+                        }
+                    });
+                    DebugOutput($"{currentTime} {wParam} {currentMousePos.X} {currentMousePos.Y}");
+                    AddRecordedAction($"{currentTime} {wParam} {currentMousePos.X} {currentMousePos.Y}");
+                    lastMousePos = currentMousePos;
                 }
-
-                // Update the UI with the keypress
-                Dispatcher.Dispatch(() =>
+                else
                 {
-                    UserTouchOutput.Text += keyPressed + " key pressed\n";
-                });
+                    int vkCode = Marshal.ReadInt32(lParam);
+                    string keyPressed = ((VirtualKey)vkCode).ToString();
 
-                DebugOutput($"{keyPressed} key pressed.");
+                    Dispatcher.Dispatch(() =>
+                    {
+                        UserTouchOutput.Text += $"{currentTime} - {keyPressed} key pressed\n";
+                    });
+                    DebugOutput($"{currentTime} {vkCode}");
+                    AddRecordedAction($"{currentTime} {vkCode}");
+
+                }
             }
-            return CallNextHookEx(_hookID, nCode, wParam, lParam);
+            return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
         }
 
         private const int WH_KEYBOARD_LL = 13;
+        private const int WH_MOUSE_LL = 14;
+        private const int WM_LBUTTONDOWN = 0x0201;
+        private const int WM_RBUTTONDOWN = 0x0204;
+        private const int WM_MOUSEMOVE = 0x0200;
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
@@ -132,14 +213,16 @@ namespace CSimple.Pages
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
-        private enum VirtualKey
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool GetCursorPos(out POINT lpPoint);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT
         {
-            VK_ESCAPE = 0x1B,
-            VK_LWIN = 0x5B,
-            VK_RWIN = 0x5C,
-            VK_F5 = 0x74,
-            // Add more keys as needed
+            public int X;
+            public int Y;
         }
-#endif
+        #endif
     }
 }

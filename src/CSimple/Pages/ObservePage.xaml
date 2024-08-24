@@ -3,59 +3,70 @@
              x:Class="CSimple.Pages.ObservePage"
              Title="Observe">
 
-       <ScrollView>
-              <StackLayout Padding="10" Spacing="20">
-                     <Label Text="Observe" 
-                            FontSize="Title" 
-                            HorizontalOptions="Center" 
-                            VerticalOptions="StartAndExpand"/>
-                     <Label Text="This page allows users to observe data or metrics related to their goals." 
-                            FontSize="Body"
-                            VerticalOptions="CenterAndExpand"/>
-                     <!-- PC Visual Output -->
-                     <StackLayout>
-                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
-                                   <Label Text="PC Visual Output" FontSize="Title" VerticalOptions="Center" />
-                                   <Button Text="Read" Command="{Binding ReadPCVisualCommand}" HorizontalOptions="End" />
-                            </StackLayout>
-                            <Image x:Name="CapturedImage" HeightRequest="200" BackgroundColor="LightGray" /> <!-- Visual feed -->              
-                     </StackLayout>
+    <ScrollView>
+        <StackLayout Padding="10" Spacing="20">
+            <Label Text="Observe" 
+                   FontSize="Title" 
+                   HorizontalOptions="Center" 
+                   VerticalOptions="StartAndExpand"/>
+            <Label Text="This page allows users to observe data or metrics related to their goals." 
+                   FontSize="Body"
+                   VerticalOptions="CenterAndExpand"/>
+                   
+            <!-- PC Visual Output -->
+            <StackLayout>
+                <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                    <Label Text="PC Visual Output" FontSize="Title" VerticalOptions="Center" />
+                    <Button Text="{Binding PCVisualButtonText}" 
+                            Command="{Binding TogglePCVisualCommand}" 
+                            HorizontalOptions="End" />
+                </StackLayout>
+                <Image x:Name="CapturedImage" HeightRequest="200" BackgroundColor="LightGray" /> <!-- Visual feed -->              
+            </StackLayout>
 
-                     <!-- PC Audible Output -->
-                     <StackLayout>
-                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
-                            <Label Text="PC Audible Output" FontSize="Title" VerticalOptions="Center" />
-                            <Button Text="Read" Command="{Binding ReadPCAudibleCommand}" HorizontalOptions="End" />
-                            </StackLayout>
-                            <BoxView HeightRequest="100" BackgroundColor="LightGray" /> <!-- Placeholder for audio feed -->
-                     </StackLayout>
-                     
-                     <!-- User Visual Output -->
-                     <StackLayout>
-                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
-                            <Label Text="User Visual Output" FontSize="Title" VerticalOptions="Center" />
-                            <Button Text="Read" Command="{Binding ReadUserVisualCommand}" HorizontalOptions="End" />
-                            </StackLayout>
-                            <BoxView HeightRequest="200" BackgroundColor="LightGray" /> <!-- Placeholder for webcam feed -->
-                     </StackLayout>
-                     
-                     <!-- User Audible Output -->
-                     <StackLayout>
-                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
-                            <Label Text="User Audible Output" FontSize="Title" VerticalOptions="Center" />
-                            <Button Text="Read" Command="{Binding ReadUserAudibleCommand}" HorizontalOptions="End" />
-                            </StackLayout>
-                            <BoxView HeightRequest="100" BackgroundColor="LightGray" /> <!-- Placeholder for webcam audio feed -->
-                     </StackLayout>
-                     
-                     <!-- User Touch Output -->
-                     <StackLayout>
-                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
-                            <Label Text="User Touch Output" FontSize="Title" VerticalOptions="Center" />
-                            <Button Text="Read" Command="{Binding ReadUserTouchCommand}" HorizontalOptions="End" />
-                            </StackLayout>
-                            <Entry x:Name="UserTouchOutput" IsReadOnly="True" />
-                     </StackLayout>
-              </StackLayout>
-       </ScrollView>
+            <!-- PC Audible Output -->
+            <StackLayout>
+                <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                    <Label Text="PC Audible Output" FontSize="Title" VerticalOptions="Center" />
+                    <Button Text="{Binding PCAudibleButtonText}" 
+                            Command="{Binding TogglePCAudibleCommand}" 
+                            HorizontalOptions="End" />
+                </StackLayout>
+                <BoxView HeightRequest="100" BackgroundColor="LightGray" /> <!-- Placeholder for audio feed -->
+            </StackLayout>
+            
+            <!-- User Visual Output -->
+            <StackLayout>
+                <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                    <Label Text="User Visual Output" FontSize="Title" VerticalOptions="Center" />
+                    <Button Text="{Binding UserVisualButtonText}" 
+                            Command="{Binding ToggleUserVisualCommand}" 
+                            HorizontalOptions="End" />
+                </StackLayout>
+                <BoxView HeightRequest="200" BackgroundColor="LightGray" /> <!-- Placeholder for webcam feed -->
+            </StackLayout>
+            
+            <!-- User Audible Output -->
+            <StackLayout>
+                <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                    <Label Text="User Audible Output" FontSize="Title" VerticalOptions="Center" />
+                    <Button Text="{Binding UserAudibleButtonText}" 
+                            Command="{Binding ToggleUserAudibleCommand}" 
+                            HorizontalOptions="End" />
+                </StackLayout>
+                <BoxView HeightRequest="100" BackgroundColor="LightGray" /> <!-- Placeholder for webcam audio feed -->
+            </StackLayout>
+            
+            <!-- User Touch Output -->
+            <StackLayout>
+                <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                    <Label Text="User Touch Output" FontSize="Title" VerticalOptions="Center" />
+                    <Button Text="{Binding UserTouchButtonText}" 
+                            Command="{Binding ToggleUserTouchCommand}" 
+                            HorizontalOptions="End" />
+                </StackLayout>
+                <Entry x:Name="UserTouchOutput" IsReadOnly="True" />
+            </StackLayout>
+        </StackLayout>
+    </ScrollView>
 </ContentPage>
