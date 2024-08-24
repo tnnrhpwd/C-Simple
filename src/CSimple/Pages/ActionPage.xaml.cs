@@ -152,7 +152,8 @@ private void SimulateActionGroup(ActionGroup actionGroup)
         {
             try
             {
-                await _fileService.SaveActionGroupsAsync(ActionGroups);
+                var actionGroupsToSave = ActionGroups.Cast<object>().ToList();
+                await _fileService.SaveActionGroupsAsync(actionGroupsToSave);
                 DebugOutput = "Action Groups Saved to File";
             }
             catch (Exception ex)
@@ -165,7 +166,8 @@ private void SimulateActionGroup(ActionGroup actionGroup)
         {
             try
             {
-                ActionGroups = await _fileService.LoadActionGroupsAsync();
+                var loadedActionGroups = await _fileService.LoadActionGroupsAsync();
+                ActionGroups = new ObservableCollection<ActionGroup>(loadedActionGroups);
                 DebugOutput = "Action Groups Loaded from File";
             }
             catch (Exception ex)

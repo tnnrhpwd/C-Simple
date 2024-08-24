@@ -3,6 +3,8 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using CSimple.Services;
+using System.Collections.ObjectModel;
+
 #if WINDOWS
 using System.Windows.Input;
 #endif
@@ -11,17 +13,22 @@ namespace CSimple.Pages
 {
     public partial class ObservePage : ContentPage
     {
+        public ObservableCollection<ActionGroup> ActionGroups { get; set; } = new ObservableCollection<ActionGroup>();
         public Command TogglePCVisualCommand { get; }
         public Command TogglePCAudibleCommand { get; }
         public Command ToggleUserVisualCommand { get; }
         public Command ToggleUserAudibleCommand { get; }
         public Command ToggleUserTouchCommand { get; }
+        public ICommand SaveActionCommand { get; set; }
+        public ICommand SaveToFileCommand { get; set; }
+        public ICommand LoadFromFileCommand { get; set; }
 
         public string PCVisualButtonText { get; set; } = "Read";
         public string PCAudibleButtonText { get; set; } = "Read";
         public string UserVisualButtonText { get; set; } = "Read";
         public string UserAudibleButtonText { get; set; } = "Read";
         public string UserTouchButtonText { get; set; } = "Read";
+        public string UserTouchInputText { get; set; } = "";
 
 #if WINDOWS
         private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
@@ -47,8 +54,11 @@ namespace CSimple.Pages
             ToggleUserVisualCommand = new Command(ToggleUserVisualOutput);
             ToggleUserAudibleCommand = new Command(ToggleUserAudibleOutput);
             ToggleUserTouchCommand = new Command(ToggleUserTouchOutput);
-
-            _ = LoadRecordedActions(); // Ignore the returned task since we only need to ensure it's running
+            SaveActionCommand = new Command(SaveAction);
+            SaveToFileCommand = new Command(async () => await SaveActionGroupsToFile());
+            LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
+            
+            _ = LoadActionGroups();
 
             BindingContext = this;
         }
@@ -122,21 +132,85 @@ namespace CSimple.Pages
             // Optionally update a UI label or text area with the debug message
         }
 
-        private async Task LoadRecordedActions()
+        private async Task LoadActionGroups()
         {
-            _recordedActions = await _fileService.LoadRecordedActionsAsync();
+            try
+            {
+                var actionGroups = await _fileService.LoadActionGroupsAsync();
+                ActionGroups.Clear();
+                foreach (var actionGroup in actionGroups)
+                {
+                    ActionGroups.Add(actionGroup);
+                }
+                DebugOutput("Action Groups Loaded");
+            }
+            catch (Exception ex)
+            {
+                DebugOutput($"Error loading action groups: {ex.Message}");
+            }
+        }
+        private async Task SaveActionGroupsToFile()
+        {
+            try
+            {
+                var actionGroupsToSave = ActionGroups.Cast<object>().ToList();
+                await _fileService.SaveActionGroupsAsync(actionGroupsToSave);
+                DebugOutput("Action Groups Saved to File");
+            }
+            catch (Exception ex)
+            {
+                DebugOutput($"Error saving action groups: {ex.Message}");
+            }
         }
 
-        private async Task SaveRecordedActions()
+
+
+        private async Task LoadActionGroupsFromFile()
         {
-            await _fileService.SaveRecordedActionsAsync(_recordedActions);
+            try
+            {
+                var loadedActionGroups = await _fileService.LoadActionGroupsAsync();
+                ActionGroups = new ObservableCollection<ActionGroup>(loadedActionGroups);
+                DebugOutput("Action Groups Loaded from File");
+            }
+            catch (Exception ex)
+            {
+                DebugOutput($"Error loading action groups from file: {ex.Message}");
+            }
         }
 
-        public void AddRecordedAction(string action)
+        private void SaveAction() // high level save 
         {
-            _recordedActions.Add(action);
-            // Save changes to file
-            _ = SaveRecordedActions(); // Ignore the returned task since we only need to ensure it's running
+            string actionName = ActionNameInput.Text;
+
+            if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(UserTouchInputText))
+            {
+                // Add the new action to the actions array
+                _recordedActions.Add(UserTouchInputText);
+
+                // Check if an ActionGroup with the same name already exists
+                var existingActionGroup = ActionGroups.FirstOrDefault(ag => ag.ActionName == actionName);
+
+                if (existingActionGroup != null)
+                {
+                    // If it exists, append the new action to the existing ActionArray
+                    existingActionGroup.ActionArray = existingActionGroup.ActionArray.Concat(_recordedActions).ToArray();
+                    DebugOutput($"Updated Action Group: {actionName}");
+                }
+                else
+                {
+                    // If it doesn't exist, create a new ActionGroup and add it to the list
+                    ActionGroups.Add(new ActionGroup { ActionName = actionName, ActionArray = _recordedActions.ToArray() });
+                    DebugOutput($"Saved Action Group: {actionName}");
+                }
+
+                // Save the updated ActionGroups list to the file
+                SaveActionGroupsToFile().ConfigureAwait(false);
+            }
+            else
+            {
+                DebugOutput("Please enter both Action Name and Action Array.");
+            }
         }
 
 #if WINDOWS
@@ -174,7 +248,8 @@ namespace CSimple.Pages
                         }
                     });
                     DebugOutput($"{currentTime} {wParam} {currentMousePos.X} {currentMousePos.Y}");
-                    AddRecordedAction($"{currentTime} {wParam} {currentMousePos.X} {currentMousePos.Y}");
+                    UserTouchInputText = $"{currentTime} {wParam} {currentMousePos.X} {currentMousePos.Y}";
+                    SaveAction();
                     lastMousePos = currentMousePos;
                 }
                 else
@@ -187,8 +262,8 @@ namespace CSimple.Pages
                         UserTouchOutput.Text += $"{currentTime} - {keyPressed} key pressed\n";
                     });
                     DebugOutput($"{currentTime} {vkCode}");
-                    AddRecordedAction($"{currentTime} {vkCode}");
-
+                    UserTouchInputText = $"{currentTime} {vkCode}";
+                    SaveAction();
                 }
             }
             return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
@@ -214,15 +289,35 @@ namespace CSimple.Pages
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
         [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool GetCursorPos(out POINT lpPoint);
+        private static extern bool GetCursorPos(out POINT lpPoint);
 
         [StructLayout(LayoutKind.Sequential)]
-        public struct POINT
+        private struct POINT
         {
             public int X;
             public int Y;
         }
+
         #endif
+    }
+
+    public class ActionGroup
+    {
+        public string ActionName { get; set; }
+        public string[] ActionArray { get; set; }
+    }
+
+    public class FileService
+    {
+        public async Task<List<ActionGroup>> LoadActionGroupsAsync()
+        {
+            // Implement file loading logic here
+            return new List<ActionGroup>();
+        }
+
+        public async Task SaveActionGroupsAsync(List<object> actionGroups)
+        {
+            // Implement file saving logic here
+        }
     }
 }
