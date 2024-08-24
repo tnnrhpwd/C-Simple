@@ -91,7 +91,7 @@ namespace CSimple.Pages
             OnPropertyChanged(nameof(UserAudibleButtonText));
         }
 
-        private void ToggleUserTouchOutput()
+        private async void ToggleUserTouchOutput()
         {
 #if WINDOWS
             if (!isUserTouchActive)
@@ -118,6 +118,8 @@ namespace CSimple.Pages
                     _mouseHookID = IntPtr.Zero;
                 }
                 DebugOutput("User Touch Output capture stopped.");
+                // Save the updated ActionGroups list to the file
+                await SaveActionGroupsToFile();
                 UserTouchButtonText = "Read";
                 isUserTouchActive = false;
             }
@@ -155,6 +157,7 @@ namespace CSimple.Pages
             {
                 var actionGroupsToSave = ActionGroups.Cast<object>().ToList();
                 await _fileService.SaveActionGroupsAsync(actionGroupsToSave);
+                DebugOutput("Action Groups Saved to File");
                 DebugOutput("Action Groups Saved to File");
             }
             catch (Exception ex)
@@ -203,9 +206,6 @@ namespace CSimple.Pages
                     ActionGroups.Add(new ActionGroup { ActionName = actionName, ActionArray = _recordedActions.ToArray() });
                     DebugOutput($"Saved Action Group: {actionName}");
                 }
-
-                // Save the updated ActionGroups list to the file
-                SaveActionGroupsToFile().ConfigureAwait(false);
             }
             else
             {
