@@ -19,6 +19,7 @@ namespace CSimple.Pages
         public ICommand SimulateActionGroupCommand { get; set; }
         public ICommand SaveToFileCommand { get; set; }
         public ICommand LoadFromFileCommand { get; set; }
+        public ICommand RowTappedCommand { get; }
 
         private void DebugOutput(string message)
         {
@@ -37,7 +38,8 @@ namespace CSimple.Pages
             SimulateActionGroupCommand = new Command<ActionGroup>(SimulateActionGroup);
             SaveToFileCommand = new Command(async () => await SaveActionGroupsToFile());
             LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
-
+            RowTappedCommand = new Command<ActionGroup>(OnRowTapped);
+            // BindingContext = new ActionPageViewModel();
             // Initialize ActionGroups collection
             ActionGroups = new ObservableCollection<ActionGroup>();
 
@@ -47,7 +49,33 @@ namespace CSimple.Pages
             DebugOutput("Ready");
             BindingContext = this;
         }
+        private async void OnRowTapped(ActionGroup actionGroup)
+        {
+            var actionDetailPage = new ActionDetailPage(actionGroup);
+            await Navigation.PushModalAsync(actionDetailPage);
+        }
+        public class ActionPageViewModel
+        {
+            public ICommand SimulateActionGroupCommand { get; }
+            public ICommand RowTappedCommand { get; }
 
+            public ActionPageViewModel()
+            {
+                SimulateActionGroupCommand = new Command<ActionGroup>(SimulateActionGroup);
+                RowTappedCommand = new Command<ActionGroup>(OnRowTapped);
+            }
+
+            private void SimulateActionGroup(ActionGroup actionGroup)
+            {
+                // Simulation logic here
+            }
+
+            private async void OnRowTapped(ActionGroup actionGroup)
+            {
+                var actionDetailPage = new ActionDetailPage(actionGroup);
+                await Application.Current.MainPage.Navigation.PushModalAsync(actionDetailPage);
+            }
+        }
         private async Task LoadActionGroups()
         {
             try

@@ -6,10 +6,6 @@ using CSimple.Services;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 
-#if WINDOWS
-using System.Windows.Input;
-#endif
-
 namespace CSimple.Pages
 {
     public partial class ObservePage : ContentPage

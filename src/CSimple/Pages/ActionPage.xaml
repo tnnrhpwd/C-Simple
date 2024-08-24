@@ -26,11 +26,14 @@
         <CollectionView ItemsSource="{Binding ActionGroups}" Margin="0,20,0,0">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Grid Padding="10" ColumnDefinitions="*, *, Auto">
-                        <Label Grid.Column="0" Text="{Binding ActionName}" VerticalOptions="Center"/>
-                        <Label Grid.Column="1" Text="{Binding ActionArrayFormatted}" VerticalOptions="Center"/>
-                        <Button Grid.Column="2" Text="Simulate" Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SimulateActionGroupCommand}" CommandParameter="{Binding .}" VerticalOptions="Center"/>
-                    </Grid>
+                <Grid Padding="10" ColumnDefinitions="*, *, Auto">
+                    <!-- <Grid.GestureRecognizers>
+                        <TapGestureRecognizer TappedCommand="{Binding RowTappedCommand}" CommandParameter="{Binding .}" />
+                    </Grid.GestureRecognizers> -->
+                    <Label Grid.Column="0" Text="{Binding ActionName}" VerticalOptions="Center"/>
+                    <Label Grid.Column="1" Text="{Binding ActionArrayFormatted}" VerticalOptions="Center"/>
+                    <Button Grid.Column="2" Text="Simulate" Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SimulateActionGroupCommand}" CommandParameter="{Binding .}" VerticalOptions="Center"/>
+                </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>

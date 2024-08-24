@@ -1,0 +1,12 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CSimple.Pages.ActionDetailPage"
+             BackgroundColor="White"
+             Padding="20">
+    <StackLayout Spacing="20">
+        <Label Text="{Binding ActionName}" FontSize="Title" HorizontalOptions="Center"/>
+        <Label Text="{Binding ActionArrayFormatted}" FontSize="Body"/>
+        
+        <Button Text="Close" Command="{Binding CloseCommand}" VerticalOptions="End"/>
+    </StackLayout>
+</ContentPage>
