@@ -103,11 +103,11 @@ namespace CSimple.Services
     [StructLayout(LayoutKind.Sequential)]
     public struct KEYBDINPUT
     {
-        public ushort wVk;           // Virtual key code
-        public ushort wScan;         // Hardware scan code
-        public uint dwFlags;         // Flags
-        public uint time;            // Timestamp
-        public UIntPtr dwExtraInfo;  // Additional info
+        public ushort wVk;
+        public ushort wScan;
+        public uint dwFlags;
+        public uint time;
+        public UIntPtr dwExtraInfo;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -120,7 +120,6 @@ namespace CSimple.Services
         public uint time;
         public UIntPtr dwExtraInfo;
     }
-
     [StructLayout(LayoutKind.Sequential)]
     public struct HARDWAREINPUT
     {

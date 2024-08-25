@@ -7,12 +7,10 @@ public class ActionGroup
 public class ActionArrayItem
 {
     public string Timestamp { get; set; }
-    public int Type { get; set; } // Event type: 256 for key press, 512 for mouse move, etc.
-    public int? KeyCode { get; set; } // Optional, used for key events
-    public List<int> Modifiers { get; set; } = new List<int>(); // Optional, used for modifier keys
-    public List<int> Combination { get; set; } = new List<int>(); // Optional, used for key combinations
+    public ushort KeyCode { get; set; } // Key Code: 49 for execute key press
+    public int EventType { get; set; } // Event type: 0x0000 for keydown
+    public int Duration { get; set; } // Duration: key press duration in milliseconds
     public Coordinates Coordinates { get; set; } // Optional, used for mouse events
-    public int? Category { get; set; } // Optional, used to categorize the event (e.g., mouse click, move, etc.)
 }
 
 public class Coordinates

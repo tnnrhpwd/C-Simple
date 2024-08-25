@@ -6,6 +6,8 @@ using CSimple.Services;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Newtonsoft.Json;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace CSimple.Pages
 {
@@ -186,6 +188,7 @@ namespace CSimple.Pages
             }
         }
 
+        
         private void SaveAction()
         {
             string actionName = ActionNameInput.Text;
@@ -193,7 +196,7 @@ namespace CSimple.Pages
             if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(UserTouchInputText))
             {
                 // Convert the UserTouchInputText to the new ActionArrayItem format
-                var actionArrayItem = JsonConvert.DeserializeObject<ActionArrayItem>(UserTouchInputText); //The name 'JsonConvert' does not exist in the current contextCS0103
+                var actionArrayItem = JsonConvert.DeserializeObject<ActionArrayItem>(UserTouchInputText);
 
                 // Check if an ActionGroup with the same name already exists
                 var existingActionGroup = ActionGroups.FirstOrDefault(ag => ag.ActionName == actionName);
@@ -245,26 +248,27 @@ namespace CSimple.Pages
                     Timestamp = currentTime
                 };
 
+                // Handle mouse events
                 if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN || wParam == (IntPtr)WM_MOUSEMOVE)
                 {
                     GetCursorPos(out POINT currentMousePos);
                     actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
 
-                    // Set event type and category
+                    // Set event type
                     if (wParam == (IntPtr)WM_LBUTTONDOWN)
                     {
-                        actionArrayItem.Type = 513;
-                        actionArrayItem.Category = 1; // Example category
+                        actionArrayItem.EventType = WM_LBUTTONDOWN;
+                        actionArrayItem.KeyCode = 0; // No key code for mouse events, default to 0
                     }
                     else if (wParam == (IntPtr)WM_RBUTTONDOWN)
                     {
-                        actionArrayItem.Type = 516;
-                        actionArrayItem.Category = 1; // Example category
+                        actionArrayItem.EventType = WM_RBUTTONDOWN;
+                        actionArrayItem.KeyCode = 0; // No key code for mouse events, default to 0
                     }
                     else if (wParam == (IntPtr)WM_MOUSEMOVE)
                     {
-                        actionArrayItem.Type = 512;
-                        actionArrayItem.Category = 0; // Example category
+                        actionArrayItem.EventType = WM_MOUSEMOVE;
+                        actionArrayItem.KeyCode = 0; // No key code for mouse events, default to 0
                     }
 
                     Dispatcher.Dispatch(() =>
@@ -273,17 +277,31 @@ namespace CSimple.Pages
                     });
                     DebugOutput($"{currentTime} {wParam} {currentMousePos.X} {currentMousePos.Y}");
                 }
-                else
+                // Handle keyboard events
+                else if (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_KEYUP)
                 {
                     int vkCode = Marshal.ReadInt32(lParam);
-                    actionArrayItem.Type = 256;
-                    actionArrayItem.KeyCode = vkCode;
+                    actionArrayItem.KeyCode = (ushort)vkCode;
 
-                    Dispatcher.Dispatch(() =>
+                    // Distinguish between keydown and keyup
+                    if (wParam == (IntPtr)WM_KEYDOWN)
                     {
-                        UserTouchOutput.Text += $"{currentTime} - Key {((VirtualKey)vkCode).ToString()} pressed\n";
-                    });
-                    DebugOutput($"{currentTime} {vkCode}");
+                        actionArrayItem.EventType = WM_KEYDOWN;
+                        Dispatcher.Dispatch(() =>
+                        {
+                            UserTouchOutput.Text += $"{currentTime} - Key {((VirtualKey)vkCode).ToString()} down\n";
+                        });
+                        DebugOutput($"{currentTime} KeyDown {vkCode}");
+                    }
+                    else if (wParam == (IntPtr)WM_KEYUP)
+                    {
+                        actionArrayItem.EventType = WM_KEYUP;
+                        Dispatcher.Dispatch(() =>
+                        {
+                            UserTouchOutput.Text += $"{currentTime} - Key {((VirtualKey)vkCode).ToString()} up\n";
+                        });
+                        DebugOutput($"{currentTime} KeyUp {vkCode}");
+                    }
                 }
 
                 // Serialize the action item to JSON and save it
@@ -292,12 +310,19 @@ namespace CSimple.Pages
             }
             return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
         }
+
         private DateTime lastMouseEventTime = DateTime.MinValue;
         private const int WH_KEYBOARD_LL = 13;
         private const int WH_MOUSE_LL = 14;
+
         private const int WM_LBUTTONDOWN = 0x0201;
         private const int WM_RBUTTONDOWN = 0x0204;
         private const int WM_MOUSEMOVE = 0x0200;
+
+        // Constants for keyboard events
+        private const int WM_KEYDOWN = 0x0100;
+        private const int WM_KEYUP = 0x0101;
+
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
