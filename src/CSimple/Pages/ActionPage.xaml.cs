@@ -92,7 +92,13 @@ namespace CSimple.Pages
             if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(actionArrayText))
             {
                 var actions = actionArrayText.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(a => a.Trim()).ToArray();
+                                            .Select(a => new ActionArrayItem
+                                            {
+                                                Type = 54, 
+                                                Timestamp = DateTime.UtcNow.ToString("o"), 
+                                            })
+                                            .ToList();
+
                 ActionGroups.Add(new ActionGroup { ActionName = actionName, ActionArray = actions });
                 DebugOutput($"Saved Action Group: {actionName}");
 
@@ -115,74 +121,100 @@ namespace CSimple.Pages
 
                 foreach (var action in actionGroup.ActionArray)
                 {
-                    DebugOutput($"Processing Action: {action}");
+                    DebugOutput($"Processing Action: {action.Timestamp}");
 
-                    var actionParts = action.Split(' ');
+                    DateTime currentActionTime = DateTime.ParseExact(action.Timestamp, "HH:mm:ss.fff", CultureInfo.InvariantCulture);
 
-                    if (actionParts.Length >= 2)
+                    // Delay based on the difference between current and previous action times
+                    if (previousActionTime.HasValue)
                     {
-                        string time = actionParts[0];
-                        DateTime currentActionTime = DateTime.ParseExact(time, "HH:mm:ss.fff", CultureInfo.InvariantCulture);
+                        TimeSpan delay = currentActionTime - previousActionTime.Value;
+                        DebugOutput($"Waiting for {delay.TotalMilliseconds} ms before next action.");
+                        await Task.Delay(delay);
+                    }
 
-                        // Delay based on the difference between current and previous action times
-                        if (previousActionTime.HasValue)
-                        {
-                            TimeSpan delay = currentActionTime - previousActionTime.Value;
-                            DebugOutput($"Waiting for {delay.TotalMilliseconds} ms before next action.");
-                            await Task.Delay(delay);
-                        }
+                    previousActionTime = currentActionTime;
 
-                        previousActionTime = currentActionTime;
-
-                        int keyCode = int.Parse(actionParts[1]);
-
-                        if (actionParts.Length == 4)
-                        {
-                            int x = int.Parse(actionParts[2]);
-                            int y = int.Parse(actionParts[3]);
-
-                            DebugOutput($"Simulating Mouse Action at {time} with KeyCode: {keyCode} at X: {x}, Y: {y}");
-                            InputSimulator.MoveMouse(x, y);
-
-                            if (keyCode == 512)
+                    switch (action.Type)
+                    {
+                        case 512: // Mouse Move
+                            if (action.Coordinates != null)
                             {
-                                DebugOutput("Mouse moved.");
+                                int x = action.Coordinates.X;
+                                int y = action.Coordinates.Y;
+
+                                DebugOutput($"Simulating Mouse Move at {action.Timestamp} to X: {x}, Y: {y}");
+                                InputSimulator.MoveMouse(x, y);
                             }
-                            else if (keyCode == (int)WM_LBUTTONDOWN)
+                            else
+                            {
+                                DebugOutput($"Mouse move action at {action.Timestamp} missing coordinates.");
+                            }
+                            break;
+
+                        case 256: // Key Press
+                            if (action.KeyCode.HasValue)
+                            {
+                                DebugOutput($"Simulating KeyPress at {action.Timestamp} with KeyCode: {action.KeyCode}");
+
+                                if (Enum.IsDefined(typeof(VirtualKey), action.KeyCode.Value))
+                                {
+                                    VirtualKey virtualKey = (VirtualKey)action.KeyCode.Value;
+
+                                    // Apply modifiers if any
+                                    if (action.Modifiers.Count > 0)
+                                    {
+                                        foreach (int modifier in action.Modifiers)
+                                        {
+                                            if (Enum.IsDefined(typeof(VirtualKey), modifier))
+                                            {
+                                                InputSimulator.SimulateKeyDown((VirtualKey)modifier);
+                                            }
+                                        }
+                                    }
+
+                                    // Simulate the key press
+                                    InputSimulator.SimulateKeyDown(virtualKey);
+
+                                    // Release modifiers if any
+                                    if (action.Modifiers.Count > 0)
+                                    {
+                                        foreach (int modifier in action.Modifiers)
+                                        {
+                                            if (Enum.IsDefined(typeof(VirtualKey), modifier))
+                                            {
+                                                InputSimulator.SimulateKeyUp((VirtualKey)modifier);
+                                            }
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    DebugOutput($"Invalid KeyPress key code: {action.KeyCode}");
+                                }
+                            }
+                            else
+                            {
+                                DebugOutput($"KeyPress action at {action.Timestamp} missing key code.");
+                            }
+                            break;
+
+                        case (int)WM_LBUTTONDOWN: // Left Mouse Button Down
+                        case (int)WM_RBUTTONDOWN: // Right Mouse Button Down
+                            DebugOutput($"Simulating Mouse Click at {action.Timestamp} with Type: {action.Type}");
+                            if (action.Type == (int)WM_LBUTTONDOWN)
                             {
                                 InputSimulator.SimulateMouseClick(MouseButton.Left);
                             }
-                            else if (keyCode == (int)WM_RBUTTONDOWN)
+                            else if (action.Type == (int)WM_RBUTTONDOWN)
                             {
                                 InputSimulator.SimulateMouseClick(MouseButton.Right);
                             }
-                            else
-                            {
-                                DebugOutput($"Unhandled mouse event key code: {keyCode}");
-                            }
-                        }
-                        else if (actionParts.Length == 2)
-                        {
-                            DebugOutput($"Simulating KeyPress at {time} with KeyCode: {keyCode}");
+                            break;
 
-                            if (Enum.IsDefined(typeof(VirtualKey), keyCode))
-                            {
-                                VirtualKey virtualKey = (VirtualKey)keyCode;
-                                InputSimulator.SimulateKeyPress(virtualKey);
-                            }
-                            else
-                            {
-                                DebugOutput($"Invalid KeyPress key code: {keyCode}");
-                            }
-                        }
-                        else
-                        {
-                            DebugOutput($"Invalid action format: {action}");
-                        }
-                    }
-                    else
-                    {
-                        DebugOutput($"Invalid action format: {action}");
+                        default:
+                            DebugOutput($"Unhandled action type: {action.Type} at {action.Timestamp}");
+                            break;
                     }
                 }
 
@@ -193,7 +225,6 @@ namespace CSimple.Pages
                 DebugOutput($"Error during simulation: {ex.Message}");
             }
         }
-
 
         private async Task SaveActionGroupsToFile()
         {

@@ -31,7 +31,7 @@ namespace CSimple.Services
             }
         }
 
-        public static void SimulateKeyPress(VirtualKey key)
+        public static void SimulateKeyDown(VirtualKey key)
         {
             INPUT input = new INPUT
             {
@@ -51,11 +51,30 @@ namespace CSimple.Services
 
             // Simulate key down
             SendInput(1, ref input, Marshal.SizeOf(typeof(INPUT)));
+        }
+
+        public static void SimulateKeyUp(VirtualKey key)
+        {
+            INPUT input = new INPUT
+            {
+                type = 1, // Input type: Keyboard
+                U = new InputUnion
+                {
+                    ki = new KEYBDINPUT
+                    {
+                        wVk = (ushort)key,
+                        wScan = 0, // Hardware scan code for key
+                        dwFlags = 2, // 2 for key up
+                        time = 0,
+                        dwExtraInfo = UIntPtr.Zero
+                    }
+                }
+            };
 
             // Simulate key up
-            input.U.ki.dwFlags = 2; // 2 for key up
             SendInput(1, ref input, Marshal.SizeOf(typeof(INPUT)));
         }
+
 
         public static void MoveMouse(int x, int y)
         {

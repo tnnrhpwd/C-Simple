@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using CSimple.Services;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using Newtonsoft.Json;
 
 namespace CSimple.Pages
 {
@@ -191,22 +192,27 @@ namespace CSimple.Pages
 
             if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(UserTouchInputText))
             {
-                // Add the new action to the actions array
-                _recordedActions.Add(UserTouchInputText);
+                // Convert the UserTouchInputText to the new ActionArrayItem format
+                var actionArrayItem = JsonConvert.DeserializeObject<ActionArrayItem>(UserTouchInputText); //The name 'JsonConvert' does not exist in the current contextCS0103
 
                 // Check if an ActionGroup with the same name already exists
                 var existingActionGroup = ActionGroups.FirstOrDefault(ag => ag.ActionName == actionName);
 
                 if (existingActionGroup != null)
                 {
-                    // If it exists, append only unique actions to the existing ActionArray
-                    existingActionGroup.ActionArray = existingActionGroup.ActionArray.Concat(_recordedActions.Distinct()).ToArray();
+                    // If it exists, append the new action item to the existing ActionArray
+                    existingActionGroup.ActionArray.Add(actionArrayItem);
                     DebugOutput($"Updated Action Group: {actionName}");
                 }
                 else
                 {
                     // If it doesn't exist, create a new ActionGroup and add it to the list
-                    ActionGroups.Add(new ActionGroup { ActionName = actionName, ActionArray = _recordedActions.Distinct().ToArray() });
+                    var newActionGroup = new ActionGroup
+                    {
+                        ActionName = actionName,
+                        ActionArray = new List<ActionArrayItem> { actionArrayItem }
+                    };
+                    ActionGroups.Add(newActionGroup);
                     DebugOutput($"Saved Action Group: {actionName}");
                 }
 
@@ -218,7 +224,6 @@ namespace CSimple.Pages
                 DebugOutput("Please enter both Action Name and Action Array.");
             }
         }
-
 
         #if WINDOWS
         private IntPtr SetHook(LowLevelKeyboardProc proc, int hookType)
@@ -232,62 +237,60 @@ namespace CSimple.Pages
 
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
-        if (nCode >= 0)
-        {
-            string currentTime = DateTime.Now.ToString("HH:mm:ss.fff");
-
-            if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN || wParam == (IntPtr)WM_MOUSEMOVE)
+            if (nCode >= 0)
             {
-                GetCursorPos(out POINT currentMousePos);
-
-                // Set a time interval threshold (e.g., 50 milliseconds)
-                TimeSpan timeThreshold = TimeSpan.FromMilliseconds(500);
-                // Set a minimum movement distance threshold (e.g., 5 pixels)
-                int movementThreshold = 50;
-
-                if (wParam != (IntPtr)WM_MOUSEMOVE ||
-                    (DateTime.Now - lastMouseEventTime) > timeThreshold ||
-                    Math.Abs(currentMousePos.X - lastMousePos.X) > movementThreshold ||
-                    Math.Abs(currentMousePos.Y - lastMousePos.Y) > movementThreshold)
+                var currentTime = DateTime.UtcNow.ToString("o"); // Using ISO 8601 format
+                var actionArrayItem = new ActionArrayItem
                 {
+                    Timestamp = currentTime
+                };
+
+                if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN || wParam == (IntPtr)WM_MOUSEMOVE)
+                {
+                    GetCursorPos(out POINT currentMousePos);
+                    actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
+
+                    // Set event type and category
+                    if (wParam == (IntPtr)WM_LBUTTONDOWN)
+                    {
+                        actionArrayItem.Type = 513;
+                        actionArrayItem.Category = 1; // Example category
+                    }
+                    else if (wParam == (IntPtr)WM_RBUTTONDOWN)
+                    {
+                        actionArrayItem.Type = 516;
+                        actionArrayItem.Category = 1; // Example category
+                    }
+                    else if (wParam == (IntPtr)WM_MOUSEMOVE)
+                    {
+                        actionArrayItem.Type = 512;
+                        actionArrayItem.Category = 0; // Example category
+                    }
+
                     Dispatcher.Dispatch(() =>
                     {
-                        if (wParam == (IntPtr)WM_LBUTTONDOWN)
-                        {
-                            UserTouchOutput.Text += $"{currentTime} - Left Mouse Button clicked at ({currentMousePos.X}, {currentMousePos.Y})\n";
-                        }
-                        else if (wParam == (IntPtr)WM_RBUTTONDOWN)
-                        {
-                            UserTouchOutput.Text += $"{currentTime} - Right Mouse Button clicked at ({currentMousePos.X}, {currentMousePos.Y})\n";
-                        }
-                        else if (wParam == (IntPtr)WM_MOUSEMOVE)
-                        {
-                            UserTouchOutput.Text += $"{currentTime} - Mouse Moved to ({currentMousePos.X}, {currentMousePos.Y})\n";
-                        }
+                        UserTouchOutput.Text += $"{currentTime} - Mouse Event at ({currentMousePos.X}, {currentMousePos.Y})\n";
                     });
                     DebugOutput($"{currentTime} {wParam} {currentMousePos.X} {currentMousePos.Y}");
-                    UserTouchInputText = $"{currentTime} {wParam} {currentMousePos.X} {currentMousePos.Y}";
-                    SaveAction();
-
-                    lastMousePos = currentMousePos;
-                    lastMouseEventTime = DateTime.Now;
                 }
-            }
-            else
-            {
-                int vkCode = Marshal.ReadInt32(lParam);
-                string keyPressed = ((VirtualKey)vkCode).ToString();
-
-                Dispatcher.Dispatch(() =>
+                else
                 {
-                    UserTouchOutput.Text += $"{currentTime} - {keyPressed} key pressed\n";
-                });
-                DebugOutput($"{currentTime} {vkCode}");
-                UserTouchInputText = $"{currentTime} {vkCode}";
+                    int vkCode = Marshal.ReadInt32(lParam);
+                    actionArrayItem.Type = 256;
+                    actionArrayItem.KeyCode = vkCode;
+
+                    Dispatcher.Dispatch(() =>
+                    {
+                        UserTouchOutput.Text += $"{currentTime} - Key {((VirtualKey)vkCode).ToString()} pressed\n";
+                    });
+                    DebugOutput($"{currentTime} {vkCode}");
+                }
+
+                // Serialize the action item to JSON and save it
+                UserTouchInputText = JsonConvert.SerializeObject(actionArrayItem);
                 SaveAction();
             }
-        }
-        return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+            return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
         }
         private DateTime lastMouseEventTime = DateTime.MinValue;
         private const int WH_KEYBOARD_LL = 13;
