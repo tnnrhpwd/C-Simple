@@ -27,7 +27,7 @@ namespace CSimple.Pages
         public string UserTouchButtonText { get; set; } = "Read";
         public string UserTouchInputText { get; set; } = "";
 
-#if WINDOWS
+        #if WINDOWS
         private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
         private LowLevelKeyboardProc _keyboardProc;
         private LowLevelKeyboardProc _mouseProc;
@@ -36,7 +36,7 @@ namespace CSimple.Pages
         private bool isUserTouchActive = false;
 
         private POINT lastMousePos;
-#endif
+        #endif
         private List<string> _recordedActions;
         private FileService _fileService;
 
@@ -59,7 +59,11 @@ namespace CSimple.Pages
 
             BindingContext = this;
         }
-
+        protected override async void OnAppearing()
+        {
+            base.OnAppearing();
+            await LoadActionGroupsFromFile();
+        }
         private void TogglePCVisualOutput()
         {
             PCVisualButtonText = PCVisualButtonText == "Read" ? "Stop" : "Read";
@@ -90,7 +94,7 @@ namespace CSimple.Pages
 
         private async void ToggleUserTouchOutput()
         {
-#if WINDOWS
+            #if WINDOWS
             if (!isUserTouchActive)
             {
                 _keyboardProc = HookCallback;
@@ -122,7 +126,7 @@ namespace CSimple.Pages
             }
 
             OnPropertyChanged(nameof(UserTouchButtonText));
-#endif
+            #endif
         }
 
         private void DebugOutput(string message)
@@ -155,6 +159,9 @@ namespace CSimple.Pages
                 // var actionGroupsToSave = ActionGroups.Cast<object>().ToList();
                 await _fileService.SaveActionGroupsAsync(ActionGroups);
                 DebugOutput("Action Groups Saved to File");
+                _recordedActions.Clear();
+                _ = LoadActionGroupsFromFile();
+                UserTouchOutput.Text = "";
             }
             catch (Exception ex)
             {
@@ -178,7 +185,7 @@ namespace CSimple.Pages
             }
         }
 
-        private void SaveAction() // high level save 
+        private void SaveAction()
         {
             string actionName = ActionNameInput.Text;
 
@@ -192,16 +199,19 @@ namespace CSimple.Pages
 
                 if (existingActionGroup != null)
                 {
-                    // If it exists, append the new action to the existing ActionArray
-                    existingActionGroup.ActionArray = existingActionGroup.ActionArray.Concat(_recordedActions).ToArray();
+                    // If it exists, append only unique actions to the existing ActionArray
+                    existingActionGroup.ActionArray = existingActionGroup.ActionArray.Concat(_recordedActions.Distinct()).ToArray();
                     DebugOutput($"Updated Action Group: {actionName}");
                 }
                 else
                 {
                     // If it doesn't exist, create a new ActionGroup and add it to the list
-                    ActionGroups.Add(new ActionGroup { ActionName = actionName, ActionArray = _recordedActions.ToArray() });
+                    ActionGroups.Add(new ActionGroup { ActionName = actionName, ActionArray = _recordedActions.Distinct().ToArray() });
                     DebugOutput($"Saved Action Group: {actionName}");
                 }
+
+                // Clear the recorded actions after saving to prevent duplicates
+                _recordedActions.Clear();
             }
             else
             {
@@ -209,7 +219,8 @@ namespace CSimple.Pages
             }
         }
 
-#if WINDOWS
+
+        #if WINDOWS
         private IntPtr SetHook(LowLevelKeyboardProc proc, int hookType)
         {
             using (var curProcess = Process.GetCurrentProcess())
@@ -221,13 +232,24 @@ namespace CSimple.Pages
 
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
-            if (nCode >= 0)
-            {
-                string currentTime = DateTime.Now.ToString("HH:mm:ss.fff");
+        if (nCode >= 0)
+        {
+            string currentTime = DateTime.Now.ToString("HH:mm:ss.fff");
 
-                if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN || wParam == (IntPtr)WM_MOUSEMOVE)
+            if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN || wParam == (IntPtr)WM_MOUSEMOVE)
+            {
+                GetCursorPos(out POINT currentMousePos);
+
+                // Set a time interval threshold (e.g., 50 milliseconds)
+                TimeSpan timeThreshold = TimeSpan.FromMilliseconds(500);
+                // Set a minimum movement distance threshold (e.g., 5 pixels)
+                int movementThreshold = 50;
+
+                if (wParam != (IntPtr)WM_MOUSEMOVE ||
+                    (DateTime.Now - lastMouseEventTime) > timeThreshold ||
+                    Math.Abs(currentMousePos.X - lastMousePos.X) > movementThreshold ||
+                    Math.Abs(currentMousePos.Y - lastMousePos.Y) > movementThreshold)
                 {
-                    GetCursorPos(out POINT currentMousePos);
                     Dispatcher.Dispatch(() =>
                     {
                         if (wParam == (IntPtr)WM_LBUTTONDOWN)
@@ -246,25 +268,28 @@ namespace CSimple.Pages
                     DebugOutput($"{currentTime} {wParam} {currentMousePos.X} {currentMousePos.Y}");
                     UserTouchInputText = $"{currentTime} {wParam} {currentMousePos.X} {currentMousePos.Y}";
                     SaveAction();
-                    lastMousePos = currentMousePos;
-                }
-                else
-                {
-                    int vkCode = Marshal.ReadInt32(lParam);
-                    string keyPressed = ((VirtualKey)vkCode).ToString();
 
-                    Dispatcher.Dispatch(() =>
-                    {
-                        UserTouchOutput.Text += $"{currentTime} - {keyPressed} key pressed\n";
-                    });
-                    DebugOutput($"{currentTime} {vkCode}");
-                    UserTouchInputText = $"{currentTime} {vkCode}";
-                    SaveAction();
+                    lastMousePos = currentMousePos;
+                    lastMouseEventTime = DateTime.Now;
                 }
             }
-            return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
-        }
+            else
+            {
+                int vkCode = Marshal.ReadInt32(lParam);
+                string keyPressed = ((VirtualKey)vkCode).ToString();
 
+                Dispatcher.Dispatch(() =>
+                {
+                    UserTouchOutput.Text += $"{currentTime} - {keyPressed} key pressed\n";
+                });
+                DebugOutput($"{currentTime} {vkCode}");
+                UserTouchInputText = $"{currentTime} {vkCode}";
+                SaveAction();
+            }
+        }
+        return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+        }
+        private DateTime lastMouseEventTime = DateTime.MinValue;
         private const int WH_KEYBOARD_LL = 13;
         private const int WH_MOUSE_LL = 14;
         private const int WM_LBUTTONDOWN = 0x0201;
@@ -273,27 +298,22 @@ namespace CSimple.Pages
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
-
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool UnhookWindowsHookEx(IntPtr hhk);
-
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
-
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
-
         [DllImport("user32.dll")]
         private static extern bool GetCursorPos(out POINT lpPoint);
-
         [StructLayout(LayoutKind.Sequential)]
+
         private struct POINT
         {
             public int X;
             public int Y;
         }
-
         #endif
     }
 }

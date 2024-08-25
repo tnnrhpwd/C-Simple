@@ -9,6 +9,7 @@ using CSimple.Services;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace CSimple.Pages
 {
@@ -35,9 +36,10 @@ namespace CSimple.Pages
 
             // Initialize commands
             SaveActionCommand = new Command(SaveAction);
-            SimulateActionGroupCommand = new Command<ActionGroup>(SimulateActionGroup);
+            SimulateActionGroupCommand = new Command<ActionGroup>(async (actionGroup) => await SimulateActionGroupAsync(actionGroup));
             SaveToFileCommand = new Command(async () => await SaveActionGroupsToFile());
             LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
+
             RowTappedCommand = new Command<ActionGroup>(OnRowTapped);
             // BindingContext = new ActionPageViewModel();
             // Initialize ActionGroups collection
@@ -49,6 +51,11 @@ namespace CSimple.Pages
             DebugOutput("Ready");
             BindingContext = this;
         }
+        protected override async void OnAppearing()
+        {
+            base.OnAppearing();
+            await LoadActionGroups();
+        }
         private async void OnRowTapped(ActionGroup actionGroup)
         {
             var actionDetailPage = new ActionDetailPage(actionGroup);
@@ -58,23 +65,6 @@ namespace CSimple.Pages
         {
             public ICommand SimulateActionGroupCommand { get; }
             public ICommand RowTappedCommand { get; }
-
-            public ActionPageViewModel()
-            {
-                SimulateActionGroupCommand = new Command<ActionGroup>(SimulateActionGroup);
-                RowTappedCommand = new Command<ActionGroup>(OnRowTapped);
-            }
-
-            private void SimulateActionGroup(ActionGroup actionGroup)
-            {
-                // Simulation logic here
-            }
-
-            private async void OnRowTapped(ActionGroup actionGroup)
-            {
-                var actionDetailPage = new ActionDetailPage(actionGroup);
-                await Application.Current.MainPage.Navigation.PushModalAsync(actionDetailPage);
-            }
         }
         private async Task LoadActionGroups()
         {
@@ -115,25 +105,37 @@ namespace CSimple.Pages
             }
         }
 
-        private void SimulateActionGroup(ActionGroup actionGroup)
+        private async Task SimulateActionGroupAsync(ActionGroup actionGroup)
         {
             DebugOutput($"Simulating Actions for: {actionGroup.ActionName}");
 
             try
             {
+                DateTime? previousActionTime = null;
+
                 foreach (var action in actionGroup.ActionArray)
                 {
                     DebugOutput($"Processing Action: {action}");
 
-                    // Split the action string into its components (time, key code, x, y)
                     var actionParts = action.Split(' ');
 
                     if (actionParts.Length >= 2)
                     {
                         string time = actionParts[0];
+                        DateTime currentActionTime = DateTime.ParseExact(time, "HH:mm:ss.fff", CultureInfo.InvariantCulture);
+
+                        // Delay based on the difference between current and previous action times
+                        if (previousActionTime.HasValue)
+                        {
+                            TimeSpan delay = currentActionTime - previousActionTime.Value;
+                            DebugOutput($"Waiting for {delay.TotalMilliseconds} ms before next action.");
+                            await Task.Delay(delay);
+                        }
+
+                        previousActionTime = currentActionTime;
+
                         int keyCode = int.Parse(actionParts[1]);
 
-                        // If the action has 4 parts, it's a mouse event (key code, x, y)
                         if (actionParts.Length == 4)
                         {
                             int x = int.Parse(actionParts[2]);
@@ -142,8 +144,7 @@ namespace CSimple.Pages
                             DebugOutput($"Simulating Mouse Action at {time} with KeyCode: {keyCode} at X: {x}, Y: {y}");
                             InputSimulator.MoveMouse(x, y);
 
-                            // Simulate mouse button clicks based on the key code
-                            if (keyCode == 512) // WM_MOUSEMOVE
+                            if (keyCode == 512)
                             {
                                 DebugOutput("Mouse moved.");
                             }
@@ -160,12 +161,10 @@ namespace CSimple.Pages
                                 DebugOutput($"Unhandled mouse event key code: {keyCode}");
                             }
                         }
-                        // If the action has 2 parts, it's a key press event
                         else if (actionParts.Length == 2)
                         {
                             DebugOutput($"Simulating KeyPress at {time} with KeyCode: {keyCode}");
 
-                            // Convert keyCode to VirtualKey or handle custom key codes
                             if (Enum.IsDefined(typeof(VirtualKey), keyCode))
                             {
                                 VirtualKey virtualKey = (VirtualKey)keyCode;
@@ -186,6 +185,7 @@ namespace CSimple.Pages
                         DebugOutput($"Invalid action format: {action}");
                     }
                 }
+
                 DebugOutput($"Completed Simulation for: {actionGroup.ActionName}");
             }
             catch (Exception ex)
@@ -194,11 +194,11 @@ namespace CSimple.Pages
             }
         }
 
+
         private async Task SaveActionGroupsToFile()
         {
             try
             {
-                // var actionGroupsToSave = ActionGroups.Cast<object>().ToList();
                 await _fileService.SaveActionGroupsAsync(ActionGroups);
                 DebugOutput("Action Groups Saved to File");
             }
@@ -213,7 +213,7 @@ namespace CSimple.Pages
             try
             {
                 var loadedActionGroups = await _fileService.LoadActionGroupsAsync();
-                ActionGroups = new ObservableCollection<ActionGroup>((IEnumerable<ActionGroup>)loadedActionGroups);
+                ActionGroups = new ObservableCollection<ActionGroup>(loadedActionGroups);
                 DebugOutput("Action Groups Loaded from File");
             }
             catch (Exception ex)
