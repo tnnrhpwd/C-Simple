@@ -1,8 +1,8 @@
-# C_Simple
+# Simple (Windows)
 
-C_Simple is a .NET MAUI application designed to provide a simple and intuitive interface for navigating between multiple pages. This app demonstrates the use of a navigation bar, tabbed navigation, and basic page layouts in .NET MAUI.
+Give your Windows system the intelligence to help you. It will make decisions based on your previous interactions for the simple goal of accurately predicting your actions.
 
-**[Download Now](https://drive.google.com/drive/folders/1lKQeLUHYwlrqO8P7LkMztHxSd_CpTvrx?usp=sharing)**
+**[Download Now.](https://drive.google.com/drive/folders/1lKQeLUHYwlrqO8P7LkMztHxSd_CpTvrx?usp=sharing)**
 
 ## Table of Contents
 
@@ -14,14 +14,6 @@ C_Simple is a .NET MAUI application designed to provide a simple and intuitive i
 - [Navigation](#navigation)
 - [Contributing](#contributing)
 - [License](#license)
-
-## Introduction
-
-C_Simple is a beginner-friendly project that showcases how to build a multi-page .NET MAUI app with a navigation bar and tabbed navigation. It is ideal for those new to .NET MAUI and looking to learn the basics of mobile app development using .NET technologies.
-
-![alt text](image-1.png)
-
-This app styling was inspired by <https://github.com/dotnet/maui-samples/tree/main/8.0/Apps/WeatherTwentyOne>
 
 ## Features
 
@@ -188,6 +180,24 @@ Description: The Y-coordinate for the mouse action, indicating the vertical posi
 **Tab Bar Navigation:**
 
  The AppShell.xaml uses a TabBar to enable tabbed navigation between major sections of the app.
+
+## Publishing
+
+1. **Open the Project:**
+
+    Open the solution file (C_Simple.sln) in Visual Studio 2022.
+
+2. **Publish the Solution:**
+
+    In Visual Studio, right-click on the solution in Solution Explorer and select "Publish..."
+
+3. **Fill in forms:**
+
+    Fill out the forms with the required information and save location.
+
+4. **Run the App:**
+
+    Navigate to the save location to collect your published executable.
 
 ## Contributing
 
