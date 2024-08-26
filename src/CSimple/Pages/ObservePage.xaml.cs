@@ -22,6 +22,7 @@ namespace CSimple.Pages
         public ICommand SaveActionCommand { get; set; }
         public ICommand SaveToFileCommand { get; set; }
         public ICommand LoadFromFileCommand { get; set; }
+        private RawInputHandler _rawInputHandler;
 
         public string PCVisualButtonText { get; set; } = "Read";
         public string PCAudibleButtonText { get; set; } = "Read";
@@ -57,6 +58,7 @@ namespace CSimple.Pages
             SaveActionCommand = new Command(SaveAction);
             SaveToFileCommand = new Command(async () => await SaveActionGroupsToFile());
             LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
+            // _rawInputHandler = new RawInputHandler(this.Handle); // 'ObservePage' does not contain a definition for 'Handle' and no accessible extension method 'Handle' accepting a first argument of type 'ObservePage' could be found (are you missing a using directive or an assembly reference?)CS1061
 
             _ = LoadActionGroups();
 
@@ -188,7 +190,6 @@ namespace CSimple.Pages
             }
         }
 
-        
         private void SaveAction()
         {
             string actionName = ActionNameInput.Text;
@@ -248,6 +249,8 @@ namespace CSimple.Pages
                     Timestamp = currentTime
                 };
 
+                // Process raw input if available
+                _rawInputHandler.ProcessRawInput(lParam);
                 // Handle mouse events
                 if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN || wParam == (IntPtr)WM_MOUSEMOVE)
                 {
