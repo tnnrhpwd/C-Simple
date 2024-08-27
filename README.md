@@ -11,7 +11,9 @@ Give your Windows system the intelligence to help you. It will make decisions ba
 - [Installation](#installation)
 - [Usage](#usage)
 - [Project Structure](#project-structure)
+- [Data Model](#data-model)
 - [Navigation](#navigation)
+- [Publication](#publication)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -181,7 +183,7 @@ Description: The Y-coordinate for the mouse action, indicating the vertical posi
 
  The AppShell.xaml uses a TabBar to enable tabbed navigation between major sections of the app.
 
-## Publishing
+## Publication
 
 1. **Open the Project:**
 
@@ -202,6 +204,8 @@ Description: The Y-coordinate for the mouse action, indicating the vertical posi
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a pull request or open an issue for any feature requests or bug fixes.
+
+Future state goals for this application: Implement user authentication to backup neural network guided application managers. The manager model function would be trained to read user data, predict environment interactions of many forms, and respond in ways that promote its programmed future state goal. This could include programming, video editing, and other forms of CAD in the styles of other intelligent systems.
 
 ## License
 

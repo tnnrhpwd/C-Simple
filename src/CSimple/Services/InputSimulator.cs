@@ -28,54 +28,54 @@ namespace CSimple.Services
         private const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
         private const uint MOUSEEVENTF_RIGHTUP = 0x0010;
 
-    public static void SimulateMouseClick(MouseButton button, int x, int y)
-    {
-        Console.WriteLine($"Simulating Mouse Click at X: {x}, Y: {y}");
-
-        // Set cursor position
-        SetCursorPos(x, y);
-
-        // Create input structure
-        INPUT mouseDownInput = new INPUT
+        public static void SimulateMouseClick(MouseButton button, int x, int y)
         {
-            type = INPUT_MOUSE, //The name 'INPUT_MOUSE' does not exist in the current contextCS0103
-            U = new InputUnion
+            Console.WriteLine($"Simulating Mouse Click at X: {x}, Y: {y}");
+
+            // Set cursor position
+            SetCursorPos(x, y);
+
+            // Create input structure
+            INPUT mouseDownInput = new INPUT
             {
-                mi = new MOUSEINPUT
+                type = INPUT_MOUSE, //The name 'INPUT_MOUSE' does not exist in the current contextCS0103
+                U = new InputUnion
                 {
-                    dx = 0,
-                    dy = 0,
-                    mouseData = 0,
-                    dwFlags = button == MouseButton.Left ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_RIGHTDOWN,
-                    time = 0,
-                    dwExtraInfo = UIntPtr.Zero
+                    mi = new MOUSEINPUT
+                    {
+                        dx = 0,
+                        dy = 0,
+                        mouseData = 0,
+                        dwFlags = button == MouseButton.Left ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_RIGHTDOWN,
+                        time = 0,
+                        dwExtraInfo = UIntPtr.Zero
+                    }
                 }
-            }
-        };
+            };
 
-        INPUT mouseUpInput = new INPUT
-        {
-            type = INPUT_MOUSE, //The name 'INPUT_MOUSE' does not exist in the current contextCS0103
-            U = new InputUnion
+            INPUT mouseUpInput = new INPUT
             {
-                mi = new MOUSEINPUT
+                type = INPUT_MOUSE, //The name 'INPUT_MOUSE' does not exist in the current contextCS0103
+                U = new InputUnion
                 {
-                    dx = 0,
-                    dy = 0,
-                    mouseData = 0,
-                    dwFlags = button == MouseButton.Left ? MOUSEEVENTF_LEFTUP : MOUSEEVENTF_RIGHTUP,
-                    time = 0,
-                    dwExtraInfo = UIntPtr.Zero
+                    mi = new MOUSEINPUT
+                    {
+                        dx = 0,
+                        dy = 0,
+                        mouseData = 0,
+                        dwFlags = button == MouseButton.Left ? MOUSEEVENTF_LEFTUP : MOUSEEVENTF_RIGHTUP,
+                        time = 0,
+                        dwExtraInfo = UIntPtr.Zero
+                    }
                 }
-            }
-        };
+            };
 
-        // Simulate mouse click
-        uint resultDown = SendInput(1, ref mouseDownInput, Marshal.SizeOf(typeof(INPUT)));
-        uint resultUp = SendInput(1, ref mouseUpInput, Marshal.SizeOf(typeof(INPUT)));
+            // Simulate mouse click
+            uint resultDown = SendInput(1, ref mouseDownInput, Marshal.SizeOf(typeof(INPUT)));
+            uint resultUp = SendInput(1, ref mouseUpInput, Marshal.SizeOf(typeof(INPUT)));
 
-        Console.WriteLine($"SendInput results - Down: {resultDown}, Up: {resultUp}");
-    }
+            Console.WriteLine($"SendInput results - Down: {resultDown}, Up: {resultUp}");
+        }
 
 
         public static void SimulateKeyDown(VirtualKey key)

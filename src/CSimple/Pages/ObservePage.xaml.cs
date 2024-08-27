@@ -49,6 +49,9 @@ namespace CSimple.Pages
             InitializeComponent();
             _fileService = new FileService();
             _recordedActions = new List<string>();
+            // Assuming this is done in an appropriate initialization method or constructor
+            var hwnd = ((MauiWinUIWindow)App.Current.Windows[0].Handler.PlatformView).WindowHandle;
+            _rawInputHandler = new RawInputHandler(hwnd);
 
             TogglePCVisualCommand = new Command(TogglePCVisualOutput);
             TogglePCAudibleCommand = new Command(TogglePCAudibleOutput);
@@ -249,8 +252,16 @@ namespace CSimple.Pages
                     Timestamp = currentTime
                 };
 
+                // Ensure _rawInputHandler is initialized before using it
+                if (_rawInputHandler == null)
+                {
+                    DebugOutput("Error: _rawInputHandler is not initialized.");
+                    return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+                }
+
                 // Process raw input if available
                 _rawInputHandler.ProcessRawInput(lParam);
+
                 // Handle mouse events
                 if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN || wParam == (IntPtr)WM_MOUSEMOVE)
                 {
