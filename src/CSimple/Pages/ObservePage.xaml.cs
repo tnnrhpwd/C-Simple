@@ -24,6 +24,10 @@ namespace CSimple.Pages
         public ICommand LoadFromFileCommand { get; set; }
         private RawInputHandler _rawInputHandler;
 
+        private DateTime _mouseLeftButtonDownTimestamp;
+        private DateTime _mouseRightButtonDownTimestamp;
+        private Dictionary<ushort, DateTime> _keyPressDownTimestamps = new Dictionary<ushort, DateTime>();
+
         public string PCVisualButtonText { get; set; } = "Read";
         public string PCAudibleButtonText { get; set; } = "Read";
         public string UserVisualButtonText { get; set; } = "Read";
@@ -251,79 +255,82 @@ namespace CSimple.Pages
                 {
                     Timestamp = currentTime
                 };
-
-                // Ensure _rawInputHandler is initialized before using it
+        
                 if (_rawInputHandler == null)
                 {
                     DebugOutput("Error: _rawInputHandler is not initialized.");
                     return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
                 }
-
-                // Process raw input if available
+        
                 _rawInputHandler.ProcessRawInput(lParam);
-
-                // Handle mouse events
-                if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN || wParam == (IntPtr)WM_MOUSEMOVE)
+        
+                if (wParam == (IntPtr)WM_LBUTTONDOWN)
                 {
                     GetCursorPos(out POINT currentMousePos);
+                    _mouseLeftButtonDownTimestamp = DateTime.UtcNow; // Store the timestamp
                     actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
-
-                    // Set event type
-                    if (wParam == (IntPtr)WM_LBUTTONDOWN)
-                    {
-                        actionArrayItem.EventType = WM_LBUTTONDOWN;
-                        actionArrayItem.KeyCode = 0; // No key code for mouse events, default to 0
-                    }
-                    else if (wParam == (IntPtr)WM_RBUTTONDOWN)
-                    {
-                        actionArrayItem.EventType = WM_RBUTTONDOWN;
-                        actionArrayItem.KeyCode = 0; // No key code for mouse events, default to 0
-                    }
-                    else if (wParam == (IntPtr)WM_MOUSEMOVE)
-                    {
-                        actionArrayItem.EventType = WM_MOUSEMOVE;
-                        actionArrayItem.KeyCode = 0; // No key code for mouse events, default to 0
-                    }
-
-                    Dispatcher.Dispatch(() =>
-                    {
-                        UserTouchOutput.Text += $"{currentTime} - Mouse Event at ({currentMousePos.X}, {currentMousePos.Y})\n";
-                    });
-                    DebugOutput($"{currentTime} {wParam} {currentMousePos.X} {currentMousePos.Y}");
+                    actionArrayItem.EventType = WM_LBUTTONDOWN;
+                    actionArrayItem.KeyCode = 0;
                 }
-                // Handle keyboard events
-                else if (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_KEYUP)
+                else if (wParam == (IntPtr)WM_LBUTTONUP)
+                {
+                    var duration = (DateTime.UtcNow - _mouseLeftButtonDownTimestamp).TotalMilliseconds;
+                    actionArrayItem.Duration = duration > 0 ? (int)duration : 1;
+                    GetCursorPos(out POINT currentMousePos);
+                    actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
+                    actionArrayItem.EventType = WM_LBUTTONUP;
+                    actionArrayItem.KeyCode = 0;
+                }
+                else if (wParam == (IntPtr)WM_RBUTTONDOWN)
+                {
+                    GetCursorPos(out POINT currentMousePos);
+                    _mouseRightButtonDownTimestamp = DateTime.UtcNow; // Store the timestamp
+                    actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
+                    actionArrayItem.EventType = WM_RBUTTONDOWN;
+                    actionArrayItem.KeyCode = 0;
+                }
+                else if (wParam == (IntPtr)WM_RBUTTONUP)
+                {
+                    var duration = (DateTime.UtcNow - _mouseRightButtonDownTimestamp).TotalMilliseconds;
+                    actionArrayItem.Duration = duration > 0 ? (int)duration : 1;
+                    GetCursorPos(out POINT currentMousePos);
+                    actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
+                    actionArrayItem.EventType = WM_RBUTTONUP;
+                    actionArrayItem.KeyCode = 0;
+                }
+                else if (wParam == (IntPtr)WM_KEYDOWN)
                 {
                     int vkCode = Marshal.ReadInt32(lParam);
                     actionArrayItem.KeyCode = (ushort)vkCode;
-
-                    // Distinguish between keydown and keyup
-                    if (wParam == (IntPtr)WM_KEYDOWN)
-                    {
-                        actionArrayItem.EventType = WM_KEYDOWN;
-                        Dispatcher.Dispatch(() =>
-                        {
-                            UserTouchOutput.Text += $"{currentTime} - Key {((VirtualKey)vkCode).ToString()} down\n";
-                        });
-                        DebugOutput($"{currentTime} KeyDown {vkCode}");
-                    }
-                    else if (wParam == (IntPtr)WM_KEYUP)
-                    {
-                        actionArrayItem.EventType = WM_KEYUP;
-                        Dispatcher.Dispatch(() =>
-                        {
-                            UserTouchOutput.Text += $"{currentTime} - Key {((VirtualKey)vkCode).ToString()} up\n";
-                        });
-                        DebugOutput($"{currentTime} KeyUp {vkCode}");
-                    }
+                    _keyPressDownTimestamps[(ushort)vkCode] = DateTime.UtcNow;
+                    actionArrayItem.EventType = WM_KEYDOWN;
                 }
-
-                // Serialize the action item to JSON and save it
+                else if (wParam == (IntPtr)WM_KEYUP)
+                {
+                    int vkCode = Marshal.ReadInt32(lParam);
+                    actionArrayItem.KeyCode = (ushort)vkCode;
+        
+                    if (_keyPressDownTimestamps.TryGetValue((ushort)vkCode, out DateTime keyDownTimestamp))
+                    {
+                        var duration = (DateTime.UtcNow - keyDownTimestamp).TotalMilliseconds;
+                        actionArrayItem.Duration = duration > 0 ? (int)duration : 1;
+                        _keyPressDownTimestamps.Remove((ushort)vkCode);
+                    }
+                    actionArrayItem.EventType = WM_KEYUP;
+                }
+        
+                Dispatcher.Dispatch(() =>
+                {
+                    UserTouchOutput.Text += $"{currentTime} - {((VirtualKey)actionArrayItem.KeyCode).ToString()} {actionArrayItem.EventType} - Duration: {actionArrayItem.Duration}ms\n";
+                });
+        
                 UserTouchInputText = JsonConvert.SerializeObject(actionArrayItem);
                 SaveAction();
             }
             return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
         }
+        
+
 
         private DateTime lastMouseEventTime = DateTime.MinValue;
         private const int WH_KEYBOARD_LL = 13;
@@ -332,25 +339,29 @@ namespace CSimple.Pages
         private const int WM_LBUTTONDOWN = 0x0201;
         private const int WM_RBUTTONDOWN = 0x0204;
         private const int WM_MOUSEMOVE = 0x0200;
-
-        // Constants for keyboard events
+        private const int WM_LBUTTONUP = 0x0202;
+        private const int WM_RBUTTONUP = 0x0205;
         private const int WM_KEYDOWN = 0x0100;
         private const int WM_KEYUP = 0x0101;
 
-
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
-        [DllImport("user32.dll")]
-        private static extern bool GetCursorPos(out POINT lpPoint);
-        [StructLayout(LayoutKind.Sequential)]
 
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool GetCursorPos(out POINT lpPoint);
+
+        [StructLayout(LayoutKind.Sequential)]
         private struct POINT
         {
             public int X;
