@@ -8,6 +8,11 @@ using System.Windows.Input;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Linq;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+using System;
+// using Windows.Graphics.Display;
 
 namespace CSimple.Pages
 {
@@ -53,7 +58,6 @@ namespace CSimple.Pages
             InitializeComponent();
             _fileService = new FileService();
             _recordedActions = new List<string>();
-            // Assuming this is done in an appropriate initialization method or constructor
             var hwnd = ((MauiWinUIWindow)App.Current.Windows[0].Handler.PlatformView).WindowHandle;
             _rawInputHandler = new RawInputHandler(hwnd);
 
@@ -131,8 +135,8 @@ namespace CSimple.Pages
                     _mouseHookID = IntPtr.Zero;
                 }
                 DebugOutput("User Touch Output capture stopped.");
-                // Save the updated ActionGroups list to the file
-                await SaveActionGroupsToFile();
+                CaptureScreen("C:\\Path\\To\\Your\\File\\screenshot.png"); // Capture the screen and save to a file
+                await SaveActionGroupsToFile(); // Save the updated ActionGroups list to the file
                 UserTouchButtonText = "Read";
                 isUserTouchActive = false;
             }
@@ -326,11 +330,65 @@ namespace CSimple.Pages
         
                 UserTouchInputText = JsonConvert.SerializeObject(actionArrayItem);
                 SaveAction();
+
+                #if WINDOWS
+                if (UserVisualButtonText == "Stop")
+                {
+                    string fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", $"ScreenCapture_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.png");
+                    DebugOutput(fileName);
+                    CaptureScreen(fileName);
+                }
+                #endif
             }
             return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
         }
         
+        private void CaptureScreen(string filePath)
+        {
+            try
+            {
+                IntPtr hDesktopWnd = GetDesktopWindow();
+                IntPtr hDesktopDC = GetDC(hDesktopWnd);
+                IntPtr hMemoryDC = CreateCompatibleDC(hDesktopDC);
 
+                // Get screen dimensions using native Windows API
+                Rectangle screenBounds = GetScreenBounds();
+                IntPtr hBitmap = CreateCompatibleBitmap(hDesktopDC, screenBounds.Width, screenBounds.Height);
+                IntPtr hOldBitmap = SelectObject(hMemoryDC, hBitmap);
+
+                BitBlt(hMemoryDC, 0, 0, screenBounds.Width, screenBounds.Height, hDesktopDC, 0, 0, SRCCOPY);
+
+                using (Bitmap bitmap = Bitmap.FromHbitmap(hBitmap))
+                {
+                    bitmap.Save(filePath, ImageFormat.Png);
+                }
+
+                SelectObject(hMemoryDC, hOldBitmap);
+                DeleteObject(hBitmap);
+                ReleaseDC(hDesktopWnd, hDesktopDC);
+                ReleaseDC(hDesktopWnd, hMemoryDC);
+            }
+            catch (Exception ex)
+            {
+                DebugOutput($"Error capturing screen: {ex.Message}");
+            }
+        }
+
+        private Rectangle GetScreenBounds()
+        {
+            // Using P/Invoke to get the screen dimensions
+            IntPtr hDesktopDC = GetDC(GetDesktopWindow());
+            int screenWidth = GetDeviceCaps(hDesktopDC, 118); // HORZRES
+            int screenHeight = GetDeviceCaps(hDesktopDC, 117); // VERTRES
+            ReleaseDC(GetDesktopWindow(), hDesktopDC);
+            return new Rectangle(0, 0, screenWidth, screenHeight);
+        }
+
+        [DllImport("gdi32.dll")]
+        private static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
+
+        private const int HORZRES = 8;
+        private const int VERTRES = 10;
 
         private DateTime lastMouseEventTime = DateTime.MinValue;
         private const int WH_KEYBOARD_LL = 13;
@@ -360,6 +418,32 @@ namespace CSimple.Pages
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool GetCursorPos(out POINT lpPoint);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetDesktopWindow();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetDC(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateCompatibleDC(IntPtr hDC);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr SelectObject(IntPtr hDC, IntPtr hObject);
+
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteObject(IntPtr hObject);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateCompatibleBitmap(IntPtr hDC, int nWidth, int nHeight);
+
+        [DllImport("gdi32.dll")]
+        private static extern bool BitBlt(IntPtr hDestDC, int xDest, int yDest, int nWidth, int nHeight, IntPtr hSrcDC, int xSrc, int ySrc, int dwRop);
+
+        private const int SRCCOPY = 0x00CC0020;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct POINT
