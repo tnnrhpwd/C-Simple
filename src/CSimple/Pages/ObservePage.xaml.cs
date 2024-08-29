@@ -14,6 +14,9 @@ using System.IO;
 using System;
 // using Windows.Graphics.Display;
 using OpenCvSharp;
+using NAudio.CoreAudioApi;
+using NAudio.Wave;
+using System.Threading.Tasks;
 
 namespace CSimple.Pages
 {
@@ -53,6 +56,8 @@ namespace CSimple.Pages
         #endif
         private List<string> _recordedActions;
         private FileService _fileService;
+        private WaveInEvent _waveIn;
+        private WaveFileWriter _writer;
 
         public ObservePage()
         {
@@ -125,9 +130,77 @@ namespace CSimple.Pages
 
         private void ToggleUserAudibleOutput() // webcam audio: record what is going on around the computer
         {
+            // Toggle the button text between "Read" and "Stop"
             UserAudibleButtonText = UserAudibleButtonText == "Read" ? "Stop" : "Read";
             DebugOutput($"User Audible Output: {UserAudibleButtonText}");
             OnPropertyChanged(nameof(UserAudibleButtonText));
+
+            if (UserAudibleButtonText == "Stop")
+            {
+                // Start recording
+                try
+                {
+                    // Define the output file path once when recording starts
+                    string filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", $"WebcamAudio_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
+
+                    // Ensure the directory exists
+                    Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+
+                    _waveIn = new WaveInEvent();
+
+                    // Find the correct input device (your webcam's audio input)
+                    var deviceNumber = FindWebcamAudioDevice();
+                    if (deviceNumber == -1)
+                    {
+                        Console.WriteLine("Webcam audio device not found.");
+                        return;
+                    }
+
+                    _waveIn.DeviceNumber = deviceNumber;
+                    _waveIn.WaveFormat = new WaveFormat(44100, 1); // Set appropriate format for your webcam audio
+                    _writer = new WaveFileWriter(filePath, _waveIn.WaveFormat);
+
+                    _waveIn.DataAvailable += (s, a) =>
+                    {
+                        _writer.Write(a.Buffer, 0, a.BytesRecorded);
+                    };
+
+                    _waveIn.RecordingStopped += (s, a) =>
+                    {
+                        _writer?.Dispose();
+                        _writer = null;
+                        _waveIn.Dispose();
+                        Console.WriteLine($"Recording saved to: {filePath}");
+                    };
+
+                    _waveIn.StartRecording();
+                    Console.WriteLine("Recording webcam audio...");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error: {ex.Message}");
+                }
+            }
+            else
+            {
+                // Stop recording
+                _waveIn?.StopRecording();
+                Console.WriteLine("Stopped recording webcam audio.");
+            }
+        }
+
+
+        private int FindWebcamAudioDevice()
+        {
+            for (int i = 0; i < WaveIn.DeviceCount; i++) //The name 'WaveIn' does not exist in the current contextCS0103
+            {
+                var deviceInfo = WaveIn.GetCapabilities(i);
+                if (deviceInfo.ProductName.Contains("Webcam")) // Adjust this to match your webcam's audio device name
+                {
+                    return i;
+                }
+            }
+            return -1; // Not found
         }
 
         private async void ToggleUserTouchOutput() // mouse &  key logger: record when human presses buttons
