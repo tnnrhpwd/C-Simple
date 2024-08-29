@@ -13,6 +13,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System;
 // using Windows.Graphics.Display;
+using OpenCvSharp;
 
 namespace CSimple.Pages
 {
@@ -80,35 +81,56 @@ namespace CSimple.Pages
             base.OnAppearing();
             await LoadActionGroupsFromFile();
         }
-        private void TogglePCVisualOutput()
+        private void TogglePCVisualOutput() // webcam image: record what else the human hears
         {
             PCVisualButtonText = PCVisualButtonText == "Read" ? "Stop" : "Read";
             DebugOutput($"PC Visual Output: {PCVisualButtonText}");
             OnPropertyChanged(nameof(PCVisualButtonText));
+            using var capture = new VideoCapture(0); // 0 is the default camera
+            using var frame = new Mat();
+
+            if (!capture.IsOpened())
+            {
+                Console.WriteLine("Failed to open webcam.");
+                return;
+            }
+
+            while (true) // Loop to capture frames continuously
+            {
+                capture.Read(frame);
+
+                if (frame.Empty() && PCVisualButtonText == "Stop")
+                    break;
+                
+                string filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", $"WebcamImage_{DateTime.Now:yyyyMMdd_HHmmss}.jpg");
+                Cv2.ImWrite(filePath, frame);
+
+                // For toggling, you can break out of the loop based on user input or a flag
+            }
         }
 
-        private void TogglePCAudibleOutput()
+        private void TogglePCAudibleOutput() // Audio Recorder: record the sounds that the human hears
         {
             PCAudibleButtonText = PCAudibleButtonText == "Read" ? "Stop" : "Read";
             DebugOutput($"PC Audible Output: {PCAudibleButtonText}");
             OnPropertyChanged(nameof(PCAudibleButtonText));
         }
 
-        private void ToggleUserVisualOutput()
+        private void ToggleUserVisualOutput() // Screen Recorder: record what the human sees on the screen
         {
             UserVisualButtonText = UserVisualButtonText == "Read" ? "Stop" : "Read";
             DebugOutput($"User Visual Output: {UserVisualButtonText}");
             OnPropertyChanged(nameof(UserVisualButtonText));
         }
 
-        private void ToggleUserAudibleOutput()
+        private void ToggleUserAudibleOutput() // webcam audio: record what is going on around the computer
         {
             UserAudibleButtonText = UserAudibleButtonText == "Read" ? "Stop" : "Read";
             DebugOutput($"User Audible Output: {UserAudibleButtonText}");
             OnPropertyChanged(nameof(UserAudibleButtonText));
         }
 
-        private async void ToggleUserTouchOutput()
+        private async void ToggleUserTouchOutput() // mouse &  key logger: record when human presses buttons
         {
             #if WINDOWS
             if (!isUserTouchActive)
@@ -135,7 +157,7 @@ namespace CSimple.Pages
                     _mouseHookID = IntPtr.Zero;
                 }
                 DebugOutput("User Touch Output capture stopped.");
-                CaptureScreen("C:\\Path\\To\\Your\\File\\screenshot.png"); // Capture the screen and save to a file
+                // CaptureScreen("C:\\Path\\To\\Your\\File\\screenshot.png"); // Capture the screen and save to a file
                 await SaveActionGroupsToFile(); // Save the updated ActionGroups list to the file
                 UserTouchButtonText = "Read";
                 isUserTouchActive = false;
