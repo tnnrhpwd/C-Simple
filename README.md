@@ -29,7 +29,7 @@ Give your Windows system the intelligence to help you. It will make decisions ba
 1. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/yourusername/C_Simple.git
+   git clone https://github.com/tnnrhpwd/C_Simple.git
 
 2. **Open the Project:**
 
