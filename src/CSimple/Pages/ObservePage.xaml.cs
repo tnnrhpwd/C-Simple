@@ -17,6 +17,7 @@ using OpenCvSharp;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using System.Threading.Tasks;
+using YourNamespace.Services;
 
 namespace CSimple.Pages
 {
@@ -31,7 +32,8 @@ namespace CSimple.Pages
         public ICommand SaveActionCommand { get; set; }
         public ICommand SaveToFileCommand { get; set; }
         public ICommand LoadFromFileCommand { get; set; }
-        private RawInputHandler _rawInputHandler;
+        // private RawInputHandler _rawInputHandler;
+        private readonly MouseTrackingService _mouseTrackingService;
 
         private DateTime _mouseLeftButtonDownTimestamp;
         private DateTime _mouseRightButtonDownTimestamp;
@@ -64,8 +66,10 @@ namespace CSimple.Pages
             InitializeComponent();
             _fileService = new FileService();
             _recordedActions = new List<string>();
-            var hwnd = ((MauiWinUIWindow)App.Current.Windows[0].Handler.PlatformView).WindowHandle;
-            _rawInputHandler = new RawInputHandler(hwnd);
+            // var hwnd = ((MauiWinUIWindow)App.Current.Windows[0].Handler.PlatformView).WindowHandle;
+            // _rawInputHandler = new RawInputHandler(hwnd);
+            _mouseTrackingService = new MouseTrackingService();
+            _mouseTrackingService.MouseMoved += OnMouseMoved;
 
             TogglePCVisualCommand = new Command(TogglePCVisualOutput);
             TogglePCAudibleCommand = new Command(TogglePCAudibleOutput);
@@ -80,6 +84,21 @@ namespace CSimple.Pages
             _ = LoadActionGroups();
 
             BindingContext = this;
+        }
+        private void OnMouseMoved(Microsoft.Maui.Graphics.Point delta)
+        {
+            Dispatcher.Dispatch(() =>
+            {
+                DebugOutput($"Mouse Movement: X={delta.X}, Y={delta.Y}");
+            });
+        }
+        private void StartTracking()
+        {
+            _mouseTrackingService.StartTracking();
+        }
+        private void StopTracking()
+        {
+            _mouseTrackingService.StopTracking();
         }
         protected override async void OnAppearing()
         {
@@ -192,10 +211,10 @@ namespace CSimple.Pages
 
         private int FindWebcamAudioDevice()
         {
-            for (int i = 0; i < WaveIn.DeviceCount; i++) //The name 'WaveIn' does not exist in the current contextCS0103
+            for (int i = 0; i < WaveIn.DeviceCount; i++) 
             {
                 var deviceInfo = WaveIn.GetCapabilities(i);
-                if (deviceInfo.ProductName.Contains("Webcam")) // Adjust this to match your webcam's audio device name
+                if (deviceInfo.ProductName.Contains("Webcam")) 
                 {
                     return i;
                 }
@@ -216,6 +235,7 @@ namespace CSimple.Pages
                 DebugOutput("User Touch Output capture initialized.");
                 UserTouchButtonText = "Stop";
                 isUserTouchActive = true;
+                StartTracking();
             }
             else
             {
@@ -234,6 +254,7 @@ namespace CSimple.Pages
                 await SaveActionGroupsToFile(); // Save the updated ActionGroups list to the file
                 UserTouchButtonText = "Read";
                 isUserTouchActive = false;
+                StopTracking();
             }
 
             OnPropertyChanged(nameof(UserTouchButtonText));
@@ -312,7 +333,7 @@ namespace CSimple.Pages
                 {
                     // If it exists, append the new action item to the existing ActionArray
                     existingActionGroup.ActionArray.Add(actionArrayItem);
-                    DebugOutput($"Updated Action Group: {actionName}");
+                    DebugOutput($"Updated Action Group: {UserTouchInputText}");
                 }
                 else
                 {
@@ -331,7 +352,7 @@ namespace CSimple.Pages
             }
             else
             {
-                DebugOutput("Please enter both Action Name and Action Array.");
+                // DebugOutput("Please enter both Action Name and Action Array.");
             }
         }
 
@@ -355,13 +376,13 @@ namespace CSimple.Pages
                     Timestamp = currentTime
                 };
         
-                if (_rawInputHandler == null)
-                {
-                    DebugOutput("Error: _rawInputHandler is not initialized.");
-                    return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
-                }
+                // if (_rawInputHandler == null)
+                // {
+                //     DebugOutput("Error: _rawInputHandler is not initialized.");
+                //     return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+                // }
         
-                _rawInputHandler.ProcessRawInput(lParam);
+                // _rawInputHandler.ProcessRawInput(lParam);
         
                 if (wParam == (IntPtr)WM_LBUTTONDOWN)
                 {
