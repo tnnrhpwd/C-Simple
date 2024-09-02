@@ -207,11 +207,11 @@ namespace CSimple.Pages
                                 DebugOutput($"Simulating Mouse Click at {action.Timestamp} with EventType: {action.EventType}");
                                 if (action.EventType == (int)WM_LBUTTONDOWN)
                                 {
-                                    InputSimulator.SimulateMouseClick(MouseButton.Left,action.Coordinates.X,action.Coordinates.Y);
+                                    InputSimulator.SimulateMouseClick(CSimple.Services.MouseButton.Left,action.Coordinates.X,action.Coordinates.Y);
                                 }
                                 else if (action.EventType == (int)WM_RBUTTONDOWN)
                                 {
-                                    InputSimulator.SimulateMouseClick(MouseButton.Right,action.Coordinates.X,action.Coordinates.Y);
+                                    InputSimulator.SimulateMouseClick(CSimple.Services.MouseButton.Right,action.Coordinates.X,action.Coordinates.Y);
                                 }
                                 break;
 

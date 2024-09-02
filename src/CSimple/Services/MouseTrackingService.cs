@@ -2,6 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Maui.Graphics;
+using System;
+using System.Runtime.InteropServices;
+using WindowsInput;
+using WindowsInput.Native;
+
 #if WINDOWS
 using Microsoft.Maui.Dispatching;
 #endif
@@ -10,6 +15,24 @@ namespace YourNamespace.Services
 {
     public class MouseTrackingService
     {
+        [DllImport("user32.dll")]
+        private static extern bool GetRawInputData(IntPtr hRawInput, uint uiCommand, out RawInput pData, ref uint pDataSize, uint uiSizeHeader);
+
+        private const uint RIM_TYPEMOUSE = 0;
+        private const uint RID_INPUT = 0x10000003;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RawInput
+        {
+            public uint HeaderSize;
+            public uint Type;
+            public uint MouseFlags;
+            public uint MouseData;
+            public int LastX;
+            public int LastY;
+            public uint ButtonData;
+            public uint ExtraInformation;
+        }
         private bool _isTracking;
         private Point _lastPosition;
 
@@ -26,6 +49,11 @@ namespace YourNamespace.Services
         {
             _isTracking = true;
             _ = TrackMouseMovementAsync();
+            uint size = 0;
+            GetRawInputData(IntPtr.Zero, RID_INPUT, out RawInput rawInput, ref size, (uint)Marshal.SizeOf(typeof(RawInput)));
+
+            // Process the raw input data
+            Console.WriteLine($"Mouse X: {rawInput.LastX}, Mouse Y: {rawInput.LastY}");
         }
 
         public void StopTracking()
