@@ -320,7 +320,7 @@ namespace CSimple.Pages
         private void SaveAction()
         {
             string actionName = ActionNameInput.Text;
-
+            DebugOutput("saving action...");
             if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(UserTouchInputText))
             {
                 // Convert the UserTouchInputText to the new ActionArrayItem format
@@ -383,11 +383,19 @@ namespace CSimple.Pages
                 // }
         
                 // _rawInputHandler.ProcessRawInput(lParam);
-        
+                DebugOutput(nCode.ToString()+","+wParam+","+lParam);
+                if (wParam == (IntPtr)WM_MOUSEMOVE)
+                {
+                    GetCursorPos(out POINT currentMousePos);
+                    _mouseLeftButtonDownTimestamp = DateTime.UtcNow;
+                    actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
+                    actionArrayItem.EventType = WM_MOUSEMOVE;
+                    actionArrayItem.KeyCode = 0;
+                }
                 if (wParam == (IntPtr)WM_LBUTTONDOWN)
                 {
                     GetCursorPos(out POINT currentMousePos);
-                    _mouseLeftButtonDownTimestamp = DateTime.UtcNow; // Store the timestamp
+                    _mouseLeftButtonDownTimestamp = DateTime.UtcNow;
                     actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
                     actionArrayItem.EventType = WM_LBUTTONDOWN;
                     actionArrayItem.KeyCode = 0;
@@ -404,7 +412,7 @@ namespace CSimple.Pages
                 else if (wParam == (IntPtr)WM_RBUTTONDOWN)
                 {
                     GetCursorPos(out POINT currentMousePos);
-                    _mouseRightButtonDownTimestamp = DateTime.UtcNow; // Store the timestamp
+                    _mouseRightButtonDownTimestamp = DateTime.UtcNow;
                     actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
                     actionArrayItem.EventType = WM_RBUTTONDOWN;
                     actionArrayItem.KeyCode = 0;

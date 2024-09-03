@@ -125,16 +125,16 @@ namespace CSimple.Pages
             try
             {
                 // Bring the game window to the foreground
-                IntPtr gameWindowHandle = FindWindow(null, "Minecraft"); // Change "Minecraft" to the title of your game window
-                if (gameWindowHandle != IntPtr.Zero)
-                {
-                    SetForegroundWindow(gameWindowHandle);
-                    DebugOutput("Game window brought to foreground.");
-                }
-                else
-                {
-                    DebugOutput("Game window not found.");
-                }
+                // IntPtr gameWindowHandle = FindWindow(null, "Minecraft"); // Change "Minecraft" to the title of your game window
+                // if (gameWindowHandle != IntPtr.Zero)
+                // {
+                //     SetForegroundWindow(gameWindowHandle);
+                //     DebugOutput("Game window brought to foreground.");
+                // }
+                // else
+                // {
+                //     DebugOutput("Game window not found.");
+                // }
 
                 DateTime? previousActionTime = null;
                 List<Task> actionTasks = new List<Task>();
