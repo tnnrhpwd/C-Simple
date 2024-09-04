@@ -341,7 +341,8 @@ namespace CSimple.Pages
                     var newActionGroup = new ActionGroup
                     {
                         ActionName = actionName,
-                        ActionArray = new List<ActionArrayItem> { actionArrayItem }
+                        ActionArray = new List<ActionArrayItem> { actionArrayItem },
+                        IsSimulating = false
                     };
                     ActionGroups.Add(newActionGroup);
                     DebugOutput($"Saved Action Group: {actionName}");

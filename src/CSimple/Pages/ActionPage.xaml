@@ -33,7 +33,9 @@
                     <ProgressBar x:Name="ProgressBar" Grid.ColumnSpan="3" HeightRequest="4" VerticalOptions="Start" HorizontalOptions="FillAndExpand" BackgroundColor="LightGray" ProgressColor="Green" Progress="0"/>
                     <Label Grid.Column="0" Text="{Binding ActionName}" VerticalOptions="Center"/>
                     <Label Grid.Column="1" Text="{Binding ActionArrayFormatted}" VerticalOptions="Center"/>
-                    <Button Grid.Column="2" Text="Simulate" Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SimulateActionGroupCommand}" CommandParameter="{Binding .}" VerticalOptions="Center"/>
+                    <Button Grid.Column="2" Text="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.IsSimulating, Converter={StaticResource BoolToTextConverter}, ConverterParameter='Simulate,Stop'}"
+                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}" 
+                        CommandParameter="{Binding .}" VerticalOptions="Center"/>
                 </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>

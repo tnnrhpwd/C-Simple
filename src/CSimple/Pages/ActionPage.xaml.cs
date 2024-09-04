@@ -17,11 +17,20 @@ namespace CSimple.Pages
     {
         public ObservableCollection<ActionGroup> ActionGroups { get; set; }
         public ICommand SaveActionCommand { get; set; }
-        public ICommand SimulateActionGroupCommand { get; set; }
+        public ICommand ToggleSimulateActionGroupCommand { get; set; }
         public ICommand SaveToFileCommand { get; set; }
         public ICommand LoadFromFileCommand { get; set; }
         public ICommand RowTappedCommand { get; }
-
+        private bool _isSimulating;
+        public bool IsSimulating
+        {
+            get => _isSimulating;
+            set
+            {
+                _isSimulating = value;
+                OnPropertyChanged(nameof(IsSimulating));
+            }
+        }
         private void DebugOutput(string message)
         {
             Debug.WriteLine(message);
@@ -36,7 +45,7 @@ namespace CSimple.Pages
 
             // Initialize commands
             SaveActionCommand = new Command(SaveAction);
-            SimulateActionGroupCommand = new Command<ActionGroup>(async (actionGroup) => await SimulateActionGroupAsync(actionGroup));
+            ToggleSimulateActionGroupCommand = new Command<ActionGroup>(async (actionGroup) => await ToggleSimulateActionGroupAsync(actionGroup));
             SaveToFileCommand = new Command(async () => await SaveActionGroupsToFile());
             LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
 
@@ -51,6 +60,7 @@ namespace CSimple.Pages
             DebugOutput("Ready");
             BindingContext = this;
         }
+        private bool cancel_simulation = false;
         private const int SW_RESTORE = 9;
         private const int SW_SHOW = 5;
 
@@ -71,7 +81,7 @@ namespace CSimple.Pages
         }
         public class ActionPageViewModel
         {
-            public ICommand SimulateActionGroupCommand { get; }
+            public ICommand ToggleSimulateActionGroupCommand { get; }
             public ICommand RowTappedCommand { get; }
         }
         private async Task LoadActionGroups()
@@ -118,135 +128,145 @@ namespace CSimple.Pages
                 DebugOutput("Please enter both Action Name and Action Array.");
             }
         }
-        private async Task SimulateActionGroupAsync(ActionGroup actionGroup)
+        private async Task ToggleSimulateActionGroupAsync(ActionGroup actionGroup)
         {
+
+
             DebugOutput($"Simulating Actions for: {actionGroup.ActionName}");
-
-            try
-            {
-                // Bring the game window to the foreground
-                // IntPtr gameWindowHandle = FindWindow(null, "Minecraft"); // Change "Minecraft" to the title of your game window
-                // if (gameWindowHandle != IntPtr.Zero)
-                // {
-                //     SetForegroundWindow(gameWindowHandle);
-                //     DebugOutput("Game window brought to foreground.");
-                // }
-                // else
-                // {
-                //     DebugOutput("Game window not found.");
-                // }
-
-                DateTime? previousActionTime = null;
-                List<Task> actionTasks = new List<Task>();
-
-                foreach (var action in actionGroup.ActionArray)
+            if (actionGroup.IsSimulating == false){
+                cancel_simulation = false;
+                try
                 {
-                    DebugOutput($"Processing Action: {action.Timestamp}");
+                    // Bring the game window to the foreground
+                    // IntPtr gameWindowHandle = FindWindow(null, "Minecraft"); // Change "Minecraft" to the title of your game window
+                    // if (gameWindowHandle != IntPtr.Zero)
+                    // {
+                    //     SetForegroundWindow(gameWindowHandle);
+                    //     DebugOutput("Game window brought to foreground.");
+                    // }
+                    // else
+                    // {
+                    //     DebugOutput("Game window not found.");
+                    // }
 
-                    DateTime currentActionTime;
-                    if (!DateTime.TryParse(action.Timestamp, null, System.Globalization.DateTimeStyles.RoundtripKind, out currentActionTime))
+                    DateTime? previousActionTime = null;
+                    List<Task> actionTasks = new List<Task>();
+
+                    foreach (var action in actionGroup.ActionArray)
                     {
-                        DebugOutput($"Failed to parse Timestamp: {action.Timestamp}");
-                        continue;
-                    }
+                        if(cancel_simulation){
+                            DebugOutput($"Successfully cancelled action");
+                            break;
+                        }
+                        DebugOutput($"Processing Action: {action.Timestamp}");
 
-                    // Delay based on the difference between current and previous action times
-                    if (previousActionTime.HasValue)
-                    {
-                        TimeSpan delay = currentActionTime - previousActionTime.Value;
-                        DebugOutput($"Waiting for {delay.TotalMilliseconds} ms before next action.");
-                        await Task.Delay(delay);
-                    }
-
-                    previousActionTime = currentActionTime;
-
-                    // Handle different action types in parallel
-                    Task actionTask = Task.Run(async () =>
-                    {
-                        switch (action.EventType)
+                        DateTime currentActionTime;
+                        if (!DateTime.TryParse(action.Timestamp, null, System.Globalization.DateTimeStyles.RoundtripKind, out currentActionTime))
                         {
-                            case 512: // Mouse Move
-                                if (action.Coordinates != null)
-                                {
-                                    int x = action.Coordinates.X;
-                                    int y = action.Coordinates.Y;
+                            DebugOutput($"Failed to parse Timestamp: {action.Timestamp}");
+                            continue;
+                        }
 
-                                    DebugOutput($"Simulating Mouse Move at {action.Timestamp} to X: {x}, Y: {y}");
-                                    InputSimulator.MoveMouse(x, y);
-                                }
-                                else
-                                {
-                                    DebugOutput($"Mouse move action at {action.Timestamp} missing coordinates.");
-                                }
-                                break;
+                        // Delay based on the difference between current and previous action times
+                        if (previousActionTime.HasValue)
+                        {
+                            TimeSpan delay = currentActionTime - previousActionTime.Value;
+                            DebugOutput($"Waiting for {delay.TotalMilliseconds} ms before next action.");
+                            await Task.Delay(delay);
+                        }
 
-                            case 256: // Key Press
-                                DebugOutput($"Simulating KeyPress at {action.Timestamp} with KeyCode: {action.KeyCode}");
+                        previousActionTime = currentActionTime;
 
-                                int keyCodeInt = (int)action.KeyCode;
-                                if (Enum.IsDefined(typeof(VirtualKey), keyCodeInt))
-                                {
-                                    VirtualKey virtualKey = (VirtualKey)keyCodeInt;
-
-                                    InputSimulator.SimulateKeyDown(virtualKey);
-
-                                    if (action.Duration > 0)
+                        // Handle different action types in parallel
+                        Task actionTask = Task.Run(async () =>
+                        {
+                            switch (action.EventType)
+                            {
+                                case 512: // Mouse Move
+                                    if (action.Coordinates != null)
                                     {
-                                        await Task.Delay(action.Duration);
+                                        int x = action.Coordinates.X;
+                                        int y = action.Coordinates.Y;
+
+                                        DebugOutput($"Simulating Mouse Move at {action.Timestamp} to X: {x}, Y: {y}");
+                                        InputSimulator.MoveMouse(x, y);
+                                    }
+                                    else
+                                    {
+                                        DebugOutput($"Mouse move action at {action.Timestamp} missing coordinates.");
+                                    }
+                                    break;
+
+                                case 256: // Key Press
+                                    DebugOutput($"Simulating KeyPress at {action.Timestamp} with KeyCode: {action.KeyCode}");
+
+                                    int keyCodeInt = (int)action.KeyCode;
+                                    if (Enum.IsDefined(typeof(VirtualKey), keyCodeInt))
+                                    {
+                                        VirtualKey virtualKey = (VirtualKey)keyCodeInt;
+
+                                        InputSimulator.SimulateKeyDown(virtualKey);
+
+                                        if (action.Duration > 0)
+                                        {
+                                            await Task.Delay(action.Duration);
+                                            InputSimulator.SimulateKeyUp(virtualKey);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        DebugOutput($"Invalid KeyPress key code: {action.KeyCode}");
+                                    }
+                                    break;
+
+                                case (int)WM_LBUTTONDOWN: // Left Mouse Button Down
+                                case (int)WM_RBUTTONDOWN: // Right Mouse Button Down
+                                    DebugOutput($"Simulating Mouse Click at {action.Timestamp} with EventType: {action.EventType}");
+                                    if (action.EventType == (int)WM_LBUTTONDOWN)
+                                    {
+                                        InputSimulator.SimulateMouseClick(CSimple.Services.MouseButton.Left,action.Coordinates.X,action.Coordinates.Y);
+                                    }
+                                    else if (action.EventType == (int)WM_RBUTTONDOWN)
+                                    {
+                                        InputSimulator.SimulateMouseClick(CSimple.Services.MouseButton.Right,action.Coordinates.X,action.Coordinates.Y);
+                                    }
+                                    break;
+
+                                case 257: // Key Release
+                                    DebugOutput($"Simulating KeyRelease at {action.Timestamp} with KeyCode: {action.KeyCode}");
+
+                                    int releaseKeyCodeInt = (int)action.KeyCode;
+                                    if (Enum.IsDefined(typeof(VirtualKey), releaseKeyCodeInt))
+                                    {
+                                        VirtualKey virtualKey = (VirtualKey)releaseKeyCodeInt;
+
                                         InputSimulator.SimulateKeyUp(virtualKey);
                                     }
-                                }
-                                else
-                                {
-                                    DebugOutput($"Invalid KeyPress key code: {action.KeyCode}");
-                                }
-                                break;
+                                    else
+                                    {
+                                        DebugOutput($"Invalid KeyRelease key code: {action.KeyCode}");
+                                    }
+                                    break;
 
-                            case (int)WM_LBUTTONDOWN: // Left Mouse Button Down
-                            case (int)WM_RBUTTONDOWN: // Right Mouse Button Down
-                                DebugOutput($"Simulating Mouse Click at {action.Timestamp} with EventType: {action.EventType}");
-                                if (action.EventType == (int)WM_LBUTTONDOWN)
-                                {
-                                    InputSimulator.SimulateMouseClick(CSimple.Services.MouseButton.Left,action.Coordinates.X,action.Coordinates.Y);
-                                }
-                                else if (action.EventType == (int)WM_RBUTTONDOWN)
-                                {
-                                    InputSimulator.SimulateMouseClick(CSimple.Services.MouseButton.Right,action.Coordinates.X,action.Coordinates.Y);
-                                }
-                                break;
+                                default:
+                                    DebugOutput($"Unhandled action type: {action.EventType} at {action.Timestamp}");
+                                    break;
+                            }
+                        });
 
-                            case 257: // Key Release
-                                DebugOutput($"Simulating KeyRelease at {action.Timestamp} with KeyCode: {action.KeyCode}");
+                        actionTasks.Add(actionTask);
+                    }
 
-                                int releaseKeyCodeInt = (int)action.KeyCode;
-                                if (Enum.IsDefined(typeof(VirtualKey), releaseKeyCodeInt))
-                                {
-                                    VirtualKey virtualKey = (VirtualKey)releaseKeyCodeInt;
+                    await Task.WhenAll(actionTasks);
 
-                                    InputSimulator.SimulateKeyUp(virtualKey);
-                                }
-                                else
-                                {
-                                    DebugOutput($"Invalid KeyRelease key code: {action.KeyCode}");
-                                }
-                                break;
-
-                            default:
-                                DebugOutput($"Unhandled action type: {action.EventType} at {action.Timestamp}");
-                                break;
-                        }
-                    });
-
-                    actionTasks.Add(actionTask);
+                    DebugOutput($"Completed Simulation for: {actionGroup.ActionName}");
                 }
-
-                await Task.WhenAll(actionTasks);
-
-                DebugOutput($"Completed Simulation for: {actionGroup.ActionName}");
-            }
-            catch (Exception ex)
-            {
-                DebugOutput($"Error during simulation: {ex.Message}");
+                catch (Exception ex)
+                {
+                    DebugOutput($"Error during simulation: {ex.Message}");
+                }
+            }else{
+                actionGroup.IsSimulating = false;
             }
         }
 
