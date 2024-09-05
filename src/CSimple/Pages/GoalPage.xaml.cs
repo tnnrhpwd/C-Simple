@@ -11,6 +11,11 @@ public partial class GoalPage : ContentPage
         if (!IsUserLoggedIn())
         {
             Debug.WriteLine("Navigating...");
+            NavigateLogin();
+        }
+    }
+    async void NavigateLogin()
+    {
         try
         {
             await Shell.Current.GoToAsync($"///login");
@@ -19,9 +24,7 @@ public partial class GoalPage : ContentPage
         {
             Debug.WriteLine($"err: {ex.Message}");
         }
-        }
     }
-
     private bool IsUserLoggedIn()
     {
         // Logic to check if the user is logged in
