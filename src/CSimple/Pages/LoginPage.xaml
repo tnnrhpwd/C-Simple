@@ -7,10 +7,12 @@
                FontSize="Title" 
                HorizontalOptions="Center" 
                VerticalOptions="StartAndExpand"/>
-        <Entry Placeholder="Username" 
-               Keyboard="Default"/>
-        <Entry Placeholder="Password" 
-               IsPassword="True"/>
+       <Entry Placeholder="Username" 
+              Text="{Binding Username}"
+              Keyboard="Default"/>
+       <Entry Placeholder="Password" 
+              Text="{Binding Password}"
+              IsPassword="True"/>
         <Button Text="Login" 
                 Command="{Binding LoginCommand}" 
                 HorizontalOptions="Center" 
