@@ -4,17 +4,26 @@ using CSimple.Services;
 using CSimple.ViewModels;
 using Application = Microsoft.Maui.Controls.Application;
 using WindowsConfiguration = Microsoft.Maui.Controls.PlatformConfiguration.Windows;
+using System.Collections.ObjectModel;
+using System.Windows.Input;
+using Microsoft.Maui.Controls;
+using System;
+using System.Runtime.InteropServices;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace CSimple.Pages;
 
 public partial class HomePage : ContentPage
 {
     static bool isSetup = false;
-
+        public ICommand NavigateCommand { get; set; }
     public HomePage(HomeViewModel vm)
     {
         InitializeComponent();
-
+        NavigateCommand = new Command(NavigateLogin());
         BindingContext = vm;
 
         if (!isSetup)
@@ -25,7 +34,17 @@ public partial class HomePage : ContentPage
             SetupTrayIcon();
         }
     }
-
+    async void NavigateLogin()
+    {
+        try
+        {
+            await Shell.Current.GoToAsync($"///login");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"err: {ex.Message}");
+        }
+    }
     private void SetupAppActions()
     {
         try
