@@ -1,5 +1,5 @@
 ﻿using CSimple.ViewModels;
-
+using System.Diagnostics;
 namespace CSimple.Pages;
 
 public partial class SettingsPage : ContentPage
@@ -14,6 +14,14 @@ public partial class SettingsPage : ContentPage
     async void OnSignOut(object sender, EventArgs eventArgs)
     {
         await DisplayAlert("Sign Out", "Are you sure?", "Yes", "No");
+        try
+        {
+            await Shell.Current.GoToAsync($"///login");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"err: {ex.Message}");
+        }
     }
 
     async void OnSupportTapped(object sender, EventArgs eventArgs)
