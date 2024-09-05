@@ -23,7 +23,7 @@ public partial class HomePage : ContentPage
     public HomePage(HomeViewModel vm)
     {
         InitializeComponent();
-        NavigateCommand = new Command(NavigateLogin());
+        NavigateCommand = new Command(() => NavigateLogin());//Argument 1: cannot convert from 'void' to 'System.Action<object>'CS1503
         BindingContext = vm;
 
         if (!isSetup)
@@ -72,7 +72,7 @@ public partial class HomePage : ContentPage
             trayService.Initialize();
             trayService.ClickHandler = () =>
                 ServiceProvider.GetService<INotificationService>()
-                    ?.ShowNotification("Hello Build! 😻 From .NET MAUI", "How's your weather?  It's sunny where we are 🌞");
+                    ?.ShowNotification("Hello world", "Hello world");
         }
     }
 }
