@@ -28,16 +28,11 @@
         </MenuBarItem>
     </ContentPage.MenuBarItems> -->
 
-    <Grid
-
-        >
-
-        <!-- Main content -->
+    <Grid>
         <ScrollView Grid.Column="0">
             <VerticalStackLayout
                 Padding="{OnIdiom Phone='0,50',Default='0,50'}"
                 Spacing="{OnIdiom Phone=25,Default=50}">
-                
                 <Label Text="Welcome to Simple!" 
                     FontSize="Title" 
                     HorizontalOptions="Center" 
@@ -47,8 +42,6 @@
                     CommandParameter="LoginPage" 
                     HorizontalOptions="Center" 
                     VerticalOptions="CenterAndExpand"/>
-
-                <!-- Top widgets -->
                 <FlexLayout
                     IsVisible="{OnIdiom Phone=False, Default=True}"
                     MinimumHeightRequest="360"
@@ -57,21 +50,11 @@
                     JustifyContent="SpaceEvenly">
                     <v:CurrentWidget
                         WidthRequest="200" />
-                    
                 </FlexLayout>
-
                 <v:CurrentWidget
                     IsVisible="{OnIdiom Phone=True, Default=False}"/>
-    
                 <BoxView HeightRequest="1" />
-
             </VerticalStackLayout>
         </ScrollView>
-
-        <!-- Widget panel -->
-        <!-- <v:WidgetsPanel Grid.Column="{OnIdiom Phone=0, Default=1}"
-                        IsVisible="{OnIdiom Phone=False, Default=True}"/> -->
-
     </Grid>
-
 </ContentPage>
