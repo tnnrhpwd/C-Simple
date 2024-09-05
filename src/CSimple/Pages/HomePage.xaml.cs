@@ -26,6 +26,11 @@ public partial class HomePage : ContentPage
         NavigateCommand = new Command(() => NavigateLogin());//Argument 1: cannot convert from 'void' to 'System.Action<object>'CS1503
         BindingContext = vm;
 
+        if (!IsUserLoggedIn())
+        {
+            Debug.WriteLine("Navigating...");
+            // NavigateLogin();
+        }
         if (!isSetup)
         {
             isSetup = true;
@@ -44,6 +49,11 @@ public partial class HomePage : ContentPage
         {
             Debug.WriteLine($"err: {ex.Message}");
         }
+    }
+    private bool IsUserLoggedIn()
+    {
+        // Logic to check if the user is logged in
+        return false;
     }
     private void SetupAppActions()
     {
