@@ -64,6 +64,7 @@ public static class MauiProgram
         #endif
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<HomePage>();
+        services.AddSingleton<DataService>();
 
         return builder.Build();
     }
