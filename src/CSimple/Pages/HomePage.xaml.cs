@@ -19,12 +19,11 @@ public partial class HomePage : ContentPage
     public ICommand LogoutCommand { get; }
 
     // Constructor with AuthService injection
-    public HomePage(HomeViewModel vm)
-    // public HomePage(HomeViewModel vm, AuthService authService)
+    public HomePage(HomeViewModel vm, AuthService authService)
     {
         InitializeComponent();
-        // _authService = authService;
-        // LogoutCommand = new Command(ExecuteLogout);
+        _authService = authService;
+        LogoutCommand = new Command(ExecuteLogout);
         BindingContext = vm;
         if (!isSetup)
         {
@@ -35,7 +34,7 @@ public partial class HomePage : ContentPage
     }
     private async Task Initialize()
     {
-        // if (!await IsUserLoggedIn())
+        if (!await IsUserLoggedIn())
         if (true)
         {
             Debug.WriteLine("Navigating...");
@@ -51,29 +50,29 @@ public partial class HomePage : ContentPage
     {
         try
         {
-            // await Shell.Current.GoToAsync($"///login");
+            await Shell.Current.GoToAsync($"///login");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Navigation error: {ex.Message}");
         }
     }
-    // private void ExecuteLogout()
-    // {
-    //     try
-    //     {
-    //         _authService.Logout();
-    //         Shell.Current.GoToAsync($"///login");
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         Debug.WriteLine($"Logout error: {ex.Message}");
-    //     }
-    // }
-    // private async Task<bool> IsUserLoggedIn()
-    // {
-    //     return await _authService.IsLoggedInAsync();
-    // }
+    private void ExecuteLogout()
+    {
+        try
+        {
+            _authService.Logout();
+            Shell.Current.GoToAsync($"///login");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Logout error: {ex.Message}");
+        }
+    }
+    private async Task<bool> IsUserLoggedIn()
+    {
+        return await _authService.IsLoggedInAsync();
+    }
     private void SetupAppActions()
     {
         try

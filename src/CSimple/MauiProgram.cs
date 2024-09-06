@@ -5,16 +5,10 @@ using Microsoft.Maui;
 using Microsoft.Maui.Controls.Hosting;
 using Microsoft.Maui.Hosting;
 using Microsoft.UI.Xaml;
-using Microsoft.Maui;
-using Microsoft.Maui.Controls.Hosting;
-using Microsoft.Maui.Hosting;
 using Microsoft.UI.Windowing;
 using Windows.Graphics;
 using WinRT.Interop;
 using Microsoft.UI;
-using Microsoft.Maui.Hosting;
-using Microsoft.Maui.Controls.Hosting;
-
 namespace CSimple;
 
 public static class MauiProgram
@@ -46,15 +40,20 @@ public static class MauiProgram
 
             lifecycle.AddWindows(windows => windows.OnWindowCreated((window) => {
                 // 'del.ExtendsContentIntoTitleBar = true;
-                        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
-                        var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
-                        var appWindow = AppWindow.GetFromWindowId(windowId);
-                        appWindow.Resize(new SizeInt32(800, 900));
+                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
+                var appWindow = AppWindow.GetFromWindowId(windowId);
+                appWindow.Resize(new SizeInt32(800, 900));
             }));
             #endif
         });
 
         var services = builder.Services;
+        services.AddSingleton<AuthService>();
+        services.AddSingleton<HomeViewModel>();
+        services.AddSingleton<HomePage>();
+        services.AddSingleton<DataService>();
+
         #if WINDOWS
             services.AddSingleton<ITrayService, WinUI.TrayService>();
             services.AddSingleton<INotificationService, WinUI.NotificationService>();
@@ -62,9 +61,7 @@ public static class MauiProgram
             services.AddSingleton<ITrayService, MacCatalyst.TrayService>();
             services.AddSingleton<INotificationService, MacCatalyst.NotificationService>();
         #endif
-        services.AddSingleton<HomeViewModel>();
-        services.AddSingleton<HomePage>();
-        services.AddSingleton<DataService>();
+
 
         return builder.Build();
     }

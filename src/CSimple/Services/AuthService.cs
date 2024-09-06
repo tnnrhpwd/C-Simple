@@ -3,24 +3,21 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using Microsoft.Maui.Storage;  // For storing token
+using Microsoft.Maui.Storage;
 
 public class AuthService
 {
     private readonly HttpClient _httpClient;
     private const string BaseUrl = "https://mern-plan-web-service.onrender.com/api/data/";
-
     public AuthService()
     {
         _httpClient = new HttpClient();
     }
-
-    // Login user and store token locally
-    public async Task<bool> LoginAsync(string email, string password)
+    // Login user and store token and nickname locally
+    public async Task<bool> LoginAsync(string username, string password)
     {
-        var userData = new { email, password };
+        var userData = new { username, password };
 
-        // Send POST request to login
         var response = await _httpClient.PostAsJsonAsync(BaseUrl + "login", userData);
 
         if (response.IsSuccessStatusCode)
@@ -28,21 +25,22 @@ public class AuthService
             var responseData = await response.Content.ReadAsStringAsync();
             var user = JsonConvert.DeserializeObject<UserResponse>(responseData);
 
-            // Store the token securely
+            // Store user details securely
             await SecureStorage.SetAsync("userToken", user.Token);
-            Debug.WriteLine("Login successful: userToken = ", user.Token);
+            await SecureStorage.SetAsync("userNickname", user.Nickname);
+            await SecureStorage.SetAsync("userEmail", user.Email);
+
+            Debug.WriteLine("Login successful");
             return true;
         }
 
         return false;
     }
-
     // Logout user by clearing token
     public void Logout()
     {
         SecureStorage.Remove("userToken");
     }
-
     // Check if the user is logged in by verifying if the token exists
     public async Task<bool> IsLoggedInAsync()
     {
@@ -62,10 +60,10 @@ public class AuthService
         }
     }
 }
-
 // Define a model class to deserialize the user response (matching your API response)
 public class UserResponse
 {
     public string Token { get; set; }
     public string Email { get; set; }
+    public string Nickname { get; set; }
 }

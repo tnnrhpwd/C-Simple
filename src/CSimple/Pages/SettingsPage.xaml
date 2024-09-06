@@ -323,7 +323,7 @@
                         RadiusY="36"/>
             </Image.Clip>
                 </Image>
-            <Label Text="Admin" Grid.Column="3" LineBreakMode="WordWrap" VerticalOptions="Center" />
+            <Label x:Name="UserNicknameLabel" Text="Nickname" Grid.Column="3" LineBreakMode="WordWrap" VerticalOptions="Center" />
                 <Button Text="Sign Out" Clicked="OnSignOut" Grid.Column="4" HorizontalOptions="End" VerticalOptions="Center"/>
                 <BoxView Grid.ColumnSpan="6" Color="{StaticResource NeutralDarker}" HeightRequest="1" VerticalOptions="End"/>
             </Grid>
