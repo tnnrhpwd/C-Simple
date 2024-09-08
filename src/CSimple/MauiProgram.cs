@@ -49,9 +49,11 @@ public static class MauiProgram
         });
 
         var services = builder.Services;
-        services.AddSingleton<AuthService>();
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<HomePage>();
+        services.AddSingleton<LoginViewModel>();
+        services.AddSingleton<LoginPage>();
+        services.AddSingleton<SettingsPage>();
         services.AddSingleton<DataService>();
 
         #if WINDOWS

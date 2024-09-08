@@ -3,9 +3,6 @@
        xmlns:vm="clr-namespace:CSimple.ViewModels"
        x:Class="CSimple.Pages.LoginPage"
        Title="Login">
-       <ContentPage.BindingContext>
-              <vm:LoginViewModel />
-       </ContentPage.BindingContext>
               <StackLayout Padding="10">
                      <Label Text="Login" 
                             FontSize="Title" 

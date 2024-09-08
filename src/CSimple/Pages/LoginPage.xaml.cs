@@ -4,9 +4,9 @@ namespace CSimple.Pages;
 
 public partial class LoginPage : ContentPage
 {
-    public LoginPage()
+    public LoginPage(DataService dataService)
     {
         InitializeComponent();
-        BindingContext = new LoginViewModel(); // Set the BindingContext to LoginViewModel
+        BindingContext = new LoginViewModel(dataService);
     }
 }

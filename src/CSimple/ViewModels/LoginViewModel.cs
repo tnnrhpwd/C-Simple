@@ -4,11 +4,12 @@ using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using CSimple.ViewModels;
+using System.Diagnostics;
 namespace CSimple.ViewModels
 {
     public class LoginViewModel : BaseViewModel
     {
-        private readonly AuthService _authService; // AuthService instance for login/logout
+        private readonly DataService _dataService; // AuthService instance for login/logout
         private string _email;
         private string _password;
         private bool _isLoggedIn;
@@ -62,9 +63,9 @@ namespace CSimple.ViewModels
         public ICommand LoginCommand { get; }
 
         // Constructor to initialize AuthService and setup commands
-        public LoginViewModel()
+        public LoginViewModel(DataService dataService)
         {
-            _authService = new AuthService();
+            _dataService = dataService ?? throw new ArgumentNullException(nameof(dataService));
             LoginCommand = new Command(async () => await ExecuteLogin());
         }
 
@@ -74,28 +75,41 @@ namespace CSimple.ViewModels
             if (IsBusy)
                 return;
 
-            IsBusy = true;  // Set IsBusy to true during login operation
+            IsBusy = true;
 
-            var success = await _authService.LoginAsync(Email, Password);
-
-            if (success)
+            try
             {
-                IsLoggedIn = true;
-                await Shell.Current.GoToAsync($"///home");  // Navigate to homepage on successful login
-            }
-            else
-            {
-                IsLoggedIn = false;
-                await Application.Current.MainPage.DisplayAlert("Error", "Login failed. Try again.", "OK");
-            }
+                Debug.WriteLine("Calling login...");
+                var user = await _dataService.LoginAsync(Email, Password);
+                Debug.WriteLine("User: "+user);
 
-            IsBusy = false;  // Reset IsBusy after operation
+                if (user != null)
+                {
+                    IsLoggedIn = true;
+                    await Shell.Current.GoToAsync($"///home");
+                }
+                else
+                {
+                    IsLoggedIn = false;
+                    await Application.Current.MainPage.DisplayAlert("Error", "Invalid email or password.", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Handle any unexpected errors
+                Debug.WriteLine($"Login error: {ex.Message}");
+                await Application.Current.MainPage.DisplayAlert("Error", "Something went wrong. Try again later.", "OK");
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
         
         // Logout logic
         public void Logout()
         {
-            _authService.Logout();
+            _dataService.Logout();
             IsLoggedIn = false;
             Shell.Current.GoToAsync($"///login");
         }

@@ -13,16 +13,16 @@ namespace CSimple.Pages;
 
 public partial class HomePage : ContentPage
 {
-    private readonly AuthService _authService; // AuthService instance for login/logout
+    private readonly DataService _dataService; // AuthService instance for login/logout
     static bool isSetup = false;
     public ICommand NavigateCommand { get; set; }
     public ICommand LogoutCommand { get; }
 
     // Constructor with AuthService injection
-    public HomePage(HomeViewModel vm, AuthService authService)
+    public HomePage(HomeViewModel vm, DataService dataService)
     {
         InitializeComponent();
-        _authService = authService;
+        _dataService = dataService;
         LogoutCommand = new Command(ExecuteLogout);
         BindingContext = vm;
         if (!isSetup)
@@ -34,12 +34,12 @@ public partial class HomePage : ContentPage
     }
     private async Task Initialize()
     {
-        if (!await IsUserLoggedIn())
-        if (true)
-        {
-            Debug.WriteLine("Navigating...");
-            NavigateLogin();
-        }
+        // if (!await IsLoggedInAsync())
+        // if (true)
+        // {
+        //     Debug.WriteLine("Navigating...");
+        //     NavigateLogin();
+        // }
     }
     protected override async void OnAppearing()
     {
@@ -61,7 +61,7 @@ public partial class HomePage : ContentPage
     {
         try
         {
-            _authService.Logout();
+            _dataService.Logout();
             Shell.Current.GoToAsync($"///login");
         }
         catch (Exception ex)
@@ -71,7 +71,7 @@ public partial class HomePage : ContentPage
     }
     private async Task<bool> IsUserLoggedIn()
     {
-        return await _authService.IsLoggedInAsync();
+        return await _dataService.IsLoggedInAsync();
     }
     private void SetupAppActions()
     {

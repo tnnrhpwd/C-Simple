@@ -33,7 +33,7 @@
             
 
             <!-- Desktop/Tablet-->
-            <FlyoutItem Title="Home" Style="{StaticResource HomeFlyout}">
+            <FlyoutItem Title="Home" Route="home" Style="{StaticResource HomeFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:HomePage}"/>
             </FlyoutItem>
             <FlyoutItem Title="Favorites" Style="{StaticResource FavFlyout}">
@@ -42,7 +42,7 @@
             <FlyoutItem Title="Map" Route="map" FlyoutItemIsVisible="False">
                 <ShellContent ContentTemplate="{DataTemplate page:MapPage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Settings" Route="settings" FlyoutItemIsVisible="False">
+            <FlyoutItem Title="Settings" Style="{StaticResource SettingsFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:SettingsPage}"/>
             </FlyoutItem>
             <FlyoutItem Title="About" Route="about" FlyoutItemIsVisible="False">

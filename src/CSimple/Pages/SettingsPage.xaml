@@ -94,33 +94,29 @@
                         Margin="{OnIdiom Phone=15, Default=25}"
                         >
                 <VerticalStackLayout Spacing="8">
-                    <VerticalStackLayout Spacing="8">
-                        <Image 
-                            HeightRequest="115"
-                            Aspect="AspectFit"
-                            Source="fluent_weather_moon_16_filled.png"/>
-                        <Label Text="{Binding Temperature}" 
-                                HorizontalOptions="Center"
-                                class="Title1"/>
-                        <Border
-                            HeightRequest="30"
-                            VerticalOptions="Start"
-                            HorizontalOptions="Center"
-                            Padding="15,0"
-                            Stroke="Transparent"
-                            
-                            BackgroundColor="{StaticResource Primary}">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="60"/>
-                        </Border.StrokeShape>
-                            <Label Text="Clear"
-                                   HorizontalOptions="Center"
-                                VerticalOptions="Center"
-                                TextColor="{StaticResource White}"
-                            />
-                        </Border>
-                    </VerticalStackLayout>
-                    
+                <Label Text="Account" class="SectionTitle" />
+
+                <StackLayout Padding="10">
+                    <!-- Email Display and Edit -->
+                    <Label Text="Email" class="Subhead" />
+                    <Label x:Name="UserEmailLabel" Text="user@example.com" class="SubContent" />
+
+                    <Button Text="Edit Email"
+                            Command="{Binding EditEmailCommand}" />
+                </StackLayout>
+
+                <BoxView class="HRule" />
+
+                <!-- Password Display and Edit -->
+                <StackLayout Padding="10">
+                    <Label Text="Password" class="Subhead" />
+                    <Label Text="********" x:Name="PasswordLabel" class="SubContent" />
+
+                    <Button Text="Edit Password"
+                            Command="{Binding EditPasswordCommand}" />
+                </StackLayout>
+
+                <BoxView class="HRule" />                    
                     <Label Text="Units" class="SectionTitle"/>
 
                     <Grid RowDefinitions="30,30">
@@ -294,37 +290,37 @@
                 Grid.ColumnDefinitions="16,75,16,*,100,16"
                 >
 
-            <!--<BoxView Color="Red" 
-                     HorizontalOptions="Center"
-                        VerticalOptions="Center"
-                        WidthRequest="75"
-                        HeightRequest="75"
-                     Grid.Column="1">
-                <BoxView.Clip>
-                    <EllipseGeometry 
-                                Center="75,75"
-                                RadiusX="75"
-                                RadiusY="75"/>
-                </BoxView.Clip>
-            </BoxView>-->
+                <!--<BoxView Color="Red" 
+                        HorizontalOptions="Center"
+                            VerticalOptions="Center"
+                            WidthRequest="75"
+                            HeightRequest="75"
+                        Grid.Column="1">
+                    <BoxView.Clip>
+                        <EllipseGeometry 
+                                    Center="75,75"
+                                    RadiusX="75"
+                                    RadiusY="75"/>
+                    </BoxView.Clip>
+                </BoxView>-->
 
-            <Image  
-                HorizontalOptions="Center"
-                VerticalOptions="Center"
-                Grid.Column="1"
-                WidthRequest="75"
-                HeightRequest="75"
-                Aspect="AspectFill"
-                Source="https://sthopwood.com/static/media/Checkmark512.44b03091d831e2a87a74.png">
-            <Image.Clip>
-                <EllipseGeometry 
-                        Center="36,36"
-                        RadiusX="36"
-                        RadiusY="36"/>
-            </Image.Clip>
-                </Image>
-            <Label x:Name="UserNicknameLabel" Text="Nickname" Grid.Column="3" LineBreakMode="WordWrap" VerticalOptions="Center" />
-                <Button Text="Sign Out" Clicked="OnSignOut" Grid.Column="4" HorizontalOptions="End" VerticalOptions="Center"/>
+                <Image  
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center"
+                    Grid.Column="1"
+                    WidthRequest="75"
+                    HeightRequest="75"
+                    Aspect="AspectFill"
+                    Source="https://sthopwood.com/static/media/Checkmark512.44b03091d831e2a87a74.png">
+                <Image.Clip>
+                    <EllipseGeometry 
+                            Center="36,36"
+                            RadiusX="36"
+                            RadiusY="36"/>
+                </Image.Clip>
+                    </Image>
+                <Label x:Name="UserNicknameLabel" Text="Nickname" Grid.Column="3" LineBreakMode="WordWrap" VerticalOptions="Center" />
+                <Button x:Name="SignOutButton" Text="Sign Out" Clicked="OnSignOut" Grid.Column="4" HorizontalOptions="End" VerticalOptions="Center"/>
                 <BoxView Grid.ColumnSpan="6" Color="{StaticResource NeutralDarker}" HeightRequest="1" VerticalOptions="End"/>
             </Grid>
         </Grid>
