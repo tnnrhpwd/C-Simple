@@ -5,7 +5,7 @@
     xmlns:v="clr-namespace:CSimple.Views"
     xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     ios:Page.UseSafeArea="True"
-    Title="{OnIdiom 'St. Louis, Missouri USA', Desktop=''}"
+    Title="{OnIdiom 'Simple', Desktop='Simple'}"
     Shell.NavBarIsVisible="{OnPlatform True, MacCatalyst=False}"
     x:Class="CSimple.Pages.HomePage"
     x:Name="this">
