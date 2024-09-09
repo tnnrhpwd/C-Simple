@@ -12,7 +12,7 @@
             FlyoutWidth="68" FlyoutBackgroundColor="{StaticResource Background_Mid}"
             FlyoutBehavior="{OnIdiom Phone=Enabled, Default=Locked}">
 
-            <Shell.FlyoutFooterTemplate>
+            <!-- <Shell.FlyoutFooterTemplate>
                 <DataTemplate>
                     <Grid RowDefinitions="68">
                         <Grid.GestureRecognizers>
@@ -28,9 +28,7 @@
                     </Grid>
                 </DataTemplate>
 
-            </Shell.FlyoutFooterTemplate>
-
-            
+            </Shell.FlyoutFooterTemplate> -->
 
             <!-- Desktop/Tablet-->
             <FlyoutItem Title="Home" Route="home" Style="{StaticResource HomeFlyout}">
@@ -41,9 +39,6 @@
             </FlyoutItem>
             <FlyoutItem Title="Map" Route="map" FlyoutItemIsVisible="False">
                 <ShellContent ContentTemplate="{DataTemplate page:MapPage}"/>
-            </FlyoutItem>
-            <FlyoutItem Title="Settings" Style="{StaticResource SettingsFlyout}">
-                <ShellContent ContentTemplate="{DataTemplate page:SettingsPage}"/>
             </FlyoutItem>
             <FlyoutItem Title="About" Route="about" FlyoutItemIsVisible="False">
                 <ShellContent ContentTemplate="{DataTemplate page:AboutPage}"/>
@@ -74,6 +69,9 @@
             </FlyoutItem>
             <FlyoutItem Title="Terms" Route="terms" FlyoutItemIsVisible="False">
                 <ShellContent ContentTemplate="{DataTemplate page:TermsPage}"/>
+            </FlyoutItem>
+            <FlyoutItem Title="Settings" Style="{StaticResource SettingsFlyout}">
+                <ShellContent ContentTemplate="{DataTemplate page:SettingsPage}"/>
             </FlyoutItem>
 
             <!-- Phone -->

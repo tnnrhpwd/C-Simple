@@ -53,25 +53,34 @@ public partial class SettingsPage : ContentPage
             Debug.WriteLine($"Error retrieving user data: {ex.Message}");
         }
     }
+    private void UpdateAccountSectionVisibility()
+    {
+        AccountSection.IsVisible = SignOutButton.Text == "Sign Out";
+    }
     private async Task UpdateButtonText()
     {
         bool isLoggedIn = await IsUserLoggedIn();
         SignOutButton.Text = isLoggedIn ? "Sign Out" : "Sign In";
+        UpdateAccountSectionVisibility();
     }
     // Handle sign-out
-    async void OnSignOut(object sender, EventArgs eventArgs)
+    async void OnSignClick(object sender, EventArgs eventArgs)
     {
-        bool confirm = await DisplayAlert("Sign Out", "Are you sure?", "Yes", "No");
-        if (confirm)
-        {
-            try
+        if (SignOutButton.Text == "Sign Out") {
+            bool confirm = await DisplayAlert("Sign Out", "Are you sure?", "Yes", "No");
+            if (confirm)
             {
-                ExecuteLogout();
+                try
+                {
+                    ExecuteLogout();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Sign out error: {ex.Message}");
+                }
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Sign out error: {ex.Message}");
-            }
+        }else{
+            Shell.Current.GoToAsync($"///login");
         }
     }
 

@@ -20,7 +20,6 @@ public class SettingsViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(Temperature));
         }
     }
-
     public string Temperature => IsImperial ? "70˚F" : "21˚C";
 
     public bool IsImperial => units == "imperial";
