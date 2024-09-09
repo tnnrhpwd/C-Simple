@@ -11,13 +11,13 @@ using System.Linq;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using System;
 // using Windows.Graphics.Display;
 using OpenCvSharp;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using System.Threading.Tasks;
 using YourNamespace.Services;
+using Microsoft.Maui.Storage;
 
 namespace CSimple.Pages
 {
@@ -70,6 +70,7 @@ namespace CSimple.Pages
             // _rawInputHandler = new RawInputHandler(hwnd);
             _mouseTrackingService = new MouseTrackingService();
             _mouseTrackingService.MouseMoved += OnMouseMoved;
+            CheckUserLoggedIn();
 
             TogglePCVisualCommand = new Command(TogglePCVisualOutput);
             TogglePCAudibleCommand = new Command(TogglePCAudibleOutput);
@@ -84,6 +85,56 @@ namespace CSimple.Pages
             _ = LoadActionGroups();
 
             BindingContext = this;
+        }
+        private async void CheckUserLoggedIn()
+        {
+            if (!await IsUserLoggedInAsync())
+            {
+                Debug.WriteLine("User is not logged in, navigating to login...");
+                NavigateLogin();
+            }
+            else
+            {
+                Debug.WriteLine("User is logged in.");
+            }
+        }
+
+        async void NavigateLogin()
+        {
+            try
+            {
+                await Shell.Current.GoToAsync($"///login");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error navigating to login: {ex.Message}");
+            }
+        }
+
+        private async Task<bool> IsUserLoggedInAsync()
+        {
+            try
+            {
+                // Retrieve stored token
+                var userToken = await SecureStorage.GetAsync("userToken");
+
+                // Check if token exists and is not empty
+                if (!string.IsNullOrEmpty(userToken))
+                {
+                    Debug.WriteLine("User token found: " + userToken);
+                    return true; // User is logged in
+                }
+                else
+                {
+                    Debug.WriteLine("No user token found.");
+                    return false; // User is not logged in
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error retrieving user token: {ex.Message}");
+                return false;
+            }
         }
         private void OnMouseMoved(Microsoft.Maui.Graphics.Point delta)
         {

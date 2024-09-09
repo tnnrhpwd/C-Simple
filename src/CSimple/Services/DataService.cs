@@ -104,7 +104,32 @@ public class DataService
             return false;
         }
     }
+    // Get user details from secure storage
+    public async Task<User> GetStoredUserAsync()
+    {
+        try
+        {
+            var token = await SecureStorage.GetAsync("userToken");
+            var nickname = await SecureStorage.GetAsync("userNickname");
+            var email = await SecureStorage.GetAsync("userEmail");
 
+            if (!string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(nickname) && !string.IsNullOrEmpty(email))
+            {
+                return new User
+                {
+                    Token = token,
+                    Nickname = nickname,
+                    Email = email
+                };
+            }
+            return null; // User is not logged in or missing data
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error retrieving stored user: {ex.Message}");
+            return null;
+        }
+    }
     // Handle responses, ensure success or handle error
     private async Task<T> HandleResponse<T>(HttpResponseMessage response)
     {
