@@ -38,12 +38,17 @@ public class DataService
         var response = await _httpClient.GetAsync($"{BaseUrl}?{query}");
         return await HandleResponse<DataClass>(response);
     }
-    // Update user data
-    public async Task<DataClass> UpdateDataAsync(string id, object data, string token)
+    // Update existing data using the backend's "compress" or "update" method
+    public async Task<DataClass> UpdateDataAsync(string id, object data, string token, string updateType = "update")
     {
         SetAuthorizationHeader(token);
+
+        // Send a PUT request to either compress or update based on `updateType`
+        var endpoint = (updateType == "compress") ? $"{BaseUrl}compress" : $"{BaseUrl}{id}";
+        
         var jsonContent = new StringContent(System.Text.Json.JsonSerializer.Serialize(data), System.Text.Encoding.UTF8, "application/json");
-        var response = await _httpClient.PutAsync($"{BaseUrl}{id}", jsonContent);
+        var response = await _httpClient.PutAsync(endpoint, jsonContent);
+
         return await HandleResponse<DataClass>(response);
     }
     // Delete user data
