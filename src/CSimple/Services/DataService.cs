@@ -12,11 +12,13 @@ public class DataService
 {
     private readonly HttpClient _httpClient;
     private const string BaseUrl = "https://mern-plan-web-service.onrender.com/api/data/";
+    private readonly UpdateDataService _updateDataService;
 
     public DataService()
     {
         _httpClient = new HttpClient();
-    }
+        _updateDataService = new UpdateDataService();
+}
 
     private void SetAuthorizationHeader(string token)
     {
@@ -39,17 +41,10 @@ public class DataService
         return await HandleResponse<DataClass>(response);
     }
     // Update existing data using the backend's "compress" or "update" method
-    public async Task<DataClass> UpdateDataAsync(string id, object data, string token, string updateType = "update")
+    // Modified Update method to delegate to UpdateDataService
+    public async Task<DataClass> UpdateDataAsync(string id, object data, string token)
     {
-        SetAuthorizationHeader(token);
-
-        // Send a PUT request to either compress or update based on `updateType`
-        var endpoint = (updateType == "compress") ? $"{BaseUrl}compress" : $"{BaseUrl}{id}";
-        
-        var jsonContent = new StringContent(System.Text.Json.JsonSerializer.Serialize(data), System.Text.Encoding.UTF8, "application/json");
-        var response = await _httpClient.PutAsync(endpoint, jsonContent);
-
-        return await HandleResponse<DataClass>(response);
+        return await _updateDataService.UpdateDataAsync(id, data, token);
     }
     // Delete user data
     public async Task<DataClass> DeleteDataAsync(string id, string token)
