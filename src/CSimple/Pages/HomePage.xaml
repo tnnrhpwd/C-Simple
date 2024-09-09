@@ -5,28 +5,27 @@
     xmlns:v="clr-namespace:CSimple.Views"
     xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     ios:Page.UseSafeArea="True"
-    Title="{OnIdiom 'Simple', Desktop='Simple'}"
     Shell.NavBarIsVisible="{OnPlatform True, MacCatalyst=False}"
     x:Class="CSimple.Pages.HomePage"
     x:Name="this">
 
-    <!-- <ContentPage.MenuBarItems>
+    <ContentPage.MenuBarItems>
         <MenuBarItem Text="File">
             <MenuFlyoutItem Text="Quit" Command="{Binding QuitCommand}"/>
         </MenuBarItem>
-        <MenuBarItem Text="Locations">
+        <MenuBarItem Text="Edit">
             <MenuFlyoutSubItem Text="Change Location">
                 <MenuFlyoutItem Text="Boston, MA"/>
                 <MenuFlyoutItem Text="Redmond, WA"/>
                 <MenuFlyoutItem Text="St. Louis, MO"/>
             </MenuFlyoutSubItem>
             <MenuFlyoutItem Text="Add a Location" Command="{Binding AddLocationCommand}"/>
-        </MenuBarItem>
+        </MenuBarItem> 
         <MenuBarItem Text="View">
             <MenuFlyoutItem Text="Refresh" Command="{Binding RefreshCommand}"/>
             <MenuFlyoutItem Text="Toggle Light/Dark Mode" Command="{Binding ToggleModeCommand}"/>
         </MenuBarItem>
-    </ContentPage.MenuBarItems> -->
+    </ContentPage.MenuBarItems>
 
     <Grid>
         <ScrollView Grid.Column="0">
