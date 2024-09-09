@@ -34,7 +34,7 @@
             <FlyoutItem Title="Home" Route="home" Style="{StaticResource HomeFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:HomePage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Favorites" Style="{StaticResource FavFlyout}">
+            <FlyoutItem Title="Favorites" Route="favorites" FlyoutItemIsVisible="False">
                 <ShellContent ContentTemplate="{DataTemplate page:FavoritesPage}"/>
             </FlyoutItem>
             <FlyoutItem Title="Map" Route="map" FlyoutItemIsVisible="False">
@@ -43,19 +43,19 @@
             <FlyoutItem Title="About" Route="about" FlyoutItemIsVisible="False">
                 <ShellContent ContentTemplate="{DataTemplate page:AboutPage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Observe" Style="{StaticResource ObserveFlyout}">
+            <FlyoutItem Title="Observe" Route="observe" Style="{StaticResource ObserveFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:ObservePage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Orient" Style="{StaticResource OrientFlyout}">
+            <FlyoutItem Title="Orient" Route="orient" Style="{StaticResource OrientFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:OrientPage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Goal" Style="{StaticResource GoalFlyout}">
+            <FlyoutItem Title="Goal" Route="goal" Style="{StaticResource GoalFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:GoalPage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Plan" Style="{StaticResource PlanFlyout}">
+            <FlyoutItem Title="Plan" Route="plan" Style="{StaticResource PlanFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:PlanPage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Action" Style="{StaticResource ActionFlyout}">
+            <FlyoutItem Title="Action" Route="action" Style="{StaticResource ActionFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:ActionPage}"/>
             </FlyoutItem>
             <FlyoutItem Title="Contact" Route="contact" FlyoutItemIsVisible="False">
@@ -70,7 +70,7 @@
             <FlyoutItem Title="Terms" Route="terms" FlyoutItemIsVisible="False">
                 <ShellContent ContentTemplate="{DataTemplate page:TermsPage}"/>
             </FlyoutItem>
-            <FlyoutItem Title="Settings" Style="{StaticResource SettingsFlyout}">
+            <FlyoutItem Title="Settings" Route="settings" Style="{StaticResource SettingsFlyout}">
                 <ShellContent ContentTemplate="{DataTemplate page:SettingsPage}"/>
             </FlyoutItem>
 
