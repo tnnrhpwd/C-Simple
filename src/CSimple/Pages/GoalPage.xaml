@@ -2,61 +2,36 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CSimple.Pages.GoalPage"
              Title="Goal">
+       <ContentPage.Content>
+              <ScrollView>
+                     <VerticalStackLayout Padding="10">
+                            <Label Text="Goals" FontSize="Large" FontAttributes="Bold" />
+                            <Label Text="Every journey begins with a step. Where are you going?"/>
 
-    <StackLayout Padding="10">
-        <Label Text="Goal" 
-               FontSize="Title" 
-               HorizontalOptions="Center" 
-               VerticalOptions="StartAndExpand"/>
+                            <Button Text="{Binding CreateGoalButtonText}"
+                                   Command="{Binding ToggleCreateGoalCommand}" />
 
-        <Label Text="This page allows users to set and review their goals." 
-               FontSize="Body"
-               VerticalOptions="CenterAndExpand"
-               Margin="0,0,0,20"/>
+                            <StackLayout IsVisible="{Binding ShowNewGoal}">
+                                   <Label Text="Create New Goal" FontSize="Medium" FontAttributes="Bold" />
+                                   <Entry Placeholder="Enter goal details..." Text="{Binding NewGoalText}" />
+                                   <Button Text="Submit Goal" Command="{Binding SubmitGoalCommand}" />
+                            </StackLayout>
+                            <Button Text="{Binding MyGoalsButtonText}"
+                                   Command="{Binding ToggleMyGoalsCommand}" />
+                            <StackLayout IsVisible="{Binding ShowMyGoals}">
+                                   <Label Text="My Goals" FontSize="Medium" FontAttributes="Bold" />
+                                   <CollectionView ItemsSource="{Binding MyGoals}">
+                                          <CollectionView.ItemTemplate>
+                                                 <DataTemplate>
+                                                 <StackLayout>
+                                                        <Label Text="{Binding GoalText}" />
+                                                 </StackLayout>
+                                                 </DataTemplate>
+                                          </CollectionView.ItemTemplate>
+                            </CollectionView>
+                            </StackLayout>
 
-        <!-- Table Header -->
-        <Grid ColumnDefinitions="*, 2*, 2*" RowDefinitions="Auto">
-            <Label Text="Datetime" 
-                   FontSize="Subtitle" 
-                   FontAttributes="Bold" 
-                   HorizontalTextAlignment="Center"/>
-            <Label Text="Goal" 
-                   Grid.Column="1"
-                   FontSize="Subtitle" 
-                   FontAttributes="Bold" 
-                   HorizontalTextAlignment="Center"/>
-            <Label Text="Plan" 
-                   Grid.Column="2"
-                   FontSize="Subtitle" 
-                   FontAttributes="Bold" 
-                   HorizontalTextAlignment="Center"/>
-        </Grid>
-
-        <!-- Table Rows (Sample Data) -->
-        <CollectionView ItemsSource="{Binding Goals}">
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Grid ColumnDefinitions="*, 2*, 2*" RowDefinitions="Auto" Padding="0,10">
-                        <!-- Datetime -->
-                        <Label Text="{Binding Datetime}" 
-                               HorizontalTextAlignment="Center"
-                               VerticalTextAlignment="Center"/>
-
-                        <!-- Goal -->
-                        <Label Text="{Binding Goal}" 
-                               Grid.Column="1" 
-                               HorizontalTextAlignment="Center"
-                               VerticalTextAlignment="Center"/>
-
-                        <!-- Plan -->
-                        <Label Text="{Binding Plan}" 
-                               Grid.Column="2" 
-                               HorizontalTextAlignment="Center"
-                               VerticalTextAlignment="Center"/>
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
-
-    </StackLayout>
+                     </VerticalStackLayout>
+              </ScrollView>
+       </ContentPage.Content>
 </ContentPage>
