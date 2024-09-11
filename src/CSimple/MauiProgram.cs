@@ -53,6 +53,7 @@ public static class MauiProgram
         services.AddSingleton<HomePage>();
         services.AddSingleton<LoginViewModel>();
         services.AddSingleton<LoginPage>();
+        services.AddSingleton<NetPage>();
         services.AddSingleton<SettingsPage>();
         services.AddSingleton<DataService>();
 

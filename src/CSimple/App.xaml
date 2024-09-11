@@ -37,6 +37,9 @@
             <FlyoutItem Title="Favorites" Route="favorites" FlyoutItemIsVisible="False">
                 <ShellContent ContentTemplate="{DataTemplate page:FavoritesPage}"/>
             </FlyoutItem>
+            <FlyoutItem Title="Net" Route="net" Style="{StaticResource NetFlyout}">
+                <ShellContent ContentTemplate="{DataTemplate page:NetPage}"/>
+            </FlyoutItem>
             <FlyoutItem Title="Map" Route="map" FlyoutItemIsVisible="False">
                 <ShellContent ContentTemplate="{DataTemplate page:MapPage}"/>
             </FlyoutItem>
@@ -84,6 +87,9 @@
                 </Tab>
                 <Tab Title="Map" Icon="tab_map.png">
                     <ShellContent ContentTemplate="{DataTemplate page:MapPage}"/>
+                </Tab>
+                <Tab Title="Net" Icon="tab_net.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:NetPage}"/>
                 </Tab>
                 <Tab Title="Settings" Icon="tab_settings.png">
                     <ShellContent ContentTemplate="{DataTemplate page:SettingsPage}"/>

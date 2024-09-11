@@ -1,0 +1,14 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CSimple.Pages.NetPage"
+             Title="Net">
+       <ContentPage.Content>
+              <ScrollView>
+                     <VerticalStackLayout Padding="10">
+                            <Label Text="Net" FontSize="Large" FontAttributes="Bold" />
+                            <Label Text="Every journey begins with a step. Where are you going?"/>
+
+                     </VerticalStackLayout>
+              </ScrollView>
+       </ContentPage.Content>
+</ContentPage>
