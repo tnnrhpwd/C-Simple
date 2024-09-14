@@ -420,6 +420,18 @@
             </Trigger>
         </Style.Triggers>
     </Style>
+    <Style TargetType="FlyoutItem" x:Key="NetFlyout">
+        <Style.Triggers>
+            <Trigger TargetType="FlyoutItem"
+                        Property="IsChecked" Value="False">
+                <Setter Property="FlyoutIcon" Value="tab_net.png"/>
+            </Trigger>
+            <Trigger TargetType="FlyoutItem"
+                        Property="IsChecked" Value="True">
+                <Setter Property="FlyoutIcon" Value="tab_net_on.png"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
     <Style TargetType="FlyoutItem" x:Key="ObserveFlyout">
         <Style.Triggers>
             <Trigger TargetType="FlyoutItem"
