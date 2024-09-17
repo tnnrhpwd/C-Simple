@@ -38,7 +38,7 @@ namespace CSimple.Services
             // Create input structure
             INPUT mouseDownInput = new INPUT
             {
-                type = INPUT_MOUSE, //The name 'INPUT_MOUSE' does not exist in the current contextCS0103
+                type = INPUT_MOUSE,
                 U = new InputUnion
                 {
                     mi = new MOUSEINPUT
@@ -55,7 +55,7 @@ namespace CSimple.Services
 
             INPUT mouseUpInput = new INPUT
             {
-                type = INPUT_MOUSE, //The name 'INPUT_MOUSE' does not exist in the current contextCS0103
+                type = INPUT_MOUSE,
                 U = new InputUnion
                 {
                     mi = new MOUSEINPUT
