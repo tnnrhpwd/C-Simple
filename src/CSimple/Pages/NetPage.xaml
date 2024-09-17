@@ -7,7 +7,13 @@
                      <VerticalStackLayout Padding="10">
                             <Label Text="Net" FontSize="Large" FontAttributes="Bold" />
                             <Label Text="Every journey begins with a step. Where are you going?"/>
-
+            <ScrollView>
+                <VerticalStackLayout x:Name="ChatContainer" />
+            </ScrollView>
+            <HorizontalStackLayout>
+                <Entry x:Name="UserInput" Placeholder="Type your message here..." HorizontalOptions="FillAndExpand" />
+                <Button Text="Send" />
+            </HorizontalStackLayout>
                      </VerticalStackLayout>
               </ScrollView>
        </ContentPage.Content>
