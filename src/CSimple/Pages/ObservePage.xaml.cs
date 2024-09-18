@@ -144,8 +144,20 @@ namespace CSimple.Pages
         }
         private void StartTracking()
         {
-            _mouseTrackingService.StartTracking();
+        #if WINDOWS
+            // Obtain the window handle (hwnd) for the current window in a .NET MAUI app
+            var windowHandler = Application.Current.Windows[0].Handler;
+            if (windowHandler is Microsoft.Maui.Handlers.WindowHandler handler)
+            {
+                var hwnd = handler.PlatformView.Handle;
+                _mouseTrackingService.StartTracking(hwnd);
+            }
+        #else
+            // For non-Windows platforms (optional, if you want to handle other platforms)
+            _mouseTrackingService.StartTracking(IntPtr.Zero); // or skip this part if irrelevant
+        #endif
         }
+
         private void StopTracking()
         {
             _mouseTrackingService.StopTracking();
