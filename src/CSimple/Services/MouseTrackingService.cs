@@ -11,7 +11,7 @@ using WindowsInput.Native;
 using Microsoft.Maui.Dispatching;
 #endif
 
-namespace YourNamespace.Services
+namespace CSimple.Services
 {
     public class MouseTrackingService
     {
@@ -100,12 +100,6 @@ namespace YourNamespace.Services
             GetCursorPos(out POINT lpPoint);
             return lpPoint;
         }
-    }
-
-    public struct POINT
-    {
-        public int X;
-        public int Y;
     }
 #endif
 }

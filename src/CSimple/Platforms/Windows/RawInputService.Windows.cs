@@ -4,7 +4,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace YourNamespace.Services
+namespace CSimple.Services
 {
     public class RawInputService : IDisposable
     {
@@ -57,7 +57,9 @@ namespace YourNamespace.Services
             public uint ulExtraInformation;
         }
 
-        public event Action<int, int> MouseMoved;
+        // Events for both mouse movement and buttons
+        public event Action<int, int> MouseMoved;   // For relative mouse movement (3D controls)
+        public event Action<bool> MouseButtonDown; // For mouse button presses
 
         public RawInputService(Microsoft.UI.Xaml.Window window)
         {
@@ -72,9 +74,9 @@ namespace YourNamespace.Services
         private void RegisterRawInput()
         {
             RAWINPUTDEVICE[] rid = new RAWINPUTDEVICE[1];
-            rid[0].usUsagePage = 0x01;
-            rid[0].usUsage = 0x02;
-            rid[0].dwFlags = 0;
+            rid[0].usUsagePage = 0x01; // Generic desktop controls
+            rid[0].usUsage = 0x02;     // Mouse
+            rid[0].dwFlags = 0;        // No flags for now, could adjust
             rid[0].hwndTarget = _hwnd;
 
             if (!RegisterRawInputDevices(rid, (uint)rid.Length, (uint)Marshal.SizeOf(rid[0])))
@@ -100,9 +102,18 @@ namespace YourNamespace.Services
 
                     if (raw.header.dwType == RIM_TYPEMOUSE)
                     {
-                        int x = raw.mouse.lLastX;
-                        int y = raw.mouse.lLastY;
-                        MouseMoved?.Invoke(x, y);
+                        int deltaX = raw.mouse.lLastX; // Relative movement in X
+                        int deltaY = raw.mouse.lLastY; // Relative movement in Y
+
+                        // Trigger mouse movement event
+                        MouseMoved?.Invoke(deltaX, deltaY);
+
+                        // Track mouse button states (example: left mouse button)
+                        if (raw.mouse.usButtonFlags != 0)
+                        {
+                            bool isButtonDown = (raw.mouse.usButtonFlags & 0x0001) != 0; // Left button down
+                            MouseButtonDown?.Invoke(isButtonDown);
+                        }
                     }
                 }
                 finally
@@ -111,6 +122,7 @@ namespace YourNamespace.Services
                 }
             }
         }
+
         private const uint RIDEV_REMOVE = 0x00000001;
         private void UnregisterRawInput()
         {
@@ -120,19 +132,14 @@ namespace YourNamespace.Services
             rid[0].dwFlags = RIDEV_REMOVE;
             rid[0].hwndTarget = _hwnd;
 
-            if (!RegisterRawInputDevices(rid, (uint)rid.Length, (uint)Marshal.SizeOf(rid[0])))
-            {
-                // Handle error
-            }
+            RegisterRawInputDevices(rid, (uint)rid.Length, (uint)Marshal.SizeOf(rid[0]));
         }
+
         public void Dispose()
         {
-            // Unregister raw input devices if needed
             UnregisterRawInput();
-
-            // Dispose the native window if necessary
-            // _nativeWindow?.Dispose();
         }
+
         public class RawInputNativeWindow : NativeWindow
         {
             public event EventHandler<Message> MessageReceived;
