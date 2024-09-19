@@ -17,6 +17,10 @@ using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using System.Threading.Tasks;
 using Microsoft.Maui.Storage;
+#if WINDOWS
+using Microsoft.UI.Xaml;
+using WinRT.Interop;
+#endif
 
 namespace CSimple.Pages
 {
@@ -145,16 +149,16 @@ namespace CSimple.Pages
         private void StartTracking()
         {
         #if WINDOWS
-            // Obtain the window handle (hwnd) for the current window in a .NET MAUI app
-            var windowHandler = Application.Current.Windows[0].Handler;
-            if (windowHandler is Microsoft.Maui.Handlers.WindowHandler handler)
+            // Get the native window handle (HWND) for Windows platform
+            var windowHandler = Microsoft.Maui.Controls.Application.Current.Windows[0].Handler;
+            if (windowHandler.PlatformView is Microsoft.UI.Xaml.Window window)
             {
-                var hwnd = handler.PlatformView.Handle;
+                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
                 _mouseTrackingService.StartTracking(hwnd);
             }
         #else
-            // For non-Windows platforms (optional, if you want to handle other platforms)
-            _mouseTrackingService.StartTracking(IntPtr.Zero); // or skip this part if irrelevant
+            // For non-Windows platforms (optional)
+            _mouseTrackingService.StartTracking(IntPtr.Zero);
         #endif
         }
 

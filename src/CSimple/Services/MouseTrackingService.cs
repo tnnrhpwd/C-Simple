@@ -55,8 +55,14 @@ namespace CSimple.Services
         [StructLayout(LayoutKind.Sequential)]
         public struct RAWINPUT
         {
-            public RAWINPUTHEADER header;
-            public RAWMOUSE mouse;
+            public uint HeaderSize;
+            public uint Type;
+            public uint MouseFlags;
+            public uint MouseData;
+            public int LastX; // These represent relative movements, not absolute positions
+            public int LastY;
+            public uint ButtonData;
+            public uint ExtraInformation;
         }
 
         private bool _isTracking;
@@ -114,18 +120,18 @@ namespace CSimple.Services
                 if (GetRawInputData(lParam, RID_INPUT, rawData, ref size, (uint)Marshal.SizeOf(typeof(RAWINPUTHEADER))) == size)
                 {
                     RAWINPUT rawInput = Marshal.PtrToStructure<RAWINPUT>(rawData);
-                    if (rawInput.header.dwType == RIM_TYPEMOUSE)
+                    if (rawInput.HeaderSize == RIM_TYPEMOUSE)
                     {
                         // Capture relative movement
-                        int deltaX = rawInput.mouse.lLastX;
-                        int deltaY = rawInput.mouse.lLastY;
+                        int deltaX = rawInput.LastX; // Relative X movement
+                        int deltaY = rawInput.LastY; // Relative Y movement
 
-                        // Call the event with the new mouse movement
+                        // Use the delta values directly to track movement
                         var delta = new Point(deltaX, deltaY);
-                        MouseMovements.Add(delta);
-                        MouseMoved?.Invoke(delta);
+                        MouseMovements.Add(delta);  // Record the movement delta
+                        MouseMoved?.Invoke(delta);  // Trigger the event with the delta
 
-                        // Log for testing
+                        // Log for debugging
                         Console.WriteLine($"Mouse moved: X = {deltaX}, Y = {deltaY}");
                     }
                 }
