@@ -15,6 +15,9 @@ namespace CSimple.Services
         // Constants for raw input
         private const uint RIM_TYPEMOUSE = 0;
         private const uint RID_INPUT = 0x10000003;
+        private const uint RIM_TYPETOUCH = 0x0003;  // Example value, consider touch events as a special HID type
+        private const uint RIM_TYPEPEN = 0x0004;  // Example value, consider pen events as another HID type
+
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool RegisterRawInputDevices([MarshalAs(UnmanagedType.LPArray, SizeConst = 1)] RAWINPUTDEVICE[] pRawInputDevices, uint uiNumDevices, uint cbSize);
@@ -94,13 +97,19 @@ namespace CSimple.Services
         // Register the application to receive raw mouse input
         private void RegisterForRawInput(IntPtr hwnd)
         {
-            RAWINPUTDEVICE[] rid = new RAWINPUTDEVICE[1];
+            RAWINPUTDEVICE[] rid = new RAWINPUTDEVICE[2];
 
             // Register for mouse input (UsagePage = 1, Usage = 2)
             rid[0].usUsagePage = 0x01; // Generic Desktop Controls
             rid[0].usUsage = 0x02;     // Mouse
             rid[0].dwFlags = 0;        // No flags for relative movement
             rid[0].hwndTarget = hwnd;  // Handle of the window to receive the input
+
+            // Register for touch input (UsagePage = 1, Usage = 4)
+            rid[1].usUsagePage = 0x0D; // Digitizer
+            rid[1].usUsage = 0x04;     // Touch screen
+            rid[1].dwFlags = 0;
+            rid[1].hwndTarget = hwnd;
 
             if (!RegisterRawInputDevices(rid, (uint)rid.Length, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICE))))
             {
@@ -122,17 +131,26 @@ namespace CSimple.Services
                     RAWINPUT rawInput = Marshal.PtrToStructure<RAWINPUT>(rawData);
                     if (rawInput.HeaderSize == RIM_TYPEMOUSE)
                     {
-                        // Capture relative movement
-                        int deltaX = rawInput.LastX; // Relative X movement
-                        int deltaY = rawInput.LastY; // Relative Y movement
+                        // Handle mouse as before
+                        int deltaX = rawInput.LastX;
+                        int deltaY = rawInput.LastY;
 
-                        // Use the delta values directly to track movement
                         var delta = new Point(deltaX, deltaY);
-                        MouseMovements.Add(delta);  // Record the movement delta
-                        MouseMoved?.Invoke(delta);  // Trigger the event with the delta
-
-                        // Log for debugging
+                        MouseMovements.Add(delta);
+                        MouseMoved?.Invoke(delta);
                         Console.WriteLine($"Mouse moved: X = {deltaX}, Y = {deltaY}");
+                    }
+                    else if (rawInput.HeaderSize == RIM_TYPETOUCH) // RIM_TYPETOUCH for touch input
+                    {
+                        // Handle touch input
+                        Console.WriteLine("Touch input received.");
+                        // Process the touch data here
+                    }
+                    else if (rawInput.HeaderSize == RIM_TYPEPEN) // RIM_TYPEPEN for pen input
+                    {
+                        // Handle pen input
+                        Console.WriteLine("Pen input received.");
+                        // Process the pen data here
                     }
                 }
             }
