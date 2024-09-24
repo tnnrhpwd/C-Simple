@@ -72,6 +72,12 @@
                                    Command="{Binding ToggleUserTouchCommand}" 
                                    HorizontalOptions="End" />
                      </StackLayout>
+                     <Label x:Name="MouseMovementLabel" 
+                            Text="Mouse movement: ΔX = 0, ΔY = 0"
+                            FontSize="16" />
+                     <Label x:Name="MouseButtonLabel"
+                            Text="Mouse button is up"
+                            FontSize="16" />
                      <Entry x:Name="UserTouchOutput" IsReadOnly="True" />
               </StackLayout>
               </StackLayout>

@@ -35,7 +35,7 @@ namespace CSimple.Pages
         public ICommand SaveActionCommand { get; set; }
         public ICommand SaveToFileCommand { get; set; }
         public ICommand LoadFromFileCommand { get; set; }
-        // private RawInputHandler _rawInputHandler;
+        private RawInputService _rawInputService;
         private readonly MouseTrackingService _mouseTrackingService;
 
         private DateTime _mouseLeftButtonDownTimestamp;
@@ -69,10 +69,12 @@ namespace CSimple.Pages
             InitializeComponent();
             _fileService = new FileService();
             _recordedActions = new List<string>();
-            // var hwnd = ((MauiWinUIWindow)App.Current.Windows[0].Handler.PlatformView).WindowHandle;
-            // _rawInputHandler = new RawInputHandler(hwnd);
+            var window = Microsoft.Maui.Controls.Application.Current.Windows[0].Handler.PlatformView as Microsoft.UI.Xaml.Window;
+            _rawInputService = new RawInputService(window);
             _mouseTrackingService = new MouseTrackingService();
             _mouseTrackingService.MouseMoved += OnMouseMoved;
+            _rawInputService.MouseMoved += OnMouseMoved;
+            _rawInputService.MouseButtonDown += OnMouseButtonDown;
             CheckUserLoggedIn();
 
             TogglePCVisualCommand = new Command(TogglePCVisualOutput);
@@ -146,6 +148,20 @@ namespace CSimple.Pages
                 DebugOutput($"Mouse Movement: X={delta.X}, Y={delta.Y}");
             });
         }
+        private void OnMouseMoved(int deltaX, int deltaY)
+        {
+            Dispatcher.Dispatch(() =>
+            {
+                MouseMovementLabel.Text = $"Mouse moved: ΔX = {deltaX}, ΔY = {deltaY}";
+            });
+        }
+        private void OnMouseButtonDown(bool isButtonDown)
+        {
+            Dispatcher.Dispatch(() =>
+            {
+                MouseButtonLabel.Text = $"Mouse button is {(isButtonDown ? "down" : "up")}";
+            });
+        }
         private void StartTracking()
         {
         #if WINDOWS
@@ -170,6 +186,18 @@ namespace CSimple.Pages
         {
             base.OnAppearing();
             await LoadActionGroupsFromFile();
+        }
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+
+            // Unsubscribe from the service events when the page is no longer visible
+            if (_rawInputService != null)
+            {
+                _rawInputService.MouseMoved -= OnMouseMoved;
+                _rawInputService.MouseButtonDown -= OnMouseButtonDown;
+                _rawInputService.Dispose();
+            }
         }
         private void TogglePCVisualOutput() // webcam image: record what else the human hears
         {
@@ -366,9 +394,6 @@ namespace CSimple.Pages
                 DebugOutput($"Error saving action groups: {ex.Message}");
             }
         }
-
-
-
         private async Task LoadActionGroupsFromFile()
         {
             try
