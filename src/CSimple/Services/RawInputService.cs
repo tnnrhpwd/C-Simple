@@ -59,7 +59,7 @@ namespace CSimple.Services
 
         // Events for both mouse movement and buttons
         public event Action<int, int> MouseMoved;   // For relative mouse movement (3D controls)
-        public event Action<bool> MouseButtonDown; // For mouse button presses
+        public event Action<string> ButtonDown; // For mouse button presses
 
         public RawInputService(Microsoft.UI.Xaml.Window window)
         {
@@ -108,12 +108,40 @@ namespace CSimple.Services
                         // Trigger mouse movement event
                         MouseMoved?.Invoke(deltaX, deltaY);
 
-                        // Track mouse button states (example: left mouse button)
-                        if (raw.mouse.usButtonFlags != 0)
+                    // Track mouse button states and assign descriptive strings
+                    if (raw.mouse.usButtonFlags != 0)
+                    {
+                        string buttonState = "";
+
+                        if ((raw.mouse.usButtonFlags & 0x0001) != 0)
                         {
-                            bool isButtonDown = (raw.mouse.usButtonFlags & 0x0001) != 0; // Left button down
-                            MouseButtonDown?.Invoke(isButtonDown);
+                            buttonState = "Left button down";
                         }
+                        else if ((raw.mouse.usButtonFlags & 0x0002) != 0)
+                        {
+                            buttonState = "Left button up";
+                        }
+                        else if ((raw.mouse.usButtonFlags & 0x0004) != 0)
+                        {
+                            buttonState = "Right button down";
+                        }
+                        else if ((raw.mouse.usButtonFlags & 0x0008) != 0)
+                        {
+                            buttonState = "Right button up";
+                        }
+                        else if ((raw.mouse.usButtonFlags & 0x0010) != 0)
+                        {
+                            buttonState = "Middle button down";
+                        }
+                        else if ((raw.mouse.usButtonFlags & 0x0020) != 0)
+                        {
+                            buttonState = "Middle button up";
+                        }
+
+                        // Invoke the event with the descriptive string
+                        ButtonDown?.Invoke(buttonState);
+                    }
+
                     }
                 }
                 finally

@@ -74,7 +74,7 @@ namespace CSimple.Pages
             _mouseTrackingService = new MouseTrackingService();
             _mouseTrackingService.MouseMoved += OnMouseMoved;
             _rawInputService.MouseMoved += OnMouseMoved;
-            _rawInputService.MouseButtonDown += OnMouseButtonDown;
+            _rawInputService.ButtonDown += OnButtonDown;
             CheckUserLoggedIn();
 
             TogglePCVisualCommand = new Command(TogglePCVisualOutput);
@@ -155,11 +155,11 @@ namespace CSimple.Pages
                 MouseMovementLabel.Text = $"Mouse moved: ΔX = {deltaX}, ΔY = {deltaY}";
             });
         }
-        private void OnMouseButtonDown(bool isButtonDown)
+        private void OnButtonDown(string buttonState)
         {
             Dispatcher.Dispatch(() =>
             {
-                MouseButtonLabel.Text = $"Mouse button is {(isButtonDown ? "down" : "up")}";
+                ButtonLabel.Text = $"Mouse button state: {buttonState}";
             });
         }
         private void StartTracking()
@@ -195,7 +195,7 @@ namespace CSimple.Pages
             if (_rawInputService != null)
             {
                 _rawInputService.MouseMoved -= OnMouseMoved;
-                _rawInputService.MouseButtonDown -= OnMouseButtonDown;
+                _rawInputService.ButtonDown -= OnButtonDown;
                 _rawInputService.Dispose();
             }
         }

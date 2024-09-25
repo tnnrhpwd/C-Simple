@@ -75,8 +75,8 @@
                      <Label x:Name="MouseMovementLabel" 
                             Text="Mouse movement: ΔX = 0, ΔY = 0"
                             FontSize="16" />
-                     <Label x:Name="MouseButtonLabel"
-                            Text="Mouse button is up"
+                     <Label x:Name="ButtonLabel"
+                            Text="No button is pressed."
                             FontSize="16" />
                      <Entry x:Name="UserTouchOutput" IsReadOnly="True" />
               </StackLayout>
