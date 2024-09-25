@@ -541,7 +541,7 @@ namespace CSimple.Pages
         
                 Dispatcher.Dispatch(() =>
                 {
-                    UserTouchOutput.Text += $"{currentTime} - {((VirtualKey)actionArrayItem.KeyCode).ToString()} {actionArrayItem.EventType} - Duration: {actionArrayItem.Duration}ms\n";
+                    UserTouchOutput.Text = $"{currentTime} - {((VirtualKey)actionArrayItem.KeyCode).ToString()} {actionArrayItem.EventType} - Duration: {actionArrayItem.Duration}ms\n";
                 });
         
                 UserTouchInputText = JsonConvert.SerializeObject(actionArrayItem);
