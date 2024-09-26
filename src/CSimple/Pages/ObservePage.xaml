@@ -28,7 +28,7 @@
                                    Command="{Binding TogglePCVisualCommand}" 
                                    HorizontalOptions="End" />
                      </StackLayout>
-                     <Image x:Name="CapturedImage" HeightRequest="200" BackgroundColor="LightGray" />
+                     <Image x:Name="CapturedImage" HeightRequest="50" BackgroundColor="LightGray" />
               </StackLayout>
 
               <!-- PC Audible Output -->
@@ -39,7 +39,7 @@
                                    Command="{Binding TogglePCAudibleCommand}" 
                                    HorizontalOptions="End" />
                      </StackLayout>
-                     <BoxView HeightRequest="100" BackgroundColor="LightGray" />
+                     <BoxView HeightRequest="50" BackgroundColor="LightGray" />
               </StackLayout>
               
               <!-- User Visual Output -->
@@ -50,7 +50,7 @@
                                    Command="{Binding ToggleUserVisualCommand}" 
                                    HorizontalOptions="End" />
                      </StackLayout>
-                     <BoxView HeightRequest="200" BackgroundColor="LightGray" /> 
+                     <BoxView HeightRequest="50" BackgroundColor="LightGray" /> 
               </StackLayout>
               
               <!-- User Audible Output -->
@@ -61,7 +61,7 @@
                                    Command="{Binding ToggleUserAudibleCommand}" 
                                    HorizontalOptions="End" />
                      </StackLayout>
-                     <BoxView HeightRequest="100" BackgroundColor="LightGray" /> 
+                     <BoxView HeightRequest="50" BackgroundColor="LightGray" /> 
               </StackLayout>
               
               <!-- User Touch Output -->

@@ -20,6 +20,7 @@ using Microsoft.Maui.Storage;
 #if WINDOWS
 using Microsoft.UI.Xaml;
 using WinRT.Interop;
+using System.Text;
 #endif
 
 namespace CSimple.Pages
@@ -457,6 +458,8 @@ namespace CSimple.Pages
                 return SetWindowsHookEx(hookType, proc, GetModuleHandle(curModule.ModuleName), 0);
             }
         }
+        // Dictionary to track active key presses and mouse button presses with a duration of 0
+        private Dictionary<ushort, ActionArrayItem> _activeKeyPresses = new Dictionary<ushort, ActionArrayItem>();
 
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
@@ -467,86 +470,95 @@ namespace CSimple.Pages
                 {
                     Timestamp = currentTime
                 };
-        
-                // if (_rawInputHandler == null)
-                // {
-                //     DebugOutput("Error: _rawInputHandler is not initialized.");
-                //     return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
-                // }
-        
-                // _rawInputHandler.ProcessRawInput(lParam);
-                DebugOutput(nCode.ToString()+","+wParam+","+lParam);
+
+                // Process mouse events
                 if (wParam == (IntPtr)WM_MOUSEMOVE)
                 {
                     GetCursorPos(out POINT currentMousePos);
-                    _mouseLeftButtonDownTimestamp = DateTime.UtcNow;
                     actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
                     actionArrayItem.EventType = WM_MOUSEMOVE;
-                    actionArrayItem.KeyCode = 0;
                 }
-                if (wParam == (IntPtr)WM_LBUTTONDOWN)
+                else if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN)
                 {
                     GetCursorPos(out POINT currentMousePos);
+                    var buttonCode = (wParam == (IntPtr)WM_LBUTTONDOWN) ? (ushort)WM_LBUTTONDOWN : (ushort)WM_RBUTTONDOWN;
                     _mouseLeftButtonDownTimestamp = DateTime.UtcNow;
                     actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
-                    actionArrayItem.EventType = WM_LBUTTONDOWN;
-                    actionArrayItem.KeyCode = 0;
+                    actionArrayItem.EventType = (ushort)wParam;
+                    actionArrayItem.Duration = 0;
+
+                    // Track active mouse button press
+                    if (!_activeKeyPresses.ContainsKey(buttonCode))
+                    {
+                        _activeKeyPresses[buttonCode] = actionArrayItem;
+                    }
+
+                    UpdateUI(); // Update the UI with the active key/mouse buttons
                 }
-                else if (wParam == (IntPtr)WM_LBUTTONUP)
+                else if (wParam == (IntPtr)WM_LBUTTONUP || wParam == (IntPtr)WM_RBUTTONUP)
                 {
+                    GetCursorPos(out POINT currentMousePos);
                     var duration = (DateTime.UtcNow - _mouseLeftButtonDownTimestamp).TotalMilliseconds;
                     actionArrayItem.Duration = duration > 0 ? (int)duration : 1;
-                    GetCursorPos(out POINT currentMousePos);
                     actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
-                    actionArrayItem.EventType = WM_LBUTTONUP;
-                    actionArrayItem.KeyCode = 0;
+                    actionArrayItem.EventType = (ushort)wParam;
+
+                    var buttonCode = (wParam == (IntPtr)WM_LBUTTONUP) ? (ushort)WM_LBUTTONDOWN : (ushort)WM_RBUTTONDOWN;
+
+                    // Remove the mouse button press from active presses
+                    _activeKeyPresses.Remove(buttonCode);
+
+                    UpdateUI(); // Update UI after removing the mouse button
                 }
-                else if (wParam == (IntPtr)WM_RBUTTONDOWN)
-                {
-                    GetCursorPos(out POINT currentMousePos);
-                    _mouseRightButtonDownTimestamp = DateTime.UtcNow;
-                    actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
-                    actionArrayItem.EventType = WM_RBUTTONDOWN;
-                    actionArrayItem.KeyCode = 0;
-                }
-                else if (wParam == (IntPtr)WM_RBUTTONUP)
-                {
-                    var duration = (DateTime.UtcNow - _mouseRightButtonDownTimestamp).TotalMilliseconds;
-                    actionArrayItem.Duration = duration > 0 ? (int)duration : 1;
-                    GetCursorPos(out POINT currentMousePos);
-                    actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
-                    actionArrayItem.EventType = WM_RBUTTONUP;
-                    actionArrayItem.KeyCode = 0;
-                }
-                else if (wParam == (IntPtr)WM_KEYDOWN)
+
+                // Process keyboard events
+                if (wParam == (IntPtr)WM_KEYDOWN)
                 {
                     int vkCode = Marshal.ReadInt32(lParam);
                     actionArrayItem.KeyCode = (ushort)vkCode;
-                    _keyPressDownTimestamps[(ushort)vkCode] = DateTime.UtcNow;
-                    actionArrayItem.EventType = WM_KEYDOWN;
+
+                    // Check if the key is already being pressed (active) with duration 0
+                    if (!_activeKeyPresses.ContainsKey(actionArrayItem.KeyCode))
+                    {
+                        _keyPressDownTimestamps[(ushort)vkCode] = DateTime.UtcNow;
+                        actionArrayItem.EventType = WM_KEYDOWN;
+                        actionArrayItem.Duration = 0; // Active press (ongoing)
+
+                        // Add the actionArrayItem to track it as active
+                        _activeKeyPresses[actionArrayItem.KeyCode] = actionArrayItem;
+
+                        UpdateUI(); // Update UI to display active key presses
+                    }
+                    else
+                    {
+                        // Skip recording another keydown with a duration of 0
+                        return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+                    }
                 }
                 else if (wParam == (IntPtr)WM_KEYUP)
                 {
                     int vkCode = Marshal.ReadInt32(lParam);
                     actionArrayItem.KeyCode = (ushort)vkCode;
-        
+
                     if (_keyPressDownTimestamps.TryGetValue((ushort)vkCode, out DateTime keyDownTimestamp))
                     {
                         var duration = (DateTime.UtcNow - keyDownTimestamp).TotalMilliseconds;
                         actionArrayItem.Duration = duration > 0 ? (int)duration : 1;
+                        actionArrayItem.EventType = WM_KEYUP;
+
+                        // Remove from active key presses once the key is released
+                        _activeKeyPresses.Remove(actionArrayItem.KeyCode);
                         _keyPressDownTimestamps.Remove((ushort)vkCode);
+
+                        UpdateUI(); // Update UI after removing the key press
                     }
-                    actionArrayItem.EventType = WM_KEYUP;
                 }
-        
-                Dispatcher.Dispatch(() =>
-                {
-                    UserTouchOutput.Text = $"{currentTime} - {((VirtualKey)actionArrayItem.KeyCode).ToString()} {actionArrayItem.EventType} - Duration: {actionArrayItem.Duration}ms\n";
-                });
-        
+
+                // Serialize and save the action
                 UserTouchInputText = JsonConvert.SerializeObject(actionArrayItem);
                 SaveAction();
 
+                // Capture screen on Windows if required
                 #if WINDOWS
                 if (UserVisualButtonText == "Stop")
                 {
@@ -556,7 +568,31 @@ namespace CSimple.Pages
                 }
                 #endif
             }
+
             return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+        }
+
+        // Helper function to update the UI with the current active keys and buttons
+        private void UpdateUI()
+        {
+            Dispatcher.Dispatch(() =>
+            {
+                // Create a formatted string to display active key presses and mouse buttons
+                var activeInputsDisplay = new StringBuilder();
+                activeInputsDisplay.AppendLine("Active Key/Mouse Presses:");
+
+                foreach (var kvp in _activeKeyPresses)
+                {
+                    var keycode = kvp.Key;
+
+                    // Format each keycode and mouse event with relevant details
+                    activeInputsDisplay.AppendLine($"KeyCode/MouseCode: {keycode}");
+                }
+
+                // Update the UI elements with the active key/mouse presses
+                ButtonLabel.Text = activeInputsDisplay.ToString(); // Display the active key presses in the ButtonLabel
+                UserTouchOutput.Text = activeInputsDisplay.ToString(); // Display the active key presses in UserTouchOutput
+            });
         }
         
         private void CaptureScreen(string filePath)
