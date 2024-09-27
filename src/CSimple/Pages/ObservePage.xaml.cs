@@ -412,7 +412,6 @@ namespace CSimple.Pages
         private void SaveAction()
         {
             string actionName = ActionNameInput.Text;
-            DebugOutput("saving action...");
             if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(UserTouchInputText))
             {
                 // Convert the UserTouchInputText to the new ActionArrayItem format
@@ -556,6 +555,7 @@ namespace CSimple.Pages
 
                 // Serialize and save the action
                 UserTouchInputText = JsonConvert.SerializeObject(actionArrayItem);
+                DebugOutput(UserTouchInputText);
                 SaveAction();
 
                 // Capture screen on Windows if required
