@@ -146,21 +146,21 @@ namespace CSimple.Pages
         {
             Dispatcher.Dispatch(() =>
             {
-                DebugOutput($"Mouse Movement: X={delta.X}, Y={delta.Y}");
+                DebugOutput($"observepage Mouse Movement: X={delta.X}, Y={delta.Y}");
             });
         }
         private void OnMouseMoved(int deltaX, int deltaY)
         {
             Dispatcher.Dispatch(() =>
             {
-                MouseMovementLabel.Text = $"Mouse moved: ΔX = {deltaX}, ΔY = {deltaY}";
+                MouseMovementLabel.Text = $"observepage Mouse moved: ΔX = {deltaX}, ΔY = {deltaY}";
             });
         }
         private void OnButtonDown(string buttonState)
         {
             Dispatcher.Dispatch(() =>
             {
-                ButtonLabel.Text = $"Mouse button state: {buttonState}";
+                ButtonLabel.Text = $"observepage Mouse button state: {buttonState}";
             });
         }
         private void StartTracking()

@@ -138,18 +138,18 @@ namespace CSimple.Services
                         var delta = new Point(deltaX, deltaY);
                         MouseMovements.Add(delta);
                         MouseMoved?.Invoke(delta);
-                        Console.WriteLine($"Mouse moved: X = {deltaX}, Y = {deltaY}");
+                        Console.WriteLine($"Mousetrackservice Mouse moved: X = {deltaX}, Y = {deltaY}");
                     }
                     else if (rawInput.HeaderSize == RIM_TYPETOUCH) // RIM_TYPETOUCH for touch input
                     {
                         // Handle touch input
-                        Console.WriteLine("Touch input received.");
+                        Console.WriteLine("mousetrackingservice Touch input received.");
                         // Process the touch data here
                     }
                     else if (rawInput.HeaderSize == RIM_TYPEPEN) // RIM_TYPEPEN for pen input
                     {
                         // Handle pen input
-                        Console.WriteLine("Pen input received.");
+                        Console.WriteLine("mousetrackingservice Pen input received.");
                         // Process the pen data here
                     }
                 }
