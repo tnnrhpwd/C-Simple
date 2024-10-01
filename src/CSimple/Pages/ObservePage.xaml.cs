@@ -172,6 +172,7 @@ namespace CSimple.Pages
             {
                 var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
                 _mouseTrackingService.StartTracking(hwnd);
+                GlobalInputCapture.StartHooks();
             }
         #else
             // For non-Windows platforms (optional)
@@ -182,6 +183,7 @@ namespace CSimple.Pages
         private void StopTracking()
         {
             _mouseTrackingService.StopTracking();
+            GlobalInputCapture.StopHooks();
         }
         protected override async void OnAppearing()
         {
