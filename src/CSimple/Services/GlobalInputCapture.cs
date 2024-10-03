@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-Console.WriteLine("Getting love.");
 public class GlobalInputCapture : Form
 {
     private delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);

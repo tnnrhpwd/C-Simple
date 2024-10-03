@@ -56,6 +56,7 @@ public static class MauiProgram
         services.AddSingleton<NetPage>();
         services.AddSingleton<SettingsPage>();
         services.AddSingleton<DataService>();
+        services.AddSingleton<GlobalInputCapture>();
 
         #if WINDOWS
             services.AddSingleton<ITrayService, WinUI.TrayService>();
