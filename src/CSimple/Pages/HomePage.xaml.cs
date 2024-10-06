@@ -34,12 +34,15 @@ public partial class HomePage : ContentPage
     }
     private async Task Initialize()
     {
-        // if (!await IsLoggedInAsync())
-        // if (true)
-        // {
-        //     Debug.WriteLine("Navigating...");
-        //     NavigateLogin();
-        // }
+        await Task.Run(() =>
+        {
+            // if (!await IsLoggedInAsync())
+            // if (true)
+            // {
+            //     Debug.WriteLine("Navigating...");
+            //     NavigateLogin();
+            // }
+        });
     }
     protected override async void OnAppearing()
     {

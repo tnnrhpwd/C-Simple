@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using System;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using System.Diagnostics;
 
 namespace CSimple.Services
 {
@@ -104,7 +105,7 @@ namespace CSimple.Services
                     {
                         int deltaX = raw.mouse.lLastX; // Relative movement in X
                         int deltaY = raw.mouse.lLastY; // Relative movement in Y
-
+                        // Debug.WriteLine("X:" + deltaX.ToString() + " Y:" + deltaY.ToString());
                         // Trigger mouse movement event
                         MouseMoved?.Invoke(deltaX, deltaY);
 

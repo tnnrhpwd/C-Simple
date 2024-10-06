@@ -80,7 +80,10 @@ public partial class SettingsPage : ContentPage
                 }
             }
         }else{
-            Shell.Current.GoToAsync($"///login");
+            await Task.Run(() =>
+            {
+                Shell.Current.GoToAsync($"///login");
+            });
         }
     }
 

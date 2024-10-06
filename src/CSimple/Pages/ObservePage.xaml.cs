@@ -40,7 +40,7 @@ namespace CSimple.Pages
         private readonly MouseTrackingService _mouseTrackingService;
 
         private DateTime _mouseLeftButtonDownTimestamp;
-        private DateTime _mouseRightButtonDownTimestamp;
+        // private DateTime _mouseRightButtonDownTimestamp;
         private Dictionary<ushort, DateTime> _keyPressDownTimestamps = new Dictionary<ushort, DateTime>();
 
         public string PCVisualButtonText { get; set; } = "Read";

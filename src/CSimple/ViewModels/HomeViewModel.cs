@@ -36,9 +36,12 @@ public class HomeViewModel : BaseViewModel
 
     private async Task LoadDataAsync()
     {
-        // var token = await SecureStorage.GetAsync("userToken");
-        // var data = await _dataService.GetDataAsync(new { }, token);
-        // Process the data as needed
+        await Task.Run(() =>
+        {
+            // var token = await SecureStorage.GetAsync("userToken");
+            // var data = await _dataService.GetDataAsync(new { }, token);
+            // Process the data as needed
+        });
     }
     public HomeViewModel()
     {
