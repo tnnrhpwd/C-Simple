@@ -183,23 +183,39 @@ Description: The Y-coordinate for the mouse action, indicating the vertical posi
 
  The AppShell.xaml uses a TabBar to enable tabbed navigation between major sections of the app.
 
+**Generating Project Structure**
+
+To generate a file hierarchy for your project, run the following PowerShell command. This will create a visual hierarchy of your project files.
+
+```bash
+powershell -ExecutionPolicy Bypass -File ./generate_structure.ps1
+```
+
 ## Publication
 
-1. **Open the Project:**
+1. (Optional) **Publish and Upload to Google Drive**
+You can automate the publishing and upload process by running the following shell script:
+```bash
+bash publish-and-upload.ps1
+```
+
+2. **Open the Project:**
 
     Open the solution file (C_Simple.sln) in Visual Studio 2022.
 
-2. **Publish the Solution:**
+3. **Publish the Solution:**
 
     In Visual Studio, right-click on the solution in Solution Explorer and select "Publish..."
 
-3. **Fill in forms:**
+4. **Fill in forms:**
 
     Fill out the forms with the required information and save location.
 
-4. **Run the App:**
+5. **Run the App:**
 
     Navigate to the save location to collect your published executable.
+
+    Code to: publish to google drive: bash publish-and-upload.sh
 
 ## Contributing
 
