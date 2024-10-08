@@ -1,9 +1,11 @@
-# Variables
+# Variables 
 $APP_NAME = "Simple"
-$OUTPUT_DIR = "C:\Users\Aries\Documents\GitHub\C-Simple\published"  # Customize this for your output folder
-$TARGET_FRAMEWORK = "net8.0-windows10.0.19041.0"  # Change this to your target framework (ios, android, windows, etc.)
-$BUILD_CONFIG = "Release"  # Adjust if necessary
-$GDRIVE_FOLDER_ID = "1lKQeLUHYwlrqO8P7LkMztHxSd_CpTvrx"  # Folder ID in Google Drive
+$PROJECT_PATH = "C:\Users\Aries\Documents\GitHub\C-Simple\src\CSimple\CSimple.csproj"  # Path to your .NET MAUI solution file
+$OUTPUT_DIR = "C:\Users\Aries\Documents\GitHub\C-Simple\published"  # Publish output folder
+$TARGET_FRAMEWORK = "net8.0-windows10.0.19041.0"  # Target framework
+$BUILD_CONFIG = "Release"  # Adjust as necessary
+$MSI_OUTPUT_DIR = "D:\My Drive\Simple"  # MSI output folder
+$INSTALLER_PROJECT = "C:\Users\Aries\Documents\GitHub\C-Simple\src\InstallerProject\InstallerProject.vdproj"  # Path to the Installer Project
 
 # Ensure the .NET SDK is in the PATH
 $env:PATH += ";C:\Program Files\dotnet"
@@ -12,35 +14,32 @@ $env:PATH += ";C:\Program Files\dotnet"
 Write-Host "Checking for dotnet executable..."
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     Write-Host "dotnet could not be found in the PATH."
-
-    # Attempt to directly access dotnet
-    if (-not (Test-Path "C:\Program Files\dotnet\dotnet.exe")) {
-        Write-Host "dotnet could not be found. Please check the installation."
-        exit 1
-    } else {
-        Write-Host "dotnet found at C:\Program Files\dotnet\dotnet.exe"
-    }
+    exit 1
 } else {
     Write-Host "dotnet found in PATH."
 }
 
-# Check for required programs
-if (-not (Get-Command gdrive -ErrorAction SilentlyContinue) -and -not (Get-Command rclone -ErrorAction SilentlyContinue)) {
-    Write-Host "Neither gdrive nor rclone could be found. Please install one of them."
-    exit 1
-}
-
-# Set the Windows SDK path
-$WINDOWS_SDK_PATH = "C:\Program Files (x86)\Windows Kits\10\Include"
-
-# Create output directory if it does not exist
+# Create output directories if they do not exist
 if (-not (Test-Path $OUTPUT_DIR)) {
     New-Item -ItemType Directory -Path $OUTPUT_DIR
+}
+if (-not (Test-Path $MSI_OUTPUT_DIR)) {
+    New-Item -ItemType Directory -Path $MSI_OUTPUT_DIR
+}
+
+# Build the project targeting Windows framework
+Write-Host "Building .NET MAUI app for Windows..."
+dotnet build $PROJECT_PATH --framework $TARGET_FRAMEWORK -c $BUILD_CONFIG
+
+# Verify if the build was successful
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Build failed. Check errors above."
+    exit 1
 }
 
 # Publish the .NET MAUI App
 Write-Host "Publishing .NET MAUI app..."
-dotnet publish -f $TARGET_FRAMEWORK -c $BUILD_CONFIG -o $OUTPUT_DIR /p:WindowsSdkDir="$WINDOWS_SDK_PATH"
+dotnet publish $PROJECT_PATH -f $TARGET_FRAMEWORK -c $BUILD_CONFIG -o $OUTPUT_DIR
 
 # Verify if the publish was successful
 if ($LASTEXITCODE -ne 0) {
@@ -48,49 +47,36 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Get the path to the published output
-$PUBLISH_FOLDER = Get-ChildItem -Path $OUTPUT_DIR -Directory | Where-Object { $_.Name -eq $TARGET_FRAMEWORK } | Select-Object -First 1
+# Build the MSI using MSBuild (Installer Project)
+Write-Host "Building MSI installer with MSBuild..."
+& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" `
+    $PROJECT_PATH /t:Build /p:Configuration=$BUILD_CONFIG /p:Platform="x64"
 
-if (-not $PUBLISH_FOLDER) {
-    Write-Host "Publish folder not found!"
-    exit 1
-}
-
-Write-Host "Published app located at: $($PUBLISH_FOLDER.FullName)"
-
-# Compress the published folder into a zip
-$ZIP_FILE = "${APP_NAME}_$(Get-Date -Format 'yyyyMMdd_HHmmss').zip"
-Write-Host "Compressing published output into $ZIP_FILE..."
-Compress-Archive -Path "$($PUBLISH_FOLDER.FullName)\*" -DestinationPath $ZIP_FILE
-
-# Verify if the zip was successful
+# Verify if MSI creation was successful
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Compression failed."
+    Write-Host "MSI creation failed. Check errors above."
     exit 1
 }
 
-Write-Host "Upload to Google Drive starting..."
+Write-Host "MSI installer created successfully: $MSI_OUTPUT_DIR\$APP_NAME.msi"
 
-# Upload to Google Drive using gdrive or rclone
-if (Get-Command gdrive -ErrorAction SilentlyContinue) {
-    & gdrive upload --parent $GDRIVE_FOLDER_ID $ZIP_FILE
-} elseif (Get-Command rclone -ErrorAction SilentlyContinue) {
-    & rclone copy $ZIP_FILE remote:path/to/GoogleDriveFolder
-} else {
-    Write-Host "No valid Google Drive uploader found."
+# Sign the MSI installer
+$msiFilePath = "$MSI_OUTPUT_DIR\$APP_NAME.msi"  # Path to your generated MSI file
+$certPath = "D:\My Drive\CSimple.pfx"  # Path to your exported .pfx file
+$certPassword = "CSimple"  # Password for the certificate
+
+Write-Host "Signing the MSI installer..."
+& "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe" sign /f $certPath /p $certPassword $msiFilePath
+
+# Verify if signing was successful
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "MSI signing failed. Check errors above."
     exit 1
 }
 
-# Verify if the upload was successful
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "Upload successful!"
-} else {
-    Write-Host "Upload failed."
-    exit 1
-}
+Write-Host "MSI installer signed successfully."
 
-# Cleanup
+# Cleanup published output folder
 Remove-Item -Recurse -Force $OUTPUT_DIR
-Remove-Item -Force $ZIP_FILE
 
 Write-Host "Process complete!"

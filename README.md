@@ -30,7 +30,6 @@ Give your Windows system the intelligence to help you. It will make decisions ba
 
    ```bash
    git clone https://github.com/tnnrhpwd/C_Simple.git
-
 2. **Open the Project:**
 
     Open the solution file (C_Simple.sln) in Visual Studio 2022.
@@ -196,7 +195,7 @@ powershell -ExecutionPolicy Bypass -File ./generate_structure.ps1
 1. (Optional) **Publish and Upload to Google Drive**
 You can automate the publishing and upload process by running the following shell script:
 ```bash
-bash publish-and-upload.ps1
+powershell -ExecutionPolicy Bypass -File ./publish-and-upload.ps1
 ```
 
 2. **Open the Project:**

@@ -11,6 +11,7 @@ bin/
 obj/
 Debug/
 Release/
+published/
 [Bb]uild/
 
 # .NET
