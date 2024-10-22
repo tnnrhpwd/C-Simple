@@ -5,6 +5,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Linq;
 using CSimple.Models;
+using CSimple.Converters;
 using CSimple.Services;
 using System.Threading.Tasks;
 using System.Diagnostics;
@@ -110,12 +111,12 @@ namespace CSimple.Pages
             if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(actionArrayText))
             {
                 var actions = actionArrayText.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-                                            .Select(a => new ActionArrayItem
-                                            {
-                                                KeyCode = 54, 
-                                                Timestamp = DateTime.UtcNow.ToString("o"), 
-                                            })
-                                            .ToList();
+                .Select(a => new ActionArrayItem
+                {
+                    KeyCode = 54, 
+                    Timestamp = DateTime.UtcNow.ToString("o"), 
+                })
+                .ToList();
 
                 ActionGroups.Add(new ActionGroup { ActionName = actionName, ActionArray = actions });
                 DebugOutput($"Saved Action Group: {actionName}");
