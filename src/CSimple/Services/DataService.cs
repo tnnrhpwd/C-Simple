@@ -18,20 +18,22 @@ public class DataService
     {
         _httpClient = new HttpClient();
         _updateDataService = new UpdateDataService();
-}
+    }
 
     private void SetAuthorizationHeader(string token)
     {
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
+
     // Create new data
-    public async Task<DataClass> CreateDataAsync(object data, string token)
+    public async Task<DataClass> CreateDataAsync(string data, string token)
     {
         SetAuthorizationHeader(token);
-        var jsonContent = new StringContent(System.Text.Json.JsonSerializer.Serialize(data), System.Text.Encoding.UTF8, "application/json");
+        var jsonContent = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { data }), System.Text.Encoding.UTF8, "application/json");
         var response = await _httpClient.PostAsync(BaseUrl, jsonContent);
         return await HandleResponse<DataClass>(response);
     }
+
     // Get all data
     public async Task<DataClass> GetDataAsync(Dictionary<string, string> queryParams, string token)
     {
@@ -40,12 +42,14 @@ public class DataService
         var response = await _httpClient.GetAsync($"{BaseUrl}?{query}");
         return await HandleResponse<DataClass>(response);
     }
+
     // Update existing data using the backend's "compress" or "update" method
     // Modified Update method to delegate to UpdateDataService
     public async Task<DataClass> UpdateDataAsync(string id, object data, string token)
     {
         return await _updateDataService.UpdateDataAsync(id, data, token);
     }
+
     // Delete user data
     public async Task<DataClass> DeleteDataAsync(string id, string token)
     {
@@ -53,6 +57,7 @@ public class DataService
         var response = await _httpClient.DeleteAsync($"{BaseUrl}{id}");
         return await HandleResponse<DataClass>(response);
     }
+
     // Login user and store token and nickname locally
     public async Task<User> LoginAsync(string email, string password)
     {
@@ -82,6 +87,7 @@ public class DataService
         Debug.WriteLine("Login failed.");
         return null;
     }
+
     // Logout user
     public void Logout()
     {
@@ -90,6 +96,7 @@ public class DataService
         SecureStorage.Remove("userEmail");
         Debug.WriteLine("User logged out.");
     }
+
     // Check if the user is logged in by verifying if the token exists
     public async Task<bool> IsLoggedInAsync()
     {
@@ -104,6 +111,7 @@ public class DataService
             return false;
         }
     }
+
     // Get user details from secure storage
     public async Task<User> GetStoredUserAsync()
     {
@@ -130,6 +138,7 @@ public class DataService
             return null;
         }
     }
+
     // Handle responses, ensure success or handle error
     private async Task<T> HandleResponse<T>(HttpResponseMessage response)
     {
@@ -145,6 +154,7 @@ public class DataService
         }
     }
 }
+
 // Define a model class to deserialize the user response
 public class User
 {

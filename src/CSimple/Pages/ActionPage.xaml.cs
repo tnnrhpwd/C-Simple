@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Globalization;
+using Microsoft.Maui.Storage;
 
 namespace CSimple.Pages
 {
@@ -23,6 +24,9 @@ namespace CSimple.Pages
         public ICommand LoadFromFileCommand { get; set; }
         public ICommand RowTappedCommand { get; }
         private bool _isSimulating;
+        private readonly DataService _dataService;
+        private readonly FileService _fileService;
+
         public bool IsSimulating
         {
             get => _isSimulating;
@@ -36,13 +40,13 @@ namespace CSimple.Pages
         {
             Debug.WriteLine(message);
         }
-        private readonly FileService _fileService;
 
         public ActionPage()
         {
             InitializeComponent();
 
             _fileService = new FileService();
+            _dataService = new DataService();
 
             // Initialize commands
             SaveActionCommand = new Command(SaveAction);
@@ -51,12 +55,11 @@ namespace CSimple.Pages
             LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
 
             RowTappedCommand = new Command<ActionGroup>(OnRowTapped);
-            // BindingContext = new ActionPageViewModel();
             // Initialize ActionGroups collection
             ActionGroups = new ObservableCollection<ActionGroup>();
 
             // Load existing action groups from file asynchronously
-            _ = LoadActionGroups(); // Ignore the returned task since we only need to ensure it's running
+            _ = LoadAndSaveActionGroups(); // Ignore the returned task since we only need to ensure it's running
 
             DebugOutput("Ready");
             BindingContext = this;
@@ -73,7 +76,7 @@ namespace CSimple.Pages
         protected override async void OnAppearing()
         {
             base.OnAppearing();
-            await LoadActionGroups();
+            // await LoadAndSaveActionGroups();
         }
         private async void OnRowTapped(ActionGroup actionGroup)
         {
@@ -85,17 +88,33 @@ namespace CSimple.Pages
             public ICommand ToggleSimulateActionGroupCommand { get; }
             public ICommand RowTappedCommand { get; }
         }
-        private async Task LoadActionGroups()
+        private async Task LoadAndSaveActionGroups()
         {
             try
             {
-                var actionGroups = await _fileService.LoadActionGroupsAsync();
+                DebugOutput("Starting Action Groups Load and Save Task");
+                var token = await SecureStorage.GetAsync("userToken");
+                if (string.IsNullOrEmpty(token))
+                {
+                    DebugOutput("User is not logged in.");
+                    return;
+                }
+        
+                var queryParams = new Dictionary<string, string>
+                {
+                    { "data", "|Action:" }
+                };
+        
+                var actionGroups = await _dataService.GetDataAsync(queryParams, token);
                 ActionGroups.Clear();
-                foreach (var actionGroup in actionGroups)
+                foreach (var actionGroup in actionGroups.Data.Cast<ActionGroup>())
                 {
                     ActionGroups.Add(actionGroup);
                 }
-                DebugOutput("Action Groups Loaded");
+                DebugOutput("Action Groups Loaded from Backend");
+        
+                // Save loaded action groups to file
+                await SaveActionGroupsToFile();
             }
             catch (Exception ex)
             {
@@ -103,7 +122,7 @@ namespace CSimple.Pages
             }
         }
 
-        private void SaveAction()
+        private async void SaveAction(object parameter)
         {
             string actionName = ActionNameEntry.Text?.Trim();
             string actionArrayText = ActionArrayEntry.Text?.Trim();
@@ -118,11 +137,42 @@ namespace CSimple.Pages
                 })
                 .ToList();
 
-                ActionGroups.Add(new ActionGroup { ActionName = actionName, ActionArray = actions });
+                var newActionGroup = new ActionGroup { ActionName = actionName, ActionArray = actions };
+                ActionGroups.Add(newActionGroup);
                 DebugOutput($"Saved Action Group: {actionName}");
 
+                // Save to backend
+                var token = await SecureStorage.GetAsync("userToken");
+                if (string.IsNullOrEmpty(token))
+                {
+                    DebugOutput("User is not logged in.");
+                    return;
+                }
+
+                var userId = await SecureStorage.GetAsync("userId");
+                if (string.IsNullOrEmpty(userId))
+                {
+                    DebugOutput("User ID not found.");
+                    return;
+                }
+
+                var actionArrayString = string.Join("+", actions.Select(a => $"{a.KeyCode}:{a.Timestamp}"));
+                var queryParams = new Dictionary<string, string>
+                {
+                    { "data", $"Creator:{userId}|Action:{actionName}+{actionArrayString}" }
+                };
+                var response = await _dataService.CreateDataAsync(queryParams["data"], token);
+                if (response.DataIsSuccess == true)
+                {
+                    DebugOutput("Action Group saved to backend");
+                }
+                else
+                {
+                    DebugOutput("Failed to save Action Group to backend");
+                }
+
                 // Trigger save to file after adding new action group
-                SaveActionGroupsToFile().ConfigureAwait(false);
+                await SaveActionGroupsToFile();
             }
             else
             {
@@ -281,6 +331,28 @@ namespace CSimple.Pages
             catch (Exception ex)
             {
                 DebugOutput($"Error saving action groups: {ex.Message}");
+            }
+        }
+
+
+        private async Task LoadActionGroupsFromBackend()
+        {
+            try
+            {
+                var token = await SecureStorage.GetAsync("userToken");
+                if (string.IsNullOrEmpty(token))
+                {
+                    DebugOutput("User is not logged in.");
+                    return;
+                }
+
+                var loadedActionGroups = await _dataService.GetDataAsync(new Dictionary<string, string>(), token);
+                ActionGroups = new ObservableCollection<ActionGroup>(loadedActionGroups.Data.Cast<ActionGroup>());
+                DebugOutput("Action Groups Loaded from Backend");
+            }
+            catch (Exception ex)
+            {
+                DebugOutput($"Error loading action groups from backend: {ex.Message}");
             }
         }
 
