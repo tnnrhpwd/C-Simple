@@ -34,14 +34,20 @@ public class DataService
         return await HandleResponse<DataClass>(response);
     }
 
-    // Get all data
-    public async Task<DataClass> GetDataAsync(Dictionary<string, string> queryParams, string token)
+    // Get data with a single 'data' query parameter
+    public async Task<DataClass> GetDataAsync(string data, string token)
     {
         SetAuthorizationHeader(token);
-        var query = string.Join("&", queryParams.Select(kv => $"{kv.Key}={Uri.EscapeDataString(kv.Value)}"));
-        var response = await _httpClient.GetAsync($"{BaseUrl}?{query}");
+        
+        // Build the URL with the data parameter directly
+        var url = $"{BaseUrl}?data={data}";
+        Debug.WriteLine($"Request URL: {url}");  // Log the request URL for debugging
+
+        var response = await _httpClient.GetAsync(url);
         return await HandleResponse<DataClass>(response);
     }
+
+    // Remove the non-generic HandleResponse method to avoid ambiguity
 
     // Update existing data using the backend's "compress" or "update" method
     // Modified Update method to delegate to UpdateDataService

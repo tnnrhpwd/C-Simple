@@ -434,12 +434,10 @@ namespace CSimple.Pages
                     return;
                 }
 
-                var queryParams = new Dictionary<string, string>
-                {
-                    { "data", "|Action:" }
-                };
-                var actionGroups = await _dataService.GetDataAsync(queryParams, token); //this is the method that is not working. **_dataService** was null.
-                if (actionGroups.DataIsSuccess && queryParams["query"] == "|Action:")
+                var data = "|Action:";
+                var actionGroups = await _dataService.GetDataAsync(data, token);
+
+                if (actionGroups.DataIsSuccess)
                 {
                     foreach (var actionGroup in actionGroups.Data.Cast<ActionGroup>())
                     {

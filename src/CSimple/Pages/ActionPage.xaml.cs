@@ -99,20 +99,20 @@ namespace CSimple.Pages
                     DebugOutput("User is not logged in.");
                     return;
                 }
-        
-                var queryParams = new Dictionary<string, string>
-                {
-                    { "data", "|Action:" }
-                };
-        
-                var actionGroups = await _dataService.GetDataAsync(queryParams, token);
+
+                var data = "|Action:";
+                var actionGroups = await _dataService.GetDataAsync(data, token);
+                DebugOutput($"Received {actionGroups.Data.Count} action groups from backend");
+
+
                 ActionGroups.Clear();
                 foreach (var actionGroup in actionGroups.Data.Cast<ActionGroup>())
                 {
                     ActionGroups.Add(actionGroup);
+                    DebugOutput($"Adding action: {actionGroup.ActionName}");
                 }
                 DebugOutput("Action Groups Loaded from Backend");
-        
+
                 // Save loaded action groups to file
                 await SaveActionGroupsToFile();
             }
@@ -316,7 +316,9 @@ namespace CSimple.Pages
                 {
                     DebugOutput($"Error during simulation: {ex.Message}");
                 }
-            }else{
+            }
+            else
+            {
                 actionGroup.IsSimulating = false;
             }
         }
@@ -334,7 +336,6 @@ namespace CSimple.Pages
             }
         }
 
-
         private async Task LoadActionGroupsFromBackend()
         {
             try
@@ -346,9 +347,9 @@ namespace CSimple.Pages
                     return;
                 }
 
-                var loadedActionGroups = await _dataService.GetDataAsync(new Dictionary<string, string>(), token);
+                var loadedActionGroups = await _dataService.GetDataAsync(string.Empty, token);
                 ActionGroups = new ObservableCollection<ActionGroup>(loadedActionGroups.Data.Cast<ActionGroup>());
-                DebugOutput("Action Groups Loaded from Backend");
+                DebugOutput("Action Groups Loaded from Backend. Count: " + ActionGroups.Count);
             }
             catch (Exception ex)
             {
