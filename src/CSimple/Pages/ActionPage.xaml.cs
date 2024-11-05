@@ -12,6 +12,7 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Globalization;
 using Microsoft.Maui.Storage;
+using System.Text.Json;
 
 namespace CSimple.Pages
 {
@@ -99,12 +100,15 @@ namespace CSimple.Pages
                     DebugOutput("User is not logged in.");
                     return;
                 }
-
+        
                 var data = "|Action:";
                 var actionGroups = await _dataService.GetDataAsync(data, token);
+                
+                // Log raw response data
+                DebugOutput($"Raw response data: {JsonSerializer.Serialize(actionGroups)}");
+                
                 DebugOutput($"Received {actionGroups.Data.Count} action groups from backend");
-
-
+        
                 ActionGroups.Clear();
                 foreach (var actionGroup in actionGroups.Data.Cast<ActionGroup>())
                 {
@@ -112,7 +116,7 @@ namespace CSimple.Pages
                     DebugOutput($"Adding action: {actionGroup.ActionName}");
                 }
                 DebugOutput("Action Groups Loaded from Backend");
-
+        
                 // Save loaded action groups to file
                 await SaveActionGroupsToFile();
             }
@@ -121,7 +125,6 @@ namespace CSimple.Pages
                 DebugOutput($"Error loading action groups: {ex.Message}");
             }
         }
-
         private async void SaveAction(object parameter)
         {
             string actionName = ActionNameEntry.Text?.Trim();

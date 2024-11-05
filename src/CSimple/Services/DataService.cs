@@ -40,7 +40,7 @@ public class DataService
         SetAuthorizationHeader(token);
         
         // Build the URL with the data parameter directly
-        var url = $"{BaseUrl}?data={data}";
+        var url = $"{BaseUrl}?data={data.ToString()}";
         Debug.WriteLine($"Request URL: {url}");  // Log the request URL for debugging
 
         var response = await _httpClient.GetAsync(url);
@@ -69,6 +69,8 @@ public class DataService
     {
         var userData = new { email, password };
         var response = await _httpClient.PostAsJsonAsync(BaseUrl + "login", userData);
+        Debug.WriteLine($"Request URL: {BaseUrl}login");
+        Debug.WriteLine($"Request content: {JsonConvert.SerializeObject(userData)}");
         Debug.WriteLine($"Response status: {response.StatusCode}");
         var responseContent = await response.Content.ReadAsStringAsync();
         Debug.WriteLine($"Response content: {responseContent}");
