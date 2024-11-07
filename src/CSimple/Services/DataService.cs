@@ -38,14 +38,15 @@ public class DataService
     public async Task<DataClass> GetDataAsync(string data, string token)
     {
         SetAuthorizationHeader(token);
-        
-        // Build the URL with the data parameter directly
-        var url = $"{BaseUrl}?data={data.ToString()}";
+
+        // Directly construct the URL without encoding
+        var url = $"{BaseUrl}?data=|Action:"; 
         Debug.WriteLine($"Request URL: {url}");  // Log the request URL for debugging
 
         var response = await _httpClient.GetAsync(url);
         return await HandleResponse<DataClass>(response);
     }
+
 
     // Remove the non-generic HandleResponse method to avoid ambiguity
 
