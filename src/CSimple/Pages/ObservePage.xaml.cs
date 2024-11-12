@@ -50,7 +50,7 @@ namespace CSimple.Pages
         public string UserTouchButtonText { get; set; } = "Read";
         public string UserTouchInputText { get; set; } = "";
 
-#if WINDOWS
+        #if WINDOWS
         private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
         private LowLevelKeyboardProc _keyboardProc;
         private LowLevelKeyboardProc _mouseProc;
@@ -59,9 +59,8 @@ namespace CSimple.Pages
         private bool isUserTouchActive = false;
 
         private POINT lastMousePos;
-#endif
+        #endif
         private List<string> _recordedActions;
-        private readonly DataService _dataService;
         private FileService _fileService;
         private WaveInEvent _waveIn;
         private WaveFileWriter _writer;
@@ -70,14 +69,13 @@ namespace CSimple.Pages
         {
             InitializeComponent();
             _fileService = new FileService();
-            _dataService = new DataService();
             _recordedActions = new List<string>();
             var window = Microsoft.Maui.Controls.Application.Current.Windows[0].Handler.PlatformView as Microsoft.UI.Xaml.Window;
-            // _rawInputService = new RawInputService(window);
+            _rawInputService = new RawInputService(window);
             _mouseTrackingService = new MouseTrackingService();
             _mouseTrackingService.MouseMoved += OnMouseMoved;
-            // _rawInputService.MouseMoved += OnMouseMoved;
-            // _rawInputService.ButtonDown += OnButtonDown;
+            _rawInputService.MouseMoved += OnMouseMoved;
+            _rawInputService.ButtonDown += OnButtonDown;
             CheckUserLoggedIn();
 
             TogglePCVisualCommand = new Command(TogglePCVisualOutput);
@@ -90,7 +88,7 @@ namespace CSimple.Pages
             LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
             // _rawInputHandler = new RawInputHandler(this.Handle); // 'ObservePage' does not contain a definition for 'Handle' and no accessible extension method 'Handle' accepting a first argument of type 'ObservePage' could be found (are you missing a using directive or an assembly reference?)CS1061
 
-            _ = LoadAndSaveActionGroups();
+            _ = LoadActionGroups();
 
             BindingContext = this;
         }
@@ -101,14 +99,9 @@ namespace CSimple.Pages
                 Debug.WriteLine("User is not logged in, navigating to login...");
                 NavigateLogin();
             }
-            if (await IsUserLoggedInAsync())
-            {
-                Debug.WriteLine("User is logged in.");
-            }
             else
             {
-                Debug.WriteLine("User is not logged in, navigating to login...");
-                NavigateLogin();
+                Debug.WriteLine("User is logged in.");
             }
         }
 
@@ -172,7 +165,7 @@ namespace CSimple.Pages
         }
         private void StartTracking()
         {
-#if WINDOWS
+        #if WINDOWS
             // Get the native window handle (HWND) for Windows platform
             var windowHandler = Microsoft.Maui.Controls.Application.Current.Windows[0].Handler;
             if (windowHandler.PlatformView is Microsoft.UI.Xaml.Window window)
@@ -181,10 +174,10 @@ namespace CSimple.Pages
                 _mouseTrackingService.StartTracking(hwnd);
                 GlobalInputCapture.StartHooks();
             }
-#else
+        #else
             // For non-Windows platforms (optional)
             _mouseTrackingService.StartTracking(IntPtr.Zero);
-#endif
+        #endif
         }
 
         private void StopTracking()
@@ -204,9 +197,9 @@ namespace CSimple.Pages
             // Unsubscribe from the service events when the page is no longer visible
             if (_rawInputService != null)
             {
-                // _rawInputService.MouseMoved -= OnMouseMoved;
-                // _rawInputService.ButtonDown -= OnButtonDown;
-                // _rawInputService.Dispose();
+                _rawInputService.MouseMoved -= OnMouseMoved;
+                _rawInputService.ButtonDown -= OnButtonDown;
+                _rawInputService.Dispose();
             }
         }
         private void TogglePCVisualOutput() // webcam image: record what else the human hears
@@ -229,7 +222,7 @@ namespace CSimple.Pages
 
                 if (frame.Empty() && PCVisualButtonText == "Stop")
                     break;
-
+                
                 string filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", $"WebcamImage_{DateTime.Now:yyyyMMdd_HHmmss}.jpg");
                 Cv2.ImWrite(filePath, frame);
 
@@ -315,10 +308,10 @@ namespace CSimple.Pages
 
         private int FindWebcamAudioDevice()
         {
-            for (int i = 0; i < WaveIn.DeviceCount; i++)
+            for (int i = 0; i < WaveIn.DeviceCount; i++) 
             {
                 var deviceInfo = WaveIn.GetCapabilities(i);
-                if (deviceInfo.ProductName.Contains("Webcam"))
+                if (deviceInfo.ProductName.Contains("Webcam")) 
                 {
                     return i;
                 }
@@ -328,7 +321,7 @@ namespace CSimple.Pages
 
         private async void ToggleUserTouchOutput() // mouse &  key logger: record when human presses buttons
         {
-#if WINDOWS
+            #if WINDOWS
             if (!isUserTouchActive)
             {
                 _keyboardProc = HookCallback;
@@ -355,7 +348,6 @@ namespace CSimple.Pages
                 }
                 DebugOutput("User Touch Output capture stopped.");
                 // CaptureScreen("C:\\Path\\To\\Your\\File\\screenshot.png"); // Capture the screen and save to a file
-                await SaveNewActionGroup(); // Save the last ActionGroup to the backend
                 await SaveActionGroupsToFile(); // Save the updated ActionGroups list to the file
                 UserTouchButtonText = "Read";
                 isUserTouchActive = false;
@@ -363,103 +355,37 @@ namespace CSimple.Pages
             }
 
             OnPropertyChanged(nameof(UserTouchButtonText));
-#endif
+            #endif
         }
 
         private void DebugOutput(string message)
         {
             Debug.WriteLine(message);
+            // Optionally update a UI label or text area with the debug message
         }
 
-        private async Task SaveNewActionGroup()
+        private async Task LoadActionGroups()
         {
             try
             {
-                var token = await SecureStorage.GetAsync("userToken");
-                if (string.IsNullOrEmpty(token))
+                var actionGroups = await _fileService.LoadActionGroupsAsync();
+                ActionGroups.Clear();
+                foreach (var actionGroup in actionGroups)
                 {
-                    DebugOutput("User is not logged in.");
-                    return;
+                    ActionGroups.Add(actionGroup);
                 }
-
-                // Format the action group string
-                var userId = "userId"; // Replace with actual user ID retrieval logic
-                var actionGroupString = $"Creator:{userId}|Action:{JsonConvert.SerializeObject(ActionGroups.Last())}";
-
-                var queryParams = new Dictionary<string, string>
-                {
-                    { "data", actionGroupString }
-                };
-
-                var response = await _dataService.CreateDataAsync(queryParams["data"], token);
-                // if (response.DataIsSuccess) // Replace with the actual property or method that indicates success in DataClass
-                // {
-                    DebugOutput("New Action Group Saved to Backend");
-                // }
-                // else
-                // {
-                //     DebugOutput($"Error saving new action group: {response.DataMessage}");
-                // }
+                DebugOutput("Action Groups Loaded");
             }
             catch (Exception ex)
             {
-                DebugOutput($"Error saving new action group: {ex.Message}");
+                DebugOutput($"Error loading action groups: {ex.Message}");
             }
         }
-        private async Task LoadAndSaveActionGroups()
-        {
-            try
-            {
-                // Load action groups from the database
-                await LoadActionGroupsFromDatabase();
-
-                // Save the loaded action groups to a file
-                await SaveActionGroupsToFile();
-            }
-            catch (Exception ex)
-            {
-                DebugOutput($"Error in LoadAndSaveActionGroups: {ex.Message}");
-            }
-        }
-
-        private async Task LoadActionGroupsFromDatabase()
-        {
-            try
-            {
-                DebugOutput("Starting Action Groups Load and Save Task");
-                var token = await SecureStorage.GetAsync("userToken");
-                if (string.IsNullOrEmpty(token))
-                {
-                    DebugOutput("User is not logged in.");
-                    return;
-                }
-
-                var data = "|Action:";
-                var actionGroups = await _dataService.GetDataAsync(data, token);
-
-                if (actionGroups.DataIsSuccess)
-                {
-                    foreach (var actionGroup in actionGroups.Data.Cast<ActionGroup>())
-                    {
-                        ActionGroups.Add(actionGroup);
-                    }
-                    DebugOutput("Action Groups Loaded from Backend");
-                }
-                else
-                {
-                    DebugOutput($"Error loading action groups from database: {actionGroups.DataMessage}");
-                }
-            }
-            catch (Exception ex)
-            {
-                DebugOutput($"Error loading action groups from database: {ex.Message}");
-            }
-        }
-
         private async Task SaveActionGroupsToFile()
         {
             try
             {
+                // var actionGroupsToSave = ActionGroups.Cast<object>().ToList();
                 await _fileService.SaveActionGroupsAsync(ActionGroups);
                 DebugOutput("Action Groups Saved to File");
                 _recordedActions.Clear();
@@ -524,7 +450,7 @@ namespace CSimple.Pages
             }
         }
 
-#if WINDOWS
+        #if WINDOWS
         private IntPtr SetHook(LowLevelKeyboardProc proc, int hookType)
         {
             using (var curProcess = Process.GetCurrentProcess())
@@ -635,14 +561,14 @@ namespace CSimple.Pages
                 SaveAction();
 
                 // Capture screen on Windows if required
-#if WINDOWS
+                #if WINDOWS
                 if (UserVisualButtonText == "Stop")
                 {
                     string fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", $"ScreenCapture_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.png");
                     DebugOutput(fileName);
                     CaptureScreen(fileName);
                 }
-#endif
+                #endif
             }
 
             return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
@@ -670,7 +596,7 @@ namespace CSimple.Pages
                 UserTouchOutput.Text = activeInputsDisplay.ToString(); // Display the active key presses in UserTouchOutput
             });
         }
-
+        
         private void CaptureScreen(string filePath)
         {
             try
@@ -779,6 +705,6 @@ namespace CSimple.Pages
             public int X;
             public int Y;
         }
-#endif
+        #endif
     }
 }
