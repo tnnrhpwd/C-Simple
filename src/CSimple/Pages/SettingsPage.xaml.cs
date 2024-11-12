@@ -110,7 +110,7 @@ public partial class SettingsPage : ContentPage
     async void OnSupportTapped(object sender, EventArgs eventArgs)
     {
         string action = await DisplayActionSheet("Get Help", "Cancel", null, "Email", "Chat", "Phone");
-        // await DisplayAlert("You Chose", action, "Okay");
+        await DisplayAlert("You Chose", action, "Okay");
     }
 
     // Handle theme change
