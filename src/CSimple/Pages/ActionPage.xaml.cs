@@ -101,7 +101,7 @@ namespace CSimple.Pages
                     return;
                 }
         
-                var data = "|Action:";
+                var data = "Action";
                 var actionGroups = await _dataService.GetDataAsync(data, token);
                 
                 // Log raw response data
@@ -110,10 +110,33 @@ namespace CSimple.Pages
                 DebugOutput($"Received {actionGroups.Data.Count} action groups from backend");
         
                 ActionGroups.Clear();
-                foreach (var actionGroup in actionGroups.Data.Cast<ActionGroup>())
+                foreach (var actionGroupString in actionGroups.Data)
                 {
-                    ActionGroups.Add(actionGroup);
-                    DebugOutput($"Adding action: {actionGroup.ActionName}");
+                    try
+                    {
+                        var parts = actionGroupString.Split('|');
+                        var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
+                        var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
+
+                        if (creatorPart != null && actionPart != null)
+                        {
+                            var actionGroup = new ActionGroup
+                            {
+                                Creator = creatorPart.Substring("Creator:".Length),
+                                ActionName = actionPart.Substring("Action:".Length)
+                            };
+                            ActionGroups.Add(actionGroup);
+                            DebugOutput($"Adding action: {actionGroup.ActionName}");
+                        }
+                        else
+                        {
+                            DebugOutput($"Invalid action group string: {actionGroupString}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugOutput($"Error parsing action group: {ex.Message}");
+                    }
                 }
                 DebugOutput("Action Groups Loaded from Backend");
         
@@ -437,5 +460,11 @@ namespace CSimple.Pages
             mouse_event(MOUSEEVENTF_MOVE, (uint)x, (uint)y, 0, UIntPtr.Zero);
             DebugOutput($"Moved Mouse to Position: {x},{y}");
         }
+    }
+
+    public class ActionGroup
+    {
+        public string Creator { get; set; }
+        public string ActionName { get; set; }
     }
 }

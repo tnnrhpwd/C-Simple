@@ -3,10 +3,8 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Diagnostics;
-using System.Net.Http.Json;
 using Microsoft.Maui.Storage;
 using System.Collections.Generic;
-using Newtonsoft.Json;
 
 public class DataService
 {
@@ -29,8 +27,18 @@ public class DataService
     public async Task<DataClass> CreateDataAsync(string data, string token)
     {
         SetAuthorizationHeader(token);
-        var jsonContent = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { data }), System.Text.Encoding.UTF8, "application/json");
+
+        // Serialize the data to JSON
+        var jsonContent = new StringContent(
+            JsonSerializer.Serialize(new { data }), 
+            System.Text.Encoding.UTF8, 
+            "application/json"
+        );
+
+        // Send the POST request
         var response = await _httpClient.PostAsync(BaseUrl, jsonContent);
+
+        // Handle the response
         return await HandleResponse<DataClass>(response);
     }
 
@@ -39,16 +47,19 @@ public class DataService
     {
         SetAuthorizationHeader(token);
 
-        // Directly construct the URL without encoding
-        var url = $"{BaseUrl}?data=|Action:"; 
+        // Construct the URL with the query parameter
+        var url = $"{BaseUrl}?data={data}";
         Debug.WriteLine($"Request URL: {url}");  // Log the request URL for debugging
 
         var response = await _httpClient.GetAsync(url);
+
+        // Log the raw response content for debugging
+        var responseContent = await response.Content.ReadAsStringAsync();
+        Debug.WriteLine($"Raw response data: {responseContent}");
+
+        // Handle the response
         return await HandleResponse<DataClass>(response);
     }
-
-
-    // Remove the non-generic HandleResponse method to avoid ambiguity
 
     // Update existing data using the backend's "compress" or "update" method
     // Modified Update method to delegate to UpdateDataService
@@ -69,16 +80,22 @@ public class DataService
     public async Task<User> LoginAsync(string email, string password)
     {
         var userData = new { email, password };
-        var response = await _httpClient.PostAsJsonAsync(BaseUrl + "login", userData);
+        var jsonContent = new StringContent(
+            JsonSerializer.Serialize(userData), 
+            System.Text.Encoding.UTF8, 
+            "application/json"
+        );
+
+        var response = await _httpClient.PostAsync(BaseUrl + "login", jsonContent);
         Debug.WriteLine($"Request URL: {BaseUrl}login");
-        Debug.WriteLine($"Request content: {JsonConvert.SerializeObject(userData)}");
+        Debug.WriteLine($"Request content: {JsonSerializer.Serialize(userData)}");
         Debug.WriteLine($"Response status: {response.StatusCode}");
         var responseContent = await response.Content.ReadAsStringAsync();
         Debug.WriteLine($"Response content: {responseContent}");
 
         if (response.IsSuccessStatusCode)
         {
-            var user = JsonConvert.DeserializeObject<User>(responseContent);
+            var user = JsonSerializer.Deserialize<User>(responseContent);
             if (user == null)
             {
                 Debug.WriteLine("User deserialization failed.");
@@ -153,7 +170,9 @@ public class DataService
     {
         if (response.IsSuccessStatusCode)
         {
-            return await System.Text.Json.JsonSerializer.DeserializeAsync<T>(await response.Content.ReadAsStreamAsync());
+            var responseContent = await response.Content.ReadAsStringAsync();
+            Debug.WriteLine($"Raw response data: {responseContent}");
+            return JsonSerializer.Deserialize<T>(responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
         else
         {
@@ -174,8 +193,7 @@ public class User
 
 public class DataClass
 {
-    public List<User> User { get; set; } = new List<User>();
-    public List<object> Data { get; set; } = new List<object>();
+    public List<string> Data { get; set; } = new List<string>();
     public bool DataIsError { get; set; } = false;
     public bool DataIsSuccess { get; set; } = false;
     public bool DataIsLoading { get; set; } = false;
