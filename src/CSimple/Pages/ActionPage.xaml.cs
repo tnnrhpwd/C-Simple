@@ -122,7 +122,7 @@ namespace CSimple.Pages
                         {
                             var actionGroup = new ActionGroup
                             {
-                                Creator = creatorPart.Substring("Creator:".Length),
+                                // Creator = creatorPart.Substring("Creator:".Length),
                                 ActionName = actionPart.Substring("Action:".Length)
                             };
                             ActionGroups.Add(actionGroup);
@@ -388,7 +388,7 @@ namespace CSimple.Pages
             try
             {
                 var loadedActionGroups = await _fileService.LoadActionGroupsAsync();
-                ActionGroups = new ObservableCollection<ActionGroup>(loadedActionGroups);
+                ActionGroups = new ObservableCollection<ActionGroup>(loadedActionGroups.Cast<ActionGroup>());
                 DebugOutput("Action Groups Loaded from File");
             }
             catch (Exception ex)
@@ -462,9 +462,15 @@ namespace CSimple.Pages
         }
     }
 
+}
+
+namespace CSimple.Models
+{
     public class ActionGroup
     {
-        public string Creator { get; set; }
+        public string Creator { get; set; } // Ensure this property is defined
         public string ActionName { get; set; }
+        public bool IsSimulating { get; set; }
+        public List<ActionArrayItem> ActionArray { get; set; }
     }
 }

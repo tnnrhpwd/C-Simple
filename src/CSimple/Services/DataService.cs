@@ -51,14 +51,37 @@ public class DataService
         var url = $"{BaseUrl}?data={data}";
         Debug.WriteLine($"Request URL: {url}");  // Log the request URL for debugging
 
-        var response = await _httpClient.GetAsync(url);
+        const int maxRetries = 5;
+        const int delayMilliseconds = 10000; // 10 seconds
+        int retryCount = 0;
 
-        // Log the raw response content for debugging
-        var responseContent = await response.Content.ReadAsStringAsync();
-        Debug.WriteLine($"Raw response data: {responseContent}");
+        while (retryCount < maxRetries)
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync(url);
 
-        // Handle the response
-        return await HandleResponse<DataClass>(response);
+                // Log the raw response content for debugging
+                var responseContent = await response.Content.ReadAsStringAsync();
+                Debug.WriteLine($"Raw response data: {responseContent}");
+
+                // Handle the response
+                return await HandleResponse<DataClass>(response);
+            }
+            catch (HttpRequestException ex)
+            {
+                retryCount++;
+                Debug.WriteLine($"Attempt {retryCount} failed: {ex.Message}");
+                if (retryCount >= maxRetries)
+                {
+                    throw;
+                }
+                Debug.WriteLine($"Retrying in {delayMilliseconds / 1000} seconds...");
+                await Task.Delay(delayMilliseconds);
+            }
+        }
+
+        throw new Exception("Failed to get data after multiple retries.");
     }
 
     // Update existing data using the backend's "compress" or "update" method
