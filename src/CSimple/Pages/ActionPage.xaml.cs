@@ -60,7 +60,7 @@ namespace CSimple.Pages
             ActionGroups = new ObservableCollection<ActionGroup>();
 
             // Load existing action groups from file asynchronously
-            _ = LoadAndSaveActionGroups(); // Ignore the returned task since we only need to ensure it's running
+            _ = LoadActionGroupsFromFile(); // Ignore the returned task since we only need to ensure it's running
 
             DebugOutput("Ready");
             BindingContext = this;
@@ -89,86 +89,64 @@ namespace CSimple.Pages
             public ICommand ToggleSimulateActionGroupCommand { get; }
             public ICommand RowTappedCommand { get; }
         }
-        private async Task LoadAndSaveActionGroups()
+
+        private ObservableCollection<ActionGroup> FormatActionsFromBackend(IEnumerable<string> actionGroupStrings)
         {
-            try
+            var formattedActionGroups = new ObservableCollection<ActionGroup>();
+
+            foreach (var actionGroupString in actionGroupStrings)
             {
-                DebugOutput("Starting Action Groups Load and Save Task");
-                var token = await SecureStorage.GetAsync("userToken");
-                if (string.IsNullOrEmpty(token))
+                try
                 {
-                    DebugOutput("User is not logged in.");
-                    return;
-                }
-        
-                var data = "Action";
-                var actionGroups = await _dataService.GetDataAsync(data, token);
-                
-                // Log raw response data
-                DebugOutput($"Raw response data: {JsonSerializer.Serialize(actionGroups)}");
-                
-                DebugOutput($"Received {actionGroups.Data.Count} action groups from backend");
-        
-                ActionGroups.Clear();
-                foreach (var actionGroupString in actionGroups.Data)
-                {
-                    try
+                    var parts = actionGroupString.Split('|');
+                    var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
+                    var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
+
+                    if (creatorPart != null && actionPart != null)
                     {
-                        var parts = actionGroupString.Split('|');
-                        var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
-                        var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
+                        var actionName = string.Empty;
+                        var actionNameIndex = actionPart.IndexOf("\"ActionName\":\"");
 
-                        if (creatorPart != null && actionPart != null)
+                        if (actionNameIndex != -1)
                         {
-                            var actionName = string.Empty;
-                            var actionNameIndex = actionPart.IndexOf("\"ActionName\":\"");
-
-                            if (actionNameIndex != -1)
+                            var startIndex = actionNameIndex + "\"ActionName\":\"".Length;
+                            var endIndex = actionPart.IndexOf('"', startIndex);
+                            if (endIndex != -1)
                             {
-                                var startIndex = actionNameIndex + "\"ActionName\":\"".Length;
-                                var endIndex = actionPart.IndexOf('"', startIndex);
-                                if (endIndex != -1)
-                                {
-                                    actionName = actionPart.Substring(startIndex, endIndex - startIndex);
-                                }
+                                actionName = actionPart.Substring(startIndex, endIndex - startIndex);
                             }
-
-                            if (string.IsNullOrEmpty(actionName))
-                            {
-                                actionName = actionPart.Substring("Action:".Length).Split(' ').FirstOrDefault();
-                            }
-
-                            actionName = actionName.Length > 50 ? actionName.Split(' ')[0] : actionName;
-
-                            var actionGroup = new ActionGroup
-                            {
-                                Creator = creatorPart.Substring("Creator:".Length),
-                                ActionName = actionName.Length > 50 ? actionName.Substring(0, 50) + "..." : actionName,
-                                ActionArrayFormatted = actionGroupString.Length > 50 ? actionGroupString.Substring(0, 50) + "..." : actionGroupString
-                            };
-                            ActionGroups.Add(actionGroup);
-                            DebugOutput($"Adding action: {actionGroup.ActionName}");
                         }
-                        else
+
+                        if (string.IsNullOrEmpty(actionName))
                         {
-                            DebugOutput($"Invalid action group string: {actionGroupString}");
+                            actionName = actionPart.Substring("Action:".Length).Split(' ').FirstOrDefault();
                         }
+
+                        actionName = actionName.Length > 50 ? actionName.Split(' ')[0] : actionName;
+
+                        var actionGroup = new ActionGroup
+                        {
+                            Creator = creatorPart.Substring("Creator:".Length),
+                            ActionName = actionName.Length > 50 ? actionName.Substring(0, 50) + "..." : actionName,
+                            ActionArrayFormatted = actionGroupString.Length > 50 ? actionGroupString.Substring(0, 50) + "..." : actionGroupString
+                        };
+                        formattedActionGroups.Add(actionGroup);
+                        DebugOutput($"Adding action: {actionGroup.ActionName}");
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        DebugOutput($"Error parsing action group: {ex.Message}");
+                        DebugOutput($"Invalid action group string: {actionGroupString}");
                     }
                 }
-                DebugOutput("Action Groups Loaded from Backend");
-        
-                // Save loaded action groups to file
-                await SaveActionGroupsToFile();
+                catch (Exception ex)
+                {
+                    DebugOutput($"Error parsing action group: {ex.Message}");
+                }
             }
-            catch (Exception ex)
-            {
-                DebugOutput($"Error loading action groups: {ex.Message}");
-            }
+
+            return formattedActionGroups;
         }
+
         private async void SaveAction(object parameter)
         {
             string actionName = ActionNameEntry.Text?.Trim();
@@ -228,145 +206,141 @@ namespace CSimple.Pages
         }
         private async Task ToggleSimulateActionGroupAsync(ActionGroup actionGroup)
         {
+            DebugOutput($"Toggling Simulation for: {actionGroup.ActionName}");
+            if (actionGroup != null)
+            {
+                actionGroup.IsSimulating = !actionGroup.IsSimulating;
 
-
-            DebugOutput($"Simulating Actions for: {actionGroup.ActionName}");
-            if (actionGroup.IsSimulating == false){
-                cancel_simulation = false;
-                try
+                if (actionGroup.IsSimulating)
                 {
-                    // Bring the game window to the foreground
-                    // IntPtr gameWindowHandle = FindWindow(null, "Minecraft"); // Change "Minecraft" to the title of your game window
-                    // if (gameWindowHandle != IntPtr.Zero)
-                    // {
-                    //     SetForegroundWindow(gameWindowHandle);
-                    //     DebugOutput("Game window brought to foreground.");
-                    // }
-                    // else
-                    // {
-                    //     DebugOutput("Game window not found.");
-                    // }
-
-                    DateTime? previousActionTime = null;
-                    List<Task> actionTasks = new List<Task>();
-
-                    foreach (var action in actionGroup.ActionArray)
+                    cancel_simulation = false;
+                    try
                     {
-                        if(cancel_simulation){
-                            DebugOutput($"Successfully cancelled action");
-                            break;
-                        }
-                        DebugOutput($"Processing Action: {action.Timestamp}");
+                        DateTime? previousActionTime = null;
+                        List<Task> actionTasks = new List<Task>();
 
-                        DateTime currentActionTime;
-                        if (!DateTime.TryParse(action.Timestamp, null, System.Globalization.DateTimeStyles.RoundtripKind, out currentActionTime))
+                        foreach (var action in actionGroup.ActionArray)
                         {
-                            DebugOutput($"Failed to parse Timestamp: {action.Timestamp}");
-                            continue;
-                        }
-
-                        // Delay based on the difference between current and previous action times
-                        if (previousActionTime.HasValue)
-                        {
-                            TimeSpan delay = currentActionTime - previousActionTime.Value;
-                            DebugOutput($"Waiting for {delay.TotalMilliseconds} ms before next action.");
-                            await Task.Delay(delay);
-                        }
-
-                        previousActionTime = currentActionTime;
-
-                        // Handle different action types in parallel
-                        Task actionTask = Task.Run(async () =>
-                        {
-                            switch (action.EventType)
+                            if (cancel_simulation)
                             {
-                                case 512: // Mouse Move
-                                    if (action.Coordinates != null)
-                                    {
-                                        int x = action.Coordinates.X;
-                                        int y = action.Coordinates.Y;
+                                DebugOutput($"Successfully cancelled action");
+                                break;
+                            }
+                            DebugOutput($"Processing Action: {action.Timestamp}");
 
-                                        DebugOutput($"Simulating Mouse Move at {action.Timestamp} to X: {x}, Y: {y}");
-                                        InputSimulator.MoveMouse(x, y);
-                                    }
-                                    else
-                                    {
-                                        DebugOutput($"Mouse move action at {action.Timestamp} missing coordinates.");
-                                    }
-                                    break;
+                            DateTime currentActionTime;
+                            if (!DateTime.TryParse(action.Timestamp, null, System.Globalization.DateTimeStyles.RoundtripKind, out currentActionTime))
+                            {
+                                DebugOutput($"Failed to parse Timestamp: {action.Timestamp}");
+                                continue;
+                            }
 
-                                case 256: // Key Press
-                                    DebugOutput($"Simulating KeyPress at {action.Timestamp} with KeyCode: {action.KeyCode}");
+                            // Delay based on the difference between current and previous action times
+                            if (previousActionTime.HasValue)
+                            {
+                                TimeSpan delay = currentActionTime - previousActionTime.Value;
+                                DebugOutput($"Waiting for {delay.TotalMilliseconds} ms before next action.");
+                                await Task.Delay(delay);
+                            }
 
-                                    int keyCodeInt = (int)action.KeyCode;
-                                    if (Enum.IsDefined(typeof(VirtualKey), keyCodeInt))
-                                    {
-                                        VirtualKey virtualKey = (VirtualKey)keyCodeInt;
+                            previousActionTime = currentActionTime;
 
-                                        InputSimulator.SimulateKeyDown(virtualKey);
-
-                                        if (action.Duration > 0)
+                            // Handle different action types in parallel
+                            Task actionTask = Task.Run(async () =>
+                            {
+                                switch (action.EventType)
+                                {
+                                    case 512: // Mouse Move
+                                        if (action.Coordinates != null)
                                         {
-                                            await Task.Delay(action.Duration);
+                                            int x = action.Coordinates.X;
+                                            int y = action.Coordinates.Y;
+
+                                            DebugOutput($"Simulating Mouse Move at {action.Timestamp} to X: {x}, Y: {y}");
+                                            InputSimulator.MoveMouse(x, y);
+                                        }
+                                        else
+                                        {
+                                            DebugOutput($"Mouse move action at {action.Timestamp} missing coordinates.");
+                                        }
+                                        break;
+
+                                    case 256: // Key Press
+                                        DebugOutput($"Simulating KeyPress at {action.Timestamp} with KeyCode: {action.KeyCode}");
+
+                                        int keyCodeInt = (int)action.KeyCode;
+                                        if (Enum.IsDefined(typeof(VirtualKey), keyCodeInt))
+                                        {
+                                            VirtualKey virtualKey = (VirtualKey)keyCodeInt;
+
+                                            InputSimulator.SimulateKeyDown(virtualKey);
+
+                                            if (action.Duration > 0)
+                                            {
+                                                await Task.Delay(action.Duration);
+                                                InputSimulator.SimulateKeyUp(virtualKey);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            DebugOutput($"Invalid KeyPress key code: {action.KeyCode}");
+                                        }
+                                        break;
+
+                                    case (int)WM_LBUTTONDOWN: // Left Mouse Button Down
+                                    case (int)WM_RBUTTONDOWN: // Right Mouse Button Down
+                                        DebugOutput($"Simulating Mouse Click at {action.Timestamp} with EventType: {action.EventType}");
+                                        if (action.EventType == (int)WM_LBUTTONDOWN)
+                                        {
+                                            InputSimulator.SimulateMouseClick(CSimple.Services.MouseButton.Left, action.Coordinates.X, action.Coordinates.Y);
+                                        }
+                                        else if (action.EventType == (int)WM_RBUTTONDOWN)
+                                        {
+                                            InputSimulator.SimulateMouseClick(CSimple.Services.MouseButton.Right, action.Coordinates.X, action.Coordinates.Y);
+                                        }
+                                        break;
+
+                                    case 257: // Key Release
+                                        DebugOutput($"Simulating KeyRelease at {action.Timestamp} with KeyCode: {action.KeyCode}");
+
+                                        int releaseKeyCodeInt = (int)action.KeyCode;
+                                        if (Enum.IsDefined(typeof(VirtualKey), releaseKeyCodeInt))
+                                        {
+                                            VirtualKey virtualKey = (VirtualKey)releaseKeyCodeInt;
+
                                             InputSimulator.SimulateKeyUp(virtualKey);
                                         }
-                                    }
-                                    else
-                                    {
-                                        DebugOutput($"Invalid KeyPress key code: {action.KeyCode}");
-                                    }
-                                    break;
+                                        else
+                                        {
+                                            DebugOutput($"Invalid KeyRelease key code: {action.KeyCode}");
+                                        }
+                                        break;
 
-                                case (int)WM_LBUTTONDOWN: // Left Mouse Button Down
-                                case (int)WM_RBUTTONDOWN: // Right Mouse Button Down
-                                    DebugOutput($"Simulating Mouse Click at {action.Timestamp} with EventType: {action.EventType}");
-                                    if (action.EventType == (int)WM_LBUTTONDOWN)
-                                    {
-                                        InputSimulator.SimulateMouseClick(CSimple.Services.MouseButton.Left,action.Coordinates.X,action.Coordinates.Y);
-                                    }
-                                    else if (action.EventType == (int)WM_RBUTTONDOWN)
-                                    {
-                                        InputSimulator.SimulateMouseClick(CSimple.Services.MouseButton.Right,action.Coordinates.X,action.Coordinates.Y);
-                                    }
-                                    break;
+                                    default:
+                                        DebugOutput($"Unhandled action type: {action.EventType} at {action.Timestamp}");
+                                        break;
+                                }
+                            });
 
-                                case 257: // Key Release
-                                    DebugOutput($"Simulating KeyRelease at {action.Timestamp} with KeyCode: {action.KeyCode}");
+                            actionTasks.Add(actionTask);
+                        }
 
-                                    int releaseKeyCodeInt = (int)action.KeyCode;
-                                    if (Enum.IsDefined(typeof(VirtualKey), releaseKeyCodeInt))
-                                    {
-                                        VirtualKey virtualKey = (VirtualKey)releaseKeyCodeInt;
+                        await Task.WhenAll(actionTasks);
 
-                                        InputSimulator.SimulateKeyUp(virtualKey);
-                                    }
-                                    else
-                                    {
-                                        DebugOutput($"Invalid KeyRelease key code: {action.KeyCode}");
-                                    }
-                                    break;
-
-                                default:
-                                    DebugOutput($"Unhandled action type: {action.EventType} at {action.Timestamp}");
-                                    break;
-                            }
-                        });
-
-                        actionTasks.Add(actionTask);
+                        DebugOutput($"Completed Simulation for: {actionGroup.ActionName}");
                     }
-
-                    await Task.WhenAll(actionTasks);
-
-                    DebugOutput($"Completed Simulation for: {actionGroup.ActionName}");
+                    catch (Exception ex)
+                    {
+                        DebugOutput($"Error during simulation: {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
+                else
                 {
-                    DebugOutput($"Error during simulation: {ex.Message}");
+                    cancel_simulation = true;
                 }
-            }
-            else
-            {
-                actionGroup.IsSimulating = false;
+
+                // Reload ActionGroups after toggling simulation
+                await LoadActionGroupsFromBackend();
             }
         }
 
@@ -375,11 +349,11 @@ namespace CSimple.Pages
             try
             {
                 await _fileService.SaveActionGroupsAsync(ActionGroups);
-                DebugOutput("Action Groups Saved to File");
+                DebugOutput("Action Groups and Actions Saved to File");
             }
             catch (Exception ex)
             {
-                DebugOutput($"Error saving action groups: {ex.Message}");
+                DebugOutput($"Error saving action groups and actions: {ex.Message}");
             }
         }
 
@@ -387,6 +361,7 @@ namespace CSimple.Pages
         {
             try
             {
+                DebugOutput("Starting Action Groups Load Task");
                 var token = await SecureStorage.GetAsync("userToken");
                 if (string.IsNullOrEmpty(token))
                 {
@@ -394,9 +369,32 @@ namespace CSimple.Pages
                     return;
                 }
 
-                var loadedActionGroups = await _dataService.GetDataAsync(string.Empty, token);
-                ActionGroups = new ObservableCollection<ActionGroup>(loadedActionGroups.Data.Cast<ActionGroup>());
-                DebugOutput("Action Groups Loaded from Backend. Count: " + ActionGroups.Count);
+                var data = "Action";
+                var actionGroups = await _dataService.GetDataAsync(data, token);
+
+                // Log raw response data
+                DebugOutput($"Raw response data: {JsonSerializer.Serialize(actionGroups)}");
+
+                DebugOutput($"Received {actionGroups.Data.Count} action groups from backend");
+
+                var formattedActionGroups = FormatActionsFromBackend(actionGroups.Data);
+
+                if (!ActionGroups.SequenceEqual(formattedActionGroups))
+                {
+                    ActionGroups.Clear();
+                    foreach (var actionGroup in formattedActionGroups)
+                    {
+                        ActionGroups.Add(actionGroup);
+                    }
+                    DebugOutput("Action Groups Loaded from Backend");
+
+                    // Save loaded action groups to file
+                    await SaveActionGroupsToFile();
+                }
+                else
+                {
+                    DebugOutput("No changes in Action Groups from Backend");
+                }
             }
             catch (Exception ex)
             {
@@ -409,8 +407,21 @@ namespace CSimple.Pages
             try
             {
                 var loadedActionGroups = await _fileService.LoadActionGroupsAsync();
-                ActionGroups = new ObservableCollection<ActionGroup>(loadedActionGroups.Cast<ActionGroup>());
-                DebugOutput("Action Groups Loaded from File");
+                var formattedActionGroups = new ObservableCollection<ActionGroup>(loadedActionGroups.Cast<ActionGroup>());
+
+                if (!ActionGroups.SequenceEqual(formattedActionGroups))
+                {
+                    ActionGroups.Clear();
+                    foreach (var actionGroup in formattedActionGroups)
+                    {
+                        ActionGroups.Add(actionGroup);
+                    }
+                    DebugOutput("Action Groups Loaded from File");
+                }
+                else
+                {
+                    DebugOutput("No changes in Action Groups from File");
+                }
             }
             catch (Exception ex)
             {
@@ -482,5 +493,4 @@ namespace CSimple.Pages
             DebugOutput($"Moved Mouse to Position: {x},{y}");
         }
     }
-
 }
