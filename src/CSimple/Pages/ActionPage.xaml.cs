@@ -120,10 +120,31 @@ namespace CSimple.Pages
 
                         if (creatorPart != null && actionPart != null)
                         {
+                            var actionName = string.Empty;
+                            var actionNameIndex = actionPart.IndexOf("\"ActionName\":\"");
+
+                            if (actionNameIndex != -1)
+                            {
+                                var startIndex = actionNameIndex + "\"ActionName\":\"".Length;
+                                var endIndex = actionPart.IndexOf('"', startIndex);
+                                if (endIndex != -1)
+                                {
+                                    actionName = actionPart.Substring(startIndex, endIndex - startIndex);
+                                }
+                            }
+
+                            if (string.IsNullOrEmpty(actionName))
+                            {
+                                actionName = actionPart.Substring("Action:".Length).Split(' ').FirstOrDefault();
+                            }
+
+                            actionName = actionName.Length > 50 ? actionName.Split(' ')[0] : actionName;
+
                             var actionGroup = new ActionGroup
                             {
-                                // Creator = creatorPart.Substring("Creator:".Length),
-                                ActionName = actionPart.Substring("Action:".Length)
+                                Creator = creatorPart.Substring("Creator:".Length),
+                                ActionName = actionName.Length > 50 ? actionName.Substring(0, 50) + "..." : actionName,
+                                ActionArrayFormatted = actionGroupString.Length > 50 ? actionGroupString.Substring(0, 50) + "..." : actionGroupString
                             };
                             ActionGroups.Add(actionGroup);
                             DebugOutput($"Adding action: {actionGroup.ActionName}");
@@ -462,15 +483,4 @@ namespace CSimple.Pages
         }
     }
 
-}
-
-namespace CSimple.Models
-{
-    public class ActionGroup
-    {
-        public string Creator { get; set; } // Ensure this property is defined
-        public string ActionName { get; set; }
-        public bool IsSimulating { get; set; }
-        public List<ActionArrayItem> ActionArray { get; set; }
-    }
 }

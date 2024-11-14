@@ -3,7 +3,8 @@ public class ActionGroup
     public string ActionName { get; set; }
     public List<ActionArrayItem> ActionArray { get; set; } = new List<ActionArrayItem>();
     public bool IsSimulating { get; set; }
-
+    public string Creator { get; set; } // Ensure this property is defined
+    public string ActionArrayFormatted { get; set; }
 }
 
 public class ActionArrayItem

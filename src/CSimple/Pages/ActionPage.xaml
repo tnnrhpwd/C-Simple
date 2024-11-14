@@ -9,39 +9,38 @@
              Shell.NavBarIsVisible="{OnIdiom True, Desktop=False}"
              x:Class="CSimple.Pages.ActionPage">
 
-    <StackLayout Padding="10" Spacing="20">
-        <Label Text="Action"
-               FontSize="Title"
-               HorizontalOptions="Center"
-               VerticalOptions="StartAndExpand"/>
+    <ScrollView>
+        <StackLayout Padding="10" Spacing="20">
+            <Label Text="Action"
+                FontSize="Title"
+                HorizontalOptions="Center"
+                VerticalOptions="StartAndExpand"/>
 
-        <!-- Input Section -->
-        <StackLayout Orientation="Horizontal" Spacing="10" Margin="0,20,0,0">
-            <Entry x:Name="ActionNameEntry" Placeholder="Enter Action Name" WidthRequest="150"/>
-            <Entry x:Name="ActionArrayEntry" Placeholder="Enter Actions (comma separated)" WidthRequest="250"/>
-            <Button Text="Save" Command="{Binding SaveActionCommand}" VerticalOptions="Center"/>
+            <!-- Input Section -->
+            <StackLayout Orientation="Horizontal" Spacing="10" Margin="0,20,0,0">
+                <Entry x:Name="ActionNameEntry" Placeholder="Enter Action Name" WidthRequest="150"/>
+                <Entry x:Name="ActionArrayEntry" Placeholder="Enter Actions (comma separated)" WidthRequest="250"/>
+                <Button Text="Save" Command="{Binding SaveActionCommand}" VerticalOptions="Center"/>
+            </StackLayout>
+
+            <!-- Table Section -->
+            <CollectionView ItemsSource="{Binding ActionGroups}" Margin="0,20,0,0">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="10" ColumnDefinitions="*, *, Auto">
+                            <ProgressBar x:Name="ProgressBar" Grid.ColumnSpan="3" HeightRequest="4" VerticalOptions="Start" HorizontalOptions="FillAndExpand" BackgroundColor="LightGray" ProgressColor="Green" Progress="0"/>
+                            <Label Grid.Column="0" Text="{Binding ActionName}" VerticalOptions="Center"/>
+                            <Label Grid.Column="1" Text="{Binding ActionArrayFormatted}" VerticalOptions="Center"/>
+                            <Button Grid.Column="2" Text="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.IsSimulating, Converter={StaticResource BoolToTextConverter}, ConverterParameter='Simulate,Stop'}"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}" 
+                                CommandParameter="{Binding .}" VerticalOptions="Center"/>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <!-- Debug Output -->
+            <Label Text="{Binding DebugOutput}" FontSize="Body" VerticalOptions="CenterAndExpand" TextColor="Gray"/>
         </StackLayout>
-
-        <!-- Table Section -->
-        <CollectionView ItemsSource="{Binding ActionGroups}" Margin="0,20,0,0">
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                <Grid Padding="10" ColumnDefinitions="*, *, Auto">
-                    <!-- <Grid.GestureRecognizers>
-                        <TapGestureRecognizer TappedCommand="{Binding RowTappedCommand}" CommandParameter="{Binding .}" />
-                    </Grid.GestureRecognizers> -->
-                    <ProgressBar x:Name="ProgressBar" Grid.ColumnSpan="3" HeightRequest="4" VerticalOptions="Start" HorizontalOptions="FillAndExpand" BackgroundColor="LightGray" ProgressColor="Green" Progress="0"/>
-                    <Label Grid.Column="0" Text="{Binding ActionName}" VerticalOptions="Center"/>
-                    <Label Grid.Column="1" Text="{Binding ActionArrayFormatted}" VerticalOptions="Center"/>
-                    <Button Grid.Column="2" Text="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.IsSimulating, Converter={StaticResource BoolToTextConverter}, ConverterParameter='Simulate,Stop'}"
-                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}" 
-                        CommandParameter="{Binding .}" VerticalOptions="Center"/>
-                </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
-
-        <!-- Debug Output -->
-        <Label Text="{Binding DebugOutput}" FontSize="Body" VerticalOptions="CenterAndExpand" TextColor="Gray"/>
-    </StackLayout>
+    </ScrollView>
 </ContentPage>
