@@ -34,7 +34,7 @@ namespace CSimple.Services
             {
                 System.Diagnostics.Debug.WriteLine($"Attempting to save action groups and actions to {_actionGroupsFilePath}");
 
-                // var options = new JsonSerializerOptions { WriteIndented = true };
+                var options = new JsonSerializerOptions { WriteIndented = true };
                 string actionGroupsJson;
                         System.Diagnostics.Debug.WriteLine("preparing action groups to JSON");
                 try
