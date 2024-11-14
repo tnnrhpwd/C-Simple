@@ -3,20 +3,23 @@ using System.Globalization;
 using System.Diagnostics;
 using Microsoft.Maui.Controls;
 
-public class BoolToTextConverter : IValueConverter
+namespace CSimple.Converters
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public class BoolToTextConverter : IValueConverter
     {
-        Debug.WriteLine("message");
-        if (value is bool boolean)
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return boolean ? "Simulate" : "Stop";
+            Debug.WriteLine("message");
+            if (value is bool boolean)
+            {
+                return boolean ? "Simulate" : "Stop";
+            }
+            return "Unknown";
         }
-        return "Unknown";
-    }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

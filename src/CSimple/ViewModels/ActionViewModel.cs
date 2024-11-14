@@ -21,14 +21,27 @@ namespace CSimple.ViewModels
             }
         }
 
+        private bool _isSimulating;
+        public bool IsSimulating
+        {
+            get => _isSimulating;
+            set
+            {
+                _isSimulating = value;
+                OnPropertyChanged();
+            }
+        }
+
         public ICommand RowTappedCommand { get; }
         public ICommand SimulateActionGroupCommand { get; }
+        public ICommand ToggleSimulateActionGroupCommand { get; }
 
         public ActionViewModel()
         {
             RowTappedCommand = new Command<ActionGroupModel>(OnRowTapped);
             SimulateActionGroupCommand = new Command<ActionGroupModel>(SimulateActionGroup);
-            
+            ToggleSimulateActionGroupCommand = new Command(ToggleSimulateActionGroup);
+
             // Initialize with some sample data or fetch from your data source
             ActionGroups = new ObservableCollection<ActionGroupModel>
             {
@@ -58,6 +71,11 @@ namespace CSimple.ViewModels
                 // Logic to simulate the action group
                 // Example: SimulateActions(actionGroup);
             }
+        }
+
+        private void ToggleSimulateActionGroup()
+        {
+            IsSimulating = !IsSimulating;
         }
 
         // Placeholder for your action simulation logic
