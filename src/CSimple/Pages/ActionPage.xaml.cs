@@ -62,7 +62,7 @@ namespace CSimple.Pages
             // Load existing action groups from file asynchronously
             _ = LoadActionGroupsFromFile(); // Ignore the returned task since we only need to ensure it's running
 
-            DebugOutput("Ready");
+            DebugOutput("Action Page Initialized");
             BindingContext = this;
         }
         private bool cancel_simulation = false;

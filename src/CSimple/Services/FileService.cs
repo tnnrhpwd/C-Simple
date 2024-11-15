@@ -39,7 +39,7 @@ namespace CSimple.Services
                         System.Diagnostics.Debug.WriteLine("preparing action groups to JSON");
                 try
                 {
-                    // actionGroupsJson = JsonSerializer.Serialize(actionGroups, options);
+                    actionGroupsJson = JsonSerializer.Serialize(actionGroups, options);
                     System.Diagnostics.Debug.WriteLine("Serialized action groups to JSON");
                 }
                 catch (JsonException jsonEx)
