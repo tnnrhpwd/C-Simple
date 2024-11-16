@@ -24,7 +24,7 @@ namespace CSimple.Pages
         public ICommand SaveToFileCommand { get; set; }
         public ICommand LoadFromFileCommand { get; set; }
         public ICommand RowTappedCommand { get; }
-        private bool _isSimulating;
+        private bool _isSimulating = false;
         private readonly DataService _dataService;
         private readonly FileService _fileService;
 

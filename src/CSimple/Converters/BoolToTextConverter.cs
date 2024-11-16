@@ -9,16 +9,19 @@ namespace CSimple.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            Debug.WriteLine("message");
             if (value is bool boolean)
             {
-                return boolean ? "Simulate" : "Stop";
+                string result = boolean ? "Stop" : "Simulate";
+                Debug.WriteLine($"Conversion result: {result}: Convert called with value: {value}, targetType: {targetType}, parameter: {parameter}, culture: {culture}");
+                return result;
             }
+            Debug.WriteLine("Conversion failed: value is not a boolean");
             return "Unknown";
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
+            Debug.WriteLine($"ConvertBack called with value: {value}, targetType: {targetType}, parameter: {parameter}, culture: {culture}");
             throw new NotImplementedException();
         }
     }
