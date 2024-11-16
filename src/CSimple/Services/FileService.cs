@@ -82,8 +82,8 @@ namespace CSimple.Services
                 var actionGroupsJson = await File.ReadAllTextAsync(_actionGroupsFilePath);
                 System.Diagnostics.Debug.WriteLine("Read action groups JSON from file");
                 System.Diagnostics.Debug.WriteLine($"JSON Content: {actionGroupsJson}");
-
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };// im getting this error on this line or the following one. Error loading action groups: The JSON value could not be converted to System.Collections.ObjectModel.ObservableCollection`1[ActionGroup]. Path: $ | LineNumber: 0 | BytePositionInLine: 1.
+                
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 var actionGroups = JsonSerializer.Deserialize<ObservableCollection<ActionGroup>>(actionGroupsJson, options);
                 System.Diagnostics.Debug.WriteLine("Deserialized action groups from JSON");
 
