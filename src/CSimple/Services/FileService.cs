@@ -42,6 +42,11 @@ namespace CSimple.Services
                 System.Diagnostics.Debug.WriteLine("Initial Action Groups:");
                 foreach (var actionGroup in actionGroups)
                 {
+                    if (actionGroup.ActionArrayFormatted == null)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"ActionGroup with missing ActionArrayFormatted: {JsonSerializer.Serialize(actionGroup)}");
+                        actionGroup.ActionArrayFormatted = $"Creator:{(actionGroup.Creator == null ? "userId" : actionGroup.Creator)}|Action:{JsonSerializer.Serialize(actionGroup.ActionArray).Substring(0, 50)}";
+                    }
                     System.Diagnostics.Debug.WriteLine(actionGroup.ActionArrayFormatted.ToString());
                 }
 
