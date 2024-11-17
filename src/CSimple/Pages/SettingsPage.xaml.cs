@@ -46,6 +46,7 @@ public partial class SettingsPage : ContentPage
                 UserEmailLabel.Text = userEmail;
             }else{
                 Debug.WriteLine($"Error: Nickname and Email returned empty.");
+                ExecuteLogout();
             }
         }
         catch (Exception ex)
