@@ -63,7 +63,7 @@ public class DataService
 
                 // Log the raw response content for debugging
                 var responseContent = await response.Content.ReadAsStringAsync();
-                Debug.WriteLine($"1. (DataService) Raw response data: {responseContent}");
+                Debug.WriteLine($"1. (DataService.GetDataAsync) Raw response data: {responseContent}");
 
                 // Handle the response
                 return await HandleResponse<DataClass>(response);
@@ -194,7 +194,7 @@ public class DataService
         if (response.IsSuccessStatusCode)
         {
             var responseContent = await response.Content.ReadAsStringAsync();
-            Debug.WriteLine($"Raw response data: {responseContent}");
+            Debug.WriteLine($"1 (DataService.HandleResponse) Raw response data: {responseContent}");
             return JsonSerializer.Deserialize<T>(responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
         else

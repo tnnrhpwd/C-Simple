@@ -365,7 +365,7 @@ namespace CSimple.Pages
                 DebugOutput($"Received action groups from backend");
 
                 // Log raw response data
-                DebugOutput($"2. (ActionPage) Raw response data: {JsonSerializer.Serialize(actionGroups)}");
+                DebugOutput($"2. (ActionPage) Raw response data: {JsonSerializer.Serialize(actionGroups.Data)}");
 
                 var formattedActionGroups = FormatActionsFromBackend(actionGroups.Data);
                 DebugOutput($"Received {actionGroups.Data.Count} action groups from backend");
@@ -380,7 +380,7 @@ namespace CSimple.Pages
                     DebugOutput("Action Groups Loaded from Backend");
 
                     // Save loaded action groups to file
-                    // await SaveActionGroupsToFile();
+                    await SaveActionGroupsToFile();
                 }
                 else
                 {
