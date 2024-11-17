@@ -34,6 +34,7 @@ namespace CSimple.Services
             try
             {
                 System.Diagnostics.Debug.WriteLine($"Attempting to save action groups and actions to {_actionGroupsFilePath}");
+                // System.Diagnostics.Debug.WriteLine("Length of ActionGroups:"+JsonSerializer.Serialize(actionGroups).Length.ToString());
 
                 var options = new JsonSerializerOptions { WriteIndented = true };
 
@@ -53,7 +54,7 @@ namespace CSimple.Services
                     // Serialize the action groups to JSON
                     actionGroupsJson = JsonSerializer.Serialize(actionGroups, options);
                     System.Diagnostics.Debug.WriteLine("Serialized action groups to JSON");
-                    System.Diagnostics.Debug.WriteLine($"Action Groups JSON: {actionGroupsJson}");
+                    System.Diagnostics.Debug.WriteLine($"3. (FileService) Action Groups JSON: {actionGroupsJson}");
                 }
                 catch (JsonException jsonEx)
                 {

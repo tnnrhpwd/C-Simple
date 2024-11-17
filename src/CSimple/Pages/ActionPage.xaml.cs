@@ -61,7 +61,6 @@ namespace CSimple.Pages
 
             // Load existing action groups from file asynchronously
             _ = LoadActionGroupsFromFile(); // Ignore the returned task since we only need to ensure it's running
-
             DebugOutput("Action Page Initialized");
             BindingContext = this;
         }
@@ -77,7 +76,7 @@ namespace CSimple.Pages
         protected override async void OnAppearing()
         {
             base.OnAppearing();
-            // await LoadAndSaveActionGroups();
+            await LoadActionGroupsFromBackend();
         }
         private async void OnRowTapped(ActionGroup actionGroup)
         {
@@ -339,6 +338,7 @@ namespace CSimple.Pages
         {
             try
             {
+                // DebugOutput("Length of ActionGroups:"+JsonSerializer.Serialize(ActionGroups).Length.ToString());
                 await _fileService.SaveActionGroupsAsync(ActionGroups);
                 DebugOutput("Action Groups and Actions Saved to File");
             }
@@ -362,13 +362,13 @@ namespace CSimple.Pages
 
                 var data = "Action";
                 var actionGroups = await _dataService.GetDataAsync(data, token);
+                DebugOutput($"Received action groups from backend");
 
                 // Log raw response data
-                DebugOutput($"Raw response data: {JsonSerializer.Serialize(actionGroups)}");
-
-                DebugOutput($"Received {actionGroups.Data.Count} action groups from backend");
+                DebugOutput($"2. (ActionPage) Raw response data: {JsonSerializer.Serialize(actionGroups)}");
 
                 var formattedActionGroups = FormatActionsFromBackend(actionGroups.Data);
+                DebugOutput($"Received {actionGroups.Data.Count} action groups from backend");
 
                 if (!ActionGroups.SequenceEqual(formattedActionGroups))
                 {
@@ -380,7 +380,7 @@ namespace CSimple.Pages
                     DebugOutput("Action Groups Loaded from Backend");
 
                     // Save loaded action groups to file
-                    await SaveActionGroupsToFile();
+                    // await SaveActionGroupsToFile();
                 }
                 else
                 {
