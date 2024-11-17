@@ -29,11 +29,12 @@ public class DataService
         SetAuthorizationHeader(token);
 
         // Serialize the data to JSON
-        var jsonContent = new StringContent(
-            JsonSerializer.Serialize(new { data }), 
-            System.Text.Encoding.UTF8, 
-            "application/json"
-        );
+        var jsonData = JsonSerializer.Serialize(new { data });
+        var jsonContent = new StringContent(jsonData, System.Text.Encoding.UTF8, "application/json");
+
+        // Calculate the size of the JSON content
+        var dataSize = System.Text.Encoding.UTF8.GetByteCount(jsonData);
+        Debug.WriteLine($"----Size of the data being sent: {dataSize} bytes----");
 
         // Send the POST request
         var response = await _httpClient.PostAsync(BaseUrl, jsonContent);
