@@ -89,54 +89,6 @@ namespace CSimple.Pages
             public ICommand RowTappedCommand { get; }
         }
 
-        private ObservableCollection<ActionGroup> FormatActionsFromBackend(IEnumerable<string> actionGroupStrings)
-        {
-            var formattedActionGroups = new ObservableCollection<ActionGroup>();
-
-            foreach (var actionGroupString in actionGroupStrings)
-            {
-                try
-                {
-                    var parts = actionGroupString.Split('|');
-                    var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
-                    var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
-
-                    if (creatorPart != null && actionPart != null)
-                    {
-                        var actionJson = actionPart.Substring("Action:".Length);
-                        var actionGroup = JsonSerializer.Deserialize<ActionGroup>(actionJson);
-
-                        if (actionGroup != null)
-                        {
-                            actionGroup.Creator = creatorPart.Substring("Creator:".Length);
-                            actionGroup.ActionArray = actionGroup.ActionArray ?? new List<ActionArrayItem>();
-                            actionGroup.ActionArrayFormatted = actionGroupString.Length > 50 ? actionGroupString.Substring(0, 50) + "..." : actionGroupString;
-                            formattedActionGroups.Add(actionGroup);
-                            DebugOutput($"Adding action: {actionGroup.ActionName}");
-                        }
-                        else
-                        {
-                            DebugOutput($"Failed to deserialize action group JSON: {actionJson}");
-                        }
-                    }
-                    else
-                    {
-                        DebugOutput($"Invalid action group string: {actionGroupString}");
-                    }
-                }
-                catch (JsonException jsonEx)
-                {
-                    DebugOutput($"JSON error parsing action group: {jsonEx.Message}");
-                }
-                catch (Exception ex)
-                {
-                    DebugOutput($"Error parsing action group: {ex.Message}");
-                }
-            }
-
-            return formattedActionGroups;
-        }
-
         private async void SaveAction(object parameter)
         {
             string actionName = ActionNameEntry.Text?.Trim();
@@ -338,7 +290,7 @@ namespace CSimple.Pages
         {
             try
             {
-                // DebugOutput("Length of ActionGroups:"+JsonSerializer.Serialize(ActionGroups).Length.ToString());
+                DebugOutput("Length of ActionGroups:"+JsonSerializer.Serialize(ActionGroups).Length.ToString());
                 await _fileService.SaveActionGroupsAsync(ActionGroups);
                 DebugOutput("Action Groups and Actions Saved to File");
             }
@@ -346,6 +298,55 @@ namespace CSimple.Pages
             {
                 DebugOutput($"Error saving action groups and actions: {ex.Message}");
             }
+        }
+        private ObservableCollection<ActionGroup> FormatActionsFromBackend(IEnumerable<string> actionGroupStrings)
+        {
+            var formattedActionGroups = new ObservableCollection<ActionGroup>();
+
+            foreach (var actionGroupString in actionGroupStrings)
+            {
+                try
+                {
+                    var parts = actionGroupString.Split('|');
+                    var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
+                    var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
+
+                    if (creatorPart != null && actionPart != null)
+                    {
+                        var actionJson = actionPart.Substring("Action:".Length);
+                        var actionGroup = JsonSerializer.Deserialize<ActionGroup>(actionJson);
+
+                        if (actionGroup != null)
+                        {
+                            actionGroup.Creator = creatorPart.Substring("Creator:".Length);
+                            actionGroup.ActionArray = actionGroup.ActionArray ?? new List<ActionArrayItem>();
+                            actionGroup.ActionArrayFormatted = actionGroupString.Length > 50 ? actionGroupString.Substring(0, 50) + "..." : actionGroupString;
+                            formattedActionGroups.Add(actionGroup);
+                            DebugOutput($"Adding action: {actionGroup.ActionName}");
+                        }
+                        else
+                        {
+                            DebugOutput($"Failed to deserialize action group JSON: {actionJson}");
+                        }
+                    }
+                    else
+                    {
+                        DebugOutput($"Invalid action group string: {actionGroupString}");
+                    }
+                }
+                catch (JsonException jsonEx)
+                {
+                    DebugOutput($"JSON error parsing action group: {jsonEx.Message}");
+                }
+                catch (Exception ex)
+                {
+                    DebugOutput($"Error parsing action group: {ex.Message}");
+                }
+            }
+            // Log raw response data
+            Debug.WriteLine("Length of formattedActionGroups:"+JsonSerializer.Serialize(formattedActionGroups).Length.ToString());
+            DebugOutput($"2. (ActionPage.FormatActionsFromBackend) Raw response data: {JsonSerializer.Serialize(formattedActionGroups)}");
+            return formattedActionGroups;
         }
 
         private async Task LoadActionGroupsFromBackend()
@@ -365,7 +366,8 @@ namespace CSimple.Pages
                 DebugOutput($"Received action groups from backend");
 
                 // Log raw response data
-                DebugOutput($"2. (ActionPage) Raw response data: {JsonSerializer.Serialize(actionGroups.Data)}");
+                Debug.WriteLine("Length of actionGroups.Data:"+JsonSerializer.Serialize(actionGroups.Data).Length.ToString());
+                DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend) Raw response data: {JsonSerializer.Serialize(actionGroups.Data)}");
 
                 var formattedActionGroups = FormatActionsFromBackend(actionGroups.Data);
                 DebugOutput($"Received {actionGroups.Data.Count} action groups from backend");

@@ -34,7 +34,7 @@ namespace CSimple.Services
             try
             {
                 System.Diagnostics.Debug.WriteLine($"Attempting to save action groups and actions to {_actionGroupsFilePath}");
-                // System.Diagnostics.Debug.WriteLine("Length of ActionGroups:"+JsonSerializer.Serialize(actionGroups).Length.ToString());
+                System.Diagnostics.Debug.WriteLine("Length of FileService.ActionGroups:"+JsonSerializer.Serialize(actionGroups).Length.ToString());
 
                 var options = new JsonSerializerOptions { WriteIndented = true };
 
@@ -54,32 +54,33 @@ namespace CSimple.Services
                     // Serialize the action groups to JSON
                     actionGroupsJson = JsonSerializer.Serialize(actionGroups, options);
                     System.Diagnostics.Debug.WriteLine("Serialized action groups to JSON");
-                    System.Diagnostics.Debug.WriteLine($"3. (FileService) Action Groups JSON: {actionGroupsJson}");
+                    System.Diagnostics.Debug.WriteLine($"3. (FileService.Save) Action Groups JSON: {actionGroupsJson.Substring(0, Math.Min(50, actionGroupsJson.Length))}");
                 }
                 catch (JsonException jsonEx)
                 {
                     System.Diagnostics.Debug.WriteLine($"Error serializing action groups: {jsonEx.Message}");
                     return;
                 }
-                // Extract the action arrays from each action group and combine them into a single array
-                var actionArray = actionGroups.SelectMany(ag => ag.ActionArray).ToArray();
-                System.Diagnostics.Debug.WriteLine($"Extracted {actionArray.Length} actions from action groups");
+                // // Extract the action arrays from each action group and combine them into a single array
+                // var actionArray = actionGroups.SelectMany(ag => ag.ActionArray).ToArray();
+                // System.Diagnostics.Debug.WriteLine($"Extracted {actionArray.Length} actions from action groups");
 
-                try
-                {
-                    actionArrayJson = JsonSerializer.Serialize(actionArray, options);
-                    System.Diagnostics.Debug.WriteLine("Serialized action array to JSON");
-                    System.Diagnostics.Debug.WriteLine($"Action Array JSON: {actionArrayJson}");
-                }
-                catch (JsonException jsonEx)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Error serializing action array: {jsonEx.Message}");
-                    return;
-                }
+                // try
+                // {
+                //     actionArrayJson = JsonSerializer.Serialize(actionArray, options);
+                //     System.Diagnostics.Debug.WriteLine("Serialized action array to JSON");
+                //     System.Diagnostics.Debug.WriteLine($"Action Array JSON: {actionArrayJson}");
+                // }
+                // catch (JsonException jsonEx)
+                // {
+                //     System.Diagnostics.Debug.WriteLine($"Error serializing action array: {jsonEx.Message}");
+                //     return;
+                // }
                 // Combine the serialized action groups and action array into a single JSON object
-                var combinedJson = $"{{\"ActionGroups\": {actionGroupsJson}, \"ActionArray\": {actionArrayJson}}}";
-                System.Diagnostics.Debug.WriteLine("Combined JSON for action groups and action array");
-                System.Diagnostics.Debug.WriteLine($"Combined JSON: {combinedJson}");
+                // var combinedJson = $"{{\"ActionGroups\": {actionGroupsJson}, \"ActionArray\": {actionArrayJson}}}";
+                var combinedJson = $"{{\"ActionGroups\": {actionGroupsJson}}}";
+                // System.Diagnostics.Debug.WriteLine("Combined JSON for action groups and action array");
+                // System.Diagnostics.Debug.WriteLine($"Combined JSON: {combinedJson}");
 
                 // Write the combined JSON to the specified file path
                 await File.WriteAllTextAsync(_actionGroupsFilePath, combinedJson);
@@ -100,7 +101,7 @@ namespace CSimple.Services
 
                 // Read the JSON content from the specified file path
                 var jsonContent = await File.ReadAllTextAsync(_actionGroupsFilePath);
-                System.Diagnostics.Debug.WriteLine($"Loaded JSON content: {jsonContent}");
+                System.Diagnostics.Debug.WriteLine($"3. (FileService.Load) Loaded JSON content: {jsonContent.Substring(0, Math.Min(50, jsonContent.Length))}");
 
                 // Deserialize the JSON content to the helper class
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
