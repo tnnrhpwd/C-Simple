@@ -383,7 +383,7 @@ namespace CSimple.Pages
                 }
 
                 // Format the action group string
-                var userId = "userId"; // Replace with actual user ID retrieval logic
+                var userId = await SecureStorage.GetAsync("userToken");
                 var actionGroupString = $"Creator:{userId}|Action:{JsonConvert.SerializeObject(ActionGroups.Last())}";
 
                 var queryParams = new Dictionary<string, string>
@@ -392,14 +392,11 @@ namespace CSimple.Pages
                 };
 
                 var response = await _dataService.CreateDataAsync(queryParams["data"], token);
-                // if (response.DataIsSuccess) // Replace with the actual property or method that indicates success in DataClass
-                // {
-                    DebugOutput("New Action Group Saved to Backend");
-                // }
-                // else
-                // {
-                //     DebugOutput($"Error saving new action group: {response.DataMessage}");
-                // }
+                var serializedData = response.Data != null && response.Data.Any() 
+                    ? JsonConvert.SerializeObject(response.Data) 
+                    : "No data available";
+
+                DebugOutput($"4. (ObservePage.SaveNew) New Action Group Saved to Backend: {serializedData}");
             }
             catch (Exception ex)
             {
