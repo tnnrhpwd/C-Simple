@@ -27,7 +27,8 @@ namespace CSimple.Services
             EnsureFileExists(_recordedActionsFilePath);
         }
 
-        // Existing methods for ActionGroups
+
+        // This method is used to save the action groups and actions to a JSON file
         public async Task SaveActionGroupsAsync(ObservableCollection<ActionGroup> actionGroups)
         {
             try
@@ -35,31 +36,53 @@ namespace CSimple.Services
                 System.Diagnostics.Debug.WriteLine($"Attempting to save action groups and actions to {_actionGroupsFilePath}");
 
                 var options = new JsonSerializerOptions { WriteIndented = true };
+
+                // Output the initial actionGroups variable
+                System.Diagnostics.Debug.WriteLine("Initial Action Groups:");
+                foreach (var actionGroup in actionGroups)
+                {
+                    System.Diagnostics.Debug.WriteLine(actionGroup.ActionArrayFormatted.ToString());
+                }
+
                 string actionGroupsJson;
-                        System.Diagnostics.Debug.WriteLine("preparing action groups to JSON");
+                string actionArrayJson;
+
+                System.Diagnostics.Debug.WriteLine("Preparing action groups to JSON");
                 try
                 {
+                    // Serialize the action groups to JSON
                     actionGroupsJson = JsonSerializer.Serialize(actionGroups, options);
                     System.Diagnostics.Debug.WriteLine("Serialized action groups to JSON");
+                    System.Diagnostics.Debug.WriteLine($"Action Groups JSON: {actionGroupsJson}");
                 }
                 catch (JsonException jsonEx)
                 {
                     System.Diagnostics.Debug.WriteLine($"Error serializing action groups: {jsonEx.Message}");
                     return;
                 }
-                        System.Diagnostics.Debug.WriteLine("Serialized action groups to JSON");
-                // await File.WriteAllTextAsync(_actionGroupsFilePath, actionGroupsJson);
-                // var actionArray = actionGroups.SelectMany(ag => ag.ActionArray).ToArray();
-                // System.Diagnostics.Debug.WriteLine($"Extracted {actionArray.Length} actions from action groups");
+                // Extract the action arrays from each action group and combine them into a single array
+                var actionArray = actionGroups.SelectMany(ag => ag.ActionArray).ToArray();
+                System.Diagnostics.Debug.WriteLine($"Extracted {actionArray.Length} actions from action groups");
 
-                // var actionArrayJson = JsonSerializer.Serialize(actionArray, options);
-                // System.Diagnostics.Debug.WriteLine("Serialized action array to JSON");
+                try
+                {
+                    actionArrayJson = JsonSerializer.Serialize(actionArray, options);
+                    System.Diagnostics.Debug.WriteLine("Serialized action array to JSON");
+                    System.Diagnostics.Debug.WriteLine($"Action Array JSON: {actionArrayJson}");
+                }
+                catch (JsonException jsonEx)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error serializing action array: {jsonEx.Message}");
+                    return;
+                }
+                // Combine the serialized action groups and action array into a single JSON object
+                var combinedJson = $"{{\"ActionGroups\": {actionGroupsJson}, \"ActionArray\": {actionArrayJson}}}";
+                System.Diagnostics.Debug.WriteLine("Combined JSON for action groups and action array");
+                System.Diagnostics.Debug.WriteLine($"Combined JSON: {combinedJson}");
 
-                // var combinedJson = $"{{\"ActionGroups\": {actionGroupsJson}, \"ActionArray\": {actionArrayJson}}}";
-                // System.Diagnostics.Debug.WriteLine("Combined JSON for action groups and action array");
-
-                // await File.WriteAllTextAsync(_actionGroupsFilePath, combinedJson);
-                // System.Diagnostics.Debug.WriteLine($"Successfully saved action groups and actions to {_actionGroupsFilePath}");
+                // Write the combined JSON to the specified file path
+                await File.WriteAllTextAsync(_actionGroupsFilePath, combinedJson);
+                System.Diagnostics.Debug.WriteLine($"Successfully saved action groups and actions to {_actionGroupsFilePath}");
             }
             catch (Exception ex)
             {
@@ -67,37 +90,33 @@ namespace CSimple.Services
             }
         }
 
+        // This method is used to load the action groups and actions from a JSON file
         public async Task<ObservableCollection<ActionGroup>> LoadActionGroupsAsync()
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine($"Attempting to load action groups from {_actionGroupsFilePath}");
+                System.Diagnostics.Debug.WriteLine($"Attempting to load action groups and actions from {_actionGroupsFilePath}");
 
-                if (!File.Exists(_actionGroupsFilePath))
-                {
-                    System.Diagnostics.Debug.WriteLine("Action groups file does not exist");
-                    return new ObservableCollection<ActionGroup>();
-                }
+                // Read the JSON content from the specified file path
+                var jsonContent = await File.ReadAllTextAsync(_actionGroupsFilePath);
+                System.Diagnostics.Debug.WriteLine($"Loaded JSON content: {jsonContent}");
 
-                var actionGroupsJson = await File.ReadAllTextAsync(_actionGroupsFilePath);
-                System.Diagnostics.Debug.WriteLine("Read action groups JSON from file");
-                System.Diagnostics.Debug.WriteLine($"JSON Content: {actionGroupsJson}");
-                
+                // Deserialize the JSON content to the helper class
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var actionGroups = JsonSerializer.Deserialize<ObservableCollection<ActionGroup>>(actionGroupsJson, options);
+                var container = JsonSerializer.Deserialize<ActionGroupsContainer>(jsonContent, options);
                 System.Diagnostics.Debug.WriteLine("Deserialized action groups from JSON");
 
-                return actionGroups ?? new ObservableCollection<ActionGroup>();
+                return container?.ActionGroups;
             }
             catch (JsonException jsonEx)
             {
                 System.Diagnostics.Debug.WriteLine($"Error loading action groups: {jsonEx.Message}");
-                return new ObservableCollection<ActionGroup>();
+                return null;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Unexpected error loading action groups: {ex.Message}");
-                return new ObservableCollection<ActionGroup>();
+                System.Diagnostics.Debug.WriteLine($"Error loading action groups and actions: {ex.Message}");
+                return null;
             }
         }
 
@@ -166,4 +185,9 @@ namespace CSimple.Services
         }
     }
 
+}
+// Helper class to match the JSON structure
+public class ActionGroupsContainer{
+    public ObservableCollection<ActionGroup> ActionGroups { get; set; }
+    public Action[] ActionArray { get; set; }
 }

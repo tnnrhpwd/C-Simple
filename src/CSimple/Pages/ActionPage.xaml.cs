@@ -104,39 +104,30 @@ namespace CSimple.Pages
 
                     if (creatorPart != null && actionPart != null)
                     {
-                        var actionName = string.Empty;
-                        var actionNameIndex = actionPart.IndexOf("\"ActionName\":\"");
+                        var actionJson = actionPart.Substring("Action:".Length);
+                        var actionGroup = JsonSerializer.Deserialize<ActionGroup>(actionJson);
 
-                        if (actionNameIndex != -1)
+                        if (actionGroup != null)
                         {
-                            var startIndex = actionNameIndex + "\"ActionName\":\"".Length;
-                            var endIndex = actionPart.IndexOf('"', startIndex);
-                            if (endIndex != -1)
-                            {
-                                actionName = actionPart.Substring(startIndex, endIndex - startIndex);
-                            }
+                            actionGroup.Creator = creatorPart.Substring("Creator:".Length);
+                            actionGroup.ActionArray = actionGroup.ActionArray ?? new List<ActionArrayItem>();
+                            actionGroup.ActionArrayFormatted = actionGroupString.Length > 50 ? actionGroupString.Substring(0, 50) + "..." : actionGroupString;
+                            formattedActionGroups.Add(actionGroup);
+                            DebugOutput($"Adding action: {actionGroup.ActionName}");
                         }
-
-                        if (string.IsNullOrEmpty(actionName))
+                        else
                         {
-                            actionName = actionPart.Substring("Action:".Length).Split(' ').FirstOrDefault();
+                            DebugOutput($"Failed to deserialize action group JSON: {actionJson}");
                         }
-
-                        actionName = actionName.Length > 50 ? actionName.Split(' ')[0] : actionName;
-
-                        var actionGroup = new ActionGroup
-                        {
-                            Creator = creatorPart.Substring("Creator:".Length),
-                            ActionName = actionName.Length > 50 ? actionName.Substring(0, 50) + "..." : actionName,
-                            ActionArrayFormatted = actionGroupString.Length > 50 ? actionGroupString.Substring(0, 50) + "..." : actionGroupString
-                        };
-                        formattedActionGroups.Add(actionGroup);
-                        DebugOutput($"Adding action: {actionGroup.ActionName}");
                     }
                     else
                     {
                         DebugOutput($"Invalid action group string: {actionGroupString}");
                     }
+                }
+                catch (JsonException jsonEx)
+                {
+                    DebugOutput($"JSON error parsing action group: {jsonEx.Message}");
                 }
                 catch (Exception ex)
                 {
