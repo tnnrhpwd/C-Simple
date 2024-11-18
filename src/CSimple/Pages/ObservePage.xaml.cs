@@ -383,7 +383,7 @@ namespace CSimple.Pages
                 }
 
                 // Format the action group string
-                var userId = await SecureStorage.GetAsync("userToken");
+                var userId = await SecureStorage.GetAsync("userID");
                 var actionGroupString = $"Creator:{userId}|Action:{JsonConvert.SerializeObject(ActionGroups.Last())}";
 
                 var queryParams = new Dictionary<string, string>
