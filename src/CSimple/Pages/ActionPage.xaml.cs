@@ -151,7 +151,7 @@ namespace CSimple.Pages
             DebugOutput($"Toggling Simulation for: {actionGroup.ActionName}");
             if (actionGroup != null)
             {
-                actionGroup.IsSimulating = !actionGroup.IsSimulating;
+                actionGroup.IsSimulating = true;
 
                 if (actionGroup.IsSimulating)
                 {
@@ -274,6 +274,10 @@ namespace CSimple.Pages
                     catch (Exception ex)
                     {
                         DebugOutput($"Error during simulation: {ex.Message}");
+                    }
+                    finally
+                    {
+                        actionGroup.IsSimulating = false;
                     }
                 }
                 else

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using Microsoft.Maui.Controls;
 
@@ -41,7 +42,7 @@ namespace CSimple.ViewModels
         {
             RowTappedCommand = new Command<ActionGroupModel>(OnRowTapped);
             SimulateActionGroupCommand = new Command<ActionGroupModel>(SimulateActionGroup);
-            ToggleSimulateActionGroupCommand = new Command(ToggleSimulateActionGroup);
+            ToggleSimulateActionGroupCommand = new Command<ActionGroupModel>(ToggleSimulateActionGroup);
 
             // Initialize with some sample data or fetch from your data source
             ActionGroups = new ObservableCollection<ActionGroupModel>
@@ -50,12 +51,14 @@ namespace CSimple.ViewModels
                 new ActionGroupModel { ActionName = "Sample2", ActionArrayFormatted = "Action3, Action4" }
             };
         }
+
         // Implement INotifyPropertyChanged interface
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             // Ensure the PropertyChanged event is not null before invoking it
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+
         // Implement the logic for the commands
         private void OnRowTapped(ActionGroupModel actionGroup)
         {
@@ -67,20 +70,35 @@ namespace CSimple.ViewModels
             }
         }
 
-        private void SimulateActionGroup(ActionGroupModel actionGroup)
+        private async void SimulateActionGroup(ActionGroupModel actionGroup)
         {
             if (actionGroup != null)
             {
-                // Implement logic to simulate the actions in actionGroup
-                Debug.WriteLine("Logic to simulate the action group");
-                // Example: SimulateActions(actionGroup);
+                actionGroup.IsSimulating = true;
+                try
+                {
+                    // Implement logic to simulate the actions in actionGroup
+                    Debug.WriteLine($"Simulating actions for {actionGroup.ActionName}");
+                    await Task.Delay(2000); // Simulate some delay for the actions
+                }
+                finally
+                {
+                    actionGroup.IsSimulating = false;
+                }
             }
         }
 
-        private void ToggleSimulateActionGroup()
+        private void ToggleSimulateActionGroup(ActionGroupModel actionGroup)
         {
-            Debug.WriteLine("Toggling simulation state");
-            IsSimulating = !IsSimulating;
+            if (actionGroup != null)
+            {
+                Debug.WriteLine("Toggling simulation state");
+                actionGroup.IsSimulating = !actionGroup.IsSimulating;
+                if (actionGroup.IsSimulating)
+                {
+                    SimulateActionGroup(actionGroup);
+                }
+            }
         }
 
         // Placeholder for your action simulation logic
@@ -99,9 +117,31 @@ namespace CSimple.ViewModels
         }
     }
 
-    public class ActionGroupModel
+    public class ActionGroupModel : INotifyPropertyChanged
     {
+        private bool _isSimulating;
+
         public string ActionName { get; set; }
         public string ActionArrayFormatted { get; set; }
+
+        public bool IsSimulating
+        {
+            get => _isSimulating;
+            set
+            {
+                if (_isSimulating != value)
+                {
+                    _isSimulating = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 }
