@@ -51,7 +51,7 @@ namespace CSimple.Services
                 }
 
                 string actionGroupsJson;
-                string actionArrayJson;
+                // string actionArrayJson;
 
                 System.Diagnostics.Debug.WriteLine("Preparing action groups to JSON");
                 try

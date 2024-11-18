@@ -120,17 +120,24 @@ public class DataService
 
         if (response.IsSuccessStatusCode)
         {
-            var user = JsonSerializer.Deserialize<User>(responseContent);
-            if (user == null)
+            var options = new JsonSerializerOptions
             {
-                Debug.WriteLine("User deserialization failed.");
+                PropertyNameCaseInsensitive = true
+            };
+
+            var user = JsonSerializer.Deserialize<User>(responseContent, options);
+            if (user == null || string.IsNullOrEmpty(user.Token))
+            {
+                Debug.WriteLine("User deserialization failed or token is null.");
             }
             else
             {
+                Debug.WriteLine($"Setting secure storage... Token: {user.Token}, Nickname: {user.Nickname}, Email: {user.Email}, ID: {user._id}");
                 await SecureStorage.SetAsync("userToken", user.Token);
                 await SecureStorage.SetAsync("userNickname", user.Nickname);
                 await SecureStorage.SetAsync("userEmail", user.Email);
-                Debug.WriteLine("Login successful. Token:" + user.Token + ", Name:" + user.Nickname + ", Email:" + user.Email);
+                await SecureStorage.SetAsync("userID", user._id);
+                Debug.WriteLine("Login successful. Token:" + user.Token + ", Name:" + user.Nickname + ", Email:" + user.Email + ", ID:" + user._id);
                 return user;
             }
         }
@@ -145,6 +152,7 @@ public class DataService
         SecureStorage.Remove("userToken");
         SecureStorage.Remove("userNickname");
         SecureStorage.Remove("userEmail");
+        SecureStorage.Remove("userID");
         Debug.WriteLine("User logged out.");
     }
 
@@ -171,14 +179,16 @@ public class DataService
             var token = await SecureStorage.GetAsync("userToken");
             var nickname = await SecureStorage.GetAsync("userNickname");
             var email = await SecureStorage.GetAsync("userEmail");
+            var id = await SecureStorage.GetAsync("userID");
 
-            if (!string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(nickname) && !string.IsNullOrEmpty(email))
+            if (!string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(nickname) && !string.IsNullOrEmpty(email) && !string.IsNullOrEmpty(id))
             {
                 return new User
                 {
                     Token = token,
                     Nickname = nickname,
-                    Email = email
+                    Email = email,
+                    _id = id
                 };
             }
             return null; // User is not logged in or missing data
@@ -212,6 +222,7 @@ public class DataService
 // Define a model class to deserialize the user response
 public class User
 {
+    public string _id { get; set; }
     public string Token { get; set; }
     public string Nickname { get; set; }
     public string Email { get; set; }
