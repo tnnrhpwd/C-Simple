@@ -19,6 +19,26 @@
                             Placeholder="Action Name" 
                             HorizontalOptions="FillAndExpand" />
               </StackLayout>
+              
+            <!-- ActionModifier Inputs -->
+            <StackLayout Spacing="10">
+                <Entry x:Name="ModifierNameInput" 
+                       Placeholder="Modifier Name" 
+                       HorizontalOptions="FillAndExpand" />
+                <Entry x:Name="DescriptionInput" 
+                       Placeholder="Description" 
+                       HorizontalOptions="FillAndExpand" />
+                <Entry x:Name="PriorityInput" 
+                       Placeholder="Priority" 
+                       Keyboard="Numeric"
+                       HorizontalOptions="FillAndExpand" />
+                <Entry x:Name="ConditionInput" 
+                       Placeholder="Condition (e.g., item => item.KeyCode == 49)" 
+                       HorizontalOptions="FillAndExpand" />
+                <Entry x:Name="ModifyActionInput" 
+                       Placeholder="Modify Action (e.g., item => item.Duration += 1000)" 
+                       HorizontalOptions="FillAndExpand" />
+            </StackLayout>
 
               <!-- PC Visual Output -->
               <StackLayout>
