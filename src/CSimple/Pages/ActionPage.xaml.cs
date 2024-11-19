@@ -13,6 +13,7 @@ using System.Text.RegularExpressions;
 using System.Globalization;
 using Microsoft.Maui.Storage;
 using System.Text.Json;
+using CSimple.ViewModels;
 
 namespace CSimple.Pages
 {
@@ -62,7 +63,7 @@ namespace CSimple.Pages
             // Load existing action groups from file asynchronously
             _ = LoadActionGroupsFromFile(); // Ignore the returned task since we only need to ensure it's running
             DebugOutput("Action Page Initialized");
-            BindingContext = this;
+            BindingContext = new ActionViewModel();
         }
         private bool cancel_simulation = false;
         private const int SW_RESTORE = 9;
@@ -82,11 +83,6 @@ namespace CSimple.Pages
         {
             var actionDetailPage = new ActionDetailPage(actionGroup);
             await Navigation.PushModalAsync(actionDetailPage);
-        }
-        public class ActionPageViewModel
-        {
-            public ICommand ToggleSimulateActionGroupCommand { get; }
-            public ICommand RowTappedCommand { get; }
         }
 
         private async void SaveAction(object parameter)

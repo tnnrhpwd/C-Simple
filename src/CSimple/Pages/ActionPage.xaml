@@ -40,7 +40,7 @@
                             <Label Grid.Column="0" Text="{Binding ActionName}" VerticalOptions="Center"/>
                             <Label Grid.Column="1" Text="{Binding ActionArrayFormatted}" VerticalOptions="Center"/>
                             <Button Grid.Column="2" Text="{Binding IsSimulating, Converter={StaticResource BoolToTextConverter}}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SimulateActionGroupCommand}" 
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}" 
                                     CommandParameter="{Binding .}" VerticalOptions="Center"/>
                         </Grid>
                     </DataTemplate>
