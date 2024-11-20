@@ -63,7 +63,7 @@ namespace CSimple.Pages
             // Load existing action groups from file asynchronously
             _ = LoadActionGroupsFromFile(); // Ignore the returned task since we only need to ensure it's running
             DebugOutput("Action Page Initialized");
-            BindingContext = new ActionViewModel();
+            BindingContext = this;
         }
         private bool cancel_simulation = false;
         private const int SW_RESTORE = 9;
@@ -147,13 +147,15 @@ namespace CSimple.Pages
             DebugOutput($"Toggling Simulation for: {actionGroup.ActionName}");
             if (actionGroup != null)
             {
-                actionGroup.IsSimulating = true;
+                actionGroup.IsSimulating = !actionGroup.IsSimulating;
+                OnPropertyChanged(nameof(ActionGroups));
 
                 if (actionGroup.IsSimulating)
                 {
-                    cancel_simulation = false;
+                    IsSimulating = true; // Set IsSimulating to true when simulation starts
                     try
                     {
+                        cancel_simulation = false;
                         DateTime? previousActionTime = null;
                         List<Task> actionTasks = new List<Task>();
 
@@ -274,6 +276,8 @@ namespace CSimple.Pages
                     finally
                     {
                         actionGroup.IsSimulating = false;
+                        IsSimulating = false; // Set IsSimulating to false when simulation ends
+                        OnPropertyChanged(nameof(ActionGroups));
                     }
                 }
                 else

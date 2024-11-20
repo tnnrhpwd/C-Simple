@@ -1,11 +1,35 @@
-public class ActionGroup
+using System.Collections.Generic;
+using System.ComponentModel;
+
+public class ActionGroup : INotifyPropertyChanged
 {
+    private bool _isSimulating;
+
     public string ActionName { get; set; }
     public List<ActionArrayItem> ActionArray { get; set; } = new List<ActionArrayItem>();
     public List<ActionModifier> ActionModifiers { get; set; } = new List<ActionModifier>();
-    public bool IsSimulating { get; set; }
     public string Creator { get; set; }
     public string ActionArrayFormatted { get; set; }
+
+    public bool IsSimulating
+    {
+        get => _isSimulating;
+        set
+        {
+            if (_isSimulating != value)
+            {
+                _isSimulating = value;
+                OnPropertyChanged(nameof(IsSimulating));
+            }
+        }
+    }
+
+    public event PropertyChangedEventHandler PropertyChanged;
+
+    protected virtual void OnPropertyChanged(string propertyName)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 }
 
 public class ActionArrayItem

@@ -35,13 +35,13 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
                         <Grid Padding="10" ColumnDefinitions="*, *, Auto">
-                            <ProgressBar x:Name="ProgressBar" Grid.ColumnSpan="3" HeightRequest="4" VerticalOptions="Start" HorizontalOptions="FillAndExpand" BackgroundColor="LightGray" ProgressColor="Green" Progress="0"
-                                         IsVisible="{Binding IsSimulating}" />
+                            <ProgressBar Grid.ColumnSpan="3" HeightRequest="4" VerticalOptions="Start" HorizontalOptions="FillAndExpand" BackgroundColor="LightGray" ProgressColor="Green" Progress="0"
+                                IsVisible="{Binding IsSimulating}" />
                             <Label Grid.Column="0" Text="{Binding ActionName}" VerticalOptions="Center"/>
                             <Label Grid.Column="1" Text="{Binding ActionArrayFormatted}" VerticalOptions="Center"/>
                             <Button Grid.Column="2" Text="{Binding IsSimulating, Converter={StaticResource BoolToTextConverter}}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}" 
-                                    CommandParameter="{Binding .}" VerticalOptions="Center"/>
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}" 
+                                CommandParameter="{Binding .}" VerticalOptions="Center"/>
                         </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
