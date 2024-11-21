@@ -85,6 +85,15 @@ namespace CSimple.Pages
         {
             await Shell.Current.GoToAsync($"///observe");
         }
+        private void OnInputActionClicked(object sender, EventArgs e)
+        {
+            InputActionPopup.IsVisible = true;
+        }
+
+        private void OnCancelClicked(object sender, EventArgs e)
+        {
+            InputActionPopup.IsVisible = false;
+        }
         private async void OnRowTapped(ActionGroup actionGroup)
         {
             var actionDetailPage = new ActionDetailPage(actionGroup);
