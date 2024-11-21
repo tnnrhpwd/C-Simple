@@ -20,6 +20,7 @@ namespace CSimple.Pages
     public partial class ActionPage : ContentPage
     {
         public ObservableCollection<ActionGroup> ActionGroups { get; set; }
+        public ICommand NavigateToObservePageCommand { get; }
         public ICommand SaveActionCommand { get; set; }
         public ICommand ToggleSimulateActionGroupCommand { get; set; }
         public ICommand SaveToFileCommand { get; set; }
@@ -51,10 +52,11 @@ namespace CSimple.Pages
             _dataService = new DataService();
 
             // Initialize commands
-            SaveActionCommand = new Command(SaveAction);
+            // SaveActionCommand = new Command(SaveAction);
             ToggleSimulateActionGroupCommand = new Command<ActionGroup>(async (actionGroup) => await ToggleSimulateActionGroupAsync(actionGroup));
             SaveToFileCommand = new Command(async () => await SaveActionGroupsToFile());
             LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
+            NavigateToObservePageCommand = new Command(async () => await NavigateToObservePage());
 
             RowTappedCommand = new Command<ActionGroup>(OnRowTapped);
             // Initialize ActionGroups collection
@@ -79,69 +81,73 @@ namespace CSimple.Pages
             base.OnAppearing();
             await LoadActionGroupsFromBackend();
         }
+        private async Task NavigateToObservePage()
+        {
+            await Shell.Current.GoToAsync($"///observe");
+        }
         private async void OnRowTapped(ActionGroup actionGroup)
         {
             var actionDetailPage = new ActionDetailPage(actionGroup);
             await Navigation.PushModalAsync(actionDetailPage);
         }
 
-        private async void SaveAction(object parameter)
-        {
-            string actionName = ActionNameEntry.Text?.Trim();
-            string actionArrayText = ActionArrayEntry.Text?.Trim();
+        // private async void SaveAction(object parameter)
+        // {
+        //     string actionName = ActionNameEntry.Text?.Trim();
+        //     string actionArrayText = ActionArrayEntry.Text?.Trim();
 
-            if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(actionArrayText))
-            {
-                var actions = actionArrayText.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(a => new ActionArrayItem
-                {
-                    KeyCode = 54, 
-                    Timestamp = DateTime.UtcNow.ToString("o"), 
-                })
-                .ToList();
+        //     if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(actionArrayText))
+        //     {
+        //         var actions = actionArrayText.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+        //         .Select(a => new ActionArrayItem
+        //         {
+        //             KeyCode = 54, 
+        //             Timestamp = DateTime.UtcNow.ToString("o"), 
+        //         })
+        //         .ToList();
 
-                var newActionGroup = new ActionGroup { ActionName = actionName, ActionArray = actions };
-                ActionGroups.Add(newActionGroup);
-                DebugOutput($"Saved Action Group: {actionName}");
+        //         var newActionGroup = new ActionGroup { ActionName = actionName, ActionArray = actions };
+        //         ActionGroups.Add(newActionGroup);
+        //         DebugOutput($"Saved Action Group: {actionName}");
 
-                // Save to backend
-                var token = await SecureStorage.GetAsync("userToken");
-                if (string.IsNullOrEmpty(token))
-                {
-                    DebugOutput("User is not logged in.");
-                    return;
-                }
+        //         // Save to backend
+        //         var token = await SecureStorage.GetAsync("userToken");
+        //         if (string.IsNullOrEmpty(token))
+        //         {
+        //             DebugOutput("User is not logged in.");
+        //             return;
+        //         }
 
-                var userId = await SecureStorage.GetAsync("userId");
-                if (string.IsNullOrEmpty(userId))
-                {
-                    DebugOutput("User ID not found.");
-                    return;
-                }
+        //         var userId = await SecureStorage.GetAsync("userId");
+        //         if (string.IsNullOrEmpty(userId))
+        //         {
+        //             DebugOutput("User ID not found.");
+        //             return;
+        //         }
 
-                var actionArrayString = string.Join("+", actions.Select(a => $"{a.KeyCode}:{a.Timestamp}"));
-                var queryParams = new Dictionary<string, string>
-                {
-                    { "data", $"Creator:{userId}|Action:{actionName}+{actionArrayString}" }
-                };
-                var response = await _dataService.CreateDataAsync(queryParams["data"], token);
-                if (response.DataIsSuccess == true)
-                {
-                    DebugOutput("Action Group saved to backend");
-                }
-                else
-                {
-                    DebugOutput("Failed to save Action Group to backend");
-                }
+        //         var actionArrayString = string.Join("+", actions.Select(a => $"{a.KeyCode}:{a.Timestamp}"));
+        //         var queryParams = new Dictionary<string, string>
+        //         {
+        //             { "data", $"Creator:{userId}|Action:{actionName}+{actionArrayString}" }
+        //         };
+        //         var response = await _dataService.CreateDataAsync(queryParams["data"], token);
+        //         if (response.DataIsSuccess == true)
+        //         {
+        //             DebugOutput("Action Group saved to backend");
+        //         }
+        //         else
+        //         {
+        //             DebugOutput("Failed to save Action Group to backend");
+        //         }
 
-                // Trigger save to file after adding new action group
-                await SaveActionGroupsToFile();
-            }
-            else
-            {
-                DebugOutput("Please enter both Action Name and Action Array.");
-            }
-        }
+        //         // Trigger save to file after adding new action group
+        //         await SaveActionGroupsToFile();
+        //     }
+        //     else
+        //     {
+        //         DebugOutput("Please enter both Action Name and Action Array.");
+        //     }
+        // }
         private async Task ToggleSimulateActionGroupAsync(ActionGroup actionGroup)
         {
             DebugOutput($"Toggling Simulation for: {actionGroup.ActionName}");

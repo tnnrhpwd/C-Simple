@@ -25,9 +25,7 @@
 
             <!-- Input Section -->
             <StackLayout Orientation="Horizontal" Spacing="10" Margin="0,20,0,0">
-                <Entry x:Name="ActionNameEntry" Placeholder="Enter Action Name" WidthRequest="150"/>
-                <Entry x:Name="ActionArrayEntry" Placeholder="Enter Actions (comma separated)" WidthRequest="250"/>
-                <Button Text="Save" Command="{Binding SaveActionCommand}" VerticalOptions="Center"/>
+                <Button Text="Add Action" Command="{Binding NavigateToObservePageCommand}" VerticalOptions="Center"/>
             </StackLayout>
 
             <!-- Table Section -->
