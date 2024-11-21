@@ -152,13 +152,14 @@ namespace CSimple.Pages
 
                 if (actionGroup.IsSimulating)
                 {
-                    IsSimulating = true; // Set IsSimulating to true when simulation starts
+                    IsSimulating = true;
                     try
                     {
                         cancel_simulation = false;
                         DateTime? previousActionTime = null;
                         List<Task> actionTasks = new List<Task>();
 
+                        // Schedule all actions first
                         foreach (var action in actionGroup.ActionArray)
                         {
                             if (cancel_simulation)
@@ -166,7 +167,7 @@ namespace CSimple.Pages
                                 DebugOutput($"Successfully cancelled action");
                                 break;
                             }
-                            DebugOutput($"Processing Action: {action.Timestamp}");
+                            DebugOutput($"Scheduling Action: {action.Timestamp}");
 
                             DateTime currentActionTime;
                             if (!DateTime.TryParse(action.Timestamp, null, System.Globalization.DateTimeStyles.RoundtripKind, out currentActionTime))
@@ -179,15 +180,21 @@ namespace CSimple.Pages
                             if (previousActionTime.HasValue)
                             {
                                 TimeSpan delay = currentActionTime - previousActionTime.Value;
-                                DebugOutput($"Waiting for {delay.TotalMilliseconds} ms before next action.");
+                                DebugOutput($"Scheduling delay for {delay.TotalMilliseconds} ms before next action.");
                                 await Task.Delay(delay);
                             }
 
                             previousActionTime = currentActionTime;
 
-                            // Handle different action types in parallel
+                            // Schedule the action
                             Task actionTask = Task.Run(async () =>
                             {
+                                if (cancel_simulation)
+                                {
+                                    DebugOutput($"Successfully cancelled action");
+                                    return;
+                                }
+
                                 switch (action.EventType)
                                 {
                                     case 512: // Mouse Move
@@ -265,6 +272,7 @@ namespace CSimple.Pages
                             actionTasks.Add(actionTask);
                         }
 
+                        // Execute all scheduled actions
                         await Task.WhenAll(actionTasks);
 
                         DebugOutput($"Completed Simulation for: {actionGroup.ActionName}");
