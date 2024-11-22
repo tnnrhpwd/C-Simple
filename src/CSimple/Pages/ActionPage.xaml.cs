@@ -90,7 +90,7 @@ namespace CSimple.Pages
             InputActionPopup.IsVisible = true;
         }
 
-        private void OnCancelClicked(object sender, EventArgs e)
+        private void OnOkayClick(object sender, EventArgs e)
         {
             InputActionPopup.IsVisible = false;
         }
@@ -317,7 +317,7 @@ namespace CSimple.Pages
         {
             try
             {
-                DebugOutput("Length of ActionGroups:"+JsonSerializer.Serialize(ActionGroups).Length.ToString());
+                DebugOutput("Length of ActionGroups:" + JsonSerializer.Serialize(ActionGroups).Length.ToString());
                 await _fileService.SaveActionGroupsAsync(ActionGroups);
                 DebugOutput("Action Groups and Actions Saved to File");
             }
@@ -371,7 +371,7 @@ namespace CSimple.Pages
                 }
             }
             // Log raw response data
-            Debug.WriteLine("Length of formattedActionGroups:"+JsonSerializer.Serialize(formattedActionGroups).Length.ToString());
+            Debug.WriteLine("Length of formattedActionGroups:" + JsonSerializer.Serialize(formattedActionGroups).Length.ToString());
             DebugOutput($"2. (ActionPage.FormatActionsFromBackend) Raw response data: {JsonSerializer.Serialize(formattedActionGroups)}");
             return formattedActionGroups;
         }
@@ -393,7 +393,7 @@ namespace CSimple.Pages
                 DebugOutput($"Received action groups from backend");
 
                 // Log raw response data
-                Debug.WriteLine("Length of actionGroups.Data:"+JsonSerializer.Serialize(actionGroups.Data).Length.ToString());
+                Debug.WriteLine("Length of actionGroups.Data:" + JsonSerializer.Serialize(actionGroups.Data).Length.ToString());
                 DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend) Raw response data: {JsonSerializer.Serialize(actionGroups.Data)}");
 
                 var formattedActionGroups = FormatActionsFromBackend(actionGroups.Data);

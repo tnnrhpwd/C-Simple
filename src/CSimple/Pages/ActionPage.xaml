@@ -9,61 +9,114 @@
              Title="Action"
              Shell.NavBarIsVisible="{OnIdiom True, Desktop=False}"
              x:Class="CSimple.Pages.ActionPage">
-
     <ContentPage.Resources>
         <ResourceDictionary>
-            <converters:BoolToTextConverter x:Key="BoolToTextConverter" TrueText="Stop" FalseText="Start"/>
+            <converters:BoolToTextConverter x:Key="BoolToTextConverter"
+                                            TrueText="Stop"
+                                            FalseText="Start" />
         </ResourceDictionary>
     </ContentPage.Resources>
-
     <AbsoluteLayout>
-        <ScrollView AbsoluteLayout.LayoutFlags="All" AbsoluteLayout.LayoutBounds="0,0,1,1">
-            <StackLayout Padding="10" Spacing="20">
+        <ScrollView AbsoluteLayout.LayoutFlags="All"
+                    AbsoluteLayout.LayoutBounds="0,0,1,1">
+            <StackLayout Padding="10"
+                         Spacing="20">
                 <Label Text="Action"
-                    FontSize="Title"
-                    HorizontalOptions="Center"
-                    VerticalOptions="StartAndExpand"/>
-
+                       FontSize="Title"
+                       HorizontalOptions="Center"
+                       VerticalOptions="StartAndExpand" />
                 <!-- Input Section -->
-                <StackLayout Orientation="Horizontal" Spacing="10" Margin="0,20,0,0">
-                    <Button Text="Record Action" Command="{Binding NavigateToObservePageCommand}" VerticalOptions="Center"/>
-                    <Button Text="Input Action" Clicked="OnInputActionClicked" VerticalOptions="Center"/>
+                <StackLayout Orientation="Horizontal"
+                             Spacing="10"
+                             Margin="0,20,0,0">
+                    <Button Text="Record Action"
+                            Command="{Binding NavigateToObservePageCommand}"
+                            VerticalOptions="Center" />
+                    <Button Text="Input Action"
+                            Clicked="OnInputActionClicked"
+                            VerticalOptions="Center" />
                 </StackLayout>
-
                 <!-- Table Section -->
-                <CollectionView ItemsSource="{Binding ActionGroups}" Margin="0,20,0,0">
+                <CollectionView ItemsSource="{Binding ActionGroups}"
+                                Margin="0,20,0,0">
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
-                            <Grid Padding="10" ColumnDefinitions="*, *, Auto">
-                                <ProgressBar Grid.ColumnSpan="3" HeightRequest="4" VerticalOptions="Start" HorizontalOptions="FillAndExpand" BackgroundColor="LightGray" ProgressColor="Green" Progress="0"
-                                    IsVisible="{Binding IsSimulating}" />
-                                <Label Grid.Column="0" Text="{Binding ActionName}" VerticalOptions="Center"/>
-                                <Label Grid.Column="1" Text="{Binding ActionArrayFormatted}" VerticalOptions="Center"/>
-                                <Button Grid.Column="2" Text="{Binding IsSimulating, Converter={StaticResource BoolToTextConverter}}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}" 
-                                    CommandParameter="{Binding .}" VerticalOptions="Center"/>
+                            <Grid Padding="10"
+                                  ColumnDefinitions="*, *, Auto">
+                                <ProgressBar Grid.ColumnSpan="3"
+                                             HeightRequest="4"
+                                             VerticalOptions="Start"
+                                             HorizontalOptions="FillAndExpand"
+                                             BackgroundColor="LightGray"
+                                             ProgressColor="Green"
+                                             Progress="0"
+                                             IsVisible="{Binding IsSimulating}" />
+                                <Label Grid.Column="0"
+                                       Text="{Binding ActionName}"
+                                       VerticalOptions="Center" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding ActionArrayFormatted}"
+                                       VerticalOptions="Center" />
+                                <Button Grid.Column="2"
+                                        Text="{Binding IsSimulating, Converter={StaticResource BoolToTextConverter}}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}"
+                                        CommandParameter="{Binding .}"
+                                        VerticalOptions="Center" />
                             </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
-
                 <!-- Debug Output -->
-                <Label Text="{Binding DebugOutput}" FontSize="Body" VerticalOptions="CenterAndExpand" TextColor="Gray"/>
+                <Label Text="{Binding DebugOutput}"
+                       FontSize="Body"
+                       VerticalOptions="CenterAndExpand"
+                       TextColor="Gray" />
             </StackLayout>
         </ScrollView>
-
         <!-- Popup for Input Action -->
-        <ContentView x:Name="InputActionPopup" BackgroundColor="#80000000" IsVisible="False" AbsoluteLayout.LayoutFlags="All" AbsoluteLayout.LayoutBounds="0,0,1,1">
-            <Frame BackgroundColor="White" Padding="20" WidthRequest="300" HeightRequest="350" HorizontalOptions="Center" VerticalOptions="Center" CornerRadius="10" BorderColor="Gray" HasShadow="True">
+        <ContentView x:Name="InputActionPopup"
+                     BackgroundColor="#80000000"
+                     IsVisible="False"
+                     AbsoluteLayout.LayoutFlags="All"
+                     AbsoluteLayout.LayoutBounds="0,0,1,1">
+            <Frame BackgroundColor="White"
+                   Padding="20"
+                   WidthRequest="300"
+                   HeightRequest="350"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   CornerRadius="10"
+                   BorderColor="Gray"
+                   HasShadow="True">
                 <StackLayout Spacing="15">
-                    <Label Text="Input Action" FontSize="Medium" HorizontalOptions="Center" TextColor="Black"/>
-                    <Entry x:Name="ActionNameEntry" Placeholder="Enter Action Name" WidthRequest="250" BackgroundColor="#F0F0F0" TextColor="Black" PlaceholderColor="Black"/>
-                    <Entry x:Name="ActionArrayEntry" Placeholder="Enter Actions (comma separated)" WidthRequest="250" BackgroundColor="#F0F0F0" TextColor="Black" PlaceholderColor="Black"/>
-                    <Image x:Name="ActionImage" WidthRequest="75" HeightRequest="75" BackgroundColor="#F0F0F0"/>
+                    <Label Text="Input Action"
+                           FontSize="Medium"
+                           HorizontalOptions="Center"
+                           TextColor="Black" />
+                    <Entry x:Name="ActionNameEntry"
+                           Placeholder="Enter Action Name"
+                           WidthRequest="250"
+                           BackgroundColor="#F0F0F0"
+                           TextColor="Black"
+                           PlaceholderColor="Black" />
+                    <Entry x:Name="ActionArrayEntry"
+                           Placeholder="Enter Actions (comma separated)"
+                           WidthRequest="250"
+                           BackgroundColor="#F0F0F0"
+                           TextColor="Black"
+                           PlaceholderColor="Black" />
+                    <Image x:Name="ActionImage"
+                           WidthRequest="75"
+                           HeightRequest="75"
+                           BackgroundColor="#F0F0F0" />
                     <!-- <Button Text="Upload Image" Clicked="OnUploadImageClicked" BackgroundColor="Blue" TextColor="White"/> -->
-                    <StackLayout Orientation="Horizontal" HorizontalOptions="Center" Spacing="20">
-                        <Button Text="Save" Command="{Binding SaveActionCommand}" BackgroundColor="Green" TextColor="White"/>
-                        <Button Text="Cancel" Clicked="OnCancelClicked" BackgroundColor="Red" TextColor="White"/>
+                    <StackLayout Orientation="Horizontal"
+                                 HorizontalOptions="Center"
+                                 Spacing="20">
+                        <Button Text="Okay"
+                                Clicked="OnOkayClick"
+                                BackgroundColor="Green"
+                                TextColor="White" />
                     </StackLayout>
                 </StackLayout>
             </Frame>

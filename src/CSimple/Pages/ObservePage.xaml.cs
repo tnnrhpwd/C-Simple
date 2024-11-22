@@ -128,7 +128,7 @@ namespace CSimple.Pages
             InputModifierPopup.IsVisible = true;
         }
 
-        private void OnCancelClicked(object sender, EventArgs e)
+        private void OnOkayClicked(object sender, EventArgs e)
         {
             InputModifierPopup.IsVisible = false;
         }
@@ -499,6 +499,16 @@ namespace CSimple.Pages
                 // Convert the UserTouchInputText to the new ActionArrayItem format
                 var actionArrayItem = JsonConvert.DeserializeObject<ActionArrayItem>(UserTouchInputText);
 
+                // Create ActionModifier from frontend inputs
+                var actionModifier = new ActionModifier
+                {
+                    ModifierName = ModifierNameEntry.Text,
+                    Description = DescriptionEntry.Text,
+                    Priority = int.TryParse(PriorityEntry.Text, out int priority) ? priority : 0,
+                    // Condition = item => true, // Placeholder, you need to parse ConditionEntry.Text to a valid Func<ActionArrayItem, int>
+                    // ModifyAction = item => { } // Placeholder, you need to parse ModifyActionEntry.Text to a valid Action<ActionArrayItem>
+                };
+
                 // Check if an ActionGroup with the same name already exists
                 var existingActionGroup = ActionGroups.FirstOrDefault(ag => ag.ActionName == actionName);
 
@@ -506,6 +516,7 @@ namespace CSimple.Pages
                 {
                     // If it exists, append the new action item to the existing ActionArray
                     existingActionGroup.ActionArray.Add(actionArrayItem);
+                    existingActionGroup.ActionModifiers.Add(actionModifier);
                     DebugOutput($"Updated Action Group: {UserTouchInputText}");
                 }
                 else
@@ -515,6 +526,7 @@ namespace CSimple.Pages
                     {
                         ActionName = actionName,
                         ActionArray = new List<ActionArrayItem> { actionArrayItem },
+                        ActionModifiers = new List<ActionModifier> { actionModifier },
                         IsSimulating = false
                     };
                     ActionGroups.Add(newActionGroup);

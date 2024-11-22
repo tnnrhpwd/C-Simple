@@ -98,8 +98,7 @@
                     <Entry x:Name="ConditionEntry" Placeholder="Enter Condition" WidthRequest="250" BackgroundColor="#F0F0F0" TextColor="Black" PlaceholderColor="Black"/>
                     <Entry x:Name="ModifyActionEntry" Placeholder="Enter Modify Action" WidthRequest="250" BackgroundColor="#F0F0F0" TextColor="Black" PlaceholderColor="Black"/>
                     <StackLayout Orientation="Horizontal" HorizontalOptions="Center" Spacing="20">
-                        <Button Text="Save" Command="{Binding SaveModifierCommand}" BackgroundColor="Green" TextColor="White"/>
-                        <Button Text="Cancel" Clicked="OnCancelClicked" BackgroundColor="Red" TextColor="White"/>
+                        <Button Text="Okay" Clicked="OnOkayClicked" BackgroundColor="Green" TextColor="White"/>
                     </StackLayout>
                 </StackLayout>
             </Frame>
