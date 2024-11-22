@@ -516,7 +516,13 @@ namespace CSimple.Pages
                 {
                     // If it exists, append the new action item to the existing ActionArray
                     existingActionGroup.ActionArray.Add(actionArrayItem);
-                    existingActionGroup.ActionModifiers.Add(actionModifier);
+
+                    // Check if the ActionModifier already exists before adding it
+                    if (!existingActionGroup.ActionModifiers.Any(am => am.ModifierName == actionModifier.ModifierName))
+                    {
+                        existingActionGroup.ActionModifiers.Add(actionModifier);
+                    }
+
                     DebugOutput($"Updated Action Group: {UserTouchInputText}");
                 }
                 else
