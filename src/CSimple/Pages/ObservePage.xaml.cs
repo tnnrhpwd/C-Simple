@@ -123,6 +123,15 @@ namespace CSimple.Pages
                 Debug.WriteLine($"Error navigating to login: {ex.Message}");
             }
         }
+        private void OnInputModifierClicked(object sender, EventArgs e)
+        {
+            InputModifierPopup.IsVisible = true;
+        }
+
+        private void OnCancelClicked(object sender, EventArgs e)
+        {
+            InputModifierPopup.IsVisible = false;
+        }
 
         private async Task<bool> IsUserLoggedInAsync()
         {
