@@ -1,6 +1,4 @@
 ﻿using Hardcodet.Wpf.TaskbarNotification.Interop;
-using Microsoft.UI.Xaml;
-using CSimple.Services;
 
 namespace CSimple.WinUI;
 

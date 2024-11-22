@@ -1,9 +1,6 @@
 #if WINDOWS
-using Microsoft.UI.Xaml;
-using System;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using System.Diagnostics;
 
 namespace CSimple.Services
 {
@@ -109,39 +106,39 @@ namespace CSimple.Services
                         // Trigger mouse movement event
                         MouseMoved?.Invoke(deltaX, deltaY);
 
-                    // Track mouse button states and assign descriptive strings
-                    if (raw.mouse.usButtonFlags != 0)
-                    {
-                        string buttonState = "";
+                        // Track mouse button states and assign descriptive strings
+                        if (raw.mouse.usButtonFlags != 0)
+                        {
+                            string buttonState = "";
 
-                        if ((raw.mouse.usButtonFlags & 0x0001) != 0)
-                        {
-                            buttonState = "Left button down";
-                        }
-                        else if ((raw.mouse.usButtonFlags & 0x0002) != 0)
-                        {
-                            buttonState = "Left button up";
-                        }
-                        else if ((raw.mouse.usButtonFlags & 0x0004) != 0)
-                        {
-                            buttonState = "Right button down";
-                        }
-                        else if ((raw.mouse.usButtonFlags & 0x0008) != 0)
-                        {
-                            buttonState = "Right button up";
-                        }
-                        else if ((raw.mouse.usButtonFlags & 0x0010) != 0)
-                        {
-                            buttonState = "Middle button down";
-                        }
-                        else if ((raw.mouse.usButtonFlags & 0x0020) != 0)
-                        {
-                            buttonState = "Middle button up";
-                        }
+                            if ((raw.mouse.usButtonFlags & 0x0001) != 0)
+                            {
+                                buttonState = "Left button down";
+                            }
+                            else if ((raw.mouse.usButtonFlags & 0x0002) != 0)
+                            {
+                                buttonState = "Left button up";
+                            }
+                            else if ((raw.mouse.usButtonFlags & 0x0004) != 0)
+                            {
+                                buttonState = "Right button down";
+                            }
+                            else if ((raw.mouse.usButtonFlags & 0x0008) != 0)
+                            {
+                                buttonState = "Right button up";
+                            }
+                            else if ((raw.mouse.usButtonFlags & 0x0010) != 0)
+                            {
+                                buttonState = "Middle button down";
+                            }
+                            else if ((raw.mouse.usButtonFlags & 0x0020) != 0)
+                            {
+                                buttonState = "Middle button up";
+                            }
 
-                        // Invoke the event with the descriptive string
-                        ButtonDown?.Invoke(buttonState);
-                    }
+                            // Invoke the event with the descriptive string
+                            ButtonDown?.Invoke(buttonState);
+                        }
 
                     }
                 }

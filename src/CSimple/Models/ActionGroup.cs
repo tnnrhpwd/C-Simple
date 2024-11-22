@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.ComponentModel;
 
 public class ActionGroup : INotifyPropertyChanged

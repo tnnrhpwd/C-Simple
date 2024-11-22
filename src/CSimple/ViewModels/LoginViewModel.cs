@@ -1,10 +1,5 @@
-using System.Windows.Input;
-using Microsoft.Maui.Controls;
-using System.Threading.Tasks;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using CSimple.ViewModels;
 using System.Diagnostics;
+using System.Windows.Input;
 namespace CSimple.ViewModels
 {
     public class LoginViewModel : BaseViewModel
@@ -81,7 +76,7 @@ namespace CSimple.ViewModels
             {
                 Debug.WriteLine("Calling login...");
                 var user = await _dataService.LoginAsync(Email, Password);
-                Debug.WriteLine("User: "+user);
+                Debug.WriteLine("User: " + user);
 
                 if (user != null)
                 {
@@ -105,7 +100,7 @@ namespace CSimple.ViewModels
                 IsBusy = false;
             }
         }
-        
+
         // Logout logic
         public void Logout()
         {

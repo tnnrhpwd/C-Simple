@@ -1,25 +1,16 @@
-﻿using Microsoft.Maui.Controls;
-using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
-using CSimple.Services;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Newtonsoft.Json;
-using System.Collections.Generic;
-using System.Linq;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 // using Windows.Graphics.Display;
 using OpenCvSharp;
-using NAudio.CoreAudioApi;
 using NAudio.Wave;
-using System.Threading.Tasks;
 using Microsoft.Maui.Storage;
 #if WINDOWS
-using Microsoft.UI.Xaml;
-using WinRT.Interop;
 using System.Text;
 #endif
 
@@ -401,8 +392,8 @@ namespace CSimple.Pages
                 };
 
                 var response = await _dataService.CreateDataAsync(queryParams["data"], token);
-                var serializedData = response.Data != null && response.Data.Any() 
-                    ? JsonConvert.SerializeObject(response.Data) 
+                var serializedData = response.Data != null && response.Data.Any()
+                    ? JsonConvert.SerializeObject(response.Data)
                     : "No data available";
 
                 DebugOutput($"4. (ObservePage.SaveNew) New Action Group Saved to Backend: {serializedData}");

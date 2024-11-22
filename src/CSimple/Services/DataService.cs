@@ -1,10 +1,7 @@
-using System.Net.Http;
+using Microsoft.Maui.Storage;
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Threading.Tasks;
-using System.Diagnostics;
-using Microsoft.Maui.Storage;
-using System.Collections.Generic;
 
 public class DataService
 {
@@ -64,7 +61,7 @@ public class DataService
 
                 // Log the raw response content for debugging
                 var responseContent = await response.Content.ReadAsStringAsync();
-                Debug.WriteLine("Length of responseContent:"+JsonSerializer.Serialize(responseContent).Length.ToString());
+                Debug.WriteLine("Length of responseContent:" + JsonSerializer.Serialize(responseContent).Length.ToString());
                 Debug.WriteLine($"1. (DataService.GetDataAsync) Raw response data: {responseContent}");
 
                 // Handle the response
@@ -106,8 +103,8 @@ public class DataService
     {
         var userData = new { email, password };
         var jsonContent = new StringContent(
-            JsonSerializer.Serialize(userData), 
-            System.Text.Encoding.UTF8, 
+            JsonSerializer.Serialize(userData),
+            System.Text.Encoding.UTF8,
             "application/json"
         );
 
@@ -206,7 +203,7 @@ public class DataService
         if (response.IsSuccessStatusCode)
         {
             var responseContent = await response.Content.ReadAsStringAsync();
-            Debug.WriteLine("Length of responseContent:"+JsonSerializer.Serialize(responseContent).Length.ToString());
+            Debug.WriteLine("Length of responseContent:" + JsonSerializer.Serialize(responseContent).Length.ToString());
             Debug.WriteLine($"1 (DataService.HandleResponse) Raw response data: {responseContent}");
             return JsonSerializer.Deserialize<T>(responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }

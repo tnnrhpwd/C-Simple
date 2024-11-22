@@ -1,13 +1,6 @@
-﻿using System.Diagnostics;
-using Microsoft.Maui.Controls.PlatformConfiguration.WindowsSpecific;
-using CSimple.Services;
-using CSimple.ViewModels;
-using Application = Microsoft.Maui.Controls.Application;
-using WindowsConfiguration = Microsoft.Maui.Controls.PlatformConfiguration.Windows;
+﻿using CSimple.ViewModels;
+using System.Diagnostics;
 using System.Windows.Input;
-using Microsoft.Maui.Controls;
-using System;
-using System.Threading.Tasks;
 
 namespace CSimple.Pages;
 
@@ -80,8 +73,8 @@ public partial class HomePage : ContentPage
     {
         try
         {
-            #if WINDOWS
-            #endif
+#if WINDOWS
+#endif
             AppActions.SetAsync(
                 new AppAction("current_info", "Check Current Weather", icon: "current_info"),
                 new AppAction("add_location", "Add a Location", icon: "add_location")

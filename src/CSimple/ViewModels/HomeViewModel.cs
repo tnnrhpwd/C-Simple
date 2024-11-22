@@ -1,8 +1,4 @@
-﻿using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using System.Windows.Input;
-using Microsoft.Maui.Controls;
-using CSimple.Models;
+﻿using System.Windows.Input;
 
 namespace CSimple.ViewModels;
 

@@ -1,6 +1,4 @@
-﻿using CSimple.ViewModels;
-
-namespace CSimple.Pages;
+﻿namespace CSimple.Pages;
 
 public partial class OrientPage : ContentPage
 {

@@ -3,13 +3,9 @@ using System.Diagnostics;
 namespace CSimple.Pages;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Storage;
-using System.Threading.Tasks;
-using CSimple.Services;
-using Microsoft.Maui.Controls.PlatformConfiguration.WindowsSpecific;
-using Application = Microsoft.Maui.Controls.Application;
-using WindowsConfiguration = Microsoft.Maui.Controls.PlatformConfiguration.Windows;
-using System.Windows.Input;
 using System;
+using System.Threading.Tasks;
+using System.Windows.Input;
 
 public partial class SettingsPage : ContentPage
 {
@@ -44,7 +40,9 @@ public partial class SettingsPage : ContentPage
                 Debug.WriteLine($"userNickname: {userNickname}, userEmail: {userEmail}");
                 UserNicknameLabel.Text = userNickname;
                 UserEmailLabel.Text = userEmail;
-            }else{
+            }
+            else
+            {
                 Debug.WriteLine($"Error: Nickname and Email returned empty.");
                 ExecuteLogout();
             }
@@ -67,7 +65,8 @@ public partial class SettingsPage : ContentPage
     // Handle sign-out
     async void OnSignClick(object sender, EventArgs eventArgs)
     {
-        if (SignOutButton.Text == "Sign Out") {
+        if (SignOutButton.Text == "Sign Out")
+        {
             bool confirm = await DisplayAlert("Sign Out", "Are you sure?", "Yes", "No");
             if (confirm)
             {
@@ -80,7 +79,9 @@ public partial class SettingsPage : ContentPage
                     Debug.WriteLine($"Sign out error: {ex.Message}");
                 }
             }
-        }else{
+        }
+        else
+        {
             await Task.Run(() =>
             {
                 Shell.Current.GoToAsync($"///login");

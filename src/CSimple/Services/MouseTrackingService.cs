@@ -1,11 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using Microsoft.Maui.Graphics;
+using System.Runtime.InteropServices;
 
 #if WINDOWS
-using Microsoft.Maui.Dispatching;
 #endif
 
 namespace CSimple.Services

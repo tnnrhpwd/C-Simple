@@ -1,15 +1,5 @@
-﻿using CSimple.ViewModels;
+﻿using Microsoft.Maui.Storage;
 using System.Diagnostics;
-using Microsoft.Maui.Storage;
-using System.Threading.Tasks;
-using Microsoft.Maui.Controls.PlatformConfiguration.WindowsSpecific;
-using CSimple.Services;
-using Application = Microsoft.Maui.Controls.Application;
-using WindowsConfiguration = Microsoft.Maui.Controls.PlatformConfiguration.Windows;
-using System.Windows.Input;
-using Microsoft.Maui.Controls;
-using System;
-using System.Collections.ObjectModel;
 
 namespace CSimple.Pages;
 

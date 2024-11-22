@@ -1,14 +1,9 @@
-﻿using Microsoft.Maui.LifecycleEvents;
-using CSimple.Pages;
+﻿using CSimple.Pages;
 using CSimple.ViewModels;
-using Microsoft.Maui;
-using Microsoft.Maui.Controls.Hosting;
-using Microsoft.Maui.Hosting;
-using Microsoft.UI.Xaml;
+using Microsoft.Maui.LifecycleEvents;
+using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Windows.Graphics;
-using WinRT.Interop;
-using Microsoft.UI;
 namespace CSimple;
 
 public static class MauiProgram
@@ -26,27 +21,28 @@ public static class MauiProgram
             });
         builder.ConfigureLifecycleEvents(lifecycle =>
             {
-            #if WINDOWS
+#if WINDOWS
 
-            //lifecycle
-            //    .AddWindows(windows =>
-            //        windows.OnNativeMessage((app, args) => {
-            //            if (WindowExtensions.Hwnd == IntPtr.Zero)
-            //            {
-            //                WindowExtensions.Hwnd = args.Hwnd;
-            //                WindowExtensions.SetIcon("Platforms/Windows/trayicon.ico");
-            //            }
-            //        }));
+                //lifecycle
+                //    .AddWindows(windows =>
+                //        windows.OnNativeMessage((app, args) => {
+                //            if (WindowExtensions.Hwnd == IntPtr.Zero)
+                //            {
+                //                WindowExtensions.Hwnd = args.Hwnd;
+                //                WindowExtensions.SetIcon("Platforms/Windows/trayicon.ico");
+                //            }
+                //        }));
 
-            lifecycle.AddWindows(windows => windows.OnWindowCreated((window) => {
-                // 'del.ExtendsContentIntoTitleBar = true;
-                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
-                var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
-                var appWindow = AppWindow.GetFromWindowId(windowId);
-                appWindow.Resize(new SizeInt32(800, 900));
-            }));
-            #endif
-        });
+                lifecycle.AddWindows(windows => windows.OnWindowCreated((window) =>
+                {
+                    // 'del.ExtendsContentIntoTitleBar = true;
+                    var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                    var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
+                    var appWindow = AppWindow.GetFromWindowId(windowId);
+                    appWindow.Resize(new SizeInt32(800, 900));
+                }));
+#endif
+            });
 
         var services = builder.Services;
         services.AddSingleton<HomeViewModel>();
@@ -58,13 +54,13 @@ public static class MauiProgram
         services.AddSingleton<DataService>();
         services.AddSingleton<GlobalInputCapture>();
 
-        #if WINDOWS
-            services.AddSingleton<ITrayService, WinUI.TrayService>();
-            services.AddSingleton<INotificationService, WinUI.NotificationService>();
-        #elif MACCATALYST
+#if WINDOWS
+        services.AddSingleton<ITrayService, WinUI.TrayService>();
+        services.AddSingleton<INotificationService, WinUI.NotificationService>();
+#elif MACCATALYST
             services.AddSingleton<ITrayService, MacCatalyst.TrayService>();
             services.AddSingleton<INotificationService, MacCatalyst.NotificationService>();
-        #endif
+#endif
 
 
         return builder.Build();

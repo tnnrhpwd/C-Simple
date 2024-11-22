@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Hardcodet.Wpf.TaskbarNotification.Interop
+﻿namespace Hardcodet.Wpf.TaskbarNotification.Interop
 {
     /// <summary>
     /// Event flags for clicked events.

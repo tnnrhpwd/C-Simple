@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -128,7 +127,7 @@ public class GlobalInputCapture : Form
             Console.WriteLine("Failed to register raw input devices.");
             return;
         }
-        
+
         Console.WriteLine("Touch and pen devices registered successfully.");
     }
 
@@ -138,7 +137,7 @@ public class GlobalInputCapture : Form
         if (m.Msg == WM_INPUT)
         {
             Console.WriteLine("WM_INPUT message received.");
-            
+
             uint size = 0;
             GetRawInputData(m.LParam, 0x10000003, IntPtr.Zero, ref size, (uint)Marshal.SizeOf(typeof(RAWINPUTHEADER)));
 

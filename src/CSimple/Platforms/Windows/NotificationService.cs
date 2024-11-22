@@ -1,5 +1,4 @@
 ﻿using Microsoft.Toolkit.Uwp.Notifications;
-using CSimple.Services;
 
 namespace CSimple.WinUI;
 

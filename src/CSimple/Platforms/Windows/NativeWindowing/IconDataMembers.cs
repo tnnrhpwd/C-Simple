@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Hardcodet.Wpf.TaskbarNotification.Interop
+﻿namespace Hardcodet.Wpf.TaskbarNotification.Interop
 {
     /// <summary>
     /// Indicates which members of a <see cref="NotifyIconData"/> structure

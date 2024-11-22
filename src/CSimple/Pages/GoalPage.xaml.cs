@@ -1,15 +1,7 @@
-﻿using CSimple.ViewModels;
-using System.Diagnostics;
-using Microsoft.Maui.Storage;
-using System.Threading.Tasks;
-using Microsoft.Maui.Controls.PlatformConfiguration.WindowsSpecific;
-using CSimple.Services;
-using Application = Microsoft.Maui.Controls.Application;
-using WindowsConfiguration = Microsoft.Maui.Controls.PlatformConfiguration.Windows;
-using System.Windows.Input;
-using Microsoft.Maui.Controls;
-using System;
+﻿using Microsoft.Maui.Storage;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Windows.Input;
 
 namespace CSimple.Pages;
 
@@ -110,7 +102,7 @@ public partial class GoalPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
-        
+
         // Fetch data (like goals) here if needed
         // For example:
         // LoadMyGoals();

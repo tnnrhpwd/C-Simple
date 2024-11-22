@@ -1,5 +1,3 @@
-using Microsoft.Maui.Controls;
-
 namespace CSimple.Pages
 {
     public partial class ActionDetailPage : ContentPage

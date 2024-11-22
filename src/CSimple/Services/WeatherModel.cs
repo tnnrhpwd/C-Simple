@@ -14,11 +14,13 @@ public class WeatherSnapshot
     public Temperature Temperature { get; set; }
     public int ChanceOfPercipitation { get; } = new Random().Next(0, 100);
 
-    public DateTimeOffset Date {
+    public DateTimeOffset Date
+    {
         set { DateTime = value; }
     }
 
-    public string IconPhrase {
+    public string IconPhrase
+    {
         set { Phrase = value; }
     }
 }
@@ -40,7 +42,8 @@ public class PhraseOnly
 {
     public string Phrase { get; set; }
 
-    public string IconPhrase {
+    public string IconPhrase
+    {
         set { Phrase = value; }
     }
 }
@@ -55,7 +58,8 @@ public class FullDayForecast
 
     public int ChanceOfPercipitation { get; } = new Random().Next(0, 100);
 
-    public DateTimeOffset Date {
+    public DateTimeOffset Date
+    {
         set { DateTime = value; }
     }
 }

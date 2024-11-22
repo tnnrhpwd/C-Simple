@@ -1,8 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Microsoft.UI.Xaml;
-using WinRT;
-
-namespace CSimple;
+﻿namespace CSimple;
 
 public static class WindowExtensions
 {

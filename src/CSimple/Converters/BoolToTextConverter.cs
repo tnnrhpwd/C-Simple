@@ -1,7 +1,4 @@
-using System;
 using System.Globalization;
-using System.Diagnostics;
-using Microsoft.Maui.Controls;
 
 namespace CSimple.Converters
 {

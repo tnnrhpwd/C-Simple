@@ -1,19 +1,9 @@
-using System.Collections.ObjectModel;
-using System.Windows.Input;
-using Microsoft.Maui.Controls;
-using System;
-using System.Runtime.InteropServices;
-using System.Linq;
-using CSimple.Models;
-using CSimple.Converters;
-using CSimple.Services;
-using System.Threading.Tasks;
-using System.Diagnostics;
-using System.Text.RegularExpressions;
-using System.Globalization;
 using Microsoft.Maui.Storage;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text.Json;
-using CSimple.ViewModels;
+using System.Windows.Input;
 
 namespace CSimple.Pages
 {

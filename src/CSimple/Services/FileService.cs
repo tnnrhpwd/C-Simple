@@ -1,8 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
-using System.Threading.Tasks;
-using CSimple.Models;
 
 
 namespace CSimple.Services
@@ -34,7 +32,7 @@ namespace CSimple.Services
             try
             {
                 System.Diagnostics.Debug.WriteLine($"Attempting to save action groups and actions to {_actionGroupsFilePath}");
-                System.Diagnostics.Debug.WriteLine("Length of FileService.ActionGroups:"+JsonSerializer.Serialize(actionGroups).Length.ToString());
+                System.Diagnostics.Debug.WriteLine("Length of FileService.ActionGroups:" + JsonSerializer.Serialize(actionGroups).Length.ToString());
 
                 var options = new JsonSerializerOptions { WriteIndented = true };
 
@@ -194,7 +192,8 @@ namespace CSimple.Services
 
 }
 // Helper class to match the JSON structure
-public class ActionGroupsContainer{
+public class ActionGroupsContainer
+{
     public ObservableCollection<ActionGroup> ActionGroups { get; set; }
     public Action[] ActionArray { get; set; }
 }
