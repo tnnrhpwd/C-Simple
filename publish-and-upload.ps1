@@ -1,11 +1,10 @@
 # Variables
 $APP_NAME = "Simple"
-$PROJECT_PATH = "C:\Users\Aries\Documents\GitHub\C-Simple\src\CSimple\CSimple.csproj"  # Path to your .NET MAUI solution file
+$PROJECT_PATH = "C:\Users\Aries\Documents\GitHub\C-Simple\src\CSimple\CSimple.csproj"  # Path to your .NET MAUI project file
 $OUTPUT_DIR = "C:\Users\Aries\Documents\GitHub\C-Simple\published"  # Publish output folder
 $TARGET_FRAMEWORK = "net8.0-windows10.0.19041.0"  # Target framework
 $BUILD_CONFIG = "Release"  # Adjust as necessary
 $MSI_OUTPUT_DIR = "D:\My Drive\Simple"  # MSI output folder
-$INSTALLER_PROJECT = "C:\Users\Aries\Documents\GitHub\C-Simple\src\InstallerProject\InstallerProject.vdproj"  # Path to the Installer Project
 $newCertPath = "C:\Users\Aries\Documents\CSimple\Certificates\CSimple_NewCert.pfx"  # Path to save the new certificate
 $newCertPassword = "CSimpleNew"  # Password for the new .pfx file
 
@@ -32,22 +31,16 @@ if ($LASTEXITCODE -ne 0) { Write-Host "Build failed." ; exit 1 }
 
 # Publish .NET MAUI App
 Write-Host "Publishing app..."
-dotnet publish $PROJECT_PATH -f $TARGET_FRAMEWORK -c $BUILD_CONFIG -o $OUTPUT_DIR
+dotnet publish $PROJECT_PATH -f $TARGET_FRAMEWORK -c $BUILD_CONFIG -o $OUTPUT_DIR --self-contained
 if ($LASTEXITCODE -ne 0) { Write-Host "Publish failed." ; exit 1 }
-
-# Build the MSI Installer
-Write-Host "Building MSI installer..."
-& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" $PROJECT_PATH /t:Build /p:Configuration=$BUILD_CONFIG /p:Platform="x64"
-if ($LASTEXITCODE -ne 0) { Write-Host "MSI creation failed." ; exit 1 }
-
-Write-Host "MSI created successfully at $MSI_OUTPUT_DIR\$APP_NAME.msi"
 
 # Create a new self-signed certificate with a unique name
 Write-Host "Creating new self-signed certificate..."
-$newCert = New-SelfSignedCertificate -DnsName "CSimpleInstallerNewCert" `
+$newCert = New-SelfSignedCertificate -Type Custom -Subject "CN=Contoso Software, O=Contoso Corporation, C=US" `
+    -KeyUsage DigitalSignature -FriendlyName "CSimpleInstallerNewCert" `
     -CertStoreLocation "Cert:\CurrentUser\My" `
-    -KeyExportPolicy Exportable -KeySpec Signature `
-    -Subject "CN=CSimpleInstallerNewCert" -NotAfter (Get-Date).AddYears(5)
+    -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}") `
+    -NotAfter (Get-Date).AddYears(5)
 
 # Verify certificate creation
 if (-not $newCert) {
@@ -69,19 +62,23 @@ if (-not (Test-Path $newCertPath)) {
     exit 1
 }
 
-# Sign the MSI installer using the new .pfx file
-$msiFilePath = "$MSI_OUTPUT_DIR\$APP_NAME.msi"
-Write-Host "Signing the MSI installer with the new certificate..."
-& "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe" sign /f $newCertPath /p $newCertPassword /fd SHA256 /t http://timestamp.digicert.com $msiFilePath
-
-# Verify if signing was successful
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "MSI signing with the new certificate failed. Please check errors above."
-    exit 1
+# Sign the published output using the new .pfx file
+Write-Host "Signing the published output with the new certificate..."
+$filesToSign = Get-ChildItem -Path $OUTPUT_DIR -Recurse | Where-Object { $_.Extension -eq ".exe" -or $_.Extension -eq ".dll" }
+foreach ($file in $filesToSign) {
+    & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe" sign /f $newCertPath /p $newCertPassword /fd SHA256 /t http://timestamp.digicert.com "$($file.FullName)"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Signing $($file.FullName) failed. Please check errors above."
+        exit 1
+    }
 }
 
-Write-Host "MSI signed successfully with the new certificate."
+Write-Host "All files signed successfully with the new certificate."
 
-# Cleanup published output
-Remove-Item -Recurse -Force $OUTPUT_DIR
-Write-Host "Process complete!"
+# Bundle the published output into a zip file for easy upload/download
+$zipFilePath = "C:\Users\Aries\Documents\GitHub\C-Simple\published.zip"
+Write-Host "Creating a zip file of the published output..."
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::CreateFromDirectory($OUTPUT_DIR, $zipFilePath)
+
+Write-Host "Process complete! The bundled project is saved at $zipFilePath."
