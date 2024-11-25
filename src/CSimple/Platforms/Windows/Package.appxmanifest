@@ -7,7 +7,7 @@
   IgnorableNamespaces="uap rescap">
 
   <Identity Name="Contoso.AssetTracker" 
-      Version="1.0.0.0" 
+      Version="1.0.2.0" 
       Publisher="CN=Contoso Software, O=Contoso Corporation, C=US"/>
 
   <Properties>

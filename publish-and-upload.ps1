@@ -7,9 +7,24 @@ $BUILD_CONFIG = "Release"  # Adjust as necessary
 $MSI_OUTPUT_DIR = "D:\My Drive\Simple"  # MSI output folder
 $newCertPath = "C:\Users\Aries\Documents\CSimple\Certificates\CSimple_NewCert.pfx"  # Path to save the new certificate
 $newCertPassword = "CSimpleNew"  # Password for the new .pfx file
-
-# Ensure the .NET SDK is in the PATH
+$MSIX_OUTPUT_PATH = "C:\Users\Aries\Documents\GitHub\C-Simple\Simple.msix"  # Path to save the MSIX package
+$MSIX_MANIFEST_PATH = "C:\Users\Aries\Documents\GitHub\C-Simple\AppxManifest.xml"  # Path to the AppxManifest.xml file
+$cerPath = "C:\Users\Aries\Documents\CSimple\Certificates\SimpleCert.cer"
+$pfxPath = "C:\Users\Aries\Documents\CSimple\Certificates\CSimple_NewCert.pfx"
 $env:PATH += ";C:\Program Files\dotnet"
+
+# Function to check if a certificate with the same CN and O exists
+function Test-CertificateExists {
+  param (
+      [string]$certPath,
+      [string]$subject
+  )
+  if (Test-Path $certPath) {
+      $cert = Get-PfxCertificate -FilePath $certPath
+      return $cert.Subject -eq $subject
+  }
+  return $false
+}
 
 # Check for dotnet
 Write-Host "Checking for dotnet executable..."
@@ -36,7 +51,7 @@ if ($LASTEXITCODE -ne 0) { Write-Host "Publish failed." ; exit 1 }
 
 # Create a new self-signed certificate with a unique name
 Write-Host "Creating new self-signed certificate..."
-$newCert = New-SelfSignedCertificate -Type Custom -Subject "CN=Contoso Software, O=Contoso Corporation, C=US" `
+$newCert = New-SelfSignedCertificate -Type Custom -Subject "CN=CSimple, O=Simple Org, C=US" `
     -KeyUsage DigitalSignature -FriendlyName "CSimpleInstallerNewCert" `
     -CertStoreLocation "Cert:\CurrentUser\My" `
     -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}") `
@@ -47,7 +62,7 @@ if (-not $newCert) {
     Write-Host "New certificate creation failed."
     exit 1
 }
-
+Export-Certificate -Cert $newCert -FilePath "C:\Users\Aries\Documents\CSimple\Certificates\SimpleCert.cer"
 # Ensure the directory for the new certificate path exists
 $newCertDir = [System.IO.Path]::GetDirectoryName($newCertPath)
 if (-not (Test-Path $newCertDir)) { New-Item -ItemType Directory -Path $newCertDir }
@@ -75,10 +90,47 @@ foreach ($file in $filesToSign) {
 
 Write-Host "All files signed successfully with the new certificate."
 
-# Bundle the published output into a zip file for easy upload/download
-$zipFilePath = "C:\Users\Aries\Documents\GitHub\C-Simple\published.zip"
-Write-Host "Creating a zip file of the published output..."
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-[System.IO.Compression.ZipFile]::CreateFromDirectory($OUTPUT_DIR, $zipFilePath)
+# Create AppxManifest.xml if it doesn't exist
+if (-not (Test-Path $MSIX_MANIFEST_PATH)) {
+    Write-Host "Creating AppxManifest.xml..."
+    @"
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:uap2="http://schemas.microsoft.com/appx/manifest/uap/windows10/2" xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3">
+  <Identity Name="ContosoSoftware.Simple" Publisher="CN=Contoso Software, O=Contoso Corporation, C=US" Version="1.0.0.0" />
+  <Properties>
+    <DisplayName>Simple</DisplayName>
+    <PublisherDisplayName>Contoso Corporation</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.0.0" MaxVersionTested="10.0.19041.0" />
+  </Dependencies>
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+  <Applications>
+    <Application Id="App" Executable="Simple.exe" EntryPoint="Simple.App">
+      <uap:VisualElements DisplayName="Simple" Description="Simple App" BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square310x310Logo="Assets\Square310x310Logo.png">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Square150x150Logo="true" Wide310x150Logo="true" Square310x310Logo="true" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+</Package>
+"@ | Out-File -FilePath $MSIX_MANIFEST_PATH -Encoding utf8
+}
 
-Write-Host "Process complete! The bundled project is saved at $zipFilePath."
+# Create MSIX package
+Write-Host "Creating MSIX package..."
+$makeAppxPath = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\makeappx.exe"
+& $makeAppxPath pack /d $OUTPUT_DIR /p $MSIX_OUTPUT_PATH /m $MSIX_MANIFEST_PATH
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "MSIX package creation failed."
+    exit 1
+}
+
+Write-Host "Process complete! The MSIX package is saved at $MSIX_OUTPUT_PATH."
