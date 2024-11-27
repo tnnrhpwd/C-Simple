@@ -5,22 +5,24 @@ $OUTPUT_DIR = "C:\Users\Aries\Documents\GitHub\C-Simple\published"  # Publish ou
 $TARGET_FRAMEWORK = "net8.0-windows10.0.19041.0"  # Target framework
 $BUILD_CONFIG = "Release"  # Adjust as necessary
 $MSI_OUTPUT_DIR = "D:\My Drive\Simple"  # MSI output folder
-$newCertPath = "C:\Users\Aries\Documents\CSimple\Certificates\CSimple_NewCert.pfx"  # Path to save the new certificate
 $newCertPassword = "CSimpleNew"  # Password for the new .pfx file
 $MSIX_OUTPUT_PATH = "C:\Users\Aries\Documents\GitHub\C-Simple\Simple.msix"  # Path to save the MSIX package
 $MSIX_MANIFEST_PATH = "C:\Users\Aries\Documents\GitHub\C-Simple\AppxManifest.xml"  # Path to the AppxManifest.xml file
 $cerPath = "C:\Users\Aries\Documents\CSimple\Certificates\SimpleCert.cer"
 $pfxPath = "C:\Users\Aries\Documents\CSimple\Certificates\CSimple_NewCert.pfx"
 $env:PATH += ";C:\Program Files\dotnet"
+$subject = "CN=CSimple, O=Simple Org, C=US"
+$mappingFilePath = "C:\Users\Aries\Documents\GitHub\C-Simple\mapping.txt"
 
 # Function to check if a certificate with the same CN and O exists
 function Test-CertificateExists {
   param (
       [string]$certPath,
-      [string]$subject
+      [string]$subject,
+      [string]$password
   )
   if (Test-Path $certPath) {
-      $cert = Get-PfxCertificate -FilePath $certPath
+      $cert = Get-PfxCertificate -FilePath $certPath -Password (ConvertTo-SecureString -String $password -Force -AsPlainText)
       return $cert.Subject -eq $subject
   }
   return $false
@@ -49,9 +51,16 @@ Write-Host "Publishing app..."
 dotnet publish $PROJECT_PATH -f $TARGET_FRAMEWORK -c $BUILD_CONFIG -o $OUTPUT_DIR --self-contained
 if ($LASTEXITCODE -ne 0) { Write-Host "Publish failed." ; exit 1 }
 
+# Check if the certificate already exists
+Write-Host "Checking if certificate with the same CN and O already exists..."
+if (Test-CertificateExists -certPath $cerPath -subject $subject -password $newCertPassword -or (Test-CertificateExists -certPath $pfxPath -subject $subject -password $newCertPassword)) {
+  Write-Host "Certificate with the same CN and O already exists. Skipping creation and export."
+  exit 0
+}
+
 # Create a new self-signed certificate with a unique name
 Write-Host "Creating new self-signed certificate..."
-$newCert = New-SelfSignedCertificate -Type Custom -Subject "CN=CSimple, O=Simple Org, C=US" `
+$newCert = New-SelfSignedCertificate -Type Custom -Subject $subject `
     -KeyUsage DigitalSignature -FriendlyName "CSimpleInstallerNewCert" `
     -CertStoreLocation "Cert:\CurrentUser\My" `
     -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}") `
@@ -62,26 +71,24 @@ if (-not $newCert) {
     Write-Host "New certificate creation failed."
     exit 1
 }
-Export-Certificate -Cert $newCert -FilePath "C:\Users\Aries\Documents\CSimple\Certificates\SimpleCert.cer"
+
 # Ensure the directory for the new certificate path exists
-$newCertDir = [System.IO.Path]::GetDirectoryName($newCertPath)
+$newCertDir = [System.IO.Path]::GetDirectoryName($pfxPath)
 if (-not (Test-Path $newCertDir)) { New-Item -ItemType Directory -Path $newCertDir }
 
-# Export new certificate to .pfx file
-Write-Host "Exporting new certificate to $newCertPath..."
-Export-PfxCertificate -Cert $newCert -FilePath $newCertPath -Password (ConvertTo-SecureString -String $newCertPassword -Force -AsPlainText)
+# Export the certificate to .cer file
+Write-Host "Exporting new certificate to $cerPath..."
+Export-Certificate -Cert $newCert -FilePath $cerPath
 
-# Verify certificate export
-if (-not (Test-Path $newCertPath)) {
-    Write-Host "New certificate export failed."
-    exit 1
-}
+# Export new certificate to .pfx file
+Write-Host "Exporting new certificate to $pfxPath..."
+Export-PfxCertificate -Cert $newCert -FilePath $pfxPath -Password (ConvertTo-SecureString -String $newCertPassword -Force -AsPlainText)
 
 # Sign the published output using the new .pfx file
 Write-Host "Signing the published output with the new certificate..."
 $filesToSign = Get-ChildItem -Path $OUTPUT_DIR -Recurse | Where-Object { $_.Extension -eq ".exe" -or $_.Extension -eq ".dll" }
 foreach ($file in $filesToSign) {
-    & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe" sign /f $newCertPath /p $newCertPassword /fd SHA256 /t http://timestamp.digicert.com "$($file.FullName)"
+    & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe" sign /f "$pfxPath" /p "$newCertPassword" /fd SHA256 /t http://timestamp.digicert.com "$($file.FullName)"
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Signing $($file.FullName) failed. Please check errors above."
         exit 1
@@ -90,44 +97,24 @@ foreach ($file in $filesToSign) {
 
 Write-Host "All files signed successfully with the new certificate."
 
-# Create AppxManifest.xml if it doesn't exist
-if (-not (Test-Path $MSIX_MANIFEST_PATH)) {
-    Write-Host "Creating AppxManifest.xml..."
-    @"
-<?xml version="1.0" encoding="utf-8"?>
-<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:uap2="http://schemas.microsoft.com/appx/manifest/uap/windows10/2" xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3">
-  <Identity Name="ContosoSoftware.Simple" Publisher="CN=Contoso Software, O=Contoso Corporation, C=US" Version="1.0.0.0" />
-  <Properties>
-    <DisplayName>Simple</DisplayName>
-    <PublisherDisplayName>Contoso Corporation</PublisherDisplayName>
-    <Logo>Assets\StoreLogo.png</Logo>
-  </Properties>
-  <Dependencies>
-    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.0.0" MaxVersionTested="10.0.19041.0" />
-  </Dependencies>
-  <Resources>
-    <Resource Language="en-us" />
-  </Resources>
-  <Applications>
-    <Application Id="App" Executable="Simple.exe" EntryPoint="Simple.App">
-      <uap:VisualElements DisplayName="Simple" Description="Simple App" BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square310x310Logo="Assets\Square310x310Logo.png">
-          <uap:ShowNameOnTiles>
-            <uap:ShowOn Square150x150Logo="true" Wide310x150Logo="true" Square310x310Logo="true" />
-          </uap:ShowNameOnTiles>
-        </uap:DefaultTile>
-        <uap:SplashScreen Image="Assets\SplashScreen.png" />
-      </uap:VisualElements>
-    </Application>
-  </Applications>
-</Package>
-"@ | Out-File -FilePath $MSIX_MANIFEST_PATH -Encoding utf8
+# Create mapping file for MSIX package
+Write-Host "Creating mapping file..."
+$mappingContent = @"
+[Files]
+"AppxManifest.xml" "AppxManifest.xml"
+"@
+
+Get-ChildItem -Path $OUTPUT_DIR -Recurse | ForEach-Object {
+    $relativePath = $_.FullName.Substring($OUTPUT_DIR.Length + 1).Replace("\", "/")
+    $mappingContent += "`"$($_.FullName.Replace("\", "/"))`" `"$relativePath`"`n"
 }
+
+$mappingContent | Out-File -FilePath $mappingFilePath -Encoding utf8
 
 # Create MSIX package
 Write-Host "Creating MSIX package..."
 $makeAppxPath = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\makeappx.exe"
-& $makeAppxPath pack /d $OUTPUT_DIR /p $MSIX_OUTPUT_PATH /m $MSIX_MANIFEST_PATH
+& $makeAppxPath pack /m $MSIX_MANIFEST_PATH /f $mappingFilePath /p $MSIX_OUTPUT_PATH
 if ($LASTEXITCODE -ne 0) {
     Write-Host "MSIX package creation failed."
     exit 1
