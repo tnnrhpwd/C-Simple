@@ -97,19 +97,30 @@ foreach ($file in $filesToSign) {
 
 Write-Host "All files signed successfully with the new certificate."
 
-# Create mapping file for MSIX package
 Write-Host "Creating mapping file..."
+
 $mappingContent = @"
 [Files]
 "AppxManifest.xml" "AppxManifest.xml"
 "@
 
-Get-ChildItem -Path $OUTPUT_DIR -Recurse | ForEach-Object {
-    $relativePath = $_.FullName.Substring($OUTPUT_DIR.Length + 1).Replace("\", "/")
-    $mappingContent += "`"$($_.FullName.Replace("\", "/"))`" `"$relativePath`"`n"
+# Ensure $OUTPUT_DIR is set
+if (-not $OUTPUT_DIR) {
+    Write-Host "Error: OUTPUT_DIR is not defined." -ForegroundColor Red
+    exit 1
 }
 
-$mappingContent | Out-File -FilePath $mappingFilePath -Encoding utf8
+# Process each file and directory in $OUTPUT_DIR
+Get-ChildItem -Path $OUTPUT_DIR -Recurse | ForEach-Object {
+    $relativePath = $_.FullName.Substring($OUTPUT_DIR.Length + 1).Replace("\", "/")
+    $mappingContent += "`"$($_.FullName.Replace("\", "/"))`" `"$relativePath`"`r`n"
+}
+
+# Output the mapping file content to a file
+$mappingFile = Join-Path -Path $OUTPUT_DIR -ChildPath "mapping.txt"
+Set-Content -Path $mappingFile -Value $mappingContent -Encoding UTF8
+
+Write-Host "Mapping file created successfully at $mappingFile" -ForegroundColor Green
 
 # Create MSIX package
 Write-Host "Creating MSIX package..."
