@@ -1,9 +1,12 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 
 public class ActionGroup : INotifyPropertyChanged
 {
     private bool _isSimulating;
 
+    public Guid Id { get; set; } = Guid.NewGuid(); // Unique identifier for each ActionGroup
     public string ActionName { get; set; }
     public List<ActionArrayItem> ActionArray { get; set; } = new List<ActionArrayItem>();
     public List<ActionModifier> ActionModifiers { get; set; } = new List<ActionModifier>();

@@ -16,6 +16,7 @@ namespace CSimple.Pages
         public ICommand SaveToFileCommand { get; set; }
         public ICommand LoadFromFileCommand { get; set; }
         public ICommand RowTappedCommand { get; }
+        public ICommand DeleteActionGroupCommand { get; set; }
         private bool _isSimulating = false;
         private readonly DataService _dataService;
         private readonly FileService _fileService;
@@ -42,11 +43,11 @@ namespace CSimple.Pages
             _dataService = new DataService();
 
             // Initialize commands
-            // SaveActionCommand = new Command(SaveAction);
             ToggleSimulateActionGroupCommand = new Command<ActionGroup>(async (actionGroup) => await ToggleSimulateActionGroupAsync(actionGroup));
             SaveToFileCommand = new Command(async () => await SaveActionGroupsToFile());
             LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
             NavigateToObservePageCommand = new Command(async () => await NavigateToObservePage());
+            DeleteActionGroupCommand = new Command<ActionGroup>(async (actionGroup) => await DeleteActionGroupAsync(actionGroup));
 
             RowTappedCommand = new Command<ActionGroup>(OnRowTapped);
             // Initialize ActionGroups collection
@@ -57,6 +58,47 @@ namespace CSimple.Pages
             DebugOutput("Action Page Initialized");
             BindingContext = this;
         }
+
+        private async Task DeleteActionGroupAsync(ActionGroup actionGroup)
+        {
+            if (actionGroup == null)
+                return;
+
+            try
+            {
+                bool confirmDelete = await DisplayAlert("Confirm Delete", $"Are you sure you want to delete the action group '{actionGroup.ActionName}'?", "Yes", "No");
+                if (confirmDelete)
+                {
+                    // Remove from the collection
+                    ActionGroups.Remove(actionGroup);
+
+                    // Save the updated collection to file
+                    await SaveActionGroupsToFile();
+
+                    // Delete from backend
+                    var token = await SecureStorage.GetAsync("userToken");
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        var response = await _dataService.DeleteDataAsync(actionGroup.Id.ToString(), token);
+                        if (response.DataIsSuccess)
+                        {
+                            DebugOutput($"Action Group {actionGroup.ActionName} deleted from backend.");
+                        }
+                        else
+                        {
+                            DebugOutput($"Failed to delete Action Group {actionGroup.ActionName} from backend.");
+                        }
+                    }
+
+                    DebugOutput($"Action Group {actionGroup.ActionName} deleted.");
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugOutput($"Error deleting action group: {ex.Message}");
+            }
+        }
+
         private bool cancel_simulation = false;
         private const int SW_RESTORE = 9;
         private const int SW_SHOW = 5;
@@ -338,6 +380,13 @@ namespace CSimple.Pages
                             actionGroup.Creator = creatorPart.Substring("Creator:".Length);
                             actionGroup.ActionArray = actionGroup.ActionArray ?? new List<ActionArrayItem>();
                             actionGroup.ActionArrayFormatted = actionGroupString.Length > 50 ? actionGroupString.Substring(0, 50) + "..." : actionGroupString;
+
+                            // Initialize Id if not already set
+                            if (actionGroup.Id == Guid.Empty)
+                            {
+                                actionGroup.Id = Guid.NewGuid();
+                            }
+
                             formattedActionGroups.Add(actionGroup);
                             DebugOutput($"Adding action: {actionGroup.ActionName}");
                         }
