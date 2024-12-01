@@ -5,14 +5,12 @@
 
     <AbsoluteLayout>
         <ScrollView AbsoluteLayout.LayoutFlags="All" AbsoluteLayout.LayoutBounds="0,0,1,1">
-            <StackLayout Padding="10" Spacing="20">
+            <StackLayout Padding="10" Spacing="5">
                 <Label Text="Observe" 
-                       FontSize="Title" 
-                       HorizontalOptions="Center" 
-                       VerticalOptions="StartAndExpand"/>
+                       FontSize="30"
+                       HorizontalOptions="Center" />
                 <Label Text="This page allows users to observe data or metrics related to their goals." 
-                       FontSize="Body"
-                       VerticalOptions="CenterAndExpand"/>
+                       FontSize="18"/>
                        
                 <!-- Action Name Input and Save Checkbox -->
                 <StackLayout Orientation="Horizontal" Spacing="10">
@@ -24,66 +22,85 @@
                 <!-- Button to open Modifier Input Popup -->
                 <Button Text="Input Modifier" Clicked="OnInputModifierClicked" VerticalOptions="Center"/>
 
-                <!-- PC Visual Output -->
-                <StackLayout>
-                    <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
-                        <Label Text="PC Visual Output" FontSize="Title" VerticalOptions="Center" />
-                        <Button Text="{Binding PCVisualButtonText}" 
-                                Command="{Binding TogglePCVisualCommand}" 
-                                HorizontalOptions="End" />
-                    </StackLayout>
-                    <Image x:Name="CapturedImage" HeightRequest="50" BackgroundColor="LightGray" />
-                </StackLayout>
+                <!-- Grid Layout for two columns -->
+                <Grid ColumnDefinitions="*,*">
+                    <!-- Left Column -->
+                    <StackLayout Grid.Column="0" Spacing="20">
+                        <!-- PC Visual Output -->
+                        <StackLayout>
+                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                                <Label Text="PC Visual Output" FontSize="18" VerticalOptions="Center" />
+                                <Button Text="{Binding PCVisualButtonText}" 
+                                        Command="{Binding TogglePCVisualCommand}" 
+                                        HorizontalOptions="End" />
+                            </StackLayout>
+                        </StackLayout>
 
-                <!-- PC Audible Output -->
-                <StackLayout>
-                    <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
-                        <Label Text="PC Audible Output" FontSize="Title" VerticalOptions="Center" />
-                        <Button Text="{Binding PCAudibleButtonText}" 
-                                Command="{Binding TogglePCAudibleCommand}" 
-                                HorizontalOptions="End" />
+                        <!-- PC Audible Output -->
+                        <StackLayout>
+                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                                <Label Text="PC Audible Output" FontSize="18" VerticalOptions="Center" />
+                                <Button Text="{Binding PCAudibleButtonText}" 
+                                        Command="{Binding TogglePCAudibleCommand}" 
+                                        HorizontalOptions="End" />
+                            </StackLayout>
+                        </StackLayout>
+                        
+                        <!-- User Visual Output -->
+                        <StackLayout>
+                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                                <Label Text="User Visual Output" FontSize="18" VerticalOptions="Center" />
+                                <Button Text="{Binding UserVisualButtonText}" 
+                                        Command="{Binding ToggleUserVisualCommand}" 
+                                        HorizontalOptions="End" />
+                            </StackLayout>
+                        </StackLayout>
+                        
+                        <!-- User Audible Output -->
+                        <StackLayout>
+                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                                <Label Text="User Audible Output" FontSize="18" VerticalOptions="Center" />
+                                <Button Text="{Binding UserAudibleButtonText}" 
+                                        Command="{Binding ToggleUserAudibleCommand}" 
+                                        HorizontalOptions="End" />
+                            </StackLayout>
+                        </StackLayout>
+                        
+                        <!-- User Touch Output -->
+                        <StackLayout>
+                            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                                <Label Text="User Touch Output" FontSize="18" VerticalOptions="Center" />
+                                <Button Text="{Binding UserTouchButtonText}" 
+                                        Command="{Binding ToggleUserTouchCommand}" 
+                                        HorizontalOptions="End" />
+                            </StackLayout>
+                            <Label x:Name="MouseMovementLabel" 
+                                   Text="Mouse movement: ΔX = 0, ΔY = 0"
+                                   FontSize="16" />
+                            <Label x:Name="ButtonLabel"
+                                   Text="No button is pressed."
+                                   FontSize="16" />
+                        </StackLayout>
                     </StackLayout>
-                    <BoxView HeightRequest="50" BackgroundColor="LightGray" />
-                </StackLayout>
-                
-                <!-- User Visual Output -->
-                <StackLayout>
-                    <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
-                        <Label Text="User Visual Output" FontSize="Title" VerticalOptions="Center" />
-                        <Button Text="{Binding UserVisualButtonText}" 
-                                Command="{Binding ToggleUserVisualCommand}" 
-                                HorizontalOptions="End" />
+
+                    <!-- Right Column -->
+                    <StackLayout Grid.Column="1" Spacing="20">
+                        <!-- PC Visual Output Image -->
+                        <Image x:Name="CapturedImage" HeightRequest="50" BackgroundColor="LightGray" />
+
+                        <!-- PC Audible Output BoxView -->
+                        <BoxView HeightRequest="50" BackgroundColor="LightGray" />
+
+                        <!-- User Visual Output BoxView -->
+                        <BoxView HeightRequest="50" BackgroundColor="LightGray" />
+
+                        <!-- User Audible Output BoxView -->
+                        <BoxView HeightRequest="50" BackgroundColor="LightGray" />
+
+                        <!-- User Touch Output Entry -->
+                        <Entry x:Name="UserTouchOutput" IsReadOnly="True" />
                     </StackLayout>
-                    <BoxView HeightRequest="50" BackgroundColor="LightGray" /> 
-                </StackLayout>
-                
-                <!-- User Audible Output -->
-                <StackLayout>
-                    <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
-                        <Label Text="User Audible Output" FontSize="Title" VerticalOptions="Center" />
-                        <Button Text="{Binding UserAudibleButtonText}" 
-                                Command="{Binding ToggleUserAudibleCommand}" 
-                                HorizontalOptions="End" />
-                    </StackLayout>
-                    <BoxView HeightRequest="50" BackgroundColor="LightGray" /> 
-                </StackLayout>
-                
-                <!-- User Touch Output -->
-                <StackLayout>
-                    <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
-                        <Label Text="User Touch Output" FontSize="Title" VerticalOptions="Center" />
-                        <Button Text="{Binding UserTouchButtonText}" 
-                                Command="{Binding ToggleUserTouchCommand}" 
-                                HorizontalOptions="End" />
-                    </StackLayout>
-                    <Label x:Name="MouseMovementLabel" 
-                           Text="Mouse movement: ΔX = 0, ΔY = 0"
-                           FontSize="16" />
-                    <Label x:Name="ButtonLabel"
-                           Text="No button is pressed."
-                           FontSize="16" />
-                    <Entry x:Name="UserTouchOutput" IsReadOnly="True" />
-                </StackLayout>
+                </Grid>
             </StackLayout>
         </ScrollView>
 

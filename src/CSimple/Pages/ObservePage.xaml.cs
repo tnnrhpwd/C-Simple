@@ -461,7 +461,7 @@ namespace CSimple.Pages
                 DebugOutput("Action Groups Saved to File");
                 _recordedActions.Clear();
                 _ = LoadActionGroupsFromFile();
-                UserTouchOutput.Text = "";
+                // UserTouchOutput.Text = "";
             }
             catch (Exception ex)
             {
@@ -564,6 +564,13 @@ namespace CSimple.Pages
                 // Process mouse events
                 if (wParam == (IntPtr)WM_MOUSEMOVE)
                 {
+                    var currentMouseEventTime = DateTime.UtcNow;
+                    if ((currentMouseEventTime - lastMouseEventTime).TotalMilliseconds < 100) // Example: 100 milliseconds
+                    {
+                        return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+                    }
+                    lastMouseEventTime = currentMouseEventTime;
+
                     GetCursorPos(out POINT currentMousePos);
                     actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
                     actionArrayItem.EventType = WM_MOUSEMOVE;
@@ -682,7 +689,7 @@ namespace CSimple.Pages
 
                 // Update the UI elements with the active key/mouse presses
                 ButtonLabel.Text = activeInputsDisplay.ToString(); // Display the active key presses in the ButtonLabel
-                UserTouchOutput.Text = activeInputsDisplay.ToString(); // Display the active key presses in UserTouchOutput
+                // UserTouchOutput.Text = activeInputsDisplay.ToString(); // Display the active key presses in UserTouchOutput
             });
         }
 
