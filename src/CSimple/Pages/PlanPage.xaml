@@ -2,13 +2,37 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CSimple.Pages.PlanPage"
              Title="Plan">
-    <StackLayout Padding="10">
-        <Label Text="Plan" 
-               FontSize="Title" 
-               HorizontalOptions="Center" 
-               VerticalOptions="StartAndExpand"/>
-        <Label Text="This page allows users to create and manage their action plans." 
-               FontSize="Body"
-               VerticalOptions="CenterAndExpand"/>
-    </StackLayout>
+    <ContentPage.Content>
+        <ScrollView>
+            <VerticalStackLayout Padding="10">
+                <Label Text="Plans" FontSize="Large" FontAttributes="Bold" />
+                <Label Text="Every journey begins with a step. What is your plan?" />
+
+                <Button Text="{Binding CreatePlanButtonText}"
+                        Command="{Binding ToggleCreatePlanCommand}" />
+
+                <StackLayout IsVisible="{Binding ShowNewPlan}">
+                    <Label Text="Create New Plan" FontSize="Medium" FontAttributes="Bold" />
+                    <Entry Placeholder="Enter plan details..." Text="{Binding NewPlanText}" />
+                    <Button Text="Submit Plan" Command="{Binding SubmitPlanCommand}" />
+                </StackLayout>
+
+                <Button Text="{Binding MyPlansButtonText}"
+                        Command="{Binding ToggleMyPlansCommand}" />
+
+                <StackLayout IsVisible="{Binding ShowMyPlans}">
+                    <Label Text="My Plans" FontSize="Medium" FontAttributes="Bold" />
+                    <CollectionView ItemsSource="{Binding MyPlans}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <StackLayout>
+                                    <Label Text="{Binding .}" />
+                                </StackLayout>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </StackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </ContentPage.Content>
 </ContentPage>

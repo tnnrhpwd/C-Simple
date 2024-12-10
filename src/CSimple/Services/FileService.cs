@@ -9,6 +9,7 @@ namespace CSimple.Services
         private readonly string _actionGroupsFilePath;
         private readonly string _recordedActionsFilePath;
         private readonly string _goalsFilePath;
+        private readonly string _plansFilePath;
 
         public FileService()
         {
@@ -20,11 +21,13 @@ namespace CSimple.Services
             _actionGroupsFilePath = Path.Combine(directory, "actionGroups.json");
             _recordedActionsFilePath = Path.Combine(directory, "recordedActions.json");
             _goalsFilePath = Path.Combine(directory, "goals.json");
+            _plansFilePath = Path.Combine(directory, "plans.json");
 
             // Ensure the files exist
             EnsureFileExists(_actionGroupsFilePath);
             EnsureFileExists(_recordedActionsFilePath);
             EnsureFileExists(_goalsFilePath);
+            EnsureFileExists(_plansFilePath);
         }
 
         // This method is used to save the action groups and actions to a JSON file
@@ -189,6 +192,49 @@ namespace CSimple.Services
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error loading goals: {ex.Message}");
+                return new ObservableCollection<string>();
+            }
+        }
+
+        // Methods for Plans
+        public async Task SavePlansAsync(ObservableCollection<string> plans)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"Attempting to save plans to {_plansFilePath}");
+
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                var json = JsonSerializer.Serialize(plans, options);
+
+                await File.WriteAllTextAsync(_plansFilePath, json);
+                System.Diagnostics.Debug.WriteLine($"Successfully saved plans to {_plansFilePath}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error saving plans: {ex.Message}");
+            }
+        }
+
+        public async Task<ObservableCollection<string>> LoadPlansAsync()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"Attempting to load plans from {_plansFilePath}");
+
+                if (!File.Exists(_plansFilePath))
+                {
+                    System.Diagnostics.Debug.WriteLine("File does not exist. Returning empty collection.");
+                    return new ObservableCollection<string>();
+                }
+
+                var json = await File.ReadAllTextAsync(_plansFilePath);
+                var plans = JsonSerializer.Deserialize<ObservableCollection<string>>(json) ?? new ObservableCollection<string>();
+                System.Diagnostics.Debug.WriteLine($"Successfully loaded plans from {_plansFilePath}");
+                return plans;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading plans: {ex.Message}");
                 return new ObservableCollection<string>();
             }
         }
