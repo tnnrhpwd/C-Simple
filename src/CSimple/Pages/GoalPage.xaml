@@ -24,7 +24,7 @@
                                           <CollectionView.ItemTemplate>
                                                  <DataTemplate>
                                                  <StackLayout>
-                                                        <Label Text="{Binding GoalText}" />
+                                                        <Label Text="{Binding .}" />
                                                  </StackLayout>
                                                  </DataTemplate>
                                           </CollectionView.ItemTemplate>

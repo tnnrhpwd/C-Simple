@@ -2,13 +2,13 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
 
-
 namespace CSimple.Services
 {
     public class FileService
     {
         private readonly string _actionGroupsFilePath;
         private readonly string _recordedActionsFilePath;
+        private readonly string _goalsFilePath;
 
         public FileService()
         {
@@ -19,12 +19,13 @@ namespace CSimple.Services
             Directory.CreateDirectory(directory);  // Ensure directory exists
             _actionGroupsFilePath = Path.Combine(directory, "actionGroups.json");
             _recordedActionsFilePath = Path.Combine(directory, "recordedActions.json");
+            _goalsFilePath = Path.Combine(directory, "goals.json");
 
             // Ensure the files exist
             EnsureFileExists(_actionGroupsFilePath);
             EnsureFileExists(_recordedActionsFilePath);
+            EnsureFileExists(_goalsFilePath);
         }
-
 
         // This method is used to save the action groups and actions to a JSON file
         public async Task SaveActionGroupsAsync(ObservableCollection<ActionGroup> actionGroups)
@@ -49,7 +50,6 @@ namespace CSimple.Services
                 }
 
                 string actionGroupsJson;
-                // string actionArrayJson;
 
                 System.Diagnostics.Debug.WriteLine("Preparing action groups to JSON");
                 try
@@ -64,26 +64,8 @@ namespace CSimple.Services
                     System.Diagnostics.Debug.WriteLine($"Error serializing action groups: {jsonEx.Message}");
                     return;
                 }
-                // // Extract the action arrays from each action group and combine them into a single array
-                // var actionArray = actionGroups.SelectMany(ag => ag.ActionArray).ToArray();
-                // System.Diagnostics.Debug.WriteLine($"Extracted {actionArray.Length} actions from action groups");
-
-                // try
-                // {
-                //     actionArrayJson = JsonSerializer.Serialize(actionArray, options);
-                //     System.Diagnostics.Debug.WriteLine("Serialized action array to JSON");
-                //     System.Diagnostics.Debug.WriteLine($"Action Array JSON: {actionArrayJson}");
-                // }
-                // catch (JsonException jsonEx)
-                // {
-                //     System.Diagnostics.Debug.WriteLine($"Error serializing action array: {jsonEx.Message}");
-                //     return;
-                // }
-                // Combine the serialized action groups and action array into a single JSON object
-                // var combinedJson = $"{{\"ActionGroups\": {actionGroupsJson}, \"ActionArray\": {actionArrayJson}}}";
+                // Combine the serialized action groups into a single JSON object
                 var combinedJson = $"{{\"ActionGroups\": {actionGroupsJson}}}";
-                // System.Diagnostics.Debug.WriteLine("Combined JSON for action groups and action array");
-                // System.Diagnostics.Debug.WriteLine($"Combined JSON: {combinedJson}");
 
                 // Write the combined JSON to the specified file path
                 await File.WriteAllTextAsync(_actionGroupsFilePath, combinedJson);
@@ -168,6 +150,49 @@ namespace CSimple.Services
             }
         }
 
+        // Methods for Goals
+        public async Task SaveGoalsAsync(ObservableCollection<string> goals)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"Attempting to save goals to {_goalsFilePath}");
+
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                var json = JsonSerializer.Serialize(goals, options);
+
+                await File.WriteAllTextAsync(_goalsFilePath, json);
+                System.Diagnostics.Debug.WriteLine($"Successfully saved goals to {_goalsFilePath}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error saving goals: {ex.Message}");
+            }
+        }
+
+        public async Task<ObservableCollection<string>> LoadGoalsAsync()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"Attempting to load goals from {_goalsFilePath}");
+
+                if (!File.Exists(_goalsFilePath))
+                {
+                    System.Diagnostics.Debug.WriteLine("File does not exist. Returning empty collection.");
+                    return new ObservableCollection<string>();
+                }
+
+                var json = await File.ReadAllTextAsync(_goalsFilePath);
+                var goals = JsonSerializer.Deserialize<ObservableCollection<string>>(json) ?? new ObservableCollection<string>();
+                System.Diagnostics.Debug.WriteLine($"Successfully loaded goals from {_goalsFilePath}");
+                return goals;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading goals: {ex.Message}");
+                return new ObservableCollection<string>();
+            }
+        }
+
         private void EnsureFileExists(string filePath)
         {
             if (!File.Exists(filePath))
@@ -190,10 +215,10 @@ namespace CSimple.Services
         }
     }
 
-}
-// Helper class to match the JSON structure
-public class ActionGroupsContainer
-{
-    public ObservableCollection<ActionGroup> ActionGroups { get; set; }
-    public Action[] ActionArray { get; set; }
+    // Helper class to match the JSON structure
+    public class ActionGroupsContainer
+    {
+        public ObservableCollection<ActionGroup> ActionGroups { get; set; }
+        public Action[] ActionArray { get; set; }
+    }
 }
