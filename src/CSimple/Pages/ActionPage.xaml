@@ -19,57 +19,60 @@
     <AbsoluteLayout>
         <ScrollView AbsoluteLayout.LayoutFlags="All"
                     AbsoluteLayout.LayoutBounds="0,0,1,1">
-            <StackLayout Padding="10"
-                         Spacing="20">
+            <VerticalStackLayout Padding="10" Spacing="20">
                 <Label Text="Action"
-                       FontSize="Title"
-                       HorizontalOptions="Center"
-                       VerticalOptions="StartAndExpand" />
+                       FontSize="Large"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center" />
                 <!-- Input Section -->
-                <StackLayout Orientation="Horizontal"
-                             Spacing="10"
-                             Margin="0,20,0,0">
+                <HorizontalStackLayout Spacing="10" Margin="0,20,0,0">
                     <Button Text="Record Action"
                             Command="{Binding NavigateToObservePageCommand}"
-                            VerticalOptions="Center" />
+                            VerticalOptions="Center"
+                            TextColor="White"
+                            BackgroundColor="Blue" />
                     <Button Text="Input Action"
                             Clicked="OnInputActionClicked"
-                            VerticalOptions="Center" />
-                </StackLayout>
+                            VerticalOptions="Center"
+                            TextColor="White"
+                            BackgroundColor="Blue" />
+                </HorizontalStackLayout>
                 <!-- Table Section -->
-                <CollectionView ItemsSource="{Binding ActionGroups}"
-                                Margin="0,20,0,0">
+                <CollectionView ItemsSource="{Binding ActionGroups}" Margin="0,20,0,0">
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
-                            <Grid Padding="10"
-                                  ColumnDefinitions="*, *, Auto">
-                                <ProgressBar Grid.ColumnSpan="3"
-                                             HeightRequest="4"
-                                             VerticalOptions="Start"
-                                             HorizontalOptions="FillAndExpand"
-                                             BackgroundColor="LightGray"
-                                             ProgressColor="Green"
-                                             Progress="0"
-                                             IsVisible="{Binding IsSimulating}" />
-                                <Label Grid.Column="0"
-                                       Text="{Binding ActionName}"
-                                       VerticalOptions="Center" />
-                                <Label Grid.Column="1"
-                                       Text="{Binding ActionArrayFormatted}"
-                                       VerticalOptions="Center" />
-                                <StackLayout Grid.Column="2"
-                                             Orientation="Vertical"
-                                             VerticalOptions="Center">
-                                    <Button Text="Start"
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}"
-                                            CommandParameter="{Binding .}"
-                                            VerticalOptions="Center" />
-                                    <Button Text="Delete"
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteActionGroupCommand}"
-                                            CommandParameter="{Binding .}"
-                                            VerticalOptions="Center" />
-                                </StackLayout>
-                            </Grid>
+                            <Frame CornerRadius="10" Padding="10" Margin="5">
+                                <Grid ColumnDefinitions="*, *, Auto">
+                                    <ProgressBar Grid.ColumnSpan="3"
+                                                 HeightRequest="4"
+                                                 VerticalOptions="Start"
+                                                 HorizontalOptions="FillAndExpand"
+                                                 BackgroundColor="LightGray"
+                                                 ProgressColor="Green"
+                                                 Progress="0"
+                                                 IsVisible="{Binding IsSimulating}" />
+                                    <Label Grid.Column="0"
+                                           Text="{Binding ActionName}"
+                                           VerticalOptions="Center" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding ActionArrayFormatted}"
+                                           VerticalOptions="Center" />
+                                    <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
+                                        <Button Text="{Binding IsSimulating, Converter={StaticResource BoolToTextConverter}}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}"
+                                                CommandParameter="{Binding .}"
+                                                VerticalOptions="Center"
+                                                TextColor="White"
+                                                BackgroundColor="Green" />
+                                        <Button Text="Delete"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteActionGroupCommand}"
+                                                CommandParameter="{Binding .}"
+                                                VerticalOptions="Center"
+                                                TextColor="White"
+                                                BackgroundColor="Red" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Frame>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
@@ -78,7 +81,7 @@
                        FontSize="Body"
                        VerticalOptions="CenterAndExpand"
                        TextColor="Gray" />
-            </StackLayout>
+            </VerticalStackLayout>
         </ScrollView>
         <!-- Popup for Input Action -->
         <ContentView x:Name="InputActionPopup"
@@ -95,7 +98,7 @@
                    CornerRadius="10"
                    BorderColor="Gray"
                    HasShadow="True">
-                <StackLayout Spacing="15">
+                <VerticalStackLayout Spacing="15">
                     <Label Text="Input Action"
                            FontSize="Medium"
                            HorizontalOptions="Center"
@@ -117,15 +120,13 @@
                            HeightRequest="75"
                            BackgroundColor="#F0F0F0" />
                     <!-- <Button Text="Upload Image" Clicked="OnUploadImageClicked" BackgroundColor="Blue" TextColor="White"/> -->
-                    <StackLayout Orientation="Horizontal"
-                                 HorizontalOptions="Center"
-                                 Spacing="20">
+                    <HorizontalStackLayout HorizontalOptions="Center" Spacing="20">
                         <Button Text="Okay"
                                 Clicked="OnOkayClick"
                                 BackgroundColor="Green"
                                 TextColor="White" />
-                    </StackLayout>
-                </StackLayout>
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
             </Frame>
         </ContentView>
     </AbsoluteLayout>

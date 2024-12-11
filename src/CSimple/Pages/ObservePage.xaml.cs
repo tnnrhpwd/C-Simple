@@ -209,7 +209,7 @@ namespace CSimple.Pages
                 // _rawInputService.Dispose();
             }
         }
-        private void TogglePCVisualOutput() // webcam image: record what else the human hears
+        private void TogglePCVisualOutput() // webcam image: record what the monitors show
         {
             PCVisualButtonText = PCVisualButtonText == "Read" ? "Stop" : "Read";
             DebugOutput($"PC Visual Output: {PCVisualButtonText}");

@@ -4,34 +4,124 @@
              Title="Plan">
     <ContentPage.Content>
         <ScrollView>
-            <VerticalStackLayout Padding="10">
-                <Label Text="Plans" FontSize="Large" FontAttributes="Bold" />
-                <Label Text="Every journey begins with a step. What is your plan?" />
-
-                <Button Text="{Binding CreatePlanButtonText}"
-                        Command="{Binding ToggleCreatePlanCommand}" />
-
-                <StackLayout IsVisible="{Binding ShowNewPlan}">
-                    <Label Text="Create New Plan" FontSize="Medium" FontAttributes="Bold" />
-                    <Entry Placeholder="Enter plan details..." Text="{Binding NewPlanText}" />
-                    <Button Text="Submit Plan" Command="{Binding SubmitPlanCommand}" />
-                </StackLayout>
-
-                <Button Text="{Binding MyPlansButtonText}"
-                        Command="{Binding ToggleMyPlansCommand}" />
-
-                <StackLayout IsVisible="{Binding ShowMyPlans}">
-                    <Label Text="My Plans" FontSize="Medium" FontAttributes="Bold" />
-                    <CollectionView ItemsSource="{Binding MyPlans}">
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate>
-                                <StackLayout>
-                                    <Label Text="{Binding .}" />
-                                </StackLayout>
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
-                </StackLayout>
+            <VerticalStackLayout Padding="10"
+                                 Spacing="15">
+                <Label Text="Plans"
+                       FontSize="Large"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center" />
+                <Frame CornerRadius="10"
+                       Padding="10"
+                       BackgroundColor="LightGray">
+                    <Grid x:Name="CalendarGrid">
+                        <!-- Days of the week -->
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <!-- Days of the week labels -->
+                        <Label Text="Sun"
+                               Grid.Row="0"
+                               Grid.Column="0"
+                               HorizontalOptions="Center" />
+                        <Label Text="Mon"
+                               Grid.Row="0"
+                               Grid.Column="1"
+                               HorizontalOptions="Center" />
+                        <Label Text="Tue"
+                               Grid.Row="0"
+                               Grid.Column="2"
+                               HorizontalOptions="Center" />
+                        <Label Text="Wed"
+                               Grid.Row="0"
+                               Grid.Column="3"
+                               HorizontalOptions="Center" />
+                        <Label Text="Thu"
+                               Grid.Row="0"
+                               Grid.Column="4"
+                               HorizontalOptions="Center" />
+                        <Label Text="Fri"
+                               Grid.Row="0"
+                               Grid.Column="5"
+                               HorizontalOptions="Center" />
+                        <Label Text="Sat"
+                               Grid.Row="0"
+                               Grid.Column="6"
+                               HorizontalOptions="Center" />
+                        <!-- Calendar days will be populated here -->
+                    </Grid>
+                </Frame>
+                <Label Text="Every journey begins with a step. What is your plan?"
+                       HorizontalOptions="Center" />
+                <Frame CornerRadius="10"
+                       Padding="0">
+                    <Button Text="{Binding CreatePlanButtonText}"
+                            Command="{Binding ToggleCreatePlanCommand}"
+                            TextColor="White" />
+                </Frame>
+                <Frame IsVisible="{Binding ShowNewPlan}"
+                       Padding="10"
+                       CornerRadius="10">
+                    <VerticalStackLayout>
+                        <Label Text="Create New Plan"
+                               FontSize="Medium"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center" />
+                        <Entry Placeholder="Enter plan details..."
+                               Text="{Binding NewPlanText}" />
+                        <Frame CornerRadius="10"
+                               Padding="0">
+                            <Button BackgroundColor="Green"
+                                    Text="Submit Plan"
+                                    Command="{Binding SubmitPlanCommand}"
+                                    TextColor="White" />
+                        </Frame>
+                    </VerticalStackLayout>
+                </Frame>
+                <Frame CornerRadius="10"
+                       Padding="0">
+                    <Button Text="{Binding MyPlansButtonText}"
+                            Command="{Binding ToggleMyPlansCommand}"
+                            TextColor="White" />
+                </Frame>
+                <Frame IsVisible="{Binding ShowMyPlans}"
+                       Padding="10"
+                       CornerRadius="10">
+                    <VerticalStackLayout>
+                        <Label Text="My Plans"
+                               FontSize="Medium"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center" />
+                        <CollectionView ItemsSource="{Binding MyPlans}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame CornerRadius="10"
+                                           Padding="10"
+                                           Margin="5">
+                                        <VerticalStackLayout>
+                                            <Label Text="{Binding .}"
+                                                   FontSize="Small" />
+                                        </VerticalStackLayout>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </Frame>
             </VerticalStackLayout>
         </ScrollView>
     </ContentPage.Content>

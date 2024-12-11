@@ -2,36 +2,51 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CSimple.Pages.GoalPage"
              Title="Goal">
-       <ContentPage.Content>
-              <ScrollView>
-                     <VerticalStackLayout Padding="10">
-                            <Label Text="Goals" FontSize="Large" FontAttributes="Bold" />
-                            <Label Text="Every journey begins with a step. Where are you going?"/>
+    <ContentPage.Content>
+        <ScrollView>
+            <VerticalStackLayout Padding="10" Spacing="15">
+                <Label Text="Goals" FontSize="Large" FontAttributes="Bold" HorizontalOptions="Center" />
+                <Label Text="Every journey begins with a step. Where are you going?" HorizontalOptions="Center" />
 
-                            <Button Text="{Binding CreateGoalButtonText}"
-                                   Command="{Binding ToggleCreateGoalCommand}" />
+                <Frame CornerRadius="10" Padding="0">
+                    <Button Text="{Binding CreateGoalButtonText}"
+                            Command="{Binding ToggleCreateGoalCommand}"
+                            TextColor="White" />
+                </Frame>
 
-                            <StackLayout IsVisible="{Binding ShowNewGoal}">
-                                   <Label Text="Create New Goal" FontSize="Medium" FontAttributes="Bold" />
-                                   <Entry Placeholder="Enter goal details..." Text="{Binding NewGoalText}" />
-                                   <Button Text="Submit Goal" Command="{Binding SubmitGoalCommand}" />
-                            </StackLayout>
-                            <Button Text="{Binding MyGoalsButtonText}"
-                                   Command="{Binding ToggleMyGoalsCommand}" />
-                            <StackLayout IsVisible="{Binding ShowMyGoals}">
-                                   <Label Text="My Goals" FontSize="Medium" FontAttributes="Bold" />
-                                   <CollectionView ItemsSource="{Binding MyGoals}">
-                                          <CollectionView.ItemTemplate>
-                                                 <DataTemplate>
-                                                 <StackLayout>
-                                                        <Label Text="{Binding .}" />
-                                                 </StackLayout>
-                                                 </DataTemplate>
-                                          </CollectionView.ItemTemplate>
-                            </CollectionView>
-                            </StackLayout>
+                <Frame IsVisible="{Binding ShowNewGoal}" Padding="10" CornerRadius="10">
+                    <StackLayout>
+                        <Label Text="Create New Goal" FontSize="Medium" FontAttributes="Bold" HorizontalOptions="Center" />
+                        <Entry Placeholder="Enter goal details..." Text="{Binding NewGoalText}" />
+                        <Frame CornerRadius="10" Padding="0">
+                            <Button BackgroundColor="Green" Text="Submit Goal" Command="{Binding SubmitGoalCommand}" TextColor="White" />
+                        </Frame>
+                    </StackLayout>
+                </Frame>
 
-                     </VerticalStackLayout>
-              </ScrollView>
-       </ContentPage.Content>
+                <Frame CornerRadius="10" Padding="0">
+                    <Button Text="{Binding MyGoalsButtonText}"
+                            Command="{Binding ToggleMyGoalsCommand}"
+                            TextColor="White" />
+                </Frame>
+
+                <Frame IsVisible="{Binding ShowMyGoals}" Padding="10" CornerRadius="10">
+                    <StackLayout>
+                        <Label Text="My Goals" FontSize="Medium" FontAttributes="Bold" HorizontalOptions="Center" />
+                        <CollectionView ItemsSource="{Binding MyGoals}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame CornerRadius="10" Padding="10" Margin="5">
+                                        <StackLayout>
+                                            <Label Text="{Binding .}" FontSize="Small" />
+                                        </StackLayout>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </StackLayout>
+                </Frame>
+            </VerticalStackLayout>
+        </ScrollView>
+    </ContentPage.Content>
 </ContentPage>

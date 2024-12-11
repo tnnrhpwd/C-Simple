@@ -1,4 +1,5 @@
 ﻿using Microsoft.Maui.Storage;
+using Microsoft.Maui.Graphics;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text.Json;
@@ -35,6 +36,8 @@ namespace CSimple.Pages
             CheckUserLoggedIn();
             // Load plans from file
             _ = LoadPlansFromFile();
+            // Populate calendar
+            PopulateCalendar(DateTime.Now);
         }
 
         private async void CheckUserLoggedIn()
@@ -220,6 +223,30 @@ namespace CSimple.Pages
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error loading plans from file: {ex.Message}");
+            }
+        }
+
+        private void PopulateCalendar(DateTime date)
+        {
+            var firstDayOfMonth = new DateTime(date.Year, date.Month, 1);
+            var daysInMonth = DateTime.DaysInMonth(date.Year, date.Month);
+            var startDayOfWeek = (int)firstDayOfMonth.DayOfWeek;
+
+            for (int i = 0; i < daysInMonth; i++)
+            {
+                var dayButton = new Button
+                {
+                    Text = (i + 1).ToString(),
+                    BackgroundColor = Colors.White,
+                    TextColor = Colors.Black
+                };
+
+                var row = (i + startDayOfWeek) / 7 + 1;
+                var column = (i + startDayOfWeek) % 7;
+
+                Grid.SetRow(dayButton, row);
+                Grid.SetColumn(dayButton, column);
+                CalendarGrid.Children.Add(dayButton);
             }
         }
     }
