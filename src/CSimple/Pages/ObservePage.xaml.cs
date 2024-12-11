@@ -6,12 +6,14 @@ using Newtonsoft.Json;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Threading;
 // using Windows.Graphics.Display;
 using OpenCvSharp;
 using NAudio.Wave;
 using Microsoft.Maui.Storage;
 #if WINDOWS
 using System.Text;
+using System.Windows.Forms;
 #endif
 
 namespace CSimple.Pages
@@ -208,12 +210,35 @@ namespace CSimple.Pages
                 // _rawInputService.ButtonDown -= OnButtonDown;
                 // _rawInputService.Dispose();
             }
-        }
-        private void TogglePCVisualOutput() // webcam image: record what the monitors show
+        }private CancellationTokenSource _pcVisualCancellationTokenSource;
+
+        private void TogglePCVisualOutput() // webcam image: record what the webcam sees
         {
-            PCVisualButtonText = PCVisualButtonText == "Read" ? "Stop" : "Read";
-            DebugOutput($"PC Visual Output: {PCVisualButtonText}");
-            OnPropertyChanged(nameof(PCVisualButtonText));
+            if (PCVisualButtonText == "Read")
+            {
+                // Start capturing
+                PCVisualButtonText = "Stop";
+                DebugOutput($"PC Visual Output: {PCVisualButtonText}");
+                OnPropertyChanged(nameof(PCVisualButtonText));
+
+                _pcVisualCancellationTokenSource = new CancellationTokenSource();
+                var cancellationToken = _pcVisualCancellationTokenSource.Token;
+
+                Task.Run(() => CaptureWebcamImages(cancellationToken), cancellationToken);
+            }
+            else
+            {
+                // Stop capturing
+                PCVisualButtonText = "Read";
+                DebugOutput($"PC Visual Output: {PCVisualButtonText}");
+                OnPropertyChanged(nameof(PCVisualButtonText));
+
+                _pcVisualCancellationTokenSource?.Cancel();
+            }
+        }
+
+        private void CaptureWebcamImages(CancellationToken cancellationToken)
+        {
             using var capture = new VideoCapture(0); // 0 is the default camera
             using var frame = new Mat();
 
@@ -223,35 +248,141 @@ namespace CSimple.Pages
                 return;
             }
 
-            while (true) // Loop to capture frames continuously
+            // Define the directory path for saving webcam images
+            string webcamImagesDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "WebcamImages");
+
+            // Ensure the directory exists
+            Directory.CreateDirectory(webcamImagesDirectory);
+
+            while (!cancellationToken.IsCancellationRequested) // Loop to capture frames continuously
             {
                 capture.Read(frame);
 
-                if (frame.Empty() && PCVisualButtonText == "Stop")
-                    break;
+                if (frame.Empty())
+                    continue;
 
-                string filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", $"WebcamImage_{DateTime.Now:yyyyMMdd_HHmmss}.jpg");
+                string filePath = Path.Combine(webcamImagesDirectory, $"WebcamImage_{DateTime.Now:yyyyMMdd_HHmmss}.jpg");
                 Cv2.ImWrite(filePath, frame);
+                DebugOutput($"Webcam image saved to: {filePath}");
 
-                // For toggling, you can break out of the loop based on user input or a flag
+                // Sleep for a short duration to avoid capturing too many frames
+                Thread.Sleep(1000); // Adjust the interval as needed
             }
         }
 
-        private void TogglePCAudibleOutput() // Audio Recorder: record the sounds that the human hears
+        private WasapiLoopbackCapture _loopbackCapture;
+        private WaveFileWriter _loopbackWriter;
+
+        private void TogglePCAudibleOutput() // Audio Recorder: record the sounds that the computer outputs
         {
             PCAudibleButtonText = PCAudibleButtonText == "Read" ? "Stop" : "Read";
             DebugOutput($"PC Audible Output: {PCAudibleButtonText}");
             OnPropertyChanged(nameof(PCAudibleButtonText));
-        }
 
-        private void ToggleUserVisualOutput() // Screen Recorder: record what the human sees on the screen
+            if (PCAudibleButtonText == "Stop")
+            {
+                // Start recording
+                try
+                {
+                    // Define the directory path for saving PC audio
+                    string pcAudioDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "PCAudio");
+
+                    // Ensure the directory exists
+                    Directory.CreateDirectory(pcAudioDirectory);
+
+                    // Define the output file path once when recording starts
+                    string filePath = Path.Combine(pcAudioDirectory, $"PCAudio_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
+
+                    _loopbackCapture = new WasapiLoopbackCapture();
+                    _loopbackWriter = new WaveFileWriter(filePath, _loopbackCapture.WaveFormat);
+
+                    _loopbackCapture.DataAvailable += (s, a) =>
+                    {
+                        _loopbackWriter.Write(a.Buffer, 0, a.BytesRecorded);
+                    };
+
+                    _loopbackCapture.RecordingStopped += (s, a) =>
+                    {
+                        _loopbackWriter?.Dispose();
+                        _loopbackWriter = null;
+                        _loopbackCapture.Dispose();
+                        Console.WriteLine($"Recording saved to: {filePath}");
+                    };
+
+                    _loopbackCapture.StartRecording();
+                    Console.WriteLine("Recording PC audio...");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error: {ex.Message}");
+                }
+            }
+            else
+            {
+                // Stop recording
+                _loopbackCapture?.StopRecording();
+                Console.WriteLine("Stopped recording PC audio.");
+            }
+        }
+        private CancellationTokenSource _userVisualCancellationTokenSource;
+
+        private void ToggleUserVisualOutput() // Screen Recorder: record what the monitors show
         {
             UserVisualButtonText = UserVisualButtonText == "Read" ? "Stop" : "Read";
             DebugOutput($"User Visual Output: {UserVisualButtonText}");
             OnPropertyChanged(nameof(UserVisualButtonText));
+
+            if (UserVisualButtonText == "Stop")
+            {
+                _userVisualCancellationTokenSource = new CancellationTokenSource();
+                var cancellationToken = _userVisualCancellationTokenSource.Token;
+
+                Task.Run(() => CaptureAllScreens(cancellationToken), cancellationToken);
+            }
+            else
+            {
+                _userVisualCancellationTokenSource?.Cancel();
+            }
         }
 
-        private void ToggleUserAudibleOutput() // webcam audio: record what is going on around the computer
+        private void CaptureAllScreens(CancellationToken cancellationToken)
+        {
+            // Define the directory path for saving screenshots
+            string screenshotsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "Screenshots");
+
+            // Ensure the directory exists
+            Directory.CreateDirectory(screenshotsDirectory);
+
+            while (!cancellationToken.IsCancellationRequested) // Loop to capture screens continuously
+            {
+                try
+                {
+                    foreach (var screen in Screen.AllScreens)
+                    {
+                        var bounds = screen.Bounds;
+                        using (var bitmap = new Bitmap(bounds.Width, bounds.Height))
+                        {
+                            using (var g = Graphics.FromImage(bitmap))
+                            {
+                                g.CopyFromScreen(bounds.Location, System.Drawing.Point.Empty, bounds.Size);
+                            }
+
+                            string filePath = Path.Combine(screenshotsDirectory, $"ScreenCapture_{DateTime.Now:yyyyMMdd_HHmmss_fff}_{screen.DeviceName.Replace("\\", "").Replace(":", "")}.png");
+                            bitmap.Save(filePath, ImageFormat.Png);
+                            DebugOutput($"Screenshot saved to: {filePath}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    DebugOutput($"Error capturing screen: {ex.Message}");
+                }
+
+                // Sleep for a short duration to avoid capturing too many frames
+                Thread.Sleep(1000); // Adjust the interval as needed
+            }
+        }
+        private void ToggleUserAudibleOutput() // webcam audio: record what the webcam hears
         {
             // Toggle the button text between "Read" and "Stop"
             UserAudibleButtonText = UserAudibleButtonText == "Read" ? "Stop" : "Read";
@@ -263,11 +394,14 @@ namespace CSimple.Pages
                 // Start recording
                 try
                 {
-                    // Define the output file path once when recording starts
-                    string filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", $"WebcamAudio_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
+                    // Define the directory path for saving webcam audio
+                    string webcamAudioDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "WebcamAudio");
 
                     // Ensure the directory exists
-                    Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+                    Directory.CreateDirectory(webcamAudioDirectory);
+
+                    // Define the output file path once when recording starts
+                    string filePath = Path.Combine(webcamAudioDirectory, $"WebcamAudio_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
 
                     _waveIn = new WaveInEvent();
 
@@ -311,7 +445,6 @@ namespace CSimple.Pages
                 Console.WriteLine("Stopped recording webcam audio.");
             }
         }
-
 
         private int FindWebcamAudioDevice()
         {
