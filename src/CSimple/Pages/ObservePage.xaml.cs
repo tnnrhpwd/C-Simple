@@ -565,7 +565,7 @@ namespace CSimple.Pages
                 if (wParam == (IntPtr)WM_MOUSEMOVE)
                 {
                     var currentMouseEventTime = DateTime.UtcNow;
-                    if ((currentMouseEventTime - lastMouseEventTime).TotalMilliseconds < 100) // Example: 100 milliseconds
+                    if ((currentMouseEventTime - lastMouseEventTime).TotalMilliseconds < 500) // Example: 100 milliseconds
                     {
                         return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
                     }
