@@ -20,6 +20,20 @@ namespace CSimple.Pages
 {
     public partial class ObservePage : ContentPage
     {
+        private bool _isReadAllToggled;
+        public bool IsReadAllToggled
+        {
+            get => _isReadAllToggled;
+            set
+            {
+                if (_isReadAllToggled != value)
+                {
+                    _isReadAllToggled = value;
+                    OnPropertyChanged();
+                    ToggleAllOutputs(value);
+                }
+            }
+        }
         public ObservableCollection<ActionGroup> ActionGroups { get; set; } = new ObservableCollection<ActionGroup>();
         public Command TogglePCVisualCommand { get; }
         public Command TogglePCAudibleCommand { get; }
@@ -125,7 +139,40 @@ namespace CSimple.Pages
         {
             InputModifierPopup.IsVisible = false;
         }
-
+        private void ToggleAllOutputs(bool value)
+        {
+            if (value)
+            {
+                TogglePCVisualOutput();
+                TogglePCAudibleOutput();
+                ToggleUserVisualOutput();
+                ToggleUserAudibleOutput();
+                ToggleUserTouchOutput();
+            }
+            else
+            {
+                if (PCVisualButtonText == "Stop")
+                {
+                    TogglePCVisualOutput();
+                }
+                if (PCAudibleButtonText == "Stop")
+                {
+                    TogglePCAudibleOutput();
+                }
+                if (UserVisualButtonText == "Stop")
+                {
+                    ToggleUserVisualOutput();
+                }
+                if (UserAudibleButtonText == "Stop")
+                {
+                    ToggleUserAudibleOutput();
+                }
+                if (UserTouchButtonText == "Stop")
+                {
+                    ToggleUserTouchOutput();
+                }
+            }
+        }
         private async Task<bool> IsUserLoggedInAsync()
         {
             try
@@ -569,8 +616,9 @@ namespace CSimple.Pages
 
                 if (actionGroups.DataIsSuccess)
                 {
-                    foreach (var actionGroup in actionGroups.Data.Cast<ActionGroup>())
+                    foreach (var actionGroupJson in actionGroups.Data)
                     {
+                        var actionGroup = JsonConvert.DeserializeObject<ActionGroup>(actionGroupJson);
                         ActionGroups.Add(actionGroup);
                     }
                     DebugOutput("Action Groups Loaded from Backend");

@@ -28,6 +28,12 @@
                         BackgroundColor="Blue"
                         TextColor="White" />
 
+                <!-- Read All Toggle Switch -->
+                <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                    <Label Text="Read All" FontSize="Medium" VerticalOptions="Center" />
+                    <Switch IsToggled="{Binding IsReadAllToggled}" />
+                </HorizontalStackLayout>
+
                 <!-- Grid Layout for two columns -->
                 <Grid ColumnDefinitions="*,*">
                     <!-- Left Column -->
