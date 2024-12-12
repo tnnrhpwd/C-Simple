@@ -100,7 +100,7 @@
                     <!-- Right Column -->
                     <VerticalStackLayout Grid.Column="1" Spacing="20">
                         <!-- PC Visual Output Image -->
-                        <Image x:Name="CapturedImage" HeightRequest="50" BackgroundColor="LightGray" />
+                        <Image x:Name="CapturedImage" HeightRequest="50" BackgroundColor="LightGray" Source="{Binding CapturedImageSource}" />
 
                         <!-- PC Audible Output BoxView -->
                         <BoxView HeightRequest="50" BackgroundColor="LightGray" />

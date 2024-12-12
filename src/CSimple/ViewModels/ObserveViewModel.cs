@@ -10,6 +10,7 @@ public class ObservePageViewModel : INotifyPropertyChanged
     private string _userVisualButtonText = "Read";
     private string _userAudibleButtonText = "Read";
     private string _userTouchButtonText = "Read";
+    private ImageSource _capturedImageSource;
 
     public string PCVisualButtonText
     {
@@ -58,6 +59,16 @@ public class ObservePageViewModel : INotifyPropertyChanged
         {
             _userTouchButtonText = value;
             OnPropertyChanged(nameof(UserTouchButtonText));
+        }
+    }
+
+    public ImageSource CapturedImageSource
+    {
+        get => _capturedImageSource;
+        set
+        {
+            _capturedImageSource = value;
+            OnPropertyChanged(nameof(CapturedImageSource));
         }
     }
 
