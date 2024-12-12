@@ -373,7 +373,7 @@ namespace CSimple.Pages
         }
         private CancellationTokenSource _userVisualCancellationTokenSource;
 
-        private void ToggleUserVisualOutput() // Screen Recorder: record what the monitors show
+        private void ToggleUserVisualOutput()
         {
             UserVisualButtonText = UserVisualButtonText == "Read" ? "Stop" : "Read";
             DebugOutput($"User Visual Output: {UserVisualButtonText}");
@@ -404,6 +404,8 @@ namespace CSimple.Pages
             {
                 try
                 {
+                    DateTime captureTime = DateTime.Now; // Capture the time at the beginning of the loop
+
                     foreach (var screen in Screen.AllScreens)
                     {
                         var bounds = screen.Bounds;
@@ -414,7 +416,8 @@ namespace CSimple.Pages
                                 g.CopyFromScreen(bounds.Location, System.Drawing.Point.Empty, bounds.Size);
                             }
 
-                            string filePath = Path.Combine(screenshotsDirectory, $"ScreenCapture_{DateTime.Now:yyyyMMdd_HHmmss_fff}_{screen.DeviceName.Replace("\\", "").Replace(":", "")}.png");
+                            // Generate the file path using the captured time
+                            string filePath = Path.Combine(screenshotsDirectory, $"ScreenCapture_{captureTime:yyyyMMdd_HHmmss_fff}_{screen.DeviceName.Replace("\\", "").Replace(":", "")}.png");
                             bitmap.Save(filePath, ImageFormat.Png);
                             DebugOutput($"Screenshot saved to: {filePath}");
                         }
@@ -429,6 +432,7 @@ namespace CSimple.Pages
                 Thread.Sleep(1000); // Adjust the interval as needed
             }
         }
+
         private void ToggleUserAudibleOutput() // webcam audio: record what the webcam hears
         {
             // Toggle the button text between "Read" and "Stop"
