@@ -16,6 +16,13 @@ using System.Text;
 using System.Windows.Forms;
 using CSimple.ViewModels;
 #endif
+using System;
+using NAudio.CoreAudioApi;
+using NWaves.FeatureExtractors;
+using NWaves.FeatureExtractors.Base;
+using NWaves.Transforms;
+using NWaves.FeatureExtractors.Options;
+using NWaves.Utils;
 
 namespace CSimple.Pages
 {
@@ -74,6 +81,8 @@ namespace CSimple.Pages
         private FileService _fileService;
         private WaveInEvent _waveIn;
         private WaveFileWriter _writer;
+        private WasapiLoopbackCapture _loopbackCapture;
+        private WaveFileWriter _loopbackWriter;
 
         public ObservePage()
         {
@@ -306,9 +315,6 @@ namespace CSimple.Pages
             }
         }
 
-        private WasapiLoopbackCapture _loopbackCapture;
-        private WaveFileWriter _loopbackWriter;
-
         private void TogglePCAudibleOutput() // Audio Recorder: record the sounds that the computer outputs
         {
             PCAudibleButtonText = PCAudibleButtonText == "Read" ? "Stop" : "Read";
@@ -322,6 +328,7 @@ namespace CSimple.Pages
                 {
                     // Define the directory path for saving PC audio
                     string pcAudioDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "PCAudio");
+                    DebugOutput($"PC Audio Directory: {pcAudioDirectory}");
 
                     // Ensure the directory exists
                     Directory.CreateDirectory(pcAudioDirectory);
@@ -342,12 +349,13 @@ namespace CSimple.Pages
 
                         _loopbackCapture.RecordingStopped += (s, a) =>
                         {
+                            _loopbackWriter?.Dispose();
+                            _loopbackWriter = null;
+                            _loopbackCapture.Dispose();
+                            Console.WriteLine($"Recording saved to: {filePath}");
 
-                                _loopbackWriter?.Dispose();
-                                _loopbackWriter = null;
-                                _loopbackCapture.Dispose();
-                                Console.WriteLine($"Recording saved to: {filePath}");
-                            
+                            // Extract MFCCs
+                            ExtractMFCCs(filePath);
                         };
 
                         _loopbackCapture.StartRecording();
@@ -366,6 +374,63 @@ namespace CSimple.Pages
                 Console.WriteLine("Stopped recording PC audio.");
             }
         }
+
+        private void ExtractMFCCs(string filePath)
+        {
+            try
+            {
+                // Read the recorded audio file
+                using var waveFile = new WaveFileReader(filePath);
+                var samples = new float[waveFile.SampleCount];
+                int sampleIndex = 0;
+                var buffer = new byte[waveFile.WaveFormat.SampleRate * waveFile.WaveFormat.BlockAlign];
+                int samplesRead;
+                while ((samplesRead = waveFile.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    for (int i = 0; i < samplesRead; i += waveFile.WaveFormat.BlockAlign)
+                    {
+                        samples[sampleIndex++] = BitConverter.ToSingle(buffer, i);
+                    }
+                }
+
+                // Define MFCC extractor parameters
+                int sampleRate = waveFile.WaveFormat.SampleRate;
+                int featureCount = 13; // Number of MFCC coefficients
+                int frameSize = 512; // Frame size in samples
+                int hopSize = 256; // Hop size in samples
+
+                // Create MFCC extractor
+                var mfccExtractor = new MfccExtractor(new MfccOptions
+                {
+                    SamplingRate = sampleRate,
+                    FeatureCount = featureCount,
+                    FrameSize = frameSize,
+                    HopSize = hopSize
+                });
+
+                // Extract MFCCs
+                var mfccs = mfccExtractor.ComputeFrom(samples);
+
+                // Define the output file path for MFCCs
+                string mfccFilePath = Path.Combine(Path.GetDirectoryName(filePath), Path.GetFileNameWithoutExtension(filePath) + "_MFCCs.csv");
+
+                // Save MFCCs to a CSV file
+                using (var writer = new StreamWriter(mfccFilePath))
+                {
+                    foreach (var vector in mfccs)
+                    {
+                        writer.WriteLine(string.Join(",", vector));
+                    }
+                }
+
+                Console.WriteLine($"MFCCs saved to: {mfccFilePath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error extracting MFCCs: {ex.Message}");
+            }
+        }
+
         private CancellationTokenSource _userVisualCancellationTokenSource;
 
         private void ToggleUserVisualOutput()
@@ -479,6 +544,9 @@ namespace CSimple.Pages
                             _writer = null;
                             _waveIn.Dispose();
                             Console.WriteLine($"Recording saved to: {filePath}");
+
+                            // Extract MFCCs
+                            ExtractMFCCs(filePath);
                         };
 
                         _waveIn.StartRecording();
