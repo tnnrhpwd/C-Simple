@@ -2,23 +2,24 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CSimple.Pages.OrientPage"
              Title="Orient">
-       <ScrollView>
-              <StackLayout Padding="10">
-                     <Label Text="Orient" 
-                            FontSize="Title" 
-                            HorizontalOptions="Center" 
-                            VerticalOptions="StartAndExpand"/>
-                     <Label Text="This page provides users with tools to orient themselves according to their goals. It will have a pie chart of the goal worked ratios this week. it could give good insights such as someone is taking too much of your time, you have x, y, or z bad habit, or show the compounding effect" 
-                            FontSize="Body"
-                            VerticalOptions="CenterAndExpand"/>
-                     <Ellipse
-                            x:Name="Check"
-                            WidthRequest="80"
-                            HeightRequest="80"
-                            Stroke="{StaticResource Primary}"
-                            Fill="{StaticResource Primary}"
-                            VerticalOptions="Center"
-                            HorizontalOptions="Center" />
-              </StackLayout>
-       </ScrollView>
+    <ScrollView>
+        <StackLayout Padding="10">
+            <Label Text="Orient" 
+                   FontSize="Title" 
+                   HorizontalOptions="Center" 
+                   VerticalOptions="StartAndExpand"/>
+            <Label Text="This page provides users with tools to orient themselves according to their goals. It will have a pie chart of the goal worked ratios this week. it could give good insights such as someone is taking too much of your time, you have x, y, or z bad habit, or show the compounding effect" 
+                   FontSize="Body"
+                   VerticalOptions="CenterAndExpand"/>
+            <Ellipse
+                   x:Name="Check"
+                   WidthRequest="80"
+                   HeightRequest="80"
+                   Stroke="{StaticResource Primary}"
+                   Fill="{StaticResource Primary}"
+                   VerticalOptions="Center"
+                   HorizontalOptions="Center" />
+            <Button Text="Train Model" Clicked="OnTrainModelClicked" />
+        </StackLayout>
+    </ScrollView>
 </ContentPage>

@@ -1,9 +1,23 @@
-﻿namespace CSimple.Pages;
+﻿using Microsoft.Maui.Controls;
+using System.Threading.Tasks;
 
-public partial class OrientPage : ContentPage
+namespace CSimple.Pages
 {
-    public OrientPage()
+    public partial class OrientPage : ContentPage
     {
-        InitializeComponent();
+        public OrientPage()
+        {
+            InitializeComponent();
+            BindingContext = new OrientPageViewModel();
+        }
+
+        private async void OnTrainModelClicked(object sender, EventArgs e)
+        {
+            var viewModel = BindingContext as OrientPageViewModel;
+            if (viewModel != null)
+            {
+                await viewModel.TrainModelAsync();
+            }
+        }
     }
 }
