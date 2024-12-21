@@ -2,7 +2,7 @@
 
 Give your Windows system the intelligence to help you. It will make decisions based on your previous interactions for the simple goal of accurately predicting your actions.
 
-**[Download Now.](https://drive.google.com/drive/folders/1lKQeLUHYwlrqO8P7LkMztHxSd_CpTvrx?usp=sharing)**
+**[Early Access Download](https://drive.google.com/drive/folders/1lKQeLUHYwlrqO8P7LkMztHxSd_CpTvrx?usp=sharing)**
 
 ## Table of Contents
 
