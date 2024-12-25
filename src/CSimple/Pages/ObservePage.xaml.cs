@@ -103,7 +103,7 @@ namespace CSimple.Pages
             SaveActionCommand = new Command(SaveAction);
             SaveToFileCommand = new Command(async () => await SaveActionGroupsToFile());
             LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
-        BindingContext = new ObservePageViewModel();
+            BindingContext = new ObservePageViewModel();
 
             _ = LoadAndSaveActionGroups();
 
