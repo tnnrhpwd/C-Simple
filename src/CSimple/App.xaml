@@ -9,26 +9,9 @@
 
     <Application.MainPage>
         <Shell 
-            FlyoutWidth="68" FlyoutBackgroundColor="{StaticResource Background_Mid}"
-            FlyoutBehavior="{OnIdiom Phone=Enabled, Default=Locked}">
-
-            <!-- <Shell.FlyoutFooterTemplate>
-                <DataTemplate>
-                    <Grid RowDefinitions="68">
-                        <Grid.GestureRecognizers>
-                            <TapGestureRecognizer Tapped="TapGestureRecognizer_Tapped"/>
-                        </Grid.GestureRecognizers>
-                        <Image Source="tab_settings.png"
-                               VerticalOptions="Center"
-                               HorizontalOptions="Center"
-                               WidthRequest="34"
-                               HeightRequest="34"
-                        />
-
-                    </Grid>
-                </DataTemplate>
-
-            </Shell.FlyoutFooterTemplate> -->
+            FlyoutWidth="200" 
+            FlyoutBackgroundColor="{StaticResource Background_Mid}"
+            FlyoutBehavior="Flyout">
 
             <!-- Desktop/Tablet-->
             <FlyoutItem Title="Home" Route="home" Style="{StaticResource HomeFlyout}">
@@ -128,14 +111,20 @@
             </TabBar>
             <Shell.ItemTemplate>
                 <DataTemplate>
-                    <Grid WidthRequest="48" HeightRequest="64"
-                        ColumnDefinitions="36" RowDefinitions="64">
+                    <Grid WidthRequest="150" HeightRequest="64"
+                          HorizontalOptions="Start"
+                          ColumnDefinitions="Auto, 5, Auto" RowDefinitions="Auto"> <!-- Add a small space -->
                         <Image Source="{Binding FlyoutIcon}"
-                            VerticalOptions="Center"
-                            HorizontalOptions="Center"                               
-                            HeightRequest="34"
-                            WidthRequest="34"
-                            />
+                               VerticalOptions="Center"
+                               HorizontalOptions="Start"
+                               HeightRequest="34"
+                               WidthRequest="34"
+                               Grid.Column="0"/>
+                        <Label Text="{Binding Title}"
+                               VerticalOptions="Center"
+                               HorizontalOptions="Start"
+                               WidthRequest="170"
+                               Grid.Column="2"/> <!-- Adjust column index -->
                     </Grid>
                 </DataTemplate>
             </Shell.ItemTemplate>

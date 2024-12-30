@@ -58,10 +58,11 @@ public static class MauiProgram
         services.AddSingleton<ITrayService, WinUI.TrayService>();
         services.AddSingleton<INotificationService, WinUI.NotificationService>();
 #elif MACCATALYST
-            services.AddSingleton<ITrayService, MacCatalyst.TrayService>();
-            services.AddSingleton<INotificationService, MacCatalyst.NotificationService>();
+        services.AddSingleton<ITrayService, MacCatalyst.TrayService>();
+        services.AddSingleton<INotificationService, MacCatalyst.NotificationService>();
 #endif
 
+        services.AddTransient<App>();
 
         return builder.Build();
     }

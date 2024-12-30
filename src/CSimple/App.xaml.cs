@@ -1,12 +1,20 @@
 ﻿using System.Diagnostics;
+using System.Windows.Input;
 
 namespace CSimple;
 
 public partial class App : Application
 {
+    public ICommand ToggleFlyoutCommand { get; }
+
     public App()
     {
         InitializeComponent();
+
+        ToggleFlyoutCommand = new Command(() =>
+        {
+            Shell.Current.FlyoutIsPresented = !Shell.Current.FlyoutIsPresented;
+        });
 
         //App.Current.UserAppTheme = AppTheme.Dark;
 
