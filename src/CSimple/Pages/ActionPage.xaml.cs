@@ -117,12 +117,78 @@ namespace CSimple.Pages
         {
             await Shell.Current.GoToAsync($"///observe");
         }
+        private void OnInputActionClicked(object sender, EventArgs e)
+        {
+            InputActionPopup.IsVisible = true;
+        }
+
+        private void OnOkayClick(object sender, EventArgs e)
+        {
+            InputActionPopup.IsVisible = false;
+        }
         private async void OnRowTapped(ActionGroup actionGroup)
         {
             var actionDetailPage = new ActionDetailPage(actionGroup);
             await Navigation.PushModalAsync(actionDetailPage);
         }
-    
+
+        // private async void SaveAction(object parameter)
+        // {
+        //     string actionName = ActionNameEntry.Text?.Trim();
+        //     string actionArrayText = ActionArrayEntry.Text?.Trim();
+
+        //     if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(actionArrayText))
+        //     {
+        //         var actions = actionArrayText.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+        //         .Select(a => new ActionArrayItem
+        //         {
+        //             KeyCode = 54, 
+        //             Timestamp = DateTime.UtcNow.ToString("o"), 
+        //         })
+        //         .ToList();
+
+        //         var newActionGroup = new ActionGroup { ActionName = actionName, ActionArray = actions };
+        //         ActionGroups.Add(newActionGroup);
+        //         DebugOutput($"Saved Action Group: {actionName}");
+
+        //         // Save to backend
+        //         var token = await SecureStorage.GetAsync("userToken");
+        //         if (string.IsNullOrEmpty(token))
+        //         {
+        //             DebugOutput("User is not logged in.");
+        //             return;
+        //         }
+
+        //         var userId = await SecureStorage.GetAsync("userId");
+        //         if (string.IsNullOrEmpty(userId))
+        //         {
+        //             DebugOutput("User ID not found.");
+        //             return;
+        //         }
+
+        //         var actionArrayString = string.Join("+", actions.Select(a => $"{a.KeyCode}:{a.Timestamp}"));
+        //         var queryParams = new Dictionary<string, string>
+        //         {
+        //             { "data", $"Creator:{userId}|Action:{actionName}+{actionArrayString}" }
+        //         };
+        //         var response = await _dataService.CreateDataAsync(queryParams["data"], token);
+        //         if (response.DataIsSuccess == true)
+        //         {
+        //             DebugOutput("Action Group saved to backend");
+        //         }
+        //         else
+        //         {
+        //             DebugOutput("Failed to save Action Group to backend");
+        //         }
+
+        //         // Trigger save to file after adding new action group
+        //         await SaveActionGroupsToFile();
+        //     }
+        //     else
+        //     {
+        //         DebugOutput("Please enter both Action Name and Action Array.");
+        //     }
+        // }
         private async Task ToggleSimulateActionGroupAsync(ActionGroup actionGroup)
         {
             DebugOutput($"Toggling Simulation for: {actionGroup.ActionName}");
@@ -361,17 +427,16 @@ namespace CSimple.Pages
                     return;
                 }
 
-                var searchString = "Action";
-                var searchStrings = new List<string> { searchString };
-                var actionGroups = await _dataService.GetDataAsync(searchStrings, token);
+                var data = "Action";
+                var actionGroups = await _dataService.GetDataAsync(data, token);
                 DebugOutput($"Received action groups from backend");
 
                 // Log raw response data
-                Debug.WriteLine("Length of actionGroups:" + JsonSerializer.Serialize(actionGroups).Length.ToString());
-                DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend) Raw response data: {JsonSerializer.Serialize(actionGroups)}");
+                Debug.WriteLine("Length of actionGroups.Data:" + JsonSerializer.Serialize(actionGroups.Data).Length.ToString());
+                DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend) Raw response data: {JsonSerializer.Serialize(actionGroups.Data)}");
 
-                var formattedActionGroups = FormatActionsFromBackend(actionGroups.SelectMany(ag => ag.Data).ToList());
-                DebugOutput($"Received {actionGroups.Count} action groups from backend");
+                var formattedActionGroups = FormatActionsFromBackend(actionGroups.Data);
+                DebugOutput($"Received {actionGroups.Data.Count} action groups from backend");
 
                 if (!ActionGroups.SequenceEqual(formattedActionGroups))
                 {

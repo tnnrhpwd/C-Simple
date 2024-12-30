@@ -684,20 +684,20 @@ namespace CSimple.Pages
                 }
 
                 var data = "|Action:";
-                var actionGroups = await _dataService.GetDataAsync(new List<string> { data }, token);
+                var actionGroups = await _dataService.GetDataAsync(data, token);
 
-                if (actionGroups != null && actionGroups.Any())
+                if (actionGroups.DataIsSuccess)
                 {
-                    foreach (var actionGroupJson in actionGroups)
+                    foreach (var actionGroupJson in actionGroups.Data)
                     {
-                        var actionGroup = JsonConvert.DeserializeObject<ActionGroup>(actionGroupJson.ToString());
+                        var actionGroup = JsonConvert.DeserializeObject<ActionGroup>(actionGroupJson);
                         ActionGroups.Add(actionGroup);
                     }
                     DebugOutput("Action Groups Loaded from Backend");
                 }
                 else
                 {
-                    DebugOutput("Error loading action groups from database.");
+                    DebugOutput($"Error loading action groups from database: {actionGroups.DataMessage}");
                 }
             }
             catch (Exception ex)
@@ -1011,30 +1011,5 @@ namespace CSimple.Pages
             public int Y;
         }
 #endif
-
-        private async Task LoadObservationData()
-        {
-            try
-            {
-                var token = await SecureStorage.GetAsync("userToken");
-                if (string.IsNullOrEmpty(token))
-                {
-                    Debug.WriteLine("User is not logged in.");
-                    return;
-                }
-
-                var searchString = "Observation:";
-                var searchStrings = new List<string> { searchString };
-                var observationData = await _dataService.GetDataAsync(searchStrings, token);
-                Debug.WriteLine($"Received observation data from backend");
-
-                // Process observationData as needed
-                // ...existing code...
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading observation data: {ex.Message}");
-            }
-        }
     }
 }

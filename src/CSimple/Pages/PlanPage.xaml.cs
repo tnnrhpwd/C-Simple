@@ -134,12 +134,9 @@ namespace CSimple.Pages
                     return;
                 }
 
-                var searchString = "Plan:";
-                var searchStrings = new List<string> { searchString };
-                var planData = await _dataService.GetDataAsync(searchStrings, token);
-                Debug.WriteLine($"Received plan data from backend");
-
-                var formattedPlans = FormatPlansFromBackend(planData.Select(p => p.ToString()));
+                var data = "Plan";
+                var plans = await _dataService.GetDataAsync(data, token);
+                var formattedPlans = FormatPlansFromBackend(plans.Data);
 
                 MyPlans.Clear();
                 foreach (var plan in formattedPlans)

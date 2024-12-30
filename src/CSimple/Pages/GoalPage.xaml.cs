@@ -131,13 +131,9 @@ namespace CSimple.Pages
                     return;
                 }
 
-                var searchString = "Goal:";
-                var searchStrings = new List<string> { searchString };
-                var goalData = await _dataService.GetDataAsync(searchStrings, token);
-                Debug.WriteLine($"Received goal data from backend");
-
-                var goalStrings = goalData.Select(g => g.ToString()).ToList();
-                var formattedGoals = FormatGoalsFromBackend(goalStrings);
+                var data = "Goal";
+                var goals = await _dataService.GetDataAsync(data, token);
+                var formattedGoals = FormatGoalsFromBackend(goals.Data);
 
                 MyGoals.Clear();
                 foreach (var goal in formattedGoals)

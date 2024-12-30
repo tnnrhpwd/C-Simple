@@ -40,56 +40,47 @@ public class DataService
         return await HandleResponse<DataClass>(response);
     }
 
-    // Get data with multiple 'data.text' query parameters
-    public async Task<List<DataClass>> GetDataAsync(List<string> searchStrings, string token)
+    // Get data with a single 'data' query parameter
+    public async Task<DataClass> GetDataAsync(string data, string token)
     {
         SetAuthorizationHeader(token);
-        var results = new List<DataClass>();
 
-        foreach (var searchString in searchStrings)
+        // Construct the URL with the query parameter
+        var url = $"{BaseUrl}?data={data}";
+        Debug.WriteLine($"Request URL: {url}");  // Log the request URL for debugging
+
+        const int maxRetries = 5;
+        const int delayMilliseconds = 10000; // 10 seconds
+        int retryCount = 0;
+
+        while (retryCount < maxRetries)
         {
-            var url = $"{BaseUrl}";
-            var queryParams = new Dictionary<string, string> { { "data.text", searchString } };
-            var queryString = new FormUrlEncodedContent(queryParams).ReadAsStringAsync().Result;
-
-            Debug.WriteLine($"Calling GET URL: {url}");
-            Debug.WriteLine($"Calling GET Params: {queryString}");
-
-            const int maxRetries = 5;
-            const int delayMilliseconds = 10000; // 10 seconds
-            int retryCount = 0;
-
-            while (retryCount < maxRetries)
+            try
             {
-                try
-                {
-                    var response = await _httpClient.GetAsync($"{url}?{queryString}");
+                var response = await _httpClient.GetAsync(url);
 
-                    // Log the raw response content for debugging
-                    var responseContent = await response.Content.ReadAsStringAsync();
-                    Debug.WriteLine("Length of responseContent:" + JsonSerializer.Serialize(responseContent).Length.ToString());
-                    Debug.WriteLine($"1. (DataService.GetDataAsync) Raw response data: {responseContent}");
+                // Log the raw response content for debugging
+                var responseContent = await response.Content.ReadAsStringAsync();
+                Debug.WriteLine("Length of responseContent:" + JsonSerializer.Serialize(responseContent).Length.ToString());
+                Debug.WriteLine($"1. (DataService.GetDataAsync) Raw response data: {responseContent}");
 
-                    // Handle the response
-                    var dataClass = await HandleResponse<DataClass>(response);
-                    results.Add(dataClass);
-                    break;
-                }
-                catch (HttpRequestException ex)
+                // Handle the response
+                return await HandleResponse<DataClass>(response);
+            }
+            catch (HttpRequestException ex)
+            {
+                retryCount++;
+                Debug.WriteLine($"Attempt {retryCount} failed: {ex.Message}");
+                if (retryCount >= maxRetries)
                 {
-                    retryCount++;
-                    Debug.WriteLine($"Attempt {retryCount} failed: {ex.Message}");
-                    if (retryCount >= maxRetries)
-                    {
-                        throw;
-                    }
-                    Debug.WriteLine($"Retrying in {delayMilliseconds / 1000} seconds...");
-                    await Task.Delay(delayMilliseconds);
+                    throw;
                 }
+                Debug.WriteLine($"Retrying in {delayMilliseconds / 1000} seconds...");
+                await Task.Delay(delayMilliseconds);
             }
         }
 
-        return results;
+        throw new Exception("Failed to get data after multiple retries.");
     }
 
     // Update existing data using the backend's "compress" or "update" method
@@ -243,3 +234,27 @@ public class DataClass
     public string DataMessage { get; set; } = string.Empty;
     public string Operation { get; set; } = null;
 }
+// { Ideal data state:
+//   data: {
+//     user: {
+//       _id: '65673ec1fcacdd019a167520',
+//       nickname: 'tnnrhpwd',
+//       email: 'tnnrhpwd@gmail.com',
+//       token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1NjczZWMxZmNhY2RkMDE5YTE2NzUyMCIsImlhdCI6MTcyNTczMTExOCwiZXhwIjoxNzI4MzIzMTE4fQ.f9TqWqfjQfkDdNqk4Y8-rzFobJFz_en8tUI4YwR1rsI'
+//     },
+//     data: {
+//       data: [
+//         'Creator:65673ec1fcacdd019a167520|Goal:Identify the movie with brown hair guy has beach house blown up and loses his guitar on the roof. The movie was made before year 2000',
+//         'Creator:65673ec1fcacdd019a167520|Goal:hello',
+//         'Creator:64efe9e2c42368e193ee6977|Goal:hello',
+//         'Creator:65673ec1fcacdd019a167520|Goal:Build a house',
+//         'Creator:65673ec1fcacdd019a167520|Goal:Build a house'
+//       ]
+//     },
+//     dataIsError: false,
+//     dataIsSuccess: true,
+//     dataIsLoading: false,
+//     dataMessage: '',
+//     operation: 'get'
+//   }
+// }
