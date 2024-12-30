@@ -31,11 +31,6 @@
                             VerticalOptions="Center"
                             TextColor="White"
                             BackgroundColor="Blue" />
-                    <Button Text="Input Action"
-                            Clicked="OnInputActionClicked"
-                            VerticalOptions="Center"
-                            TextColor="White"
-                            BackgroundColor="Blue" />
                 </HorizontalStackLayout>
                 <!-- Table Section -->
                 <CollectionView ItemsSource="{Binding ActionGroups}" Margin="0,20,0,0">
@@ -83,51 +78,5 @@
                        TextColor="Gray" />
             </VerticalStackLayout>
         </ScrollView>
-        <!-- Popup for Input Action -->
-        <ContentView x:Name="InputActionPopup"
-                     BackgroundColor="#80000000"
-                     IsVisible="False"
-                     AbsoluteLayout.LayoutFlags="All"
-                     AbsoluteLayout.LayoutBounds="0,0,1,1">
-            <Frame BackgroundColor="White"
-                   Padding="20"
-                   WidthRequest="300"
-                   HeightRequest="350"
-                   HorizontalOptions="Center"
-                   VerticalOptions="Center"
-                   CornerRadius="10"
-                   BorderColor="Gray"
-                   HasShadow="True">
-                <VerticalStackLayout Spacing="15">
-                    <Label Text="Input Action"
-                           FontSize="Medium"
-                           HorizontalOptions="Center"
-                           TextColor="Black" />
-                    <Entry x:Name="ActionNameEntry"
-                           Placeholder="Enter Action Name"
-                           WidthRequest="250"
-                           BackgroundColor="#F0F0F0"
-                           TextColor="Black"
-                           PlaceholderColor="Black" />
-                    <Entry x:Name="ActionArrayEntry"
-                           Placeholder="Enter Actions (comma separated)"
-                           WidthRequest="250"
-                           BackgroundColor="#F0F0F0"
-                           TextColor="Black"
-                           PlaceholderColor="Black" />
-                    <Image x:Name="ActionImage"
-                           WidthRequest="75"
-                           HeightRequest="75"
-                           BackgroundColor="#F0F0F0" />
-                    <!-- <Button Text="Upload Image" Clicked="OnUploadImageClicked" BackgroundColor="Blue" TextColor="White"/> -->
-                    <HorizontalStackLayout HorizontalOptions="Center" Spacing="20">
-                        <Button Text="Okay"
-                                Clicked="OnOkayClick"
-                                BackgroundColor="Green"
-                                TextColor="White" />
-                    </HorizontalStackLayout>
-                </VerticalStackLayout>
-            </Frame>
-        </ContentView>
     </AbsoluteLayout>
 </ContentPage>
