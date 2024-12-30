@@ -57,3 +57,29 @@ public class ActionModifier
     public Func<ActionArrayItem, int> Condition { get; set; } // Example: item => item.KeyCode == 49 (Apply only if the KeyCode is 49)
     public Action<ActionArrayItem> ModifyAction { get; set; } // Example: item => item.Duration += 1000 (Add 1000 milliseconds to the duration)
 }
+
+public class User
+{
+    public string _id { get; set; }
+    public string Nickname { get; set; }
+    public string Email { get; set; }
+    public string Token { get; set; }
+}
+
+public class FileAttachment
+{
+    public string Filename { get; set; }
+    public string ContentType { get; set; }
+    public string Data { get; set; }
+}
+
+public class MergedData
+{
+    public User User { get; set; }
+    public List<DataItem> DataItems { get; set; }
+    public bool DataIsError { get; set; }
+    public bool DataIsSuccess { get; set; }
+    public bool DataIsLoading { get; set; }
+    public string DataMessage { get; set; }
+    public string Operation { get; set; }
+}
