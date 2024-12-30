@@ -12,6 +12,7 @@ namespace CSimple.Pages
         public bool ShowMyGoals { get; set; } = false;
         public string NewGoalText { get; set; } = string.Empty;
         public ObservableCollection<string> MyGoals { get; set; } = new ObservableCollection<string>();
+        public ObservableCollection<DataItem> AllDataItems { get; set; } = new ObservableCollection<DataItem>();
         public string CreateGoalButtonText => ShowNewGoal ? "Cancel Goal" : "Create Goal";
         public string MyGoalsButtonText => ShowMyGoals ? "Hide Goals" : "My Goals";
         public ICommand ToggleCreateGoalCommand { get; }
@@ -139,6 +140,16 @@ namespace CSimple.Pages
                 foreach (var goal in formattedGoals)
                 {
                     MyGoals.Add(goal);
+                }
+
+                var result = await _dataService.GetDataAsync("Goal", token);
+                if (result?.Data != null)
+                {
+                    AllDataItems.Clear();
+                    foreach (var item in result.Data)
+                    {
+                        AllDataItems.Add(item);
+                    }
                 }
 
                 await SaveGoalsToFile();

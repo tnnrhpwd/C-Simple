@@ -13,6 +13,7 @@ namespace CSimple.Pages
         public bool ShowMyPlans { get; set; } = false;
         public string NewPlanText { get; set; } = string.Empty;
         public ObservableCollection<string> MyPlans { get; set; } = new ObservableCollection<string>();
+        public ObservableCollection<DataItem> AllDataItems { get; set; } = new ObservableCollection<DataItem>();
         public string CreatePlanButtonText => ShowNewPlan ? "Cancel Plan" : "Create Plan";
         public string MyPlansButtonText => ShowMyPlans ? "Hide Plans" : "My Plans";
         public ICommand ToggleCreatePlanCommand { get; }
@@ -139,9 +140,14 @@ namespace CSimple.Pages
                 var formattedPlans = FormatPlansFromBackend(plans.Data.Cast<DataItem>().ToList());
 
                 MyPlans.Clear();
+                AllDataItems.Clear();
                 foreach (var plan in formattedPlans)
                 {
                     MyPlans.Add(plan);
+                }
+                foreach (var item in plans.Data)
+                {
+                    AllDataItems.Add(item);
                 }
 
                 await SavePlansToFile();

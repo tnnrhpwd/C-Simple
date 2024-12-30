@@ -10,6 +10,7 @@ namespace CSimple.Pages
     public partial class ActionPage : ContentPage
     {
         public ObservableCollection<ActionGroup> ActionGroups { get; set; }
+        public ObservableCollection<DataItem> AllDataItems { get; set; } = new ObservableCollection<DataItem>();
         public ICommand NavigateToObservePageCommand { get; }
         public ICommand SaveActionCommand { get; set; }
         public ICommand ToggleSimulateActionGroupCommand { get; set; }
@@ -132,63 +133,6 @@ namespace CSimple.Pages
             await Navigation.PushModalAsync(actionDetailPage);
         }
 
-        // private async void SaveAction(object parameter)
-        // {
-        //     string actionName = ActionNameEntry.Text?.Trim();
-        //     string actionArrayText = ActionArrayEntry.Text?.Trim();
-
-        //     if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(actionArrayText))
-        //     {
-        //         var actions = actionArrayText.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-        //         .Select(a => new ActionArrayItem
-        //         {
-        //             KeyCode = 54, 
-        //             Timestamp = DateTime.UtcNow.ToString("o"), 
-        //         })
-        //         .ToList();
-
-        //         var newActionGroup = new ActionGroup { ActionName = actionName, ActionArray = actions };
-        //         ActionGroups.Add(newActionGroup);
-        //         DebugOutput($"Saved Action Group: {actionName}");
-
-        //         // Save to backend
-        //         var token = await SecureStorage.GetAsync("userToken");
-        //         if (string.IsNullOrEmpty(token))
-        //         {
-        //             DebugOutput("User is not logged in.");
-        //             return;
-        //         }
-
-        //         var userId = await SecureStorage.GetAsync("userId");
-        //         if (string.IsNullOrEmpty(userId))
-        //         {
-        //             DebugOutput("User ID not found.");
-        //             return;
-        //         }
-
-        //         var actionArrayString = string.Join("+", actions.Select(a => $"{a.KeyCode}:{a.Timestamp}"));
-        //         var queryParams = new Dictionary<string, string>
-        //         {
-        //             { "data", $"Creator:{userId}|Action:{actionName}+{actionArrayString}" }
-        //         };
-        //         var response = await _dataService.CreateDataAsync(queryParams["data"], token);
-        //         if (response.DataIsSuccess == true)
-        //         {
-        //             DebugOutput("Action Group saved to backend");
-        //         }
-        //         else
-        //         {
-        //             DebugOutput("Failed to save Action Group to backend");
-        //         }
-
-        //         // Trigger save to file after adding new action group
-        //         await SaveActionGroupsToFile();
-        //     }
-        //     else
-        //     {
-        //         DebugOutput("Please enter both Action Name and Action Array.");
-        //     }
-        // }
         private async Task ToggleSimulateActionGroupAsync(ActionGroup actionGroup)
         {
             DebugOutput($"Toggling Simulation for: {actionGroup.ActionName}");
@@ -369,8 +313,10 @@ namespace CSimple.Pages
                     var parts = actionGroupItem.Data.Text.Split('|');
                     var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
                     var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
-                    DebugOutput($"Creator Part: {creatorPart}");
-
+                    foreach (var part in parts)
+                    {
+                        DebugOutput($"Part: {part}");
+                    } 
                     if (creatorPart != null && actionPart != null)
                     {
                         var actionJson = actionPart.Substring("Action:".Length).Trim();
@@ -400,8 +346,10 @@ namespace CSimple.Pages
                         }
                         else
                         {
-                            DebugOutput($"Invalid JSON format for action group: {actionJson}");
+                            // Skip processing if invalid JSON instead of reporting an error
+                            DebugOutput($"Skipping non-JSON action group part: {actionJson}");
                         }
+                        
                     }
                     else
                     {
@@ -537,27 +485,11 @@ namespace CSimple.Pages
 
         private const uint KEYEVENTF_KEYUP = 0x0002;
 
-        private void SimulateKeyPress(VirtualKey key)
-        {
-            // Simulate key down
-            keybd_event((byte)key, 0, 0, UIntPtr.Zero);
-            // Simulate key up
-            keybd_event((byte)key, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-            DebugOutput($"Executed KeyPress: {key}");
-        }
-
         private void SendVolumeCommand(byte volumeCommand)
         {
             keybd_event(volumeCommand, 0, 0, UIntPtr.Zero);
             keybd_event(volumeCommand, 0, 0x0002, UIntPtr.Zero); // Key up
             DebugOutput($"Executed Volume Command: {(volumeCommand == VK_VOLUME_MUTE ? "Mute" : volumeCommand == VK_VOLUME_DOWN ? "Volume Down" : "Volume Up")}");
-        }
-
-        private void MoveMouse(int x, int y)
-        {
-            SetCursorPos(x, y);
-            mouse_event(MOUSEEVENTF_MOVE, (uint)x, (uint)y, 0, UIntPtr.Zero);
-            DebugOutput($"Moved Mouse to Position: {x},{y}");
         }
     }
 }
