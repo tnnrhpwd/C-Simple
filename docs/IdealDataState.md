@@ -23,6 +23,23 @@
 //             }, 
 //             { 
 //                 text: 'Creator:65673ec1fcacdd019a167520|Action:{"Id":"0f7dab3a-aaaa-bbbb-cccc-a0f5e0649c7e","ActionName":"Example Action","ActionArray":[{"Timestamp":"2023-10-11T12:34:56Z","KeyCode":49,"EventType":256,"Duration":100,"Coordinates":null}],"ActionModifiers":[],"Creator":"65673ec1fcacdd019a167520","ActionArrayFormatted":"{...}","IsSimulating":false}', 
+//                 ActionGroup: {
+//                     Id: '0f7dab3a-aaaa-bbbb-cccc-a0f5e0649c7e',
+//                     ActionName: 'Example Action',
+//                     ActionArray: [
+//                         {    
+//                             Timestamp: '2023-10-11T12:34:56Z',
+//                             KeyCode: 49,
+//                             EventType: 256,
+//                             Duration: 100,
+//                             Coordinates: null
+//                         }
+//                     ],
+//                     ActionModifiers: [],
+//                     Creator: '65673ec1fcacdd019a167520',
+//                     ActionArrayFormatted: '{...}',
+//                     IsSimulating: false
+//                 },
 //                 updatedAt: '2021-07-26T18:00:00.000Z', 
 //                 createdAt: '2021-07-26T18:00:00.000Z', 
 //                 _id: '65673ec1fcacdd019a167520', 
