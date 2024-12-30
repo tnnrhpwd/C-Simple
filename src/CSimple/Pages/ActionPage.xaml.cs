@@ -358,46 +358,54 @@ namespace CSimple.Pages
                 DebugOutput($"Error saving action groups and actions: {ex.Message}");
             }
         }
-        private ObservableCollection<ActionGroup> FormatActionsFromBackend(IEnumerable<string> actionGroupStrings)
+        private ObservableCollection<ActionGroup> FormatActionsFromBackend(IEnumerable<DataItem> actionGroupItems)
         {
             var formattedActionGroups = new ObservableCollection<ActionGroup>();
 
-            foreach (var actionGroupString in actionGroupStrings)
+            foreach (var actionGroupItem in actionGroupItems)
             {
                 try
                 {
-                    var parts = actionGroupString.Split('|');
+                    var parts = actionGroupItem.Data.Text.Split('|');
                     var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
                     var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
+                    DebugOutput($"Creator Part: {creatorPart}");
 
                     if (creatorPart != null && actionPart != null)
                     {
-                        var actionJson = actionPart.Substring("Action:".Length);
-                        var actionGroup = JsonSerializer.Deserialize<ActionGroup>(actionJson);
-
-                        if (actionGroup != null)
+                        var actionJson = actionPart.Substring("Action:".Length).Trim();
+                        if (actionJson.StartsWith("{") && actionJson.EndsWith("}"))
                         {
-                            actionGroup.Creator = creatorPart.Substring("Creator:".Length);
-                            actionGroup.ActionArray = actionGroup.ActionArray ?? new List<ActionArrayItem>();
-                            actionGroup.ActionArrayFormatted = actionGroupString.Length > 50 ? actionGroupString.Substring(0, 50) + "..." : actionGroupString;
-
-                            // Initialize Id if not already set
-                            if (actionGroup.Id == Guid.Empty)
+                            var actionGroup = JsonSerializer.Deserialize<ActionGroup>(actionJson);
+                            DebugOutput($"Action Part: {actionGroup}");
+                            if (actionGroup != null)
                             {
-                                actionGroup.Id = Guid.NewGuid();
-                            }
+                                actionGroup.Creator = creatorPart.Substring("Creator:".Length);
+                                actionGroup.ActionArray = actionGroup.ActionArray ?? new List<ActionArrayItem>();
+                                actionGroup.ActionArrayFormatted = actionJson.Length > 50 ? actionJson.Substring(0, 50) + "..." : actionJson;
 
-                            formattedActionGroups.Add(actionGroup);
-                            DebugOutput($"Adding action: {actionGroup.ActionName}");
+                                // Initialize Id if not already set
+                                if (actionGroup.Id == Guid.Empty)
+                                {
+                                    actionGroup.Id = Guid.NewGuid();
+                                }
+
+                                formattedActionGroups.Add(actionGroup);
+                                DebugOutput($"Adding action: {actionGroup.ActionName}");
+                            }
+                            else
+                            {
+                                DebugOutput($"Failed to deserialize action group JSON: {actionJson}");
+                            }
                         }
                         else
                         {
-                            DebugOutput($"Failed to deserialize action group JSON: {actionJson}");
+                            DebugOutput($"Invalid JSON format for action group: {actionJson}");
                         }
                     }
                     else
                     {
-                        DebugOutput($"Invalid action group string: {actionGroupString}");
+                        DebugOutput($"Invalid action group string: {actionGroupItem.Data.Text}");
                     }
                 }
                 catch (JsonException jsonEx)
@@ -435,7 +443,7 @@ namespace CSimple.Pages
                 Debug.WriteLine("Length of actionGroups.Data:" + JsonSerializer.Serialize(actionGroups.Data).Length.ToString());
                 DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend) Raw response data: {JsonSerializer.Serialize(actionGroups.Data)}");
 
-                var formattedActionGroups = FormatActionsFromBackend(actionGroups.Data);
+                var formattedActionGroups = FormatActionsFromBackend(actionGroups.Data.Cast<DataItem>().ToList());
                 DebugOutput($"Received {actionGroups.Data.Count} action groups from backend");
 
                 if (!ActionGroups.SequenceEqual(formattedActionGroups))

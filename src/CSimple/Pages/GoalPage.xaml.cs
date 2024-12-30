@@ -133,7 +133,7 @@ namespace CSimple.Pages
 
                 var data = "Goal";
                 var goals = await _dataService.GetDataAsync(data, token);
-                var formattedGoals = FormatGoalsFromBackend(goals.Data);
+                var formattedGoals = FormatGoalsFromBackend(goals.Data.Cast<DataItem>().ToList());
 
                 MyGoals.Clear();
                 foreach (var goal in formattedGoals)
@@ -149,15 +149,15 @@ namespace CSimple.Pages
             }
         }
 
-        private ObservableCollection<string> FormatGoalsFromBackend(IEnumerable<string> goalStrings)
+        private ObservableCollection<string> FormatGoalsFromBackend(IEnumerable<DataItem> goalItems)
         {
             var formattedGoals = new ObservableCollection<string>();
 
-            foreach (var goalString in goalStrings)
+            foreach (var goalItem in goalItems)
             {
-                if (goalString.Contains("|Goal"))
+                if (goalItem.Data.Text.Contains("|Goal"))
                 {
-                    formattedGoals.Add(goalString);
+                    formattedGoals.Add(goalItem.Data.Text);
                 }
             }
 

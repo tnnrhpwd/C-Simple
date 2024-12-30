@@ -136,7 +136,7 @@ namespace CSimple.Pages
 
                 var data = "Plan";
                 var plans = await _dataService.GetDataAsync(data, token);
-                var formattedPlans = FormatPlansFromBackend(plans.Data);
+                var formattedPlans = FormatPlansFromBackend(plans.Data.Cast<DataItem>().ToList());
 
                 MyPlans.Clear();
                 foreach (var plan in formattedPlans)
@@ -152,15 +152,15 @@ namespace CSimple.Pages
             }
         }
 
-        private ObservableCollection<string> FormatPlansFromBackend(IEnumerable<string> planStrings)
+        private ObservableCollection<string> FormatPlansFromBackend(IEnumerable<DataItem> planItems)
         {
             var formattedPlans = new ObservableCollection<string>();
 
-            foreach (var planString in planStrings)
+            foreach (var planItem in planItems)
             {
-                if (planString.Contains("|Plan"))
+                if (planItem.Data.Text.Contains("|Plan"))
                 {
-                    formattedPlans.Add(planString);
+                    formattedPlans.Add(planItem.Data.Text);
                 }
             }
 

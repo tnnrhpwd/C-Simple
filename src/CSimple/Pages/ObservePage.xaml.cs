@@ -688,7 +688,8 @@ namespace CSimple.Pages
 
                 if (actionGroups.DataIsSuccess)
                 {
-                    foreach (var actionGroupJson in actionGroups.Data)
+                    var formattedActionGroups = FormatActionsFromBackend(actionGroups.Data.Cast<DataItem>().ToList());
+                    foreach (var actionGroupJson in formattedActionGroups)
                     {
                         var actionGroup = JsonConvert.DeserializeObject<ActionGroup>(actionGroupJson);
                         ActionGroups.Add(actionGroup);
@@ -1011,5 +1012,68 @@ namespace CSimple.Pages
             public int Y;
         }
 #endif
+        private ObservableCollection<string> FormatActionsFromBackend(IEnumerable<DataItem> actionGroupItems)
+        {
+            var formattedActionGroups = new ObservableCollection<string>();
+
+            foreach (var actionGroupItem in actionGroupItems)
+            {
+                try
+                {
+                    var parts = actionGroupItem.Data.Text.Split('|');
+                    var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
+                    var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
+
+                    if (creatorPart != null && actionPart != null)
+                    {
+                        var actionJson = actionPart.Substring("Action:".Length).Trim();
+                        if (actionJson.StartsWith("{") && actionJson.EndsWith("}"))
+                        {
+                            var actionGroup = JsonConvert.DeserializeObject<ActionGroup>(actionJson);
+
+                            if (actionGroup != null)
+                            {
+                                actionGroup.Creator = creatorPart.Substring("Creator:".Length);
+                                actionGroup.ActionArray = actionGroup.ActionArray ?? new List<ActionArrayItem>();
+                                actionGroup.ActionArrayFormatted = actionGroupItem.Data.Text.Length > 50 ? actionGroupItem.Data.Text.Substring(0, 50) + "..." : actionGroupItem.Data.Text;
+
+                                // Initialize Id if not already set
+                                if (actionGroup.Id == Guid.Empty)
+                                {
+                                    actionGroup.Id = Guid.NewGuid();
+                                }
+
+                                formattedActionGroups.Add(actionGroupItem.Data.Text);
+                                DebugOutput($"Adding action: {actionGroup.ActionName}");
+                            }
+                            else
+                            {
+                                DebugOutput($"Failed to deserialize action group JSON: {actionJson}");
+                            }
+                        }
+                        else
+                        {
+                            DebugOutput($"Invalid JSON format for action group: {actionJson}");
+                        }
+                    }
+                    else
+                    {
+                        DebugOutput($"Invalid action group string: {actionGroupItem.Data.Text}");
+                    }
+                }
+                catch (JsonException jsonEx)
+                {
+                    DebugOutput($"JSON error parsing action group: {jsonEx.Message}");
+                }
+                catch (Exception ex)
+                {
+                    DebugOutput($"Error parsing action group: {ex.Message}");
+                }
+            }
+            // Log raw response data
+            Debug.WriteLine("Length of formattedActionGroups:" + JsonConvert.SerializeObject(formattedActionGroups).Length.ToString());
+            DebugOutput($"2. (ObservePage.FormatActionsFromBackend) Raw response data: {JsonConvert.SerializeObject(formattedActionGroups)}");
+            return formattedActionGroups;
+        }
     }
 }

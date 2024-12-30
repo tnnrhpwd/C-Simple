@@ -46,7 +46,7 @@ public class DataService
         SetAuthorizationHeader(token);
 
         // Construct the URL with the query parameter
-        var url = $"{BaseUrl}?data={data}";
+        var url = $"{BaseUrl}?data={{\"text\":\"{data}\"}}";
         Debug.WriteLine($"Request URL: {url}");  // Log the request URL for debugging
 
         const int maxRetries = 5;
@@ -203,7 +203,7 @@ public class DataService
         if (response.IsSuccessStatusCode)
         {
             var responseContent = await response.Content.ReadAsStringAsync();
-            Debug.WriteLine("Length of responseContent:" + JsonSerializer.Serialize(responseContent).Length.ToString());
+            Debug.WriteLine("Length of responseContent:" + responseContent.Length.ToString());
             Debug.WriteLine($"1 (DataService.HandleResponse) Raw response data: {responseContent}");
             return JsonSerializer.Deserialize<T>(responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
@@ -227,12 +227,34 @@ public class User
 
 public class DataClass
 {
-    public List<string> Data { get; set; } = new List<string>();
+    public List<DataItem> Data { get; set; } = new List<DataItem>();
     public bool DataIsError { get; set; } = false;
     public bool DataIsSuccess { get; set; } = false;
     public bool DataIsLoading { get; set; } = false;
     public string DataMessage { get; set; } = string.Empty;
     public string Operation { get; set; } = null;
+}
+
+public class DataItem
+{
+    public DataContent Data { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public string Id { get; set; }
+    public int Version { get; set; }
+}
+
+public class DataContent
+{
+    public string Text { get; set; }
+    public List<FileItem> Files { get; set; } = new List<FileItem>();
+}
+
+public class FileItem
+{
+    public string Filename { get; set; }
+    public string ContentType { get; set; }
+    public string Data { get; set; }
 }
 // { Ideal data state:
 //   data: {
@@ -244,12 +266,39 @@ public class DataClass
 //     },
 //     data: {
 //       data: [
-//         'Creator:65673ec1fcacdd019a167520|Goal:Identify the movie with brown hair guy has beach house blown up and loses his guitar on the roof. The movie was made before year 2000',
-//         'Creator:65673ec1fcacdd019a167520|Goal:hello',
-//         'Creator:64efe9e2c42368e193ee6977|Goal:hello',
-//         'Creator:65673ec1fcacdd019a167520|Goal:Build a house',
-//         'Creator:65673ec1fcacdd019a167520|Goal:Build a house'
-//       ]
+//         {
+//           data: {
+//              text: 'Creator:65673ec1fcacdd019a167520|Goal:Identify the movie with brown hair guy has beach house blown up and loses his guitar on the roof. The movie was made before year 2000}',
+//              files: [
+//                  {
+//                      filename: 'Creator:65673ec1fcacdd019a167520|Goal:Build a house'
+//                      contentType: 'text/plain'
+//                      data: 'iVBORw0KGgoAAAANSUhEUgAABAAAAAQACAYAAAB/HSuDA'
+//                  }
+//              },
+//           updatedAt: '2021-07-26T18:00:00.000Z',
+//           createdAt: '2021-07-26T18:00:00.000Z',
+//           _id: '65673ec1fcacdd019a167520',
+//           __v: 0
+//           },
+//         },
+//         {
+//           data: {
+//              text: 'Creator:65673ec1fcacdd019a167520|Goal:Identify the movie with brown hair guy has beach house blown up and loses his guitar on the roof. The movie was made before year 2000}',
+//              files: [
+//                  {
+//                      filename: 'simple file name'
+//                      contentType: 'text/plain'
+//                      data: 'iVBORw0KGgoAAAANSUhEUgAABAAAAAQACAYAAAB/HSuDA'
+//                  }
+//              },
+//           updatedAt: '2021-07-26T18:00:00.000Z',
+//           createdAt: '2021-07-26T18:00:00.000Z',
+//           _id: '65673ec1fcacdd019a167520',
+//           __v: 0
+//           },
+//         },
+//       ],
 //     },
 //     dataIsError: false,
 //     dataIsSuccess: true,
