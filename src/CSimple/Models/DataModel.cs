@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Collections.ObjectModel;
+
 public class DataModel : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler PropertyChanged;
@@ -24,23 +25,30 @@ public class DataModel : INotifyPropertyChanged
     public string DataMessage { get; set; }
     public string Operation { get; set; }
 }
+
 public class DataItem {
-    public ObservableCollection<DataObject> Data { get; set; } = new ObservableCollection<DataObject>();
+    public DataObject Data { get; set; } = new DataObject();
     public DateTime updatedAt { get; set; }
     public DateTime createdAt { get; set; }
     public string _id { get; set; }
     public int __v { get; set; }
+    public string Creator { get; set; }
+    public string ActionName { get; set; }
+    public bool IsPublic { get; set; }
 }
+
 public class DataObject {
     public string text { get; set; }
     public List<FileItem> files { get; set; } = new List<FileItem>();
     public ObservableCollection<ActionGroup> ActionGroups { get; set; } = new ObservableCollection<ActionGroup>();
 }
+
 public class FileItem {
     public string Filename { get; set; }
     public string ContentType { get; set; }
     public string Data { get; set; }
 }
+
 public class ActionGroup : DataModel {
     private bool _isSimulating = false;
     public Guid Id { get; set; } = Guid.NewGuid(); // Unique identifier for each ActionGroup
@@ -62,6 +70,7 @@ public class ActionGroup : DataModel {
         }
     }
 }
+
 public class ActionItem {
     public DateTime Timestamp { get; set; }
     public ushort KeyCode { get; set; } // Key Code: 49 for execute key press
@@ -69,11 +78,13 @@ public class ActionItem {
     public int Duration { get; set; } // Duration: key press duration in milliseconds
     public Coordinates Coordinates { get; set; }
 }
+
 public class Coordinates // Optional, used for mouse events
 {
     public int X { get; set; }
     public int Y { get; set; }
 }
+
 public class ActionModifier
 {
     public string ModifierName { get; set; } // Example: "DelayModifier"

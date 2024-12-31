@@ -207,7 +207,7 @@ namespace CSimple.Pages
         {
             try
             {
-                await _fileService.SaveGoalsAsync(MyGoals);
+                // await _fileService.SaveGoalsAsync(MyGoals);
                 Debug.WriteLine("Goals saved to file");
             }
             catch (Exception ex)
@@ -220,12 +220,12 @@ namespace CSimple.Pages
         {
             try
             {
-                var loadedGoals = await _fileService.LoadGoalsAsync();
+                // var loadedGoals = await _fileService.LoadGoalsAsync();
                 MyGoals.Clear();
-                foreach (var goal in loadedGoals)
-                {
-                    MyGoals.Add(goal);
-                }
+                // foreach (var goal in loadedGoals)
+                // {
+                //     MyGoals.Add(goal);
+                // }
                 Debug.WriteLine("Goals loaded from file");
             }
             catch (Exception ex)

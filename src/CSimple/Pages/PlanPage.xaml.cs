@@ -205,7 +205,7 @@ namespace CSimple.Pages
         {
             try
             {
-                await _fileService.SavePlansAsync(MyPlans);
+                // await _fileService.SavePlansAsync(MyPlans);
                 Debug.WriteLine("Plans saved to file");
             }
             catch (Exception ex)
@@ -218,12 +218,12 @@ namespace CSimple.Pages
         {
             try
             {
-                var loadedPlans = await _fileService.LoadPlansAsync();
-                MyPlans.Clear();
-                foreach (var plan in loadedPlans)
-                {
-                    MyPlans.Add(plan);
-                }
+                // var loadedPlans = await _fileService.LoadPlansAsync();
+                // MyPlans.Clear();
+                // foreach (var plan in loadedPlans)
+                // {
+                //     MyPlans.Add(plan);
+                // }
                 Debug.WriteLine("Plans loaded from file");
             }
             catch (Exception ex)

@@ -37,7 +37,7 @@
                             BackgroundColor="Blue" />
                 </HorizontalStackLayout>
                 <!-- Table Section -->
-                <CollectionView ItemsSource="{Binding ActionGroups}" Margin="0,20,0,0">
+                <CollectionView ItemsSource="{Binding Data}" Margin="0,20,0,0">
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
                             <Frame CornerRadius="10" Padding="10" Margin="5">
@@ -56,6 +56,10 @@
                                     <Label Grid.Column="1"
                                            Text="{Binding ActionArrayFormatted}"
                                            VerticalOptions="Center" />
+                                    <Label Text="{Binding Creator}"
+                                           TextColor="Gray"
+                                           VerticalOptions="Center"
+                                           FontSize="Small" />
                                     <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
                                         <Button Text="{Binding IsSimulating, Converter={StaticResource BoolToTextConverter}}"
                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}"

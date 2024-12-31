@@ -725,8 +725,8 @@ namespace CSimple.Pages
         {
             try
             {
-                var loadedActionGroups = await _fileService.LoadActionGroupsAsync();
-                ActionGroups = new ObservableCollection<ActionGroup>((IEnumerable<ActionGroup>)loadedActionGroups);
+                // var loadedActionGroups = await _fileService.LoadActionGroupsAsync();
+                // ActionGroups = new ObservableCollection<ActionGroup>((IEnumerable<ActionGroup>)loadedActionGroups);
                 DebugOutput("Action Groups Loaded from File");
             }
             catch (Exception ex)
