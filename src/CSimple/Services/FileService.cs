@@ -29,8 +29,8 @@ namespace CSimple.Services
             EnsureFileExists(_plansFilePath);
         }
 
-        public Task SaveActionGroupsAsync(ObservableCollection<ActionGroup> actionGroups) =>
-            SaveToFileAsync(_actionGroupsFilePath, new { ActionGroups = actionGroups });
+        public Task SaveActionGroupsAsync(List<DataItem> dataItems) =>
+            SaveToFileAsync(_actionGroupsFilePath, new { dataItems = dataItems });
 
         public Task<ObservableCollection<ActionGroup>> LoadActionGroupsAsync() =>
             LoadFromFileAsync<ObservableCollection<ActionGroup>, ActionGroupsContainer>(_actionGroupsFilePath, c => c.ActionGroups);

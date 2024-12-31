@@ -4,13 +4,13 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows.Input;
+using System.ComponentModel;
 
 namespace CSimple.Pages
 {
     public partial class ActionPage : ContentPage
     {
-        public ObservableCollection<ActionGroup> ActionGroups { get; set; }
-        public ObservableCollection<DataItem> AllDataItems { get; set; } = new ObservableCollection<DataItem>();
+        public ObservableCollection<DataModel> Data { get; set; } = new ObservableCollection<DataModel>();
         public ICommand NavigateToObservePageCommand { get; }
         public ICommand SaveActionCommand { get; set; }
         public ICommand ToggleSimulateActionGroupCommand { get; set; }
@@ -48,30 +48,27 @@ namespace CSimple.Pages
             SaveToFileCommand = new Command(async () => await SaveActionGroupsToFile());
             LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
             NavigateToObservePageCommand = new Command(async () => await NavigateToObservePage());
-            DeleteActionGroupCommand = new Command<ActionGroup>(async (actionGroup) => await DeleteActionGroupAsync(actionGroup));
+            DeleteActionGroupCommand = new Command<DataItem>(async (dataItem) => await DeleteDataItemAsync(dataItem));
 
             RowTappedCommand = new Command<ActionGroup>(OnRowTapped);
-            // Initialize ActionGroups collection
-            ActionGroups = new ObservableCollection<ActionGroup>();
 
             // Load existing action groups from file asynchronously
             _ = LoadActionGroupsFromFile(); // Ignore the returned task since we only need to ensure it's running
             DebugOutput("Action Page Initialized");
-            BindingContext = this;
         }
 
-        private async Task DeleteActionGroupAsync(ActionGroup actionGroup)
+        private async Task DeleteDataItemAsync(DataItem dataItem)
         {
-            if (actionGroup == null)
+            if (dataItem == null)
                 return;
 
             try
             {
-                bool confirmDelete = await DisplayAlert("Confirm Delete", $"Are you sure you want to delete the action group '{actionGroup.ActionName}'?", "Yes", "No");
+                bool confirmDelete = await DisplayAlert("Confirm Delete", $"Are you sure you want to delete the action group '{dataItem.ToString}'?", "Yes", "No");
                 if (confirmDelete)
                 {
                     // Remove from the collection
-                    ActionGroups.Remove(actionGroup);
+                    ((DataModel)BindingContext).Data.Remove(dataItem);
 
                     // Save the updated collection to file
                     await SaveActionGroupsToFile();
@@ -80,18 +77,18 @@ namespace CSimple.Pages
                     var token = await SecureStorage.GetAsync("userToken");
                     if (!string.IsNullOrEmpty(token))
                     {
-                        var response = await _dataService.DeleteDataAsync(actionGroup.Id.ToString(), token);
+                        var response = await _dataService.DeleteDataAsync(dataItem._id, token);
                         if (response.DataIsSuccess)
                         {
-                            DebugOutput($"Action Group {actionGroup.ActionName} deleted from backend.");
+                            DebugOutput($"Action Group {dataItem.ToString} deleted from backend.");
                         }
                         else
                         {
-                            DebugOutput($"Failed to delete Action Group {actionGroup.ActionName} from backend.");
+                            DebugOutput($"Failed to delete Action Group {dataItem.ToString} from backend.");
                         }
                     }
 
-                    DebugOutput($"Action Group {actionGroup.ActionName} deleted.");
+                    DebugOutput($"Action Group {dataItem.ToString} deleted.");
                 }
             }
             catch (Exception ex)
@@ -139,7 +136,7 @@ namespace CSimple.Pages
             if (actionGroup != null)
             {
                 actionGroup.IsSimulating = !actionGroup.IsSimulating;
-                OnPropertyChanged(nameof(ActionGroups));
+                // ((DataModel)BindingContext).OnPropertyChanged(nameof(DataModel.Data.Data.ActionGroups));
 
                 if (actionGroup.IsSimulating)
                 {
@@ -161,7 +158,7 @@ namespace CSimple.Pages
                             DebugOutput($"Scheduling Action: {action.Timestamp}");
 
                             DateTime currentActionTime;
-                            if (!DateTime.TryParse(action.Timestamp, null, System.Globalization.DateTimeStyles.RoundtripKind, out currentActionTime))
+                            if (!DateTime.TryParse(action.Timestamp.ToString(), null, System.Globalization.DateTimeStyles.RoundtripKind, out currentActionTime))
                             {
                                 DebugOutput($"Failed to parse Timestamp: {action.Timestamp}");
                                 continue;
@@ -191,8 +188,8 @@ namespace CSimple.Pages
                                     case 512: // Mouse Move
                                         if (action.Coordinates != null)
                                         {
-                                            int x = action.Coordinates.X;
-                                            int y = action.Coordinates.Y;
+                                            int x = action.Coordinates?.X ?? 0;
+                                            int y = action.Coordinates?.Y ?? 0;
 
                                             DebugOutput($"Simulating Mouse Move at {action.Timestamp} to X: {x}, Y: {y}");
                                             InputSimulator.MoveMouse(x, y);
@@ -276,7 +273,7 @@ namespace CSimple.Pages
                     {
                         actionGroup.IsSimulating = false;
                         IsSimulating = false; // Set IsSimulating to false when simulation ends
-                        OnPropertyChanged(nameof(ActionGroups));
+                        // ((DataModel)BindingContext).OnPropertyChanged(nameof(DataModel.ActionGroups));
                     }
                 }
                 else
@@ -293,8 +290,8 @@ namespace CSimple.Pages
         {
             try
             {
-                DebugOutput("Length of ActionGroups:" + JsonSerializer.Serialize(ActionGroups).Length.ToString());
-                await _fileService.SaveActionGroupsAsync(ActionGroups);
+                DebugOutput("Length of DataModel:" + JsonSerializer.Serialize(((DataModel)BindingContext).Data).Length.ToString());
+                await _fileService.SaveActionGroupsAsync(((DataModel)BindingContext).Data);
                 DebugOutput("Action Groups and Actions Saved to File");
             }
             catch (Exception ex)
@@ -302,59 +299,60 @@ namespace CSimple.Pages
                 DebugOutput($"Error saving action groups and actions: {ex.Message}");
             }
         }
-        private ObservableCollection<ActionGroup> FormatActionsFromBackend(IEnumerable<DataItem> actionGroupItems)
+        private ObservableCollection<ActionGroup> FormatActionsFromBackend(IEnumerable<DataItem> dataItems)
         {
             var formattedActionGroups = new ObservableCollection<ActionGroup>();
 
-            foreach (var actionGroupItem in actionGroupItems)
+            foreach (var DataItem in dataItems)
             {
                 try
                 {
-                    var parts = actionGroupItem.Data.Text.Split('|');
-                    var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
-                    var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
-                    foreach (var part in parts)
-                    {
-                        DebugOutput($"Part: {part}");
-                    } 
-                    if (creatorPart != null && actionPart != null)
-                    {
-                        var actionJson = actionPart.Substring("Action:".Length).Trim();
-                        if (actionJson.StartsWith("{") && actionJson.EndsWith("}"))
-                        {
-                            var actionGroup = JsonSerializer.Deserialize<ActionGroup>(actionJson);
-                            DebugOutput($"Action Part: {actionGroup}");
-                            if (actionGroup != null)
-                            {
-                                actionGroup.Creator = creatorPart.Substring("Creator:".Length);
-                                actionGroup.ActionArray = actionGroup.ActionArray ?? new List<ActionArrayItem>();
-                                actionGroup.ActionArrayFormatted = actionJson.Length > 50 ? actionJson.Substring(0, 50) + "..." : actionJson;
+                    DebugOutput($"DataItem: {DataItem.ToString}");
+                    // var parts = DataItem.Data.text.Split('|');
+                    // var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
+                    // var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
+                    // foreach (var part in parts)
+                    // {
+                    //     DebugOutput($"Part: {part}");
+                    // } 
+                    // if (creatorPart != null && actionPart != null)
+                    // {
+                    //     var actionJson = actionPart.Substring("Action:".Length).Trim();
+                    //     if (actionJson.StartsWith("{") && actionJson.EndsWith("}"))
+                    //     {
+                    //         var actionGroup = JsonSerializer.Deserialize<ActionGroup>(actionJson);
+                    //         DebugOutput($"Action Part: {actionGroup}");
+                    //         if (actionGroup != null)
+                    //         {
+                    //             actionGroup.Creator = creatorPart.Substring("Creator:".Length);
+                    //             actionGroup.ActionArray = actionGroup.ActionArray ?? new List<ActionItem>();
+                    //             actionGroup.ActionArrayFormatted = actionJson.Length > 50 ? actionJson.Substring(0, 50) + "..." : actionJson;
 
-                                // Initialize Id if not already set
-                                if (actionGroup.Id == Guid.Empty)
-                                {
-                                    actionGroup.Id = Guid.NewGuid();
-                                }
+                    //             // Initialize Id if not already set
+                    //             if (actionGroup.Id == Guid.Empty)
+                    //             {
+                    //                 actionGroup.Id = Guid.NewGuid();
+                    //             }
 
-                                formattedActionGroups.Add(actionGroup);
-                                DebugOutput($"Adding action: {actionGroup.ActionName}");
-                            }
-                            else
-                            {
-                                DebugOutput($"Failed to deserialize action group JSON: {actionJson}");
-                            }
-                        }
-                        else
-                        {
-                            // Skip processing if invalid JSON instead of reporting an error
-                            DebugOutput($"Skipping non-JSON action group part: {actionJson}");
-                        }
+                    //             formattedActionGroups.Add(actionGroup);
+                    //             DebugOutput($"Adding action: {actionGroup.ActionName}");
+                    //         }
+                    //         else
+                    //         {
+                    //             DebugOutput($"Failed to deserialize action group JSON: {actionJson}");
+                    //         }
+                    //     }
+                    //     else
+                    //     {
+                    //         // Skip processing if invalid JSON instead of reporting an error
+                    //         DebugOutput($"Skipping non-JSON action group part: {actionJson}");
+                    //     }
                         
-                    }
-                    else
-                    {
-                        DebugOutput($"Invalid action group string: {actionGroupItem.Data.Text}");
-                    }
+                    // }
+                    // else
+                    // {
+                    //     DebugOutput($"Invalid action group string: {DataItem.Data.text}");
+                    // }
                 }
                 catch (JsonException jsonEx)
                 {
@@ -375,41 +373,41 @@ namespace CSimple.Pages
         {
             try
             {
-                DebugOutput("Starting Action Groups Load Task");
-                var token = await SecureStorage.GetAsync("userToken");
-                if (string.IsNullOrEmpty(token))
-                {
-                    DebugOutput("User is not logged in.");
-                    return;
-                }
+                // DebugOutput("Starting Action Groups Load Task");
+                // var token = await SecureStorage.GetAsync("userToken");
+                // if (string.IsNullOrEmpty(token))
+                // {
+                //     DebugOutput("User is not logged in.");
+                //     return;
+                // }
 
-                var data = "Action";
-                var actionGroups = await _dataService.GetDataAsync(data, token);
-                DebugOutput($"Received action groups from backend");
+                // var data = "Action";
+                // var actionGroups = await _dataService.GetDataAsync(data, token);
+                // DebugOutput($"Received action groups from backend");
 
-                // Log raw response data
-                Debug.WriteLine("Length of actionGroups.Data:" + JsonSerializer.Serialize(actionGroups.Data).Length.ToString());
-                DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend) Raw response data: {JsonSerializer.Serialize(actionGroups.Data)}");
+                // // Log raw response data
+                // Debug.WriteLine("Length of actionGroups.Data:" + JsonSerializer.Serialize(actionGroups.Data).Length.ToString());
+                // DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend) Raw response data: {JsonSerializer.Serialize(actionGroups.Data)}");
 
-                var formattedActionGroups = FormatActionsFromBackend(actionGroups.Data.Cast<DataItem>().ToList());
-                DebugOutput($"Received {actionGroups.Data.Count} action groups from backend");
+                // var formattedActionGroups = FormatActionsFromBackend(actionGroups.Data.Cast<DataItem>().ToList());
+                // DebugOutput($"Received {actionGroups.Data.Count} action groups from backend");
 
-                if (!ActionGroups.SequenceEqual(formattedActionGroups))
-                {
-                    ActionGroups.Clear();
-                    foreach (var actionGroup in formattedActionGroups)
-                    {
-                        ActionGroups.Add(actionGroup);
-                    }
-                    DebugOutput("Action Groups Loaded from Backend");
+                // if (!((DataModel)BindingContext).Data.Cast<DataItem>().SequenceEqual(formattedActionGroups.Cast<DataItem>()))
+                // {
+                //     ((DataModel)BindingContext).Data.Clear();
+                //     foreach (var actionGroup in formattedActionGroups)
+                //     {
+                //         ((DataModel)BindingContext).Data.Add(actionGroup);
+                //     }
+                //     DebugOutput("Action Groups Loaded from Backend");
 
-                    // Save loaded action groups to file
-                    await SaveActionGroupsToFile();
-                }
-                else
-                {
-                    DebugOutput("No changes in Action Groups from Backend");
-                }
+                //     // Save loaded action groups to file
+                //     await SaveActionGroupsToFile();
+                // }
+                // else
+                // {
+                //     DebugOutput("No changes in Action Groups from Backend");
+                // }
             }
             catch (Exception ex)
             {
@@ -421,22 +419,22 @@ namespace CSimple.Pages
         {
             try
             {
-                var loadedActionGroups = await _fileService.LoadActionGroupsAsync();
-                var formattedActionGroups = new ObservableCollection<ActionGroup>(loadedActionGroups.Cast<ActionGroup>());
+                // var loadedActionGroups = await _fileService.LoadActionGroupsAsync();
+                // var formattedActionGroups = new ObservableCollection<DataItem>(loadedActionGroups.Cast<DataItem>());
 
-                if (!ActionGroups.SequenceEqual(formattedActionGroups))
-                {
-                    ActionGroups.Clear();
-                    foreach (var actionGroup in formattedActionGroups)
-                    {
-                        ActionGroups.Add(actionGroup);
-                    }
-                    DebugOutput("Action Groups Loaded from File");
-                }
-                else
-                {
-                    DebugOutput("No changes in Action Groups from File");
-                }
+                // if (!((DataModel)BindingContext).Data.Cast<DataItem>().SequenceEqual(formattedActionGroups))
+                // {
+                //     ((DataModel)BindingContext).Data.Clear();
+                //     foreach (var actionGroup in formattedActionGroups)
+                //     {
+                //         ((DataModel)BindingContext).Data.Add(actionGroup);
+                //     }
+                //     DebugOutput("Action Groups Loaded from File");
+                // }
+                // else
+                // {
+                //     DebugOutput("No changes in Action Groups from File");
+                // }
             }
             catch (Exception ex)
             {
@@ -490,6 +488,13 @@ namespace CSimple.Pages
             keybd_event(volumeCommand, 0, 0, UIntPtr.Zero);
             keybd_event(volumeCommand, 0, 0x0002, UIntPtr.Zero); // Key up
             DebugOutput($"Executed Volume Command: {(volumeCommand == VK_VOLUME_MUTE ? "Mute" : volumeCommand == VK_VOLUME_DOWN ? "Volume Down" : "Volume Up")}");
+        }
+
+        public new event PropertyChangedEventHandler PropertyChanged;
+
+        public new void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
 }

@@ -19,7 +19,7 @@ public class UpdateDataService
     }
 
     // Method to update data
-    public async Task<DataClass> UpdateDataAsync(string id, object data, string token)
+    public async Task<DataModel> UpdateDataAsync(string id, object data, string token)
     {
         SetAuthorizationHeader(token);
         try
@@ -31,7 +31,7 @@ public class UpdateDataService
             var response = await _httpClient.PutAsync($"{BaseUrl}{id}", jsonContent);
 
             // Handle the response
-            return await HandleResponse<DataClass>(response);
+            return await HandleResponse<DataModel>(response);
         }
         catch (Exception ex)
         {

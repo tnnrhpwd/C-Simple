@@ -21,7 +21,7 @@ public class DataService
     }
 
     // Create new data
-    public async Task<DataClass> CreateDataAsync(string data, string token)
+    public async Task<DataModel> CreateDataAsync(string data, string token)
     {
         SetAuthorizationHeader(token);
 
@@ -37,11 +37,11 @@ public class DataService
         var response = await _httpClient.PostAsync(BaseUrl, jsonContent);
 
         // Handle the response
-        return await HandleResponse<DataClass>(response);
+        return await HandleResponse<DataModel>(response);
     }
 
     // Get data with a single 'data' query parameter
-    public async Task<DataClass> GetDataAsync(string data, string token)
+    public async Task<DataModel> GetDataAsync(string data, string token)
     {
         SetAuthorizationHeader(token);
 
@@ -65,7 +65,7 @@ public class DataService
                 Debug.WriteLine($"1. (DataService.GetDataAsync) Raw response data: {responseContent}");
 
                 // Handle the response
-                return await HandleResponse<DataClass>(response);
+                return await HandleResponse<DataModel>(response);
             }
             catch (HttpRequestException ex)
             {
@@ -85,21 +85,21 @@ public class DataService
 
     // Update existing data using the backend's "compress" or "update" method
     // Modified Update method to delegate to UpdateDataService
-    public async Task<DataClass> UpdateDataAsync(string id, object data, string token)
+    public async Task<DataModel> UpdateDataAsync(string id, object data, string token)
     {
         return await _updateDataService.UpdateDataAsync(id, data, token);
     }
 
     // Delete user data
-    public async Task<DataClass> DeleteDataAsync(string id, string token)
+    public async Task<DataModel> DeleteDataAsync(string id, string token)
     {
         SetAuthorizationHeader(token);
         var response = await _httpClient.DeleteAsync($"{BaseUrl}{id}");
-        return await HandleResponse<DataClass>(response);
+        return await HandleResponse<DataModel>(response);
     }
 
     // Login user and store token and nickname locally
-    public async Task<User> LoginAsync(string email, string password)
+    public async Task<DataModel.User> LoginAsync(string email, string password)
     {
         var userData = new { email, password };
         var jsonContent = new StringContent(
@@ -122,19 +122,19 @@ public class DataService
                 PropertyNameCaseInsensitive = true
             };
 
-            var user = JsonSerializer.Deserialize<User>(responseContent, options);
+            var user = JsonSerializer.Deserialize<DataModel.User>(responseContent, options);
             if (user == null || string.IsNullOrEmpty(user.Token))
             {
                 Debug.WriteLine("User deserialization failed or token is null.");
             }
             else
             {
-                Debug.WriteLine($"Setting secure storage... Token: {user.Token}, Nickname: {user.Nickname}, Email: {user.Email}, ID: {user._id}");
+                Debug.WriteLine($"Setting secure storage... Token: {user.Token}, Nickname: {user.Nickname}, Email: {user.Email}, ID: {user.Id}");
                 await SecureStorage.SetAsync("userToken", user.Token);
                 await SecureStorage.SetAsync("userNickname", user.Nickname);
                 await SecureStorage.SetAsync("userEmail", user.Email);
-                await SecureStorage.SetAsync("userID", user._id);
-                Debug.WriteLine("Login successful. Token:" + user.Token + ", Name:" + user.Nickname + ", Email:" + user.Email + ", ID:" + user._id);
+                await SecureStorage.SetAsync("userID", user.Id);
+                Debug.WriteLine("Login successful. Token:" + user.Token + ", Name:" + user.Nickname + ", Email:" + user.Email + ", ID:" + user.Id);
                 return user;
             }
         }
@@ -169,7 +169,7 @@ public class DataService
     }
 
     // Get user details from secure storage
-    public async Task<User> GetStoredUserAsync()
+    public async Task<DataModel.User> GetStoredUserAsync()
     {
         try
         {
@@ -180,12 +180,12 @@ public class DataService
 
             if (!string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(nickname) && !string.IsNullOrEmpty(email) && !string.IsNullOrEmpty(id))
             {
-                return new User
+                return new DataModel.User
                 {
                     Token = token,
                     Nickname = nickname,
                     Email = email,
-                    _id = id
+                    Id = id
                 };
             }
             return null; // User is not logged in or missing data

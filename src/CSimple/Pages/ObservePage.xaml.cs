@@ -711,7 +711,7 @@ namespace CSimple.Pages
         {
             try
             {
-                await _fileService.SaveActionGroupsAsync(ActionGroups);
+                // await _fileService.SaveActionGroupsAsync(ActionGroups);
                 DebugOutput("Action Groups Saved to File");
                 _recordedActions.Clear();
                 _ = LoadActionGroupsFromFile();
@@ -740,8 +740,8 @@ namespace CSimple.Pages
             string actionName = ActionNameInput.Text;
             if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(UserTouchInputText))
             {
-                // Convert the UserTouchInputText to the new ActionArrayItem format
-                var actionArrayItem = JsonConvert.DeserializeObject<ActionArrayItem>(UserTouchInputText);
+                // Convert the UserTouchInputText to the new ActionItem format
+                var actionItem = JsonConvert.DeserializeObject<ActionItem>(UserTouchInputText);
 
                 // Create ActionModifier from frontend inputs
                 var actionModifier = new ActionModifier
@@ -759,7 +759,7 @@ namespace CSimple.Pages
                 if (existingActionGroup != null)
                 {
                     // If it exists, append the new action item to the existing ActionArray
-                    existingActionGroup.ActionArray.Add(actionArrayItem);
+                    existingActionGroup.ActionArray.Add(actionItem);
 
                     // Check if the ActionModifier already exists before adding it
                     if (!existingActionGroup.ActionModifiers.Any(am => am.ModifierName == actionModifier.ModifierName))
@@ -775,7 +775,7 @@ namespace CSimple.Pages
                     var newActionGroup = new ActionGroup
                     {
                         ActionName = actionName,
-                        ActionArray = new List<ActionArrayItem> { actionArrayItem },
+                        ActionArray = new List<ActionItem> { actionItem },
                         ActionModifiers = new List<ActionModifier> { actionModifier },
                         IsSimulating = false
                     };
@@ -802,16 +802,16 @@ namespace CSimple.Pages
             }
         }
         // Dictionary to track active key presses and mouse button presses with a duration of 0
-        private Dictionary<ushort, ActionArrayItem> _activeKeyPresses = new Dictionary<ushort, ActionArrayItem>();
+        private Dictionary<ushort, ActionItem> _activeKeyPresses = new Dictionary<ushort, ActionItem>();
 
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
             if (nCode >= 0)
             {
                 var currentTime = DateTime.UtcNow.ToString("o"); // Using ISO 8601 format
-                var actionArrayItem = new ActionArrayItem
+                var actionItem = new ActionItem
                 {
-                    Timestamp = currentTime
+                    Timestamp = DateTime.Parse(currentTime)
                 };
 
                 // Process mouse events
@@ -825,22 +825,22 @@ namespace CSimple.Pages
                     lastMouseEventTime = currentMouseEventTime;
 
                     GetCursorPos(out POINT currentMousePos);
-                    actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
-                    actionArrayItem.EventType = WM_MOUSEMOVE;
+                    actionItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
+                    actionItem.EventType = WM_MOUSEMOVE;
                 }
                 else if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN)
                 {
                     GetCursorPos(out POINT currentMousePos);
                     var buttonCode = (wParam == (IntPtr)WM_LBUTTONDOWN) ? (ushort)WM_LBUTTONDOWN : (ushort)WM_RBUTTONDOWN;
                     _mouseLeftButtonDownTimestamp = DateTime.UtcNow;
-                    actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
-                    actionArrayItem.EventType = (ushort)wParam;
-                    actionArrayItem.Duration = 0;
+                    actionItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
+                    actionItem.EventType = (ushort)wParam;
+                    actionItem.Duration = 0;
 
                     // Track active mouse button press
                     if (!_activeKeyPresses.ContainsKey(buttonCode))
                     {
-                        _activeKeyPresses[buttonCode] = actionArrayItem;
+                        _activeKeyPresses[buttonCode] = actionItem;
                     }
 
                     UpdateUI(); // Update the UI with the active key/mouse buttons
@@ -849,9 +849,9 @@ namespace CSimple.Pages
                 {
                     GetCursorPos(out POINT currentMousePos);
                     var duration = (DateTime.UtcNow - _mouseLeftButtonDownTimestamp).TotalMilliseconds;
-                    actionArrayItem.Duration = duration > 0 ? (int)duration : 1;
-                    actionArrayItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
-                    actionArrayItem.EventType = (ushort)wParam;
+                    actionItem.Duration = duration > 0 ? (int)duration : 1;
+                    actionItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
+                    actionItem.EventType = (ushort)wParam;
 
                     var buttonCode = (wParam == (IntPtr)WM_LBUTTONUP) ? (ushort)WM_LBUTTONDOWN : (ushort)WM_RBUTTONDOWN;
 
@@ -865,17 +865,17 @@ namespace CSimple.Pages
                 if (wParam == (IntPtr)WM_KEYDOWN)
                 {
                     int vkCode = Marshal.ReadInt32(lParam);
-                    actionArrayItem.KeyCode = (ushort)vkCode;
+                    actionItem.KeyCode = (ushort)vkCode;
 
                     // Check if the key is already being pressed (active) with duration 0
-                    if (!_activeKeyPresses.ContainsKey(actionArrayItem.KeyCode))
+                    if (!_activeKeyPresses.ContainsKey(actionItem.KeyCode))
                     {
                         _keyPressDownTimestamps[(ushort)vkCode] = DateTime.UtcNow;
-                        actionArrayItem.EventType = WM_KEYDOWN;
-                        actionArrayItem.Duration = 0; // Active press (ongoing)
+                        actionItem.EventType = WM_KEYDOWN;
+                        actionItem.Duration = 0; // Active press (ongoing)
 
                         // Add the actionArrayItem to track it as active
-                        _activeKeyPresses[actionArrayItem.KeyCode] = actionArrayItem;
+                        _activeKeyPresses[actionItem.KeyCode] = actionItem;
 
                         UpdateUI(); // Update UI to display active key presses
                     }
@@ -888,16 +888,16 @@ namespace CSimple.Pages
                 else if (wParam == (IntPtr)WM_KEYUP)
                 {
                     int vkCode = Marshal.ReadInt32(lParam);
-                    actionArrayItem.KeyCode = (ushort)vkCode;
+                    actionItem.KeyCode = (ushort)vkCode;
 
                     if (_keyPressDownTimestamps.TryGetValue((ushort)vkCode, out DateTime keyDownTimestamp))
                     {
                         var duration = (DateTime.UtcNow - keyDownTimestamp).TotalMilliseconds;
-                        actionArrayItem.Duration = duration > 0 ? (int)duration : 1;
-                        actionArrayItem.EventType = WM_KEYUP;
+                        actionItem.Duration = duration > 0 ? (int)duration : 1;
+                        actionItem.EventType = WM_KEYUP;
 
                         // Remove from active key presses once the key is released
-                        _activeKeyPresses.Remove(actionArrayItem.KeyCode);
+                        _activeKeyPresses.Remove(actionItem.KeyCode);
                         _keyPressDownTimestamps.Remove((ushort)vkCode);
 
                         UpdateUI(); // Update UI after removing the key press
@@ -905,7 +905,7 @@ namespace CSimple.Pages
                 }
 
                 // Serialize and save the action
-                UserTouchInputText = JsonConvert.SerializeObject(actionArrayItem);
+                UserTouchInputText = JsonConvert.SerializeObject(actionItem);
                 DebugOutput(UserTouchInputText);
                 SaveAction();
             }
@@ -1020,46 +1020,46 @@ namespace CSimple.Pages
             {
                 try
                 {
-                    var parts = actionGroupItem.Data.Text.Split('|');
-                    var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
-                    var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
+                    // var parts = actionGroupItem.Data.Split('|');
+                    // var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
+                    // var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
 
-                    if (creatorPart != null && actionPart != null)
-                    {
-                        var actionJson = actionPart.Substring("Action:".Length).Trim();
-                        if (actionJson.StartsWith("{") && actionJson.EndsWith("}"))
-                        {
-                            var actionGroup = JsonConvert.DeserializeObject<ActionGroup>(actionJson);
+                    // if (creatorPart != null && actionPart != null)
+                    // {
+                    //     var actionJson = actionPart.Substring("Action:".Length).Trim();
+                    //     if (actionJson.StartsWith("{") && actionJson.EndsWith("}"))
+                    //     {
+                    //         var actionGroup = JsonConvert.DeserializeObject<ActionGroup>(actionJson);
 
-                            if (actionGroup != null)
-                            {
-                                actionGroup.Creator = creatorPart.Substring("Creator:".Length);
-                                actionGroup.ActionArray = actionGroup.ActionArray ?? new List<ActionArrayItem>();
-                                actionGroup.ActionArrayFormatted = actionGroupItem.Data.Text.Length > 50 ? actionGroupItem.Data.Text.Substring(0, 50) + "..." : actionGroupItem.Data.Text;
+                    //         if (actionGroup != null)
+                    //         {
+                    //             actionGroup.Creator = creatorPart.Substring("Creator:".Length);
+                    //             actionGroup.ActionArray = actionGroup.ActionArray ?? new List<ActionItem>();
+                    //             actionGroup.ActionArrayFormatted = actionGroupItem.Data.Length > 50 ? actionGroupItem.Data.Substring(0, 50) + "..." : actionGroupItem.Data;
 
-                                // Initialize Id if not already set
-                                if (actionGroup.Id == Guid.Empty)
-                                {
-                                    actionGroup.Id = Guid.NewGuid();
-                                }
+                    //             // Initialize Id if not already set
+                    //             if (actionGroup.Id == Guid.Empty)
+                    //             {
+                    //                 actionGroup.Id = Guid.NewGuid();
+                    //             }
 
-                                formattedActionGroups.Add(actionGroupItem.Data.Text);
-                                DebugOutput($"Adding action: {actionGroup.ActionName}");
-                            }
-                            else
-                            {
-                                DebugOutput($"Failed to deserialize action group JSON: {actionJson}");
-                            }
-                        }
-                        else
-                        {
-                            DebugOutput($"Invalid JSON format for action group: {actionJson}");
-                        }
-                    }
-                    else
-                    {
-                        DebugOutput($"Invalid action group string: {actionGroupItem.Data.Text}");
-                    }
+                    //             formattedActionGroups.Add(actionGroupItem.Data);
+                    //             DebugOutput($"Adding action: {actionGroup.ActionName}");
+                    //         }
+                    //         else
+                    //         {
+                    //             DebugOutput($"Failed to deserialize action group JSON: {actionJson}");
+                    //         }
+                    //     }
+                    //     else
+                    //     {
+                    //         DebugOutput($"Invalid JSON format for action group: {actionJson}");
+                    //     }
+                    // }
+                    // else
+                    // {
+                    //     DebugOutput($"Invalid action group string: {actionGroupItem.Data}");
+                    // }
                 }
                 catch (JsonException jsonEx)
                 {

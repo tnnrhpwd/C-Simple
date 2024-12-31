@@ -166,10 +166,10 @@ namespace CSimple.Pages
 
             foreach (var goalItem in goalItems)
             {
-                if (goalItem.Data.Text.Contains("|Goal"))
-                {
-                    formattedGoals.Add(goalItem.Data.Text);
-                }
+                // if (goalItem.Data.Text.Contains("|Goal"))
+                // {
+                //     formattedGoals.Add(goalItem.Data.Text);
+                // }
             }
 
             return formattedGoals;

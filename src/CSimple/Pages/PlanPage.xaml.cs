@@ -164,10 +164,10 @@ namespace CSimple.Pages
 
             foreach (var planItem in planItems)
             {
-                if (planItem.Data.Text.Contains("|Plan"))
-                {
-                    formattedPlans.Add(planItem.Data.Text);
-                }
+                // if (planItem.Data.Text.Contains("|Plan"))
+                // {
+                //     formattedPlans.Add(planItem.Data.Text);
+                // }
             }
 
             return formattedPlans;
