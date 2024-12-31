@@ -40,10 +40,8 @@ namespace CSimple.Pages
         {
             InitializeComponent();
 
-            if (this.BindingContext == null)
-            {
-                this.BindingContext = new DataModel();
-            }
+            // Set the BindingContext to the current instance of ActionPage
+            this.BindingContext = this;
 
             _fileService = new FileService();
             _dataService = new DataService();
@@ -72,9 +70,6 @@ namespace CSimple.Pages
                 bool confirmDelete = await DisplayAlert("Confirm Delete", $"Are you sure you want to delete the action group '{dataItem.ToString}'?", "Yes", "No");
                 if (confirmDelete)
                 {
-                    // Remove from the collection
-                    ((DataModel)BindingContext).Data.Remove(dataItem);
-
                     // Save the updated collection to file
                     await SaveDataItemsToFile();
 
@@ -114,12 +109,6 @@ namespace CSimple.Pages
         protected override async void OnAppearing()
         {
             base.OnAppearing();
-            Data.Clear();
-            var dataModel = (DataModel)BindingContext;
-            foreach (var dataItem in dataModel.Data)
-            {
-                Data.Add(dataItem);
-            }
             await LoadDataItemsFromBackend();
         }
         private async Task NavigateToObservePage()
@@ -301,60 +290,46 @@ namespace CSimple.Pages
         {
             try
             {
-                DebugOutput("3. Actionpage.SaveDataItemsToFile Length of DataModel:" + JsonSerializer.Serialize(((DataModel)BindingContext).Data).Length.ToString());
-                DebugOutput("Type of (DataModel)BindingContext).Data:" + ((DataModel)BindingContext).Data.GetType().ToString());
-                await _fileService.SaveDataItemsAsync(((DataModel)BindingContext).Data);
+                DebugOutput("3. Actionpage.SaveDataItemsToFile Length of DataModel:" + JsonSerializer.Serialize(Data).Length.ToString());
+                DebugOutput("Type of Data:" + Data.GetType().ToString());
+                
+                // Convert ObservableCollection to List
+                List<DataItem> dataList = new List<DataItem>(Data);
+                
+                await _fileService.SaveDataItemsAsync(dataList);
                 DebugOutput("Action Groups and Actions Saved to File");
             }
             catch (Exception ex)
             {
-                DebugOutput($"Error saving action groups and actions: {ex.Message}");
+                DebugOutput($"Error saving data items: {ex.Message}");
             }
         }
-        // private List<DataItem> FormatItemsFromBackend(IEnumerable<DataItem> dataItems)
-        // {
-        //     var formattedDataItems = new List<DataItem>();
-        //     DebugOutput($"2. (ActionPage.FormatItemsFromBackend) Raw response data: {JsonSerializer.Serialize(dataItems)}");
 
-        //     foreach (var dataItem in dataItems)
-        //     {
-        //         try
-        //         {
-        //             DebugOutput($"DataItem: {dataItem.ToString}");
-
-        //             var parts = dataItem.Data.text?.Split('|', StringSplitOptions.RemoveEmptyEntries);
-        //             if (parts != null)
-        //             {
-        //                 var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
-        //                 var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
-        //                 var publicPart = parts.FirstOrDefault(p => p.StartsWith("Public:"));
-
-        //                 if (creatorPart != null)
-        //                     dataItem.Creator = creatorPart.Substring("Creator:".Length).Trim();
-
-        //                 if (actionPart != null)
-        //                     dataItem.ActionName = actionPart.Substring("Action:".Length).Trim();
-
-        //                 if (publicPart != null)
-        //                     dataItem.IsPublic = publicPart.Substring("Public:".Length).Trim().ToLower() == "true";
-        //             }
-
-        //             formattedDataItems.Add(dataItem);
-        //         }
-        //         catch (JsonException jsonEx)
-        //         {
-        //             DebugOutput($"JSON error parsing data item: {jsonEx.Message}");
-        //         }
-        //         catch (Exception ex)
-        //         {
-        //             DebugOutput($"Error parsing data item: {ex.Message}");
-        //         }
-        //     }
-        //     // Log raw response data
-        //     Debug.WriteLine("Length of formattedDataItems:" + JsonSerializer.Serialize(formattedDataItems).Length.ToString());
-        //     DebugOutput($"2. (ActionPage.FormatItemsFromBackend) Raw response data: {JsonSerializer.Serialize(formattedDataItems)}");
-        //     return formattedDataItems;
-        // }
+        private async Task LoadDataItemsFromFile()
+        {
+            try
+            {
+                var loadedDataItems = await _fileService.LoadDataItemsAsync();
+                if (loadedDataItems != null && loadedDataItems.Count > 0)
+                {
+                    Data.Clear();
+                    foreach (var dataItem in loadedDataItems)
+                    {
+                        ParseDataItemText(dataItem);
+                        Data.Add(dataItem);
+                    }
+                    DebugOutput($"Data Items Loaded from SecureStorage. Data length: {Data.Count}");
+                }
+                else
+                {
+                    DebugOutput("No data items found in SecureStorage.");
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugOutput($"Error loading data items from SecureStorage: {ex.Message}");
+            }
+        }
 
         private async Task LoadDataItemsFromBackend()
         {
@@ -378,27 +353,23 @@ namespace CSimple.Pages
                 var formattedDataItems = dataItems.Data ?? new List<DataItem>();
                 DebugOutput($"Received {formattedDataItems.Count} DataItems from backend");
 
-                // if (!((DataModel)BindingContext).Data.SequenceEqual(formattedDataItems))
-                if (formattedDataItems.Count > 0)
-                {
-                    // ((DataModel)BindingContext).Data.Clear();
-                    foreach (var dataItem in formattedDataItems)
-                    {
-                        DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend.BindingContext) dataItem: {JsonSerializer.Serialize(dataItem)}");
-                        if (dataItem != null)
-                        {
-                            ((DataModel)BindingContext).Data.Add(dataItem);
-                        }
-                    }
-                    DebugOutput("Data Items Loaded from Backend");
+                Data.Clear();
 
-                    // Save loaded action groups to file
-                    await SaveDataItemsToFile();
-                }
-                else
+                foreach (var dataItem in formattedDataItems)
                 {
-                    DebugOutput("formattedDataItems.Count = 0");
+                    DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend.BindingContext) dataItem: {JsonSerializer.Serialize(dataItem)}");
+                    if (dataItem != null)
+                    {
+                        ParseDataItemText(dataItem);
+                        DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend.dataitem) Parsing complete. starting add to Data");
+                        Data.Add(dataItem);
+                        DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend.dataitem) Data.Add complete");
+                    }
                 }
+                DebugOutput("Data Items Loaded from Backend");
+
+                // Save loaded action groups to file
+                await SaveDataItemsToFile();
             }
             catch (Exception ex)
             {
@@ -406,33 +377,40 @@ namespace CSimple.Pages
             }
         }
 
-        private async Task LoadDataItemsFromFile()
+        private static void ParseDataItemText(DataItem dataItem)
         {
-            try
+            if (string.IsNullOrEmpty(dataItem?.Data?.text)) return;
+
+            var parts = dataItem.Data.text.Split('|', StringSplitOptions.RemoveEmptyEntries);
+            var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
+            var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
+            var publicPart = parts.FirstOrDefault(p => p.StartsWith("IsPublic:"));
+
+            dataItem.Creator = (creatorPart != null) ? creatorPart.Substring("Creator:".Length).Trim() : "";
+            if (dataItem.Data.ActionGroupObject != null)
             {
-                var loadedDataItems = await _fileService.LoadDataItemsAsync();
-                var formattedDataItems = new ObservableCollection<DataItem>(loadedDataItems.Cast<DataItem>());
-                DebugOutput($"4. Actionpage.LoadDataItemsFromFile: Received {formattedDataItems.Count} DataItems from file");
-                if (!((DataModel)BindingContext).Data.Cast<DataItem>().SequenceEqual(formattedDataItems))
-                if (formattedDataItems.Count > 0)
+                var actionGroup = dataItem.Data.ActionGroupObject;
+                actionGroup.ActionName = (actionPart != null) ? 
+                    (actionPart.Length > 50 ? actionPart.Substring(0, 50) + "..." : actionPart.Substring("Action:".Length).Trim()) : "";
+            }
+            if (publicPart != null)
+            {
+                try
                 {
-                    ((DataModel)BindingContext).Data.Clear();
-                    foreach (var dataItem in formattedDataItems)
-                    {
-                        DebugOutput($"4. Actionpage.LoadDataItemsFromFile.BindingContext: {JsonSerializer.Serialize(dataItem)}");
-                        ((DataModel)BindingContext).Data.Add(dataItem);
-                    }
-                    DebugOutput("Data Items Loaded from File");
+                    dataItem.IsPublic = publicPart.Substring("IsPublic:".Length).Trim().ToLower() == "true";
                 }
-                else
+                catch (ArgumentOutOfRangeException)
                 {
-                    DebugOutput("formattedDataItems.Count = 0");
+                    dataItem.IsPublic = false;
                 }
             }
-            catch (Exception ex)
+            else
             {
-                DebugOutput($"Error loading action groups from file: {ex.Message}");
+                dataItem.IsPublic = false;
             }
+            Debug.Write($"Parsed dataItem.Creator: {dataItem.Creator}");
+            Debug.Write($"Parsed dataItem.ActionName: {dataItem.Data.ActionGroupObject.ActionName}"); 
+            Debug.Write($"Parsed dataItem.IsPublic: {dataItem.IsPublic}");
         }
 
         // P/Invoke for volume commands

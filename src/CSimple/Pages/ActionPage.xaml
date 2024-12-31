@@ -19,7 +19,7 @@
         <ScrollView AbsoluteLayout.LayoutFlags="All"
                     AbsoluteLayout.LayoutBounds="0,0,1,1">
             <VerticalStackLayout Padding="10" Spacing="20">
-                <Label Text="Action"
+                <Label Text="Actions"
                        FontSize="Large"
                        FontAttributes="Bold"
                        HorizontalOptions="Center" />
@@ -36,45 +36,17 @@
                             TextColor="White"
                             BackgroundColor="Blue" />
                 </HorizontalStackLayout>
+                
                 <!-- Table Section -->
                 <CollectionView ItemsSource="{Binding Data}" Margin="0,20,0,0">
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
                             <Frame CornerRadius="10" Padding="10" Margin="5">
-                                <Grid ColumnDefinitions="*, *, Auto">
-                                    <ProgressBar Grid.ColumnSpan="3"
-                                                 HeightRequest="4"
-                                                 VerticalOptions="Start"
-                                                 HorizontalOptions="FillAndExpand"
-                                                 BackgroundColor="LightGray"
-                                                 ProgressColor="Green"
-                                                 Progress="0"
-                                                 IsVisible="{Binding IsSimulating}" />
-                                    <Label Grid.Column="0"
-                                           Text="{Binding ActionName}"
-                                           VerticalOptions="Center" />
-                                    <Label Grid.Column="1"
-                                           Text="{Binding ActionArrayFormatted}"
-                                           VerticalOptions="Center" />
-                                    <Label Text="{Binding Creator}"
-                                           TextColor="Gray"
-                                           VerticalOptions="Center"
-                                           FontSize="Small" />
-                                    <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
-                                        <Button Text="{Binding IsSimulating, Converter={StaticResource BoolToTextConverter}}"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}"
-                                                CommandParameter="{Binding .}"
-                                                VerticalOptions="Center"
-                                                TextColor="White"
-                                                BackgroundColor="Green" />
-                                        <Button Text="Delete"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteActionGroupCommand}"
-                                                CommandParameter="{Binding .}"
-                                                VerticalOptions="Center"
-                                                TextColor="White"
-                                                BackgroundColor="Red" />
-                                    </VerticalStackLayout>
-                                </Grid>
+                                <VerticalStackLayout>
+                                    <Label Text="{Binding Data.ActionGroupObject.ActionName}" TextColor="White" />
+                                    <Label Text="{Binding createdAt}" TextColor="Gray" />
+                                    <Label Text="{Binding Creator}" TextColor="Gray" />
+                                </VerticalStackLayout>
                             </Frame>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>

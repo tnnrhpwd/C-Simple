@@ -35,8 +35,8 @@ namespace CSimple.Services
             await SaveToFileAsync(_dataItemsFilePath, dataItems);
         }
 
-        public Task<ObservableCollection<DataItem>> LoadDataItemsAsync() =>
-            LoadFromFileAsync<ObservableCollection<DataItem>, List<DataItem>>(_dataItemsFilePath, c => new ObservableCollection<DataItem>(c));
+        public Task<List<DataItem>> LoadDataItemsAsync() =>
+            LoadFromFileAsync<List<DataItem>, List<DataItem>>(_dataItemsFilePath, c => new List<DataItem>(c));
 
         private async Task SaveToFileAsync<T>(string filePath, T data)
         {

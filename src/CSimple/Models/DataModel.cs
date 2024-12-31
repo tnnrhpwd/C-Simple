@@ -26,36 +26,49 @@ public class DataModel : INotifyPropertyChanged
     public string Operation { get; set; }
 }
 
-public class DataItem {
+public class DataItem : INotifyPropertyChanged
+{
+    public event PropertyChangedEventHandler PropertyChanged;
+    public void OnPropertyChanged(string propertyName)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
     public DataObject Data { get; set; } = new DataObject();
     public DateTime updatedAt { get; set; }
     public DateTime createdAt { get; set; }
     public string _id { get; set; }
     public int __v { get; set; }
     public string Creator { get; set; }
-    public string ActionName { get; set; }
     public bool IsPublic { get; set; }
 }
 
-public class DataObject {
+public class DataObject
+{
     public string text { get; set; }
     public List<FileItem> files { get; set; } = new List<FileItem>();
-    public ObservableCollection<ActionGroup> ActionGroups { get; set; } = new ObservableCollection<ActionGroup>();
+    public ActionGroup ActionGroupObject { get; set; } = new ActionGroup();
 }
 
-public class FileItem {
+public class FileItem
+{
     public string Filename { get; set; }
     public string ContentType { get; set; }
     public string Data { get; set; }
 }
 
-public class ActionGroup : DataModel {
+public class ActionGroup : INotifyPropertyChanged
+{
+    public event PropertyChangedEventHandler PropertyChanged;
+    protected void OnPropertyChanged(string propertyName)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
     private bool _isSimulating = false;
     public Guid Id { get; set; } = Guid.NewGuid(); // Unique identifier for each ActionGroup
     public string ActionName { get; set; }
     public List<ActionItem> ActionArray { get; set; } = new List<ActionItem>();
     public List<ActionModifier> ActionModifiers { get; set; } = new List<ActionModifier>();
-    public string Creator { get; set; }
     public string ActionArrayFormatted { get; set; }
     public bool IsSimulating
     {
@@ -71,7 +84,8 @@ public class ActionGroup : DataModel {
     }
 }
 
-public class ActionItem {
+public class ActionItem
+{
     public DateTime Timestamp { get; set; }
     public ushort KeyCode { get; set; } // Key Code: 49 for execute key press
     public int EventType { get; set; } // Event type: 0x0000 for keydown
