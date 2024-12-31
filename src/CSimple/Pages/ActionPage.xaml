@@ -35,32 +35,48 @@
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
                             <Frame CornerRadius="10" Padding="10" Margin="5">
-                                <VerticalStackLayout>
-                                    <Label Text="{Binding Data.ActionGroupObject.ActionName}" TextColor="White" />
-                                    <Label Text="{Binding createdAt}" TextColor="Gray" />
-                                    <Label Text="{Binding Creator}" TextColor="Gray" />
-                                    <ListView ItemsSource="{Binding Data.files}">
-                                        <ListView.ItemTemplate>
-                                            <DataTemplate>
-                                                <ViewCell>
-                                                    <VerticalStackLayout>
-                                                        <Label Text="{Binding Filename}" TextColor="Gray" />
-                                                        <Image Source="{Binding Data, Converter={StaticResource Base64ToImageConverter}}" Aspect="AspectFit" WidthRequest="100">
-                                                            <Image.Triggers>
-                                                                <DataTrigger TargetType="Image" Binding="{Binding Data}" Value="{x:Static sys:String.Empty}">
-                                                                    <Setter Property="IsVisible" Value="False" />
-                                                                </DataTrigger>
-                                                                <DataTrigger TargetType="Image" Binding="{Binding Data}" Value="{x:Null}">
-                                                                    <Setter Property="IsVisible" Value="False" />
-                                                                </DataTrigger>
-                                                            </Image.Triggers>
-                                                        </Image>
-                                                    </VerticalStackLayout>
-                                                </ViewCell>
-                                            </DataTemplate>
-                                        </ListView.ItemTemplate>
-                                    </ListView>
-                                </VerticalStackLayout>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <VerticalStackLayout Grid.Column="0">
+                                        <Label Text="{Binding Data.ActionGroupObject.ActionName}" TextColor="White" />
+                                        <Label Text="{Binding createdAt}" TextColor="Gray" />
+                                        <Label Text="{Binding Creator}" TextColor="Gray" />
+                                        <ListView ItemsSource="{Binding Data.files}">
+                                            <ListView.ItemTemplate>
+                                                <DataTemplate>
+                                                    <ViewCell>
+                                                        <VerticalStackLayout>
+                                                            <Label Text="{Binding Filename}" TextColor="Gray" />
+                                                            <Image Source="{Binding Data, Converter={StaticResource Base64ToImageConverter}}" Aspect="AspectFit" WidthRequest="100">
+                                                                <Image.Triggers>
+                                                                    <DataTrigger TargetType="Image" Binding="{Binding Data}" Value="{x:Static sys:String.Empty}">
+                                                                        <Setter Property="IsVisible" Value="False" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger TargetType="Image" Binding="{Binding Data}" Value="{x:Null}">
+                                                                        <Setter Property="IsVisible" Value="False" />
+                                                                    </DataTrigger>
+                                                                </Image.Triggers>
+                                                            </Image>
+                                                        </VerticalStackLayout>
+                                                    </ViewCell>
+                                                </DataTemplate>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                                        <Button Text="{Binding Data.ActionGroupObject.IsSimulating, Converter={StaticResource BoolToTextConverter}}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}"
+                                                CommandParameter="{Binding .}"
+                                                VerticalOptions="Center"
+                                                TextColor="White"
+                                                BackgroundColor="Green" />
+                                        <Button Text="Delete"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteActionGroupCommand}"
+                                                CommandParameter="{Binding .}"
+                                                VerticalOptions="Center"
+                                                TextColor="White"
+                                                BackgroundColor="Red" />
+                                    </VerticalStackLayout>
+                                </Grid>
                             </Frame>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>

@@ -113,7 +113,8 @@ namespace CSimple.Pages
         }
         private async Task NavigateToObservePage()
         {
-            await Shell.Current.GoToAsync($"///observe");
+            DebugOutput("Navigating to ObservePage");
+            await Shell.Current.GoToAsync("///observe");
         }
         private void OnInputActionClicked(object sender, EventArgs e)
         {
