@@ -636,9 +636,9 @@ namespace CSimple.Pages
                 }
 
                 var userId = await SecureStorage.GetAsync("userID");
+
                 var actionGroupString = $"Creator:{userId}|Action:{JsonConvert.SerializeObject(Data.Last().Data.ActionGroupObject)}";
                 var dataItemFiles = Data.Last().Data.files;
-
                 var queryParams = new Dictionary<string, string>
                 {
                     { "data", actionGroupString+JsonConvert.SerializeObject(dataItemFiles) }

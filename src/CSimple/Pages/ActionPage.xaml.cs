@@ -391,8 +391,13 @@ namespace CSimple.Pages
             if (dataItem.Data.ActionGroupObject != null)
             {
                 var actionGroup = dataItem.Data.ActionGroupObject;
-                actionGroup.ActionName = (actionPart != null) ? 
-                    (actionPart.Length > 50 ? actionPart.Substring(0, 50) + "..." : actionPart.Substring("Action:".Length).Trim()) : "";
+                actionGroup.ActionName = (actionPart != null && actionPart.Contains("\"ActionName\":\""))
+                    ? ExtractStringBetween(actionPart, "\"ActionName\":\"", "\",")
+                    : (actionPart != null
+                        ? (actionPart.Length > 50
+                            ? actionPart.Substring(0, 50) + "..."
+                            : actionPart.Substring("Action:".Length).Trim())
+                        : "");
             }
             if (publicPart != null)
             {
@@ -412,6 +417,16 @@ namespace CSimple.Pages
             Debug.Write($"Parsed dataItem.Creator: {dataItem.Creator}");
             Debug.Write($"Parsed dataItem.ActionName: {dataItem.Data.ActionGroupObject.ActionName}"); 
             Debug.Write($"Parsed dataItem.IsPublic: {dataItem.IsPublic}");
+        }
+
+        private static string ExtractStringBetween(string source, string start, string end)
+        {
+            int startIndex = source.IndexOf(start);
+            if (startIndex < 0) return "";
+            startIndex += start.Length;
+            int endIndex = source.IndexOf(end, startIndex);
+            if (endIndex < 0) return "";
+            return source.Substring(startIndex, endIndex - startIndex);
         }
 
         // P/Invoke for volume commands
