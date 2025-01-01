@@ -109,6 +109,7 @@ namespace CSimple.Pages
         protected override async void OnAppearing()
         {
             base.OnAppearing();
+            SortPicker.SelectedIndex = 0; // default ascending
             await LoadDataItemsFromBackend();
         }
         private async Task NavigateToObservePage()
@@ -475,6 +476,23 @@ namespace CSimple.Pages
             keybd_event(volumeCommand, 0, 0, UIntPtr.Zero);
             keybd_event(volumeCommand, 0, 0x0002, UIntPtr.Zero); // Key up
             DebugOutput($"Executed Volume Command: {(volumeCommand == VK_VOLUME_MUTE ? "Mute" : volumeCommand == VK_VOLUME_DOWN ? "Volume Down" : "Volume Up")}");
+        }
+
+        private void OnSortOrderChanged(object sender, EventArgs e)
+        {
+            if (SortPicker.SelectedIndex < 0 || Data == null || Data.Count == 0) return;
+
+            if (SortPicker.SelectedIndex == 0)
+            {
+                // Ascending
+                Data = new ObservableCollection<DataItem>(Data.OrderBy(d => d.createdAt));
+            }
+            else
+            {
+                // Descending
+                Data = new ObservableCollection<DataItem>(Data.OrderByDescending(d => d.createdAt));
+            }
+            OnPropertyChanged(nameof(Data));
         }
 
         public new event PropertyChangedEventHandler PropertyChanged;

@@ -30,6 +30,15 @@
                             BackgroundColor="Blue" />
                 </HorizontalStackLayout>
                 
+                <!-- Sort Picker -->
+                <Picker x:Name="SortPicker" Title="Sort by"
+                        SelectedIndexChanged="OnSortOrderChanged">
+                    <Picker.Items>
+                        <x:String>CreatedAt Ascending</x:String>
+                        <x:String>CreatedAt Descending</x:String>
+                    </Picker.Items>
+                </Picker>
+                
                 <!-- Table Section -->
                 <CollectionView ItemsSource="{Binding Data}" Margin="0,20,0,0">
                     <CollectionView.ItemTemplate>
