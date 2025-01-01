@@ -19,7 +19,7 @@
                 <!-- Input Section -->
                 <HorizontalStackLayout Spacing="10" Margin="0,20,0,0">
                     <Button Text="Record Action"
-                            Command="{Binding NavigateToObservePageCommand}"
+                            Clicked="NavigateToObservePage"
                             VerticalOptions="Center"
                             TextColor="White"
                             BackgroundColor="Blue" />

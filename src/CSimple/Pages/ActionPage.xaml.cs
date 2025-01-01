@@ -41,7 +41,7 @@ namespace CSimple.Pages
             InitializeComponent();
 
             // Set the BindingContext to the current instance of ActionPage
-            this.BindingContext = this;
+            BindingContext = this;
 
             _fileService = new FileService();
             _dataService = new DataService();

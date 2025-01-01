@@ -129,12 +129,12 @@ public class DataService
             }
             else
             {
-                Debug.WriteLine($"Setting secure storage... Token: {user.Token}, Nickname: {user.Nickname}, Email: {user.Email}, ID: {user.Id}");
+                Debug.WriteLine($"Setting secure storage... Token: {user.Token}, Nickname: {user.Nickname}, Email: {user.Email}, ID: {user._id}");
                 await SecureStorage.SetAsync("userToken", user.Token);
                 await SecureStorage.SetAsync("userNickname", user.Nickname);
                 await SecureStorage.SetAsync("userEmail", user.Email);
-                await SecureStorage.SetAsync("userID", user.Id);
-                Debug.WriteLine("Login successful. Token:" + user.Token + ", Name:" + user.Nickname + ", Email:" + user.Email + ", ID:" + user.Id);
+                await SecureStorage.SetAsync("userID", user._id);
+                Debug.WriteLine("Login successful. Token:" + user.Token + ", Name:" + user.Nickname + ", Email:" + user.Email + ", ID:" + user._id);
                 return user;
             }
         }
@@ -185,7 +185,7 @@ public class DataService
                     Token = token,
                     Nickname = nickname,
                     Email = email,
-                    Id = id
+                    _id = id
                 };
             }
             return null; // User is not logged in or missing data
