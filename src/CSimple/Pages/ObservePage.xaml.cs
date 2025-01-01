@@ -42,7 +42,7 @@ namespace CSimple.Pages
                 }
             }
         }
-        public ObservableCollection<ActionGroup> ActionGroups { get; set; } = new ObservableCollection<ActionGroup>();
+        public ObservableCollection<DataItem> Data { get; set; } = new ObservableCollection<DataItem>();
         public Command TogglePCVisualCommand { get; }
         public Command TogglePCAudibleCommand { get; }
         public Command ToggleUserVisualCommand { get; }
@@ -101,12 +101,9 @@ namespace CSimple.Pages
             ToggleUserAudibleCommand = new Command(ToggleUserAudibleOutput);
             ToggleUserTouchCommand = new Command(ToggleUserTouchOutput);
             SaveActionCommand = new Command(SaveAction);
-            SaveToFileCommand = new Command(async () => await SaveActionGroupsToFile());
-            LoadFromFileCommand = new Command(async () => await LoadActionGroupsFromFile());
-            BindingContext = new ObservePageViewModel();
-
-            _ = LoadAndSaveActionGroups();
-
+            SaveToFileCommand = new Command(async () => await SaveDataItemsToFile());
+            LoadFromFileCommand = new Command(async () => await LoadDataItemsFromFile());
+            
             BindingContext = this;
         }
         private async void CheckUserLoggedIn()
@@ -238,7 +235,7 @@ namespace CSimple.Pages
         protected override async void OnAppearing()
         {
             base.OnAppearing();
-            await LoadActionGroupsFromFile();
+            await LoadDataItemsFromFile();
         }
         protected override void OnDisappearing()
         {
@@ -544,7 +541,11 @@ namespace CSimple.Pages
                             _writer = null;
                             _waveIn.Dispose();
                             Console.WriteLine($"Recording saved to: {filePath}");
-
+                            Data.Add(new DataItem { Data = new DataObject { text = "Webcam Audio", 
+                                files = new List<FileItem> { new FileItem { Filename = Path.GetFileName(filePath), 
+                                ContentType = "audio/wav", 
+                                Data = Convert.ToBase64String(File.ReadAllBytes(filePath)) } } 
+                            }});
                             // Extract MFCCs
                             ExtractMFCCs(filePath);
                         };
@@ -608,7 +609,7 @@ namespace CSimple.Pages
                 }
                 DebugOutput("User Touch Output capture stopped.");
                 await SaveNewActionGroup(); // Save the last ActionGroup to the backend
-                await SaveActionGroupsToFile(); // Save the updated ActionGroups list to the file
+                await SaveDataItemsToFile(); // Save the updated ActionGroups list to the file
                 UserTouchButtonText = "Read";
                 isUserTouchActive = false;
                 StopTracking();
@@ -634,13 +635,13 @@ namespace CSimple.Pages
                     return;
                 }
 
-                // Format the action group string
                 var userId = await SecureStorage.GetAsync("userID");
-                var actionGroupString = $"Creator:{userId}|Action:{JsonConvert.SerializeObject(ActionGroups.Last())}";
+                var actionGroupString = $"Creator:{userId}|Action:{JsonConvert.SerializeObject(Data.Last().Data.ActionGroupObject)}";
+                var dataItemFiles = Data.Last().Data.files;
 
                 var queryParams = new Dictionary<string, string>
                 {
-                    { "data", actionGroupString }
+                    { "data", actionGroupString+JsonConvert.SerializeObject(dataItemFiles) }
                 };
 
                 var response = await _dataService.CreateDataAsync(queryParams["data"], token);
@@ -655,23 +656,23 @@ namespace CSimple.Pages
                 DebugOutput($"Error saving new action group: {ex.Message}");
             }
         }
-        private async Task LoadAndSaveActionGroups()
+        private async Task LoadAndSaveDataItems()
         {
             try
             {
-                // Load action groups from the database
-                await LoadActionGroupsFromDatabase();
+                // Load data items from the database
+                await LoadDataItemsFromDatabase();
 
-                // Save the loaded action groups to a file
-                await SaveActionGroupsToFile();
+                // Save the loaded data items to a file
+                await SaveDataItemsToFile();
             }
             catch (Exception ex)
             {
-                DebugOutput($"Error in LoadAndSaveActionGroups: {ex.Message}");
+                DebugOutput($"Error in LoadAndSaveDataItems: {ex.Message}");
             }
         }
 
-        private async Task LoadActionGroupsFromDatabase()
+        private async Task LoadDataItemsFromDatabase()
         {
             try
             {
@@ -692,9 +693,9 @@ namespace CSimple.Pages
                     foreach (var actionGroupJson in formattedActionGroups)
                     {
                         var actionGroup = JsonConvert.DeserializeObject<ActionGroup>(actionGroupJson);
-                        ActionGroups.Add(actionGroup);
+                        Data.Add(new DataItem { Data = new DataObject { ActionGroupObject = actionGroup } });
                     }
-                    DebugOutput("Action Groups Loaded from Backend");
+                    DebugOutput("Data items Loaded from Backend");
                 }
                 else
                 {
@@ -707,31 +708,31 @@ namespace CSimple.Pages
             }
         }
 
-        private async Task SaveActionGroupsToFile()
+        private async Task SaveDataItemsToFile()
         {
             try
             {
-                // await _fileService.SaveActionGroupsAsync(ActionGroups);
-                DebugOutput("Action Groups Saved to File");
+                await _fileService.SaveDataItemsAsync(Data.ToList());
+                DebugOutput("Data items Saved to File");
                 _recordedActions.Clear();
-                _ = LoadActionGroupsFromFile();
+                LoadDataItemsFromFile();
             }
             catch (Exception ex)
             {
-                DebugOutput($"Error saving action groups: {ex.Message}");
+                DebugOutput($"Error Data items groups: {ex.Message}");
             }
         }
-        private async Task LoadActionGroupsFromFile()
+        private async Task LoadDataItemsFromFile()
         {
             try
             {
-                // var loadedActionGroups = await _fileService.LoadActionGroupsAsync();
-                // ActionGroups = new ObservableCollection<ActionGroup>((IEnumerable<ActionGroup>)loadedActionGroups);
-                DebugOutput("Action Groups Loaded from File");
+                var loadedActionGroups = await _fileService.LoadDataItemsAsync();
+                Data = new ObservableCollection<DataItem>(loadedActionGroups.Select(ag => new DataItem { Data = new DataObject { ActionGroupObject = ag.Data.ActionGroupObject } }));
+                DebugOutput("Data items Saved to File");
             }
             catch (Exception ex)
             {
-                DebugOutput($"Error loading action groups from file: {ex.Message}");
+                DebugOutput($"Error loading Data items from file: {ex.Message}");
             }
         }
 
@@ -754,17 +755,17 @@ namespace CSimple.Pages
                 };
 
                 // Check if an ActionGroup with the same name already exists
-                var existingActionGroup = ActionGroups.FirstOrDefault(ag => ag.ActionName == actionName);
+                var existingActionGroup = Data.FirstOrDefault(ag => ag.Data.ActionGroupObject.ActionName == actionName);
 
                 if (existingActionGroup != null)
                 {
                     // If it exists, append the new action item to the existing ActionArray
-                    existingActionGroup.ActionArray.Add(actionItem);
+                    existingActionGroup.Data.ActionGroupObject.ActionArray.Add(actionItem);
 
                     // Check if the ActionModifier already exists before adding it
-                    if (!existingActionGroup.ActionModifiers.Any(am => am.ModifierName == actionModifier.ModifierName))
+                    if (!existingActionGroup.Data.ActionGroupObject.ActionModifiers.Any(am => am.ModifierName == actionModifier.ModifierName))
                     {
-                        existingActionGroup.ActionModifiers.Add(actionModifier);
+                        existingActionGroup.Data.ActionGroupObject.ActionModifiers.Add(actionModifier);
                     }
 
                     DebugOutput($"Updated Action Group: {UserTouchInputText}");
@@ -779,7 +780,7 @@ namespace CSimple.Pages
                         ActionModifiers = new List<ActionModifier> { actionModifier },
                         IsSimulating = false
                     };
-                    ActionGroups.Add(newActionGroup);
+                    Data.Add(new DataItem { Data = new DataObject { ActionGroupObject = newActionGroup } });
                     DebugOutput($"Saved Action Group: {actionName}");
                 }
 
