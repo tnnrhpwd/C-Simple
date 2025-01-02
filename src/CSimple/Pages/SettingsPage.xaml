@@ -212,6 +212,10 @@
                     </RadioButton>
                 </StackLayout>
             </Grid>
+            <Label Text="Time Zone" class="Subhead" />
+            <Picker x:Name="TimeZonePicker"
+                    Title="Select Time Zone"
+                    SelectedIndexChanged="TimeZonePicker_SelectedIndexChanged" />
             </VerticalStackLayout>
         </ScrollView>
         <Grid 

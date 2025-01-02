@@ -6,11 +6,15 @@ using Microsoft.Maui.Storage;
 using System;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using System.Linq;
 
 public partial class SettingsPage : ContentPage
 {
     private readonly DataService _dataService;
     public ICommand LogoutCommand { get; }
+    private List<string> _timeZones = TimeZoneInfo.GetSystemTimeZones()
+        .Select(tz => tz.DisplayName)
+        .ToList();
 
     public SettingsPage(DataService dataService)
     {
@@ -24,6 +28,7 @@ public partial class SettingsPage : ContentPage
         base.OnAppearing();
         await LoadUserData();
         await UpdateButtonText();
+        TimeZonePicker.ItemsSource = _timeZones;
     }
     // Load user data from SecureStorage
     private async Task LoadUserData()
@@ -123,5 +128,11 @@ public partial class SettingsPage : ContentPage
             return;
 
         App.Current.UserAppTheme = val;
+    }
+
+    private void TimeZonePicker_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        string selectedZone = (string)TimeZonePicker.SelectedItem;
+        // Handle or store 'selectedZone'
     }
 }
