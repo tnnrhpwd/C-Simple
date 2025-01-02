@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 
 namespace CSimple.Converters
@@ -11,8 +12,10 @@ namespace CSimple.Converters
         {
             if (value is bool boolValue)
             {
+                Debug.WriteLine($"BoolToTextConverter Value is a boolean: {boolValue}");
                 return boolValue ? TrueText : FalseText;
             }
+            Debug.WriteLine("BoolToTextConverter Value is not a boolean");
             return FalseText;
         }
 

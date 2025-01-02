@@ -2,6 +2,7 @@ using Microsoft.Maui.Storage;
 using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Threading;
 
 public class DataService
 {
@@ -42,9 +43,11 @@ public class DataService
     }
 
     // Get data with a single 'data' query parameter
-    public async Task<DataModel> GetDataAsync(string data, string token)
+    public async Task<DataModel> GetDataAsync(string data, string token, CancellationToken cancellationToken = default)
     {
-        SetAuthorizationHeader(token);
+        using var client = new HttpClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
 
         // Construct the URL with the query parameter
         var url = $"{BaseUrl}?data={{\"text\":\"{data}\"}}";
@@ -58,7 +61,7 @@ public class DataService
         {
             try
             {
-                var response = await _httpClient.GetAsync(url);
+                using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
                 // Log the raw response content for debugging
                 var responseContent = await response.Content.ReadAsStringAsync();

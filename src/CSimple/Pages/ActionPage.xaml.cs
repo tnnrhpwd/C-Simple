@@ -350,7 +350,7 @@ namespace CSimple.Pages
                 DebugOutput($"Received data items from backend");
 
                 DebugOutput("Length of dataItems.Data:" + JsonSerializer.Serialize(dataItems.Data).Length.ToString());
-                DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend) Raw response data: {JsonSerializer.Serialize(dataItems.Data)}");
+                // DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend) Raw response data: {JsonSerializer.Serialize(dataItems.Data)}");
 
                 var formattedDataItems = dataItems.Data ?? new List<DataItem>();
                 DebugOutput($"Received {formattedDataItems.Count} DataItems from backend");
@@ -359,7 +359,7 @@ namespace CSimple.Pages
 
                 foreach (var dataItem in formattedDataItems)
                 {
-                    DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend.BindingContext) dataItem: {JsonSerializer.Serialize(dataItem)}");
+                    // DebugOutput($"2. (ActionPage.LoadActionGroupsFromBackend.BindingContext) dataItem: {JsonSerializer.Serialize(dataItem)}");
                     if (dataItem != null)
                     {
                         ParseDataItemText(dataItem);
