@@ -112,19 +112,21 @@
             <Shell.ItemTemplate>
                 <DataTemplate>
                     <Grid WidthRequest="150" HeightRequest="64"
-                          HorizontalOptions="Start"
-                          ColumnDefinitions="Auto, 5, Auto" RowDefinitions="Auto"> <!-- Add a small space -->
+                        HorizontalOptions="Start" VerticalOptions="Center"
+                        ColumnDefinitions="Auto, 5, Auto" RowDefinitions="*, Auto, *">
+                        <BoxView HeightRequest="15" Grid.Row="0" Grid.ColumnSpan="3"/>
                         <Image Source="{Binding FlyoutIcon}"
-                               VerticalOptions="Center"
-                               HorizontalOptions="Start"
-                               HeightRequest="34"
-                               WidthRequest="34"
-                               Grid.Column="0"/>
+                            VerticalOptions="Center"
+                            HorizontalOptions="Start"
+                            HeightRequest="34"
+                            WidthRequest="34"
+                            Grid.Row="1" Grid.Column="0"/>
                         <Label Text="{Binding Title}"
-                               VerticalOptions="Center"
-                               HorizontalOptions="Start"
-                               WidthRequest="170"
-                               Grid.Column="2"/> <!-- Adjust column index -->
+                            VerticalOptions="Center"
+                            HorizontalOptions="Start"
+                            WidthRequest="170"
+                            Grid.Row="1" Grid.Column="2"/>
+                        <BoxView HeightRequest="15" Grid.Row="2" Grid.ColumnSpan="3"/>
                     </Grid>
                 </DataTemplate>
             </Shell.ItemTemplate>
