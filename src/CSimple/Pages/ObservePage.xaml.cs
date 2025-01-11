@@ -7,22 +7,15 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Threading;
-// using Windows.Graphics.Display;
 using OpenCvSharp;
 using NAudio.Wave;
 using Microsoft.Maui.Storage;
 #if WINDOWS
 using System.Text;
 using System.Windows.Forms;
-using CSimple.ViewModels;
 #endif
-using System;
-using NAudio.CoreAudioApi;
 using NWaves.FeatureExtractors;
-using NWaves.FeatureExtractors.Base;
-using NWaves.Transforms;
 using NWaves.FeatureExtractors.Options;
-using NWaves.Utils;
 
 namespace CSimple.Pages
 {
@@ -656,57 +649,6 @@ namespace CSimple.Pages
                 DebugOutput($"Error saving new action group: {ex.Message}");
             }
         }
-        private async Task LoadAndSaveDataItems()
-        {
-            try
-            {
-                // Load data items from the database
-                await LoadDataItemsFromDatabase();
-
-                // Save the loaded data items to a file
-                await SaveDataItemsToFile();
-            }
-            catch (Exception ex)
-            {
-                DebugOutput($"Error in LoadAndSaveDataItems: {ex.Message}");
-            }
-        }
-
-        private async Task LoadDataItemsFromDatabase()
-        {
-            try
-            {
-                DebugOutput("Starting Action Groups Load and Save Task");
-                var token = await SecureStorage.GetAsync("userToken");
-                if (string.IsNullOrEmpty(token))
-                {
-                    DebugOutput("User is not logged in.");
-                    return;
-                }
-
-                var data = "|Action:";
-                var actionGroups = await _dataService.GetDataAsync(data, token);
-
-                if (actionGroups.DataIsSuccess)
-                {
-                    var formattedActionGroups = FormatActionsFromBackend(actionGroups.Data.Cast<DataItem>().ToList());
-                    foreach (var actionGroupJson in formattedActionGroups)
-                    {
-                        var actionGroup = JsonConvert.DeserializeObject<ActionGroup>(actionGroupJson);
-                        Data.Add(new DataItem { Data = new DataObject { ActionGroupObject = actionGroup } });
-                    }
-                    DebugOutput("Data items Loaded from Backend");
-                }
-                else
-                {
-                    DebugOutput($"Error loading action groups from database: {actionGroups.DataMessage}");
-                }
-            }
-            catch (Exception ex)
-            {
-                DebugOutput($"Error loading action groups from database: {ex.Message}");
-            }
-        }
 
         private async Task SaveDataItemsToFile()
         {
@@ -714,8 +656,6 @@ namespace CSimple.Pages
             {
                 await _fileService.SaveDataItemsAsync(Data.ToList());
                 DebugOutput("Data items Saved to File");
-                _recordedActions.Clear();
-                LoadDataItemsFromFile();
             }
             catch (Exception ex)
             {
@@ -935,15 +875,6 @@ namespace CSimple.Pages
                 ButtonLabel.Text = activeInputsDisplay.ToString(); // Display the active key presses in the ButtonLabel
             });
         }
-        private Rectangle GetScreenBounds()
-        {
-            // Using P/Invoke to get the screen dimensions
-            IntPtr hDesktopDC = GetDC(GetDesktopWindow());
-            int screenWidth = GetDeviceCaps(hDesktopDC, 118); // HORZRES
-            int screenHeight = GetDeviceCaps(hDesktopDC, 117); // VERTRES
-            ReleaseDC(GetDesktopWindow(), hDesktopDC);
-            return new Rectangle(0, 0, screenWidth, screenHeight);
-        }
 
         [DllImport("gdi32.dll")]
         private static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
@@ -1013,68 +944,5 @@ namespace CSimple.Pages
             public int Y;
         }
 #endif
-        private ObservableCollection<string> FormatActionsFromBackend(IEnumerable<DataItem> actionGroupItems)
-        {
-            var formattedActionGroups = new ObservableCollection<string>();
-
-            foreach (var actionGroupItem in actionGroupItems)
-            {
-                try
-                {
-                    // var parts = actionGroupItem.Data.Split('|');
-                    // var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
-                    // var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
-
-                    // if (creatorPart != null && actionPart != null)
-                    // {
-                    //     var actionJson = actionPart.Substring("Action:".Length).Trim();
-                    //     if (actionJson.StartsWith("{") && actionJson.EndsWith("}"))
-                    //     {
-                    //         var actionGroup = JsonConvert.DeserializeObject<ActionGroup>(actionJson);
-
-                    //         if (actionGroup != null)
-                    //         {
-                    //             actionGroup.Creator = creatorPart.Substring("Creator:".Length);
-                    //             actionGroup.ActionArray = actionGroup.ActionArray ?? new List<ActionItem>();
-                    //             actionGroup.ActionArrayFormatted = actionGroupItem.Data.Length > 50 ? actionGroupItem.Data.Substring(0, 50) + "..." : actionGroupItem.Data;
-
-                    //             // Initialize Id if not already set
-                    //             if (actionGroup.Id == Guid.Empty)
-                    //             {
-                    //                 actionGroup.Id = Guid.NewGuid();
-                    //             }
-
-                    //             formattedActionGroups.Add(actionGroupItem.Data);
-                    //             DebugOutput($"Adding action: {actionGroup.ActionName}");
-                    //         }
-                    //         else
-                    //         {
-                    //             DebugOutput($"Failed to deserialize action group JSON: {actionJson}");
-                    //         }
-                    //     }
-                    //     else
-                    //     {
-                    //         DebugOutput($"Invalid JSON format for action group: {actionJson}");
-                    //     }
-                    // }
-                    // else
-                    // {
-                    //     DebugOutput($"Invalid action group string: {actionGroupItem.Data}");
-                    // }
-                }
-                catch (JsonException jsonEx)
-                {
-                    DebugOutput($"JSON error parsing action group: {jsonEx.Message}");
-                }
-                catch (Exception ex)
-                {
-                    DebugOutput($"Error parsing action group: {ex.Message}");
-                }
-            }
-            // Log raw response data
-            Debug.WriteLine("Length of formattedActionGroups:" + JsonConvert.SerializeObject(formattedActionGroups).Length.ToString());
-            DebugOutput($"2. (ObservePage.FormatActionsFromBackend) Raw response data: {JsonConvert.SerializeObject(formattedActionGroups)}");
-            return formattedActionGroups;
-        }
     }
 }
