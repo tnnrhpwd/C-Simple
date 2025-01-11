@@ -115,6 +115,7 @@ namespace CSimple.Pages
             base.OnAppearing();
             SortPicker.SelectedIndex = 1; // default to CreatedAt Descending
             await LoadDataItemsFromBackend();
+            OnSortOrderChanged(SortPicker, EventArgs.Empty); // Ensure data is sorted after loading
         }
         private async Task NavigateToObservePage()
         {
