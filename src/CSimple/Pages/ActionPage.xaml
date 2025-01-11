@@ -32,10 +32,15 @@
                 
                 <!-- Sort Picker -->
                 <Picker x:Name="SortPicker" Title="Sort by"
+                        SelectedIndex="1"
                         SelectedIndexChanged="OnSortOrderChanged">
                     <Picker.Items>
                         <x:String>CreatedAt Ascending</x:String>
                         <x:String>CreatedAt Descending</x:String>
+                        <x:String>Creator Ascending</x:String>
+                        <x:String>Creator Descending</x:String>
+                        <x:String>ActionName Ascending</x:String>
+                        <x:String>ActionName Descending</x:String>
                     </Picker.Items>
                 </Picker>
                 
@@ -43,13 +48,13 @@
                 <CollectionView ItemsSource="{Binding Data}" Margin="0,20,0,0">
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
-                            <Frame CornerRadius="10" Padding="10" Margin="5">
+                            <Frame CornerRadius="10" Padding="10" Margin="25" HeightRequest="150">
                                 <Grid ColumnDefinitions="*,Auto">
-                                    <VerticalStackLayout Grid.Column="0">
+                                    <VerticalStackLayout Grid.Column="0" Margin="5,2">
                                         <Label Text="{Binding Data.ActionGroupObject.ActionName}" TextColor="White" />
                                         <Label Text="{Binding createdAt}" TextColor="Gray" />
                                         <Label Text="{Binding Creator}" TextColor="Gray" />
-                                        <ListView ItemsSource="{Binding Data.files}">
+                                        <ListView ItemsSource="{Binding Data.files}" HeightRequest="50">
                                             <ListView.ItemTemplate>
                                                 <DataTemplate>
                                                     <ViewCell>

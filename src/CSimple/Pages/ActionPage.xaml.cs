@@ -43,6 +43,10 @@ namespace CSimple.Pages
             // Set the BindingContext to the current instance of ActionPage
             BindingContext = this;
 
+            // Initialize fields
+            SortPicker = this.FindByName<Picker>("SortPicker");
+            InputActionPopup = this.FindByName<ContentView>("InputActionPopup");
+
             _fileService = new FileService();
             _dataService = new DataService();
 
@@ -109,7 +113,7 @@ namespace CSimple.Pages
         protected override async void OnAppearing()
         {
             base.OnAppearing();
-            SortPicker.SelectedIndex = 0; // default ascending
+            SortPicker.SelectedIndex = 1; // default to CreatedAt Descending
             await LoadDataItemsFromBackend();
         }
         private async Task NavigateToObservePage()
@@ -480,18 +484,41 @@ namespace CSimple.Pages
 
         private void OnSortOrderChanged(object sender, EventArgs e)
         {
-            if (SortPicker.SelectedIndex < 0 || Data == null || Data.Count == 0) return;
+            if (SortPicker.SelectedIndex < 0 || Data == null || Data.Count == 0)
+                return;
 
-            if (SortPicker.SelectedIndex == 0)
+            var sortedList = Data.ToList();
+
+            switch (SortPicker.SelectedIndex)
             {
-                // Ascending
-                Data = new ObservableCollection<DataItem>(Data.OrderBy(d => d.createdAt));
+                case 0:
+                    sortedList = sortedList.OrderBy(d => d.createdAt).ToList();
+                    break;
+                case 1:
+                    sortedList = sortedList.OrderByDescending(d => d.createdAt).ToList();
+                    break;
+                case 2:
+                    sortedList = sortedList.OrderBy(d => d.Creator).ToList();
+                    break;
+                case 3:
+                    sortedList = sortedList.OrderByDescending(d => d.Creator).ToList();
+                    break;
+                case 4:
+                    sortedList = sortedList.OrderBy(d => d.Data?.ActionGroupObject?.ActionName).ToList();
+                    break;
+                case 5:
+                    sortedList = sortedList.OrderByDescending(d => d.Data?.ActionGroupObject?.ActionName).ToList();
+                    break;
+                default:
+                    return;
             }
-            else
+
+            Data.Clear();
+            foreach (var item in sortedList)
             {
-                // Descending
-                Data = new ObservableCollection<DataItem>(Data.OrderByDescending(d => d.createdAt));
+                Data.Add(item);
             }
+
             OnPropertyChanged(nameof(Data));
         }
 
