@@ -49,7 +49,6 @@
                                         Value="0" />
                                 </VisualState.Setters>
                             </VisualState>
-
                         </VisualStateGroup>
                     </VisualStateGroupList>
                 </VisualStateManager.VisualStateGroups>
@@ -83,158 +82,129 @@
         </ControlTemplate>
     </ContentPage.Resources>
 
-    
-    <Grid
-        ColumnDefinitions="*"
-        RowDefinitions="{OnIdiom Phone='100,*', Default='100,*,0'}"
-        >
-        <ScrollView Grid.Row="1"
-                    Margin="{OnIdiom Phone=15, Default=25}"
-                    >
+    <Grid ColumnDefinitions="*" RowDefinitions="{OnIdiom Phone='100,*', Default='100,*,0'}">
+        <ScrollView Grid.Row="1" Margin="{OnIdiom Phone=15, Default=25}">
             <VerticalStackLayout Spacing="8">
-                <!-- Account Section -->
+                <Label Text="Account" class="SectionTitle" />
                 <StackLayout x:Name="AccountSection" Padding="10" Style="{StaticResource AccountSectionStyle}">
-                    <Label Text="Account" class="SectionTitle" />
                     <StackLayout Padding="10">
-                        <!-- Email Display and Edit -->
                         <Label Text="Email" class="Subhead" />
                         <Label x:Name="UserEmailLabel" Text="user@example.com" class="SubContent" />
-                        <Button Text="Edit Email"
-                                Command="{Binding EditEmailCommand}" />
+                        <Button Text="Edit Email" Command="{Binding EditEmailCommand}" />
                     </StackLayout>
                     <BoxView class="HRule" />
-                    <!-- Password Display and Edit -->
                     <StackLayout Padding="10">
                         <Label Text="Password" class="Subhead" />
                         <Label Text="********" x:Name="PasswordLabel" class="SubContent" />
-                        <Button Text="Edit Password"
-                                Command="{Binding EditPasswordCommand}" />
+                        <Button Text="Edit Password" Command="{Binding EditPasswordCommand}" />
                     </StackLayout>
                 </StackLayout>
-
                 <BoxView class="HRule"/>
                 <Label Text="App" class="SectionTitle"/>
-                <Label Grid.Row="0"
-                                Text="Support" class="Subhead">
+                <Grid Padding="10">
+                    <Label Text="Theme" class="Subhead"/>
+                    <StackLayout
+                        HorizontalOptions="End"
+                        Spacing="12"
+                        Orientation="Horizontal"
+                        RadioButtonGroup.GroupName="AppTheme"
+                        RadioButtonGroup.SelectedValue="{Binding SelectedTheme}">
+                        <StackLayout.Resources>
+                            <Style TargetType="RadioButton">
+                                <Setter Property="ControlTemplate" Value="{StaticResource ThemeRadioTemplate}"/>
+                            </Style>
+                        </StackLayout.Resources>
+                        <RadioButton Value="{x:Static am:AppTheme.Unspecified}"
+                            IsChecked="True"
+                            CheckedChanged="RadioButton_CheckedChanged"
+                            >
+                            <RadioButton.Content>
+                                <Grid RowDefinitions="*">
+                                    <Image
+                                        VerticalOptions="Center"
+                                        HorizontalOptions="Center"
+                                        WidthRequest="50"
+                                        HeightRequest="50"
+                                        Margin="0,-8,0,0"
+                                        Source="{FontImage
+                                        FontFamily=FontAwesome,
+                                        Glyph={x:Static local:IconFont.Mobile},
+                                        Color={StaticResource MidGray},
+                                        Size=42}"/>
+                                    <Label
+                                        Text="Default"
+                                        VerticalOptions="End"
+                                        HorizontalOptions="Center"
+                                        FontSize="12"
+                                        Margin="0,0,0,10"/>
+                                </Grid>
+                            </RadioButton.Content>
+                        </RadioButton>
+                        <RadioButton Value="{x:Static am:AppTheme.Dark}"
+                            CheckedChanged="RadioButton_CheckedChanged">
+                            <RadioButton.Content>
+                                <Grid RowDefinitions="*">
+                                    <Image
+                                        VerticalOptions="Center"
+                                        HorizontalOptions="Center"
+                                        WidthRequest="50"
+                                        HeightRequest="50"
+                                        Margin="0,-8,0,0"
+                                        Source="{FontImage
+                                        FontFamily=FontAwesome,
+                                        Glyph={x:Static local:IconFont.Lightbulb},
+                                        Color=Black,
+                                        Size=42}"/>
+                                    <Label
+                                        Text="Dark"
+                                        VerticalOptions="End"
+                                        Margin="0,0,0,10"
+                                        HorizontalOptions="Center"
+                                        FontSize="12"
+                                        />
+                                </Grid>
+                            </RadioButton.Content>
+                        </RadioButton>
+                        <RadioButton Value="{x:Static am:AppTheme.Light}"
+                            CheckedChanged="RadioButton_CheckedChanged"
+                            >
+                            <RadioButton.Content>
+                                <Grid RowDefinitions="*">
+                                    <Image
+                                        VerticalOptions="Center"
+                                        HorizontalOptions="Center"
+                                        WidthRequest="50"
+                                        HeightRequest="50"
+                                        Margin="0,-8,0,0"
+                                        Source="{FontImage
+                                        FontFamily=FontAwesome,
+                                        Glyph={x:Static local:IconFont.Lightbulb},
+                                        Color=White,
+                                        Size=42}"/>
+                                    <Label
+                                        Text="Light"
+                                        FontSize="12"
+                                        VerticalOptions="End"
+                                        HorizontalOptions="Center"
+                                        Margin="0,0,0,10"/>
+                                </Grid>
+                            </RadioButton.Content>
+                        </RadioButton>
+                    </StackLayout>
+                </Grid>
+                <BoxView class="HRule"/>
+                <Picker x:Name="TimeZonePicker"
+                    Title="Select Time Zone"
+                    SelectedIndexChanged="TimeZonePicker_SelectedIndexChanged" />
+                <BoxView class="HRule"/>
+                <Label Grid.Row="0" Text="Support" class="Subhead">
                     <Label.GestureRecognizers>
                         <TapGestureRecognizer Tapped="OnSupportTapped"/>
                     </Label.GestureRecognizers>
                 </Label>
-                <BoxView class="HRule"/>
-            <Grid>
-                <Label Text="Theme" class="Subhead"/>
-                <StackLayout
-                    HorizontalOptions="End"
-                    Spacing="12"
-                    Orientation="Horizontal"
-                     RadioButtonGroup.GroupName="AppTheme"
-                     RadioButtonGroup.SelectedValue="{Binding SelectedTheme}">
-                    <StackLayout.Resources>
-                        <Style TargetType="RadioButton">
-                            <Setter Property="ControlTemplate" Value="{StaticResource ThemeRadioTemplate}"/>
-                        </Style>
-                    </StackLayout.Resources>
-                    <RadioButton Value="{x:Static am:AppTheme.Unspecified}"
-                                 IsChecked="True"
-                                 CheckedChanged="RadioButton_CheckedChanged"
-                                 >
-                        <RadioButton.Content>
-                            <Grid RowDefinitions="*">
-                                <Image
-                                    VerticalOptions="Center"
-                                    HorizontalOptions="Center"
-                                    WidthRequest="50"
-                                    HeightRequest="50"
-                                    Margin="0,-8,0,0"
-                                    Source="{FontImage
-                                    FontFamily=FontAwesome,
-                                    Glyph={x:Static local:IconFont.Mobile},
-                                    Color={StaticResource MidGray},
-                                    Size=42}"/>
-                                <Label
-                                    Text="Default"
-                                    VerticalOptions="End"
-                                    HorizontalOptions="Center"
-                                    FontSize="12"
-                                    Margin="0,0,0,10"/>
-                            </Grid>
-                        </RadioButton.Content>
-                    </RadioButton>
-                    <RadioButton Value="{x:Static am:AppTheme.Dark}"
-                                 CheckedChanged="RadioButton_CheckedChanged">
-                        <RadioButton.Content>
-                            <Grid RowDefinitions="*">
-                                <Image
-                                    VerticalOptions="Center"
-                                    HorizontalOptions="Center"
-                                    WidthRequest="50"
-                                    HeightRequest="50"
-                                    Margin="0,-8,0,0"
-                                    Source="{FontImage
-                                    FontFamily=FontAwesome,
-                                    Glyph={x:Static local:IconFont.Lightbulb},
-                                    Color=Black,
-                                    Size=42}"/>
-                                <Label
-                                    Text="Dark"
-                                    VerticalOptions="End"
-                                    Margin="0,0,0,10"
-                                    HorizontalOptions="Center"
-                                    FontSize="12"
-                                    />
-                            </Grid>
-                        </RadioButton.Content>
-                    </RadioButton>
-                    <RadioButton Value="{x:Static am:AppTheme.Light}"
-                                 CheckedChanged="RadioButton_CheckedChanged"
-                                 >
-                        <RadioButton.Content>
-                            <Grid RowDefinitions="*">
-                                <Image
-                                    VerticalOptions="Center"
-                                    HorizontalOptions="Center"
-                                    WidthRequest="50"
-                                    HeightRequest="50"
-                                    Margin="0,-8,0,0"
-                                    Source="{FontImage
-                                    FontFamily=FontAwesome,
-                                    Glyph={x:Static local:IconFont.Lightbulb},
-                                    Color=White,
-                                    Size=42}"/>
-                                <Label
-                                    Text="Light"
-                                    FontSize="12"
-                                    VerticalOptions="End"
-                                    HorizontalOptions="Center"
-                                    Margin="0,0,0,10"/>
-                            </Grid>
-                        </RadioButton.Content>
-                    </RadioButton>
-                </StackLayout>
-            </Grid>
-            <Label Text="Time Zone" class="Subhead" />
-            <Picker x:Name="TimeZonePicker"
-                    Title="Select Time Zone"
-                    SelectedIndexChanged="TimeZonePicker_SelectedIndexChanged" />
             </VerticalStackLayout>
         </ScrollView>
-        <Grid 
-            Grid.Row="0" 
-            Grid.ColumnDefinitions="16,75,16,*,100,16"
-            >
-            <!--<BoxView Color="Red" 
-                    HorizontalOptions="Center"
-                        VerticalOptions="Center"
-                        WidthRequest="75"
-                        HeightRequest="75"
-                    Grid.Column="1">
-                <BoxView.Clip>
-                    <EllipseGeometry 
-                                Center="75,75"
-                                RadiusX="75"
-                                RadiusY="75"/>
-                </BoxView.Clip>
-            </BoxView>-->
+        <Grid Grid.Row="0" Grid.ColumnDefinitions="16,75,16,*,100,16">
             <Image  
                 HorizontalOptions="Center"
                 VerticalOptions="Center"
@@ -245,9 +215,9 @@
                 Source="https://sthopwood.com/static/media/Checkmark512.44b03091d831e2a87a74.png">
             <Image.Clip>
                 <EllipseGeometry 
-                        Center="36,36"
-                        RadiusX="36"
-                        RadiusY="36"/>
+                    Center="36,36"
+                    RadiusX="36"
+                    RadiusY="36"/>
             </Image.Clip>
                 </Image>
             <Label x:Name="UserNicknameLabel" Text="No user" Grid.Column="3" LineBreakMode="WordWrap" VerticalOptions="Center" />

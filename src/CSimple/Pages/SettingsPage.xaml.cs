@@ -130,9 +130,26 @@ public partial class SettingsPage : ContentPage
         App.Current.UserAppTheme = val;
     }
 
-    private void TimeZonePicker_SelectedIndexChanged(object sender, EventArgs e)
+    private async void TimeZonePicker_SelectedIndexChanged(object sender, EventArgs e)
     {
         string selectedZone = (string)TimeZonePicker.SelectedItem;
-        // Handle or store 'selectedZone'
+        try
+        {
+            string userId = await SecureStorage.GetAsync("userID");
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var updateData = new { TimeZone = selectedZone };
+                await _dataService.UpdateDataAsync(userId, updateData, await SecureStorage.GetAsync("userToken"));
+                Debug.WriteLine($"TimeZone updated to: {selectedZone}");
+            }
+            else
+            {
+                Debug.WriteLine("Error: User ID not found in secure storage.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error updating TimeZone: {ex.Message}");
+        }
     }
 }
