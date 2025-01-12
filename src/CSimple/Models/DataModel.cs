@@ -52,9 +52,9 @@ public class DataObject
 
 public class FileItem
 {
-    public string Filename { get; set; }
-    public string ContentType { get; set; }
-    public string Data { get; set; }
+    public string filename { get; set; }
+    public string contentType { get; set; }
+    public string data { get; set; }
 }
 
 public class ActionGroup : INotifyPropertyChanged

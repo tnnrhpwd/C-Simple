@@ -543,9 +543,9 @@ namespace CSimple.Pages
                                 Data = new DataObject
                                 {
                                     Text = "Webcam Audio",
-                                    Files = new List<FileItem> { new FileItem { Filename = Path.GetFileName(filePath),
-                                ContentType = "audio/wav",
-                                Data = Convert.ToBase64String(File.ReadAllBytes(filePath)) } }
+                                    Files = new List<FileItem> { new FileItem { filename = Path.GetFileName(filePath),
+                                contentType = "audio/wav",
+                                data = Convert.ToBase64String(File.ReadAllBytes(filePath)) } }
                                 }
                             });
                             // Extract MFCCs
@@ -965,10 +965,10 @@ namespace CSimple.Pages
             if (Data.Last().Data.Files == null)
                 Data.Last().Data.Files = new List<FileItem>();
 
-            Data.Last().Data.Files.Add(new FileItem { Filename = Path.GetFileName(filePath), 
-                ContentType = "image/png", 
-                Data = "Convert.ToBase64String(File.ReadAllBytes(filePath)) "});
-                // Data = Convert.ToBase64String(File.ReadAllBytes(filePath)) });
+            Data.Last().Data.Files.Add(new FileItem { filename = Path.GetFileName(filePath), 
+                contentType = "image/png", 
+                // Data = "Convert.ToBase64String(File.ReadAllBytes(filePath)) "});
+                data = Convert.ToBase64String(File.ReadAllBytes(filePath)) });
             Debug.WriteLine($"File added: {filePath}");
         }
     }
