@@ -292,6 +292,7 @@ namespace CSimple.Pages
                 {
                     string filePath = Path.Combine(webcamImagesDirectory, $"WebcamImage_{DateTime.Now:yyyyMMdd_HHmmss}.jpg");
                     Cv2.ImWrite(filePath, frame);
+                    AddFileToLastItem(filePath);
                     DebugOutput($"Webcam image saved to: {filePath}");
 
                     // Update the CapturedImageSource property
@@ -344,7 +345,7 @@ namespace CSimple.Pages
                             _loopbackWriter = null;
                             _loopbackCapture.Dispose();
                             Console.WriteLine($"Recording saved to: {filePath}");
-
+                            AddFileToLastItem(filePath);
                             // Extract MFCCs
                             ExtractMFCCs(filePath);
                         };
@@ -472,6 +473,7 @@ namespace CSimple.Pages
                                 // Generate the file path using the captured time
                                 string filePath = Path.Combine(screenshotsDirectory, $"ScreenCapture_{captureTime:yyyyMMdd_HHmmss_fff}_{screen.DeviceName.Replace("\\", "").Replace(":", "")}.png");
                                 bitmap.Save(filePath, ImageFormat.Png);
+                                AddFileToLastItem(filePath);
                                 DebugOutput($"Screenshot saved to: {filePath}");
                             }
                         }
@@ -535,6 +537,7 @@ namespace CSimple.Pages
                             _writer = null;
                             _waveIn.Dispose();
                             Console.WriteLine($"Recording saved to: {filePath}");
+                            AddFileToLastItem(filePath);
                             Data.Add(new DataItem
                             {
                                 Data = new DataObject
@@ -635,15 +638,17 @@ namespace CSimple.Pages
                 }
 
                 var userId = await SecureStorage.GetAsync("userID");
-
                 var actionGroupObject = Data.Last().Data.ActionGroupObject;
-                var dataItemFiles = Data.Last().Data.Files;
+                var dataItemFiles = Data.Last().Data.Files; // type List<FileItem>
+                DebugOutput($"User ID: {userId}, "
+                    + $"Action Group: {JsonConvert.SerializeObject(actionGroupObject)}, "
+                    + $"Files: {JsonConvert.SerializeObject(dataItemFiles)}");
 
                 var dataItem = new DataObject
                 {
-                    Text = "Creator:6770a067c725cbceab958619|Action:" + (actionGroupObject.ActionName != null ? actionGroupObject.ActionName : "No Action Name"),
+                    Text = "Creator:" + userId + "|Action:" + (actionGroupObject.ActionName != null ? actionGroupObject.ActionName : "No Action Name"),
                     ActionGroupObject = actionGroupObject,
-                    Files = dataItemFiles
+                    Files = dataItemFiles // type List<FileItem>
                 };
 
                 var response = await _dataService.CreateDataAsync(dataItem, token);
@@ -953,5 +958,18 @@ namespace CSimple.Pages
             public int Y;
         }
 #endif
+        private void AddFileToLastItem(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath)) return;
+            if (!Data.Any()) return;
+            if (Data.Last().Data.Files == null)
+                Data.Last().Data.Files = new List<FileItem>();
+
+            Data.Last().Data.Files.Add(new FileItem { Filename = Path.GetFileName(filePath), 
+                ContentType = "image/png", 
+                Data = "Convert.ToBase64String(File.ReadAllBytes(filePath)) "});
+                // Data = Convert.ToBase64String(File.ReadAllBytes(filePath)) });
+            Debug.WriteLine($"File added: {filePath}");
+        }
     }
 }
