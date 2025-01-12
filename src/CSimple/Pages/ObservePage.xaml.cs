@@ -96,7 +96,7 @@ namespace CSimple.Pages
             SaveActionCommand = new Command(SaveAction);
             SaveToFileCommand = new Command(async () => await SaveDataItemsToFile());
             LoadFromFileCommand = new Command(async () => await LoadDataItemsFromFile());
-            
+
             BindingContext = this;
         }
         private async void CheckUserLoggedIn()
@@ -233,7 +233,8 @@ namespace CSimple.Pages
         protected override void OnDisappearing()
         {
             base.OnDisappearing();
-        }private CancellationTokenSource _pcVisualCancellationTokenSource;
+        }
+        private CancellationTokenSource _pcVisualCancellationTokenSource;
 
         private void TogglePCVisualOutput() // webcam image: record what the webcam sees
         {
@@ -534,11 +535,16 @@ namespace CSimple.Pages
                             _writer = null;
                             _waveIn.Dispose();
                             Console.WriteLine($"Recording saved to: {filePath}");
-                            Data.Add(new DataItem { Data = new DataObject { text = "Webcam Audio", 
-                                files = new List<FileItem> { new FileItem { Filename = Path.GetFileName(filePath), 
-                                ContentType = "audio/wav", 
-                                Data = Convert.ToBase64String(File.ReadAllBytes(filePath)) } } 
-                            }});
+                            Data.Add(new DataItem
+                            {
+                                Data = new DataObject
+                                {
+                                    Text = "Webcam Audio",
+                                    Files = new List<FileItem> { new FileItem { Filename = Path.GetFileName(filePath),
+                                ContentType = "audio/wav",
+                                Data = Convert.ToBase64String(File.ReadAllBytes(filePath)) } }
+                                }
+                            });
                             // Extract MFCCs
                             ExtractMFCCs(filePath);
                         };
@@ -631,13 +637,13 @@ namespace CSimple.Pages
                 var userId = await SecureStorage.GetAsync("userID");
 
                 var actionGroupObject = Data.Last().Data.ActionGroupObject;
-                var dataItemFiles = Data.Last().Data.files;
+                var dataItemFiles = Data.Last().Data.Files;
 
                 var dataItem = new DataObject
                 {
-                    text = actionGroupObject.ActionName,
+                    Text = "Creator:6770a067c725cbceab958619|Action:" + (actionGroupObject.ActionName != null ? actionGroupObject.ActionName : "No Action Name"),
                     ActionGroupObject = actionGroupObject,
-                    files = dataItemFiles
+                    Files = dataItemFiles
                 };
 
                 var response = await _dataService.CreateDataAsync(dataItem, token);

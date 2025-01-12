@@ -45,8 +45,8 @@ public class DataItem : INotifyPropertyChanged
 
 public class DataObject
 {
-    public string text { get; set; }
-    public List<FileItem> files { get; set; } = new List<FileItem>();
+    public string Text { get; set; }
+    public List<FileItem> Files { get; set; } = new List<FileItem>();
     public ActionGroup ActionGroupObject { get; set; } = new ActionGroup();
 }
 

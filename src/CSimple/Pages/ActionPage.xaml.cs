@@ -299,10 +299,10 @@ namespace CSimple.Pages
             {
                 DebugOutput("3. Actionpage.SaveDataItemsToFile Length of DataModel:" + JsonSerializer.Serialize(Data).Length.ToString());
                 DebugOutput("Type of Data:" + Data.GetType().ToString());
-                
+
                 // Convert ObservableCollection to List
                 List<DataItem> dataList = new List<DataItem>(Data);
-                
+
                 await _fileService.SaveDataItemsAsync(dataList);
                 DebugOutput("Action Groups and Actions Saved to File");
             }
@@ -386,9 +386,9 @@ namespace CSimple.Pages
 
         private static void ParseDataItemText(DataItem dataItem)
         {
-            if (string.IsNullOrEmpty(dataItem?.Data?.text)) return;
+            if (string.IsNullOrEmpty(dataItem?.Data?.Text)) return;
 
-            var parts = dataItem.Data.text.Split('|', StringSplitOptions.RemoveEmptyEntries);
+            var parts = dataItem.Data.Text.Split('|', StringSplitOptions.RemoveEmptyEntries);
             var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
             var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
             var publicPart = parts.FirstOrDefault(p => p.StartsWith("IsPublic:"));
@@ -421,7 +421,7 @@ namespace CSimple.Pages
                 dataItem.IsPublic = false;
             }
             Debug.Write($"Parsed dataItem.Creator: {dataItem.Creator}");
-            Debug.Write($"Parsed dataItem.ActionName: {dataItem.Data.ActionGroupObject.ActionName}"); 
+            Debug.Write($"Parsed dataItem.ActionName: {dataItem.Data.ActionGroupObject.ActionName}");
             Debug.Write($"Parsed dataItem.IsPublic: {dataItem.IsPublic}");
         }
 
