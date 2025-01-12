@@ -630,14 +630,17 @@ namespace CSimple.Pages
 
                 var userId = await SecureStorage.GetAsync("userID");
 
-                var actionGroupString = $"Creator:{userId}|Action:{JsonConvert.SerializeObject(Data.Last().Data.ActionGroupObject)}";
+                var actionGroupObject = Data.Last().Data.ActionGroupObject;
                 var dataItemFiles = Data.Last().Data.files;
-                var queryParams = new Dictionary<string, string>
+
+                var dataItem = new DataObject
                 {
-                    { "data", actionGroupString+JsonConvert.SerializeObject(dataItemFiles) }
+                    text = actionGroupObject.ActionName,
+                    ActionGroupObject = actionGroupObject,
+                    files = dataItemFiles
                 };
 
-                var response = await _dataService.CreateDataAsync(queryParams["data"], token);
+                var response = await _dataService.CreateDataAsync(dataItem, token);
                 var serializedData = response.Data != null && response.Data.Any()
                     ? JsonConvert.SerializeObject(response.Data)
                     : "No data available";
