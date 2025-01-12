@@ -326,44 +326,41 @@ namespace CSimple.Pages
                     Directory.CreateDirectory(pcAudioDirectory);
                     string actionName = ActionNameInput.Text;
 
-                    if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(UserTouchInputText))
+                    DebugOutput("Recording PC audio...");
+                    // Define the output file path once when recording starts
+                    string filePath = Path.Combine(pcAudioDirectory, $"PCAudio_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
+
+                    _loopbackCapture = new WasapiLoopbackCapture();
+                    _loopbackWriter = new WaveFileWriter(filePath, _loopbackCapture.WaveFormat);
+
+                    _loopbackCapture.DataAvailable += (s, a) =>
                     {
-                        // Define the output file path once when recording starts
-                        string filePath = Path.Combine(pcAudioDirectory, $"PCAudio_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
+                        _loopbackWriter.Write(a.Buffer, 0, a.BytesRecorded);
+                    };
 
-                        _loopbackCapture = new WasapiLoopbackCapture();
-                        _loopbackWriter = new WaveFileWriter(filePath, _loopbackCapture.WaveFormat);
+                    _loopbackCapture.RecordingStopped += (s, a) =>
+                    {
+                        _loopbackWriter?.Dispose();
+                        _loopbackWriter = null;
+                        _loopbackCapture.Dispose();
+                        DebugOutput($"Recording saved to: {filePath}");
+                        AddFileToLastItem(filePath);
+                        ExtractMFCCs(filePath);
+                    };
 
-                        _loopbackCapture.DataAvailable += (s, a) =>
-                        {
-                            _loopbackWriter.Write(a.Buffer, 0, a.BytesRecorded);
-                        };
-
-                        _loopbackCapture.RecordingStopped += (s, a) =>
-                        {
-                            _loopbackWriter?.Dispose();
-                            _loopbackWriter = null;
-                            _loopbackCapture.Dispose();
-                            Console.WriteLine($"Recording saved to: {filePath}");
-                            AddFileToLastItem(filePath);
-                            // Extract MFCCs
-                            ExtractMFCCs(filePath);
-                        };
-
-                        _loopbackCapture.StartRecording();
-                        Console.WriteLine("Recording PC audio...");
-                    }
+                    _loopbackCapture.StartRecording();
+                    DebugOutput("Recording PC audio...");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error: {ex.Message}");
+                    DebugOutput($"Error: {ex.Message}");
                 }
             }
             else
             {
                 // Stop recording
                 _loopbackCapture?.StopRecording();
-                Console.WriteLine("Stopped recording PC audio.");
+                DebugOutput("Stopped recording PC audio.");
             }
         }
 
@@ -516,56 +513,43 @@ namespace CSimple.Pages
                     var deviceNumber = FindWebcamAudioDevice();
                     if (deviceNumber == -1)
                     {
-                        Console.WriteLine("Webcam audio device not found.");
+                        DebugOutput("Webcam audio device not found.");
                         return;
                     }
-                    string actionName = ActionNameInput.Text;
-                    if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(UserTouchInputText))
+
+                    _waveIn.DeviceNumber = deviceNumber;
+                    _waveIn.WaveFormat = new WaveFormat(44100, 1); // Set appropriate format for your webcam audio
+                    _writer = new WaveFileWriter(filePath, _waveIn.WaveFormat);
+
+                    _waveIn.DataAvailable += (s, a) =>
                     {
-                        _waveIn.DeviceNumber = deviceNumber;
-                        _waveIn.WaveFormat = new WaveFormat(44100, 1); // Set appropriate format for your webcam audio
-                        _writer = new WaveFileWriter(filePath, _waveIn.WaveFormat);
+                        _writer.Write(a.Buffer, 0, a.BytesRecorded);
+                    };
 
-                        _waveIn.DataAvailable += (s, a) =>
-                        {
-                            _writer.Write(a.Buffer, 0, a.BytesRecorded);
-                        };
+                    _waveIn.RecordingStopped += (s, a) =>
+                    {
+                        _writer?.Dispose();
+                        _writer = null;
+                        _waveIn.Dispose();
+                        DebugOutput($"Recording saved to: {filePath}");
+                        AddFileToLastItem(filePath);
+                        // Extract MFCCs
+                        ExtractMFCCs(filePath);
+                    };
 
-                        _waveIn.RecordingStopped += (s, a) =>
-                        {
-                            _writer?.Dispose();
-                            _writer = null;
-                            _waveIn.Dispose();
-                            Console.WriteLine($"Recording saved to: {filePath}");
-                            AddFileToLastItem(filePath);
-                            Data.Add(new DataItem
-                            {
-                                Data = new DataObject
-                                {
-                                    Text = "Webcam Audio",
-                                    Files = new List<FileItem> { new FileItem { filename = Path.GetFileName(filePath),
-                                contentType = "audio/wav",
-                                data = Convert.ToBase64String(File.ReadAllBytes(filePath)) } }
-                                }
-                            });
-                            // Extract MFCCs
-                            ExtractMFCCs(filePath);
-                        };
-
-                        _waveIn.StartRecording();
-                        Console.WriteLine("Recording webcam audio...");
-                    }
+                    _waveIn.StartRecording();
+                    DebugOutput("Recording webcam audio...");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error: {ex.Message}");
+                    DebugOutput($"Error: {ex.Message}");
                 }
             }
             else
             {
                 // Stop recording
                 _waveIn?.StopRecording();
-                Console.WriteLine("Stopped recording webcam audio.");
+                DebugOutput("Stopped recording webcam audio.");
             }
         }
 
@@ -642,7 +626,12 @@ namespace CSimple.Pages
                 var dataItemFiles = Data.Last().Data.Files; // type List<FileItem>
                 DebugOutput($"User ID: {userId}, "
                     + $"Action Group: {JsonConvert.SerializeObject(actionGroupObject)}, "
-                    + $"Files: {JsonConvert.SerializeObject(dataItemFiles)}");
+                    + $"Files: {dataItemFiles.Count}");
+
+                dataItemFiles.ForEach(file =>
+                {
+                    DebugOutput($"File: {file.filename}, {file.contentType}, {file.data.Length} bytes");  
+                });// this does not print any audio files
 
                 var dataItem = new DataObject
                 {
@@ -965,10 +954,21 @@ namespace CSimple.Pages
             if (Data.Last().Data.Files == null)
                 Data.Last().Data.Files = new List<FileItem>();
 
-            Data.Last().Data.Files.Add(new FileItem { filename = Path.GetFileName(filePath), 
-                contentType = "image/png", 
-                // Data = "Convert.ToBase64String(File.ReadAllBytes(filePath)) "});
-                data = Convert.ToBase64String(File.ReadAllBytes(filePath)) });
+            var extension = Path.GetExtension(filePath).ToLowerInvariant();
+            var contentType = extension == ".wav" ? "audio/wav" : "image/png";
+
+            // Ensure the file is saved to disk
+            if (!File.Exists(filePath))
+            {
+                File.WriteAllBytes(filePath, Convert.FromBase64String(File.ReadAllText(filePath)));
+            }
+
+            Data.Last().Data.Files.Add(new FileItem
+            {
+                filename = Path.GetFileName(filePath),
+                contentType = contentType,
+                data = Convert.ToBase64String(File.ReadAllBytes(filePath))
+            });
             Debug.WriteLine($"File added: {filePath}");
         }
     }

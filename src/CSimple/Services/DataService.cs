@@ -39,7 +39,7 @@ public class DataService
 
         // Send the POST request
         var response = await _httpClient.PostAsync(BaseUrl, jsonContent);
-        Debug.WriteLine($"Request URL: {BaseUrl} (POST) with data: {jsonData}");  // Log the request URL for debugging
+        Debug.WriteLine($"Request URL: {BaseUrl} (POST) with data: {(jsonData.Length > 50 ? jsonData[..50] : jsonData)}");  // Log the request URL for debugging
 
         // Handle the response
         return await HandleResponse<DataModel>(response);
