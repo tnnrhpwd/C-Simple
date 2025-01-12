@@ -529,5 +529,10 @@ namespace CSimple.Pages
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+
+        private async void OnRefreshDataClicked(object sender, EventArgs e)
+        {
+            await LoadDataItemsFromBackend();
+        }
     }
 }

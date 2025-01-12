@@ -28,6 +28,11 @@
                             VerticalOptions="Center"
                             TextColor="White"
                             BackgroundColor="Blue" />
+                    <Button Text="Refresh Data"
+                            Clicked="OnRefreshDataClicked"
+                            VerticalOptions="Center"
+                            TextColor="White"
+                            BackgroundColor="Blue" />
                 </HorizontalStackLayout>
                 
                 <!-- Sort Picker -->
