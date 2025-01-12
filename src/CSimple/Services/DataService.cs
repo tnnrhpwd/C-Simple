@@ -22,12 +22,14 @@ public class DataService
     }
 
     // Create new data
-    public async Task<DataModel> CreateDataAsync(string data, string token)
+    public async Task<DataModel> CreateDataAsync(object data, string token)
     {
         SetAuthorizationHeader(token);
 
-        // Serialize the data to JSON
-        var jsonData = JsonSerializer.Serialize(new { data });
+        // Wrap data under "data" property
+        var wrappedData = new { data = data };
+        var jsonData = JsonSerializer.Serialize(wrappedData);
+        
         var jsonContent = new StringContent(jsonData, System.Text.Encoding.UTF8, "application/json");
 
         // Calculate the size of the JSON content
