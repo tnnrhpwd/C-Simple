@@ -69,7 +69,7 @@ public class DataService
                 // Log the raw response content for debugging
                 var responseContent = await response.Content.ReadAsStringAsync();
                 Debug.WriteLine("Length of responseContent:" + JsonSerializer.Serialize(responseContent).Length.ToString());
-                Debug.WriteLine($"1. (DataService.GetDataAsync) Raw response data: {responseContent}");
+                Debug.WriteLine($"1. (DataService.GetDataAsync) Raw response data: {responseContent.Length}");
 
                 // Handle the response
                 return await HandleResponse<DataModel>(response);

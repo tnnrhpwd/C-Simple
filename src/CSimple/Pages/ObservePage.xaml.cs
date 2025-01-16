@@ -36,6 +36,10 @@ namespace CSimple.Pages
             }
         }
         public ObservableCollection<DataItem> Data { get; set; } = new ObservableCollection<DataItem>();
+        private CancellationTokenSource _userVisualCancellationTokenSource;
+        private CancellationTokenSource _pcVisualCancellationTokenSource;
+        private Dictionary<ushort, ActionItem> _activeKeyPresses = new Dictionary<ushort, ActionItem>();
+
         public Command TogglePCVisualCommand { get; }
         public Command TogglePCAudibleCommand { get; }
         public Command ToggleUserVisualCommand { get; }
@@ -66,9 +70,74 @@ namespace CSimple.Pages
         private IntPtr _keyboardHookID = IntPtr.Zero;
         private IntPtr _mouseHookID = IntPtr.Zero;
         private bool isUserTouchActive = false;
-
         private POINT lastMousePos;
+
+        [DllImport("gdi32.dll")]
+        private static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
+
+        private const int HORZRES = 8;
+        private const int VERTRES = 10;
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr GetModuleHandle(string lpModuleName);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool GetCursorPos(out POINT lpPoint);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetDesktopWindow();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetDC(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateCompatibleDC(IntPtr hDC);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr SelectObject(IntPtr hDC, IntPtr hObject);
+
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteObject(IntPtr hObject);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateCompatibleBitmap(IntPtr hDC, int nWidth, int nHeight);
+
+        [DllImport("gdi32.dll")]
+        private static extern bool BitBlt(IntPtr hDestDC, int xDest, int yDest, int nWidth, int nHeight, IntPtr hSrcDC, int xSrc, int ySrc, int dwRop);
+
+        private const int SRCCOPY = 0x00CC0020;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int X;
+            public int Y;
+        }
 #endif
+        private DateTime lastMouseEventTime = DateTime.MinValue;
+        private const int WH_KEYBOARD_LL = 13;
+        private const int WH_MOUSE_LL = 14;
+        private const int WM_LBUTTONDOWN = 0x0201;
+        private const int WM_RBUTTONDOWN = 0x0204;
+        private const int WM_MOUSEMOVE = 0x0200;
+        private const int WM_LBUTTONUP = 0x0202;
+        private const int WM_RBUTTONUP = 0x0205;
+        private const int WM_KEYDOWN = 0x0100;
+        private const int WM_KEYUP = 0x0101;
         private List<string> _recordedActions;
         private readonly DataService _dataService;
         private FileService _fileService;
@@ -99,6 +168,17 @@ namespace CSimple.Pages
 
             BindingContext = this;
         }
+        protected override async void OnAppearing()
+        {
+            base.OnAppearing();
+            await LoadDataItemsFromFile();
+        }
+        
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+        }
+        
         private async void CheckUserLoggedIn()
         {
             if (!await IsUserLoggedInAsync())
@@ -116,7 +196,6 @@ namespace CSimple.Pages
                 NavigateLogin();
             }
         }
-
         async void NavigateLogin()
         {
             try
@@ -128,6 +207,7 @@ namespace CSimple.Pages
                 Debug.WriteLine($"Error navigating to login: {ex.Message}");
             }
         }
+        
         private void OnInputModifierClicked(object sender, EventArgs e)
         {
             InputModifierPopup.IsVisible = true;
@@ -137,7 +217,8 @@ namespace CSimple.Pages
         {
             InputModifierPopup.IsVisible = false;
         }
-        private void ToggleAllOutputs(bool value)
+        
+        private async void ToggleAllOutputs(bool value)
         {
             if (value)
             {
@@ -146,6 +227,7 @@ namespace CSimple.Pages
                 ToggleUserVisualOutput();
                 ToggleUserAudibleOutput();
                 ToggleUserTouchOutput();
+                await CompressAndUploadAsync();
             }
             else
             {
@@ -171,6 +253,47 @@ namespace CSimple.Pages
                 }
             }
         }
+        
+        private async Task CompressAndUploadAsync()
+        {
+            var token = await SecureStorage.GetAsync("userToken");
+            // Step 1: Compress actiongroups and files
+            var compressedData = CompressData(Data.ToList()); // Implement any compression logic
+
+            // Step 2: Determine priority
+            bool meetsCriteria = CheckPriority(compressedData); // Returns true/false
+
+            if (meetsCriteria && NetworkIsSuitable())
+            {
+                // Step 3: Chunked upload
+                await _dataService.CreateDataAsync(compressedData, token); 
+                // ...initiate async, chunked upload...
+            }
+            else
+            {
+                // Step 4: Store locally
+                // StoreDataLocally(compressedData);
+            }
+        }
+        
+        private object CompressData(List<DataItem> dataItems)
+        {
+            // ...placeholder for compression logic...
+            return dataItems;
+        }
+        
+        private bool CheckPriority(object compressedData)
+        {
+            // ...evaluate priority...
+            return true;
+        }
+        
+        private bool NetworkIsSuitable()
+        {
+            // ...check network conditions...
+            return false;
+        }
+        
         private async Task<bool> IsUserLoggedInAsync()
         {
             try
@@ -196,6 +319,7 @@ namespace CSimple.Pages
                 return false;
             }
         }
+        
         private void OnMouseMoved(Microsoft.Maui.Graphics.Point delta)
         {
             Dispatcher.Dispatch(() =>
@@ -203,6 +327,7 @@ namespace CSimple.Pages
                 DebugOutput($"observepage Mouse Movement: X={delta.X}, Y={delta.Y}");
             });
         }
+        
         private void StartTracking()
         {
 #if WINDOWS
@@ -219,23 +344,38 @@ namespace CSimple.Pages
             _mouseTrackingService.StartTracking(IntPtr.Zero);
 #endif
         }
-
+        
         private void StopTracking()
         {
             _mouseTrackingService.StopTracking();
             GlobalInputCapture.StopHooks();
         }
-        protected override async void OnAppearing()
+        
+        private void AddFileToLastItem(string filePath)
         {
-            base.OnAppearing();
-            await LoadDataItemsFromFile();
-        }
-        protected override void OnDisappearing()
-        {
-            base.OnDisappearing();
-        }
-        private CancellationTokenSource _pcVisualCancellationTokenSource;
+            if (string.IsNullOrEmpty(filePath)) return;
+            if (!Data.Any()) return;
+            if (Data.Last().Data.Files == null)
+                Data.Last().Data.Files = new List<FileItem>();
 
+            var extension = Path.GetExtension(filePath).ToLowerInvariant();
+            var contentType = extension == ".wav" ? "audio/wav" : "image/png";
+
+            // Ensure the file is saved to disk
+            if (!File.Exists(filePath))
+            {
+                File.WriteAllBytes(filePath, Convert.FromBase64String(File.ReadAllText(filePath)));
+            }
+
+            Data.Last().Data.Files.Add(new FileItem
+            {
+                filename = Path.GetFileName(filePath),
+                contentType = contentType,
+                data = Convert.ToBase64String(File.ReadAllBytes(filePath))
+            });
+            Debug.WriteLine($"File added: {filePath}");
+        }
+        
         private void TogglePCVisualOutput() // webcam image: record what the webcam sees
         {
             if (PCVisualButtonText == "Read")
@@ -419,8 +559,6 @@ namespace CSimple.Pages
                 Console.WriteLine($"Error extracting MFCCs: {ex.Message}");
             }
         }
-
-        private CancellationTokenSource _userVisualCancellationTokenSource;
 
         private void ToggleUserVisualOutput()
         {
@@ -665,6 +803,7 @@ namespace CSimple.Pages
                 DebugOutput($"Error Data items groups: {ex.Message}");
             }
         }
+        
         private async Task LoadDataItemsFromFile()
         {
             try
@@ -736,7 +875,6 @@ namespace CSimple.Pages
             }
         }
 
-#if WINDOWS
         private IntPtr SetHook(LowLevelKeyboardProc proc, int hookType)
         {
             using (var curProcess = Process.GetCurrentProcess())
@@ -745,9 +883,7 @@ namespace CSimple.Pages
                 return SetWindowsHookEx(hookType, proc, GetModuleHandle(curModule.ModuleName), 0);
             }
         }
-        // Dictionary to track active key presses and mouse button presses with a duration of 0
-        private Dictionary<ushort, ActionItem> _activeKeyPresses = new Dictionary<ushort, ActionItem>();
-
+        
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
             if (nCode >= 0)
@@ -857,7 +993,6 @@ namespace CSimple.Pages
             return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
         }
 
-        // Helper function to update the UI with the current active keys and buttons
         private void UpdateUI()
         {
             Dispatcher.Dispatch(() =>
@@ -879,97 +1014,5 @@ namespace CSimple.Pages
             });
         }
 
-        [DllImport("gdi32.dll")]
-        private static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
-
-        private const int HORZRES = 8;
-        private const int VERTRES = 10;
-
-        private DateTime lastMouseEventTime = DateTime.MinValue;
-        private const int WH_KEYBOARD_LL = 13;
-        private const int WH_MOUSE_LL = 14;
-
-        private const int WM_LBUTTONDOWN = 0x0201;
-        private const int WM_RBUTTONDOWN = 0x0204;
-        private const int WM_MOUSEMOVE = 0x0200;
-        private const int WM_LBUTTONUP = 0x0202;
-        private const int WM_RBUTTONUP = 0x0205;
-        private const int WM_KEYDOWN = 0x0100;
-        private const int WM_KEYUP = 0x0101;
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool UnhookWindowsHookEx(IntPtr hhk);
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
-
-        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern IntPtr GetModuleHandle(string lpModuleName);
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool GetCursorPos(out POINT lpPoint);
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetDesktopWindow();
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetDC(IntPtr hWnd);
-
-        [DllImport("user32.dll")]
-        private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
-
-        [DllImport("gdi32.dll")]
-        private static extern IntPtr CreateCompatibleDC(IntPtr hDC);
-
-        [DllImport("gdi32.dll")]
-        private static extern IntPtr SelectObject(IntPtr hDC, IntPtr hObject);
-
-        [DllImport("gdi32.dll")]
-        private static extern bool DeleteObject(IntPtr hObject);
-
-        [DllImport("gdi32.dll")]
-        private static extern IntPtr CreateCompatibleBitmap(IntPtr hDC, int nWidth, int nHeight);
-
-        [DllImport("gdi32.dll")]
-        private static extern bool BitBlt(IntPtr hDestDC, int xDest, int yDest, int nWidth, int nHeight, IntPtr hSrcDC, int xSrc, int ySrc, int dwRop);
-
-        private const int SRCCOPY = 0x00CC0020;
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct POINT
-        {
-            public int X;
-            public int Y;
-        }
-#endif
-        private void AddFileToLastItem(string filePath)
-        {
-            if (string.IsNullOrEmpty(filePath)) return;
-            if (!Data.Any()) return;
-            if (Data.Last().Data.Files == null)
-                Data.Last().Data.Files = new List<FileItem>();
-
-            var extension = Path.GetExtension(filePath).ToLowerInvariant();
-            var contentType = extension == ".wav" ? "audio/wav" : "image/png";
-
-            // Ensure the file is saved to disk
-            if (!File.Exists(filePath))
-            {
-                File.WriteAllBytes(filePath, Convert.FromBase64String(File.ReadAllText(filePath)));
-            }
-
-            Data.Last().Data.Files.Add(new FileItem
-            {
-                filename = Path.GetFileName(filePath),
-                contentType = contentType,
-                data = Convert.ToBase64String(File.ReadAllBytes(filePath))
-            });
-            Debug.WriteLine($"File added: {filePath}");
-        }
     }
 }
