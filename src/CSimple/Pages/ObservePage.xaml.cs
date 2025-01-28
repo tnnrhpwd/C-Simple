@@ -266,7 +266,7 @@ namespace CSimple.Pages
             if (meetsCriteria && NetworkIsSuitable())
             {
                 // Step 3: Chunked upload
-                await _dataService.CreateDataAsync(compressedData, token); 
+                // await _dataService.CreateDataAsync(compressedData, token); 
                 // ...initiate async, chunked upload...
             }
             else
@@ -734,6 +734,7 @@ namespace CSimple.Pages
                 DebugOutput("User Touch Output capture stopped.");
                 await SaveNewActionGroup(); // Save the last ActionGroup to the backend
                 await SaveDataItemsToFile(); // Save the updated ActionGroups list to the file
+                await SaveLocalRichDataAsync();
                 UserTouchButtonText = "Read";
                 isUserTouchActive = false;
                 StopTracking();
@@ -778,12 +779,12 @@ namespace CSimple.Pages
                     Files = dataItemFiles // type List<FileItem>
                 };
 
-                var response = await _dataService.CreateDataAsync(dataItem, token);
-                var serializedData = response.Data != null && response.Data.Any()
-                    ? JsonConvert.SerializeObject(response.Data)
-                    : "No data available";
+                // var response = await _dataService.CreateDataAsync(dataItem, token);
+                // var serializedData = response.Data != null && response.Data.Any()
+                //     ? JsonConvert.SerializeObject(response.Data)
+                //     : "No data available";
 
-                DebugOutput($"4. (ObservePage.SaveNew) New Action Group Saved to Backend: {serializedData}");
+                // DebugOutput($"4. (ObservePage.SaveNew) New Action Group Saved to Backend: {serializedData}");
             }
             catch (Exception ex)
             {
@@ -1014,5 +1015,30 @@ namespace CSimple.Pages
             });
         }
 
+        private async Task SaveLocalRichDataAsync()
+        {
+            try
+            {
+                await _fileService.SaveLocalDataItemsAsync(Data.ToList());
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving local rich data: {ex.Message}");
+            }
+        }
+
+        private async Task LoadLocalRichDataAsync()
+        {
+            try
+            {
+                var localData = await _fileService.LoadLocalDataItemsAsync();
+                Data.Clear();
+                foreach (var item in localData) Data.Add(item);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading local rich data: {ex.Message}");
+            }
+        }
     }
 }

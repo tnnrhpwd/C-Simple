@@ -11,6 +11,7 @@ namespace CSimple.Services
         private readonly string _recordedActionsFilePath;
         private readonly string _goalsFilePath;
         private readonly string _plansFilePath;
+        private readonly string _localDataItemsFilePath;
 
         public FileService()
         {
@@ -22,6 +23,7 @@ namespace CSimple.Services
             _recordedActionsFilePath = Path.Combine(_directory, "recordedActions.json");
             _goalsFilePath = Path.Combine(_directory, "goals.json");
             _plansFilePath = Path.Combine(_directory, "plans.json");
+            _localDataItemsFilePath = Path.Combine(_directory, "localDataItems.json");
 
             EnsureFileExists(_dataItemsFilePath);
             EnsureFileExists(_recordedActionsFilePath);
@@ -37,6 +39,14 @@ namespace CSimple.Services
 
         public Task<List<DataItem>> LoadDataItemsAsync() =>
             LoadFromFileAsync<List<DataItem>, List<DataItem>>(_dataItemsFilePath, c => new List<DataItem>(c));
+
+        public async Task SaveLocalDataItemsAsync(List<DataItem> dataItems)
+        {
+            await SaveToFileAsync(_localDataItemsFilePath, dataItems);
+        }
+
+        public Task<List<DataItem>> LoadLocalDataItemsAsync() =>
+            LoadFromFileAsync<List<DataItem>, List<DataItem>>(_localDataItemsFilePath, c => new List<DataItem>(c));
 
         private async Task SaveToFileAsync<T>(string filePath, T data)
         {
