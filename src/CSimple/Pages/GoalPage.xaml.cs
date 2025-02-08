@@ -207,13 +207,13 @@ namespace CSimple.Pages
         {
             try
             {
-                // await _fileService.SaveGoalsAsync(MyGoals);
                 Debug.WriteLine("Goals saved to file");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error saving goals to file: {ex.Message}");
             }
+            await Task.CompletedTask;
         }
 
         private async Task LoadGoalsFromFile()
@@ -232,6 +232,7 @@ namespace CSimple.Pages
             {
                 Debug.WriteLine($"Error loading goals from file: {ex.Message}");
             }
+            await Task.CompletedTask;
         }
     }
 }

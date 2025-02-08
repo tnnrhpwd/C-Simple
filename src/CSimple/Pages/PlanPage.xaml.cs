@@ -205,31 +205,26 @@ namespace CSimple.Pages
         {
             try
             {
-                // await _fileService.SavePlansAsync(MyPlans);
                 Debug.WriteLine("Plans saved to file");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error saving plans to file: {ex.Message}");
             }
+            await Task.CompletedTask;
         }
 
         private async Task LoadPlansFromFile()
         {
             try
             {
-                // var loadedPlans = await _fileService.LoadPlansAsync();
-                // MyPlans.Clear();
-                // foreach (var plan in loadedPlans)
-                // {
-                //     MyPlans.Add(plan);
-                // }
                 Debug.WriteLine("Plans loaded from file");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error loading plans from file: {ex.Message}");
             }
+            await Task.CompletedTask;
         }
 
         private void PopulateCalendar(DateTime date)
