@@ -52,7 +52,6 @@ namespace CSimple.Pages
         private readonly MouseTrackingService _mouseTrackingService;
 
         private DateTime _mouseLeftButtonDownTimestamp;
-        // private DateTime _mouseRightButtonDownTimestamp;
         private Dictionary<ushort, DateTime> _keyPressDownTimestamps = new Dictionary<ushort, DateTime>();
 
         public string PCVisualButtonText { get; set; } = "Read";
@@ -173,12 +172,12 @@ namespace CSimple.Pages
             base.OnAppearing();
             await LoadDataItemsFromFile();
         }
-        
+
         protected override void OnDisappearing()
         {
             base.OnDisappearing();
         }
-        
+
         private async void CheckUserLoggedIn()
         {
             if (!await IsUserLoggedInAsync())
@@ -207,7 +206,7 @@ namespace CSimple.Pages
                 Debug.WriteLine($"Error navigating to login: {ex.Message}");
             }
         }
-        
+
         private void OnInputModifierClicked(object sender, EventArgs e)
         {
             InputModifierPopup.IsVisible = true;
@@ -217,7 +216,7 @@ namespace CSimple.Pages
         {
             InputModifierPopup.IsVisible = false;
         }
-        
+
         private async void ToggleAllOutputs(bool value)
         {
             if (value)
@@ -253,64 +252,54 @@ namespace CSimple.Pages
                 }
             }
         }
-        
+
         private async Task CompressAndUploadAsync()
         {
             var token = await SecureStorage.GetAsync("userToken");
-            // Step 1: Compress actiongroups and files
-            var compressedData = CompressData(Data.ToList()); // Implement any compression logic
+            var compressedData = CompressData(Data.ToList());
 
-            // Step 2: Determine priority
-            bool meetsCriteria = CheckPriority(compressedData); // Returns true/false
+            bool meetsCriteria = CheckPriority(compressedData);
 
             if (meetsCriteria && NetworkIsSuitable())
             {
-                // Step 3: Chunked upload
                 // await _dataService.CreateDataAsync(compressedData, token); 
-                // ...initiate async, chunked upload...
             }
             else
             {
-                // Step 4: Store locally
                 // StoreDataLocally(compressedData);
             }
         }
-        
+
         private object CompressData(List<DataItem> dataItems)
         {
-            // ...placeholder for compression logic...
             return dataItems;
         }
-        
+
         private bool CheckPriority(object compressedData)
         {
-            // ...evaluate priority...
             return true;
         }
-        
+
         private bool NetworkIsSuitable()
         {
-            // ...check network conditions...
             return false;
         }
-        
+
         private async Task<bool> IsUserLoggedInAsync()
         {
             try
             {
-                // Retrieve stored token
                 var userToken = await SecureStorage.GetAsync("userToken");
 
-                // Check if token exists and is not empty
                 if (!string.IsNullOrEmpty(userToken))
                 {
                     Debug.WriteLine("User token found: " + userToken);
-                    return true; // User is logged in
+                    return true;
                 }
                 else
                 {
                     Debug.WriteLine("No user token found.");
-                    return false; // User is not logged in
+                    return false;
                 }
             }
             catch (Exception ex)
@@ -319,7 +308,7 @@ namespace CSimple.Pages
                 return false;
             }
         }
-        
+
         private void OnMouseMoved(Microsoft.Maui.Graphics.Point delta)
         {
             Dispatcher.Dispatch(() =>
@@ -327,11 +316,10 @@ namespace CSimple.Pages
                 DebugOutput($"observepage Mouse Movement: X={delta.X}, Y={delta.Y}");
             });
         }
-        
+
         private void StartTracking()
         {
 #if WINDOWS
-            // Get the native window handle (HWND) for Windows platform
             var windowHandler = Microsoft.Maui.Controls.Application.Current.Windows[0].Handler;
             if (windowHandler.PlatformView is Microsoft.UI.Xaml.Window window)
             {
@@ -340,17 +328,16 @@ namespace CSimple.Pages
                 GlobalInputCapture.StartHooks();
             }
 #else
-            // For non-Windows platforms (optional)
             _mouseTrackingService.StartTracking(IntPtr.Zero);
 #endif
         }
-        
+
         private void StopTracking()
         {
             _mouseTrackingService.StopTracking();
             GlobalInputCapture.StopHooks();
         }
-        
+
         private void AddFileToLastItem(string filePath)
         {
             if (string.IsNullOrEmpty(filePath)) return;
@@ -361,7 +348,6 @@ namespace CSimple.Pages
             var extension = Path.GetExtension(filePath).ToLowerInvariant();
             var contentType = extension == ".wav" ? "audio/wav" : "image/png";
 
-            // Ensure the file is saved to disk
             if (!File.Exists(filePath))
             {
                 File.WriteAllBytes(filePath, Convert.FromBase64String(File.ReadAllText(filePath)));
@@ -375,12 +361,11 @@ namespace CSimple.Pages
             });
             Debug.WriteLine($"File added: {filePath}");
         }
-        
-        private void TogglePCVisualOutput() // webcam image: record what the webcam sees
+
+        private void TogglePCVisualOutput()
         {
             if (PCVisualButtonText == "Read")
             {
-                // Start capturing
                 PCVisualButtonText = "Stop";
                 DebugOutput($"PC Visual Output: {PCVisualButtonText}");
                 OnPropertyChanged(nameof(PCVisualButtonText));
@@ -392,7 +377,6 @@ namespace CSimple.Pages
             }
             else
             {
-                // Stop capturing
                 PCVisualButtonText = "Read";
                 DebugOutput($"PC Visual Output: {PCVisualButtonText}");
                 OnPropertyChanged(nameof(PCVisualButtonText));
@@ -403,7 +387,7 @@ namespace CSimple.Pages
 
         private void CaptureWebcamImages(CancellationToken cancellationToken)
         {
-            using var capture = new VideoCapture(0); // 0 is the default camera
+            using var capture = new VideoCapture(0);
             using var frame = new Mat();
 
             if (!capture.IsOpened())
@@ -412,13 +396,10 @@ namespace CSimple.Pages
                 return;
             }
 
-            // Define the directory path for saving webcam images
             string webcamImagesDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "WebcamImages");
-
-            // Ensure the directory exists
             Directory.CreateDirectory(webcamImagesDirectory);
 
-            while (!cancellationToken.IsCancellationRequested) // Loop to capture frames continuously
+            while (!cancellationToken.IsCancellationRequested)
             {
                 capture.Read(frame);
 
@@ -435,19 +416,17 @@ namespace CSimple.Pages
                     AddFileToLastItem(filePath);
                     DebugOutput($"Webcam image saved to: {filePath}");
 
-                    // Update the CapturedImageSource property
                     Dispatcher.Dispatch(() =>
                     {
                         DebugOutput($"Captured image source updated: {filePath}");
                         CapturedImageSource = ImageSource.FromFile(filePath);
                     });
                 }
-                // Sleep for a short duration to avoid capturing too many frames
-                Thread.Sleep(1000); // Adjust the interval as needed
+                Thread.Sleep(1000);
             }
         }
 
-        private void TogglePCAudibleOutput() // Audio Recorder: record the sounds that the computer outputs
+        private void TogglePCAudibleOutput()
         {
             PCAudibleButtonText = PCAudibleButtonText == "Read" ? "Stop" : "Read";
             DebugOutput($"PC Audible Output: {PCAudibleButtonText}");
@@ -455,19 +434,15 @@ namespace CSimple.Pages
 
             if (PCAudibleButtonText == "Stop")
             {
-                // Start recording
                 try
                 {
-                    // Define the directory path for saving PC audio
                     string pcAudioDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "PCAudio");
                     DebugOutput($"PC Audio Directory: {pcAudioDirectory}");
 
-                    // Ensure the directory exists
                     Directory.CreateDirectory(pcAudioDirectory);
                     string actionName = ActionNameInput.Text;
 
                     DebugOutput("Recording PC audio...");
-                    // Define the output file path once when recording starts
                     string filePath = Path.Combine(pcAudioDirectory, $"PCAudio_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
 
                     _loopbackCapture = new WasapiLoopbackCapture();
@@ -498,7 +473,6 @@ namespace CSimple.Pages
             }
             else
             {
-                // Stop recording
                 _loopbackCapture?.StopRecording();
                 DebugOutput("Stopped recording PC audio.");
             }
@@ -508,7 +482,6 @@ namespace CSimple.Pages
         {
             try
             {
-                // Read the recorded audio file
                 using var waveFile = new WaveFileReader(filePath);
                 var samples = new float[waveFile.SampleCount];
                 int sampleIndex = 0;
@@ -522,13 +495,11 @@ namespace CSimple.Pages
                     }
                 }
 
-                // Define MFCC extractor parameters
                 int sampleRate = waveFile.WaveFormat.SampleRate;
-                int featureCount = 13; // Number of MFCC coefficients
-                int frameSize = 512; // Frame size in samples
-                int hopSize = 256; // Hop size in samples
+                int featureCount = 13;
+                int frameSize = 512;
+                int hopSize = 256;
 
-                // Create MFCC extractor
                 var mfccExtractor = new MfccExtractor(new MfccOptions
                 {
                     SamplingRate = sampleRate,
@@ -537,13 +508,10 @@ namespace CSimple.Pages
                     HopSize = hopSize
                 });
 
-                // Extract MFCCs
                 var mfccs = mfccExtractor.ComputeFrom(samples);
 
-                // Define the output file path for MFCCs
                 string mfccFilePath = Path.Combine(Path.GetDirectoryName(filePath), Path.GetFileNameWithoutExtension(filePath) + "_MFCCs.csv");
 
-                // Save MFCCs to a CSV file
                 using (var writer = new StreamWriter(mfccFilePath))
                 {
                     foreach (var vector in mfccs)
@@ -581,17 +549,14 @@ namespace CSimple.Pages
 
         private void CaptureAllScreens(CancellationToken cancellationToken)
         {
-            // Define the directory path for saving screenshots
             string screenshotsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "Screenshots");
-
-            // Ensure the directory exists
             Directory.CreateDirectory(screenshotsDirectory);
 
-            while (!cancellationToken.IsCancellationRequested) // Loop to capture screens continuously
+            while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
-                    DateTime captureTime = DateTime.Now; // Capture the time at the beginning of the loop
+                    DateTime captureTime = DateTime.Now;
 
                     foreach (var screen in Screen.AllScreens)
                     {
@@ -605,7 +570,6 @@ namespace CSimple.Pages
                             string actionName = ActionNameInput.Text;
                             if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(UserTouchInputText))
                             {
-                                // Generate the file path using the captured time
                                 string filePath = Path.Combine(screenshotsDirectory, $"ScreenCapture_{captureTime:yyyyMMdd_HHmmss_fff}_{screen.DeviceName.Replace("\\", "").Replace(":", "")}.png");
                                 bitmap.Save(filePath, ImageFormat.Png);
                                 AddFileToLastItem(filePath);
@@ -619,35 +583,28 @@ namespace CSimple.Pages
                     DebugOutput($"Error capturing screen: {ex.Message}");
                 }
 
-                // Sleep for a short duration to avoid capturing too many frames
-                Thread.Sleep(1000); // Adjust the interval as needed
+                Thread.Sleep(1000);
             }
         }
 
-        private void ToggleUserAudibleOutput() // webcam audio: record what the webcam hears
+        private void ToggleUserAudibleOutput()
         {
-            // Toggle the button text between "Read" and "Stop"
             UserAudibleButtonText = UserAudibleButtonText == "Read" ? "Stop" : "Read";
             DebugOutput($"User Audible Output: {UserAudibleButtonText}");
             OnPropertyChanged(nameof(UserAudibleButtonText));
 
             if (UserAudibleButtonText == "Stop")
             {
-                // Start recording
                 try
                 {
-                    // Define the directory path for saving webcam audio
                     string webcamAudioDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "WebcamAudio");
 
-                    // Ensure the directory exists
                     Directory.CreateDirectory(webcamAudioDirectory);
 
-                    // Define the output file path once when recording starts
                     string filePath = Path.Combine(webcamAudioDirectory, $"WebcamAudio_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
 
                     _waveIn = new WaveInEvent();
 
-                    // Find the correct input device (your webcam's audio input)
                     var deviceNumber = FindWebcamAudioDevice();
                     if (deviceNumber == -1)
                     {
@@ -656,7 +613,7 @@ namespace CSimple.Pages
                     }
 
                     _waveIn.DeviceNumber = deviceNumber;
-                    _waveIn.WaveFormat = new WaveFormat(44100, 1); // Set appropriate format for your webcam audio
+                    _waveIn.WaveFormat = new WaveFormat(44100, 1);
                     _writer = new WaveFileWriter(filePath, _waveIn.WaveFormat);
 
                     _waveIn.DataAvailable += (s, a) =>
@@ -671,7 +628,6 @@ namespace CSimple.Pages
                         _waveIn.Dispose();
                         DebugOutput($"Recording saved to: {filePath}");
                         AddFileToLastItem(filePath);
-                        // Extract MFCCs
                         ExtractMFCCs(filePath);
                     };
 
@@ -685,7 +641,6 @@ namespace CSimple.Pages
             }
             else
             {
-                // Stop recording
                 _waveIn?.StopRecording();
                 DebugOutput("Stopped recording webcam audio.");
             }
@@ -701,10 +656,10 @@ namespace CSimple.Pages
                     return i;
                 }
             }
-            return -1; // Not found
+            return -1;
         }
 
-        private async void ToggleUserTouchOutput() // mouse &  key logger: record when human presses buttons
+        private async void ToggleUserTouchOutput()
         {
 #if WINDOWS
             if (!isUserTouchActive)
@@ -732,8 +687,8 @@ namespace CSimple.Pages
                     _mouseHookID = IntPtr.Zero;
                 }
                 DebugOutput("User Touch Output capture stopped.");
-                await SaveNewActionGroup(); // Save the last ActionGroup to the backend
-                await SaveDataItemsToFile(); // Save the updated ActionGroups list to the file
+                await SaveNewActionGroup();
+                await SaveDataItemsToFile();
                 await SaveLocalRichDataAsync();
                 UserTouchButtonText = "Read";
                 isUserTouchActive = false;
@@ -762,21 +717,21 @@ namespace CSimple.Pages
 
                 var userId = await SecureStorage.GetAsync("userID");
                 var actionGroupObject = Data.Last().Data.ActionGroupObject;
-                var dataItemFiles = Data.Last().Data.Files; // type List<FileItem>
+                var dataItemFiles = Data.Last().Data.Files;
                 DebugOutput($"User ID: {userId}, "
                     + $"Action Group: {JsonConvert.SerializeObject(actionGroupObject)}, "
                     + $"Files: {dataItemFiles.Count}");
 
                 dataItemFiles.ForEach(file =>
                 {
-                    DebugOutput($"File: {file.filename}, {file.contentType}, {file.data.Length} bytes");  
-                });// this does not print any audio files
+                    DebugOutput($"File: {file.filename}, {file.contentType}, {file.data.Length} bytes");
+                });
 
                 var dataItem = new DataObject
                 {
                     Text = "Creator:" + userId + "|Action:" + (actionGroupObject.ActionName != null ? actionGroupObject.ActionName : "No Action Name"),
                     ActionGroupObject = actionGroupObject,
-                    Files = dataItemFiles // type List<FileItem>
+                    Files = dataItemFiles
                 };
 
                 // var response = await _dataService.CreateDataAsync(dataItem, token);
@@ -804,7 +759,7 @@ namespace CSimple.Pages
                 DebugOutput($"Error Data items groups: {ex.Message}");
             }
         }
-        
+
         private async Task LoadDataItemsFromFile()
         {
             try
@@ -824,28 +779,21 @@ namespace CSimple.Pages
             string actionName = ActionNameInput.Text;
             if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(UserTouchInputText))
             {
-                // Convert the UserTouchInputText to the new ActionItem format
                 var actionItem = JsonConvert.DeserializeObject<ActionItem>(UserTouchInputText);
 
-                // Create ActionModifier from frontend inputs
                 var actionModifier = new ActionModifier
                 {
                     ModifierName = ModifierNameEntry.Text,
                     Description = DescriptionEntry.Text,
                     Priority = int.TryParse(PriorityEntry.Text, out int priority) ? priority : 0,
-                    // Condition = item => true, // Placeholder, you need to parse ConditionEntry.Text to a valid Func<ActionArrayItem, int>
-                    // ModifyAction = item => { } // Placeholder, you need to parse ModifyActionEntry.Text to a valid Action<ActionArrayItem>
                 };
 
-                // Check if an ActionGroup with the same name already exists
                 var existingActionGroup = Data.FirstOrDefault(ag => ag.Data.ActionGroupObject.ActionName == actionName);
 
                 if (existingActionGroup != null)
                 {
-                    // If it exists, append the new action item to the existing ActionArray
                     existingActionGroup.Data.ActionGroupObject.ActionArray.Add(actionItem);
 
-                    // Check if the ActionModifier already exists before adding it
                     if (!existingActionGroup.Data.ActionGroupObject.ActionModifiers.Any(am => am.ModifierName == actionModifier.ModifierName))
                     {
                         existingActionGroup.Data.ActionGroupObject.ActionModifiers.Add(actionModifier);
@@ -855,7 +803,6 @@ namespace CSimple.Pages
                 }
                 else
                 {
-                    // If it doesn't exist, create a new ActionGroup and add it to the list
                     var newActionGroup = new ActionGroup
                     {
                         ActionName = actionName,
@@ -867,12 +814,7 @@ namespace CSimple.Pages
                     DebugOutput($"Saved Action Group: {actionName}");
                 }
 
-                // Clear the recorded actions after saving to prevent duplicates
                 _recordedActions.Clear();
-            }
-            else
-            {
-                // DebugOutput("Please enter both Action Name and Action Array.");
             }
         }
 
@@ -884,22 +826,21 @@ namespace CSimple.Pages
                 return SetWindowsHookEx(hookType, proc, GetModuleHandle(curModule.ModuleName), 0);
             }
         }
-        
+
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
             if (nCode >= 0)
             {
-                var currentTime = DateTime.UtcNow.ToString("o"); // Using ISO 8601 format
+                var currentTime = DateTime.UtcNow.ToString("o");
                 var actionItem = new ActionItem
                 {
                     Timestamp = DateTime.Parse(currentTime)
                 };
 
-                // Process mouse events
                 if (wParam == (IntPtr)WM_MOUSEMOVE)
                 {
                     var currentMouseEventTime = DateTime.UtcNow;
-                    if ((currentMouseEventTime - lastMouseEventTime).TotalMilliseconds < 500) // Example: 100 milliseconds
+                    if ((currentMouseEventTime - lastMouseEventTime).TotalMilliseconds < 500)
                     {
                         return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
                     }
@@ -918,13 +859,12 @@ namespace CSimple.Pages
                     actionItem.EventType = (ushort)wParam;
                     actionItem.Duration = 0;
 
-                    // Track active mouse button press
                     if (!_activeKeyPresses.ContainsKey(buttonCode))
                     {
                         _activeKeyPresses[buttonCode] = actionItem;
                     }
 
-                    UpdateUI(); // Update the UI with the active key/mouse buttons
+                    UpdateUI();
                 }
                 else if (wParam == (IntPtr)WM_LBUTTONUP || wParam == (IntPtr)WM_RBUTTONUP)
                 {
@@ -936,33 +876,28 @@ namespace CSimple.Pages
 
                     var buttonCode = (wParam == (IntPtr)WM_LBUTTONUP) ? (ushort)WM_LBUTTONDOWN : (ushort)WM_RBUTTONDOWN;
 
-                    // Remove the mouse button press from active presses
                     _activeKeyPresses.Remove(buttonCode);
 
-                    UpdateUI(); // Update UI after removing the mouse button
+                    UpdateUI();
                 }
 
-                // Process keyboard events
                 if (wParam == (IntPtr)WM_KEYDOWN)
                 {
                     int vkCode = Marshal.ReadInt32(lParam);
                     actionItem.KeyCode = (ushort)vkCode;
 
-                    // Check if the key is already being pressed (active) with duration 0
                     if (!_activeKeyPresses.ContainsKey(actionItem.KeyCode))
                     {
                         _keyPressDownTimestamps[(ushort)vkCode] = DateTime.UtcNow;
                         actionItem.EventType = WM_KEYDOWN;
-                        actionItem.Duration = 0; // Active press (ongoing)
+                        actionItem.Duration = 0;
 
-                        // Add the actionArrayItem to track it as active
                         _activeKeyPresses[actionItem.KeyCode] = actionItem;
 
-                        UpdateUI(); // Update UI to display active key presses
+                        UpdateUI();
                     }
                     else
                     {
-                        // Skip recording another keydown with a duration of 0
                         return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
                     }
                 }
@@ -977,15 +912,13 @@ namespace CSimple.Pages
                         actionItem.Duration = duration > 0 ? (int)duration : 1;
                         actionItem.EventType = WM_KEYUP;
 
-                        // Remove from active key presses once the key is released
                         _activeKeyPresses.Remove(actionItem.KeyCode);
                         _keyPressDownTimestamps.Remove((ushort)vkCode);
 
-                        UpdateUI(); // Update UI after removing the key press
+                        UpdateUI();
                     }
                 }
 
-                // Serialize and save the action
                 UserTouchInputText = JsonConvert.SerializeObject(actionItem);
                 DebugOutput(UserTouchInputText);
                 SaveAction();
@@ -998,7 +931,6 @@ namespace CSimple.Pages
         {
             Dispatcher.Dispatch(() =>
             {
-                // Create a formatted string to display active key presses and mouse buttons
                 var activeInputsDisplay = new StringBuilder();
                 activeInputsDisplay.AppendLine("Active Key/Mouse Presses:");
 
@@ -1006,12 +938,10 @@ namespace CSimple.Pages
                 {
                     var keycode = kvp.Key;
 
-                    // Format each keycode and mouse event with relevant details
                     activeInputsDisplay.AppendLine($"KeyCode/MouseCode: {keycode}");
                 }
 
-                // Update the UI elements with the active key/mouse presses
-                ButtonLabel.Text = activeInputsDisplay.ToString(); // Display the active key presses in the ButtonLabel
+                ButtonLabel.Text = activeInputsDisplay.ToString();
             });
         }
 
