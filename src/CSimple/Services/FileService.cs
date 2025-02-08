@@ -37,8 +37,8 @@ namespace CSimple.Services
             await SaveToFileAsync(_dataItemsFilePath, dataItems);
         }
 
-        public Task<List<DataItem>> LoadDataItemsAsync() =>
-            LoadFromFileAsync<List<DataItem>, List<DataItem>>(_dataItemsFilePath, c => new List<DataItem>(c));
+        public async Task<List<DataItem>> LoadDataItemsAsync() =>
+                    await LoadFromFileAsync<List<DataItem>, List<DataItem>>(_dataItemsFilePath, c => c);
 
         public async Task SaveLocalDataItemsAsync(List<DataItem> dataItems)
         {
@@ -46,20 +46,29 @@ namespace CSimple.Services
         }
 
         public Task<List<DataItem>> LoadLocalDataItemsAsync() =>
-            LoadFromFileAsync<List<DataItem>, List<DataItem>>(_localDataItemsFilePath, c => new List<DataItem>(c));
+            LoadFromFileAsync<List<DataItem>, List<DataItem>>(_localDataItemsFilePath, c => c);
 
-        private async Task SaveToFileAsync<T>(string filePath, T data)
+        private async Task SaveToFileAsync(string filePath, List<DataItem> newData)
         {
             try
             {
+                var existingData = await LoadFromFileAsync<List<DataItem>, List<DataItem>>(filePath, c => c)
+                                   ?? new List<DataItem>();
+
+                foreach (var item in newData)
+                {
+                    var matchingItem = existingData.FirstOrDefault(x => x._id == item._id);
+                    if (matchingItem != null) existingData.Remove(matchingItem);
+                    existingData.Add(item);
+                }
+
                 System.Diagnostics.Debug.WriteLine($"Attempting to save data to {filePath}");
                 var options = new JsonSerializerOptions { WriteIndented = true };
-                var json = JsonSerializer.Serialize(data, options);
+                var json = JsonSerializer.Serialize(existingData, options);
                 await File.WriteAllTextAsync(filePath, json);
                 System.Diagnostics.Debug.WriteLine($"Successfully saved data to {filePath}");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 System.Diagnostics.Debug.WriteLine($"Error saving data: {ex.Message}");
             }
         }
