@@ -3,7 +3,12 @@ using System.Runtime.InteropServices;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Newtonsoft.Json;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
 using System.Threading;
+using OpenCvSharp;
+using NAudio.Wave;
 using Microsoft.Maui.Storage;
 #if WINDOWS
 using System.Text;
@@ -47,6 +52,7 @@ namespace CSimple.Pages
         private RawInputService _rawInputService;
         private readonly MouseTrackingService _mouseTrackingService;
         private readonly UserService _userService;
+        private readonly UserLoginService _userLoginService;
 
         private DateTime _mouseLeftButtonDownTimestamp;
         private Dictionary<ushort, DateTime> _keyPressDownTimestamps = new Dictionary<ushort, DateTime>();
@@ -148,6 +154,7 @@ namespace CSimple.Pages
             _fileService = new FileService();
             _dataService = new DataService();
             _userService = new UserService();
+            _userLoginService = new UserLoginService();
             _recordedActions = new List<string>();
             var window = Microsoft.Maui.Controls.Application.Current.Windows[0].Handler.PlatformView as Microsoft.UI.Xaml.Window;
             _mouseTrackingService = new MouseTrackingService();
@@ -178,20 +185,7 @@ namespace CSimple.Pages
 
         private async void CheckUserLoggedIn()
         {
-            if (!await _userService.IsUserLoggedInAsync())
-            {
-                Debug.WriteLine("User is not logged in, navigating to login...");
-                await _userService.NavigateLoginAsync();
-            }
-            if (await _userService.IsUserLoggedInAsync())
-            {
-                Debug.WriteLine("User is logged in.");
-            }
-            else
-            {
-                Debug.WriteLine("User is not logged in, navigating to login...");
-                await _userService.NavigateLoginAsync();
-            }
+            await _userLoginService.CheckUserLoggedInAsync();
         }
 
         private void OnInputModifierClicked(object sender, EventArgs e)
@@ -813,7 +807,7 @@ namespace CSimple.Pages
                     actionItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
                     actionItem.EventType = WM_MOUSEMOVE;
                 }
-                else if (wParam == (IntPtr)WM_LBUTTONDOWN || (IntPtr)WM_RBUTTONDOWN)
+                else if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN)
                 {
                     GetCursorPos(out POINT currentMousePos);
                     var buttonCode = (wParam == (IntPtr)WM_LBUTTONDOWN) ? (ushort)WM_LBUTTONDOWN : (ushort)WM_RBUTTONDOWN;
@@ -829,7 +823,7 @@ namespace CSimple.Pages
 
                     UpdateUI();
                 }
-                else if (wParam == (IntPtr)WM_LBUTTONUP || (IntPtr)WM_RBUTTONUP)
+                else if (wParam == (IntPtr)WM_LBUTTONUP || wParam == (IntPtr)WM_RBUTTONUP)
                 {
                     GetCursorPos(out POINT currentMousePos);
                     var duration = (DateTime.UtcNow - _mouseLeftButtonDownTimestamp).TotalMilliseconds;
