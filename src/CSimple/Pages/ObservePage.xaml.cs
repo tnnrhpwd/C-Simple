@@ -16,7 +16,6 @@ using System.Windows.Forms;
 #endif
 using NWaves.FeatureExtractors;
 using NWaves.FeatureExtractors.Options;
-using CSimple.Services;
 
 namespace CSimple.Pages
 {
@@ -51,8 +50,6 @@ namespace CSimple.Pages
         public ICommand LoadFromFileCommand { get; set; }
         private RawInputService _rawInputService;
         private readonly MouseTrackingService _mouseTrackingService;
-        private readonly UserService _userService;
-        private readonly UserLoginService _userLoginService;
 
         private DateTime _mouseLeftButtonDownTimestamp;
         private Dictionary<ushort, DateTime> _keyPressDownTimestamps = new Dictionary<ushort, DateTime>();
@@ -153,8 +150,6 @@ namespace CSimple.Pages
             InitializeComponent();
             _fileService = new FileService();
             _dataService = new DataService();
-            _userService = new UserService();
-            _userLoginService = new UserLoginService();
             _recordedActions = new List<string>();
             var window = Microsoft.Maui.Controls.Application.Current.Windows[0].Handler.PlatformView as Microsoft.UI.Xaml.Window;
             _mouseTrackingService = new MouseTrackingService();
@@ -185,7 +180,31 @@ namespace CSimple.Pages
 
         private async void CheckUserLoggedIn()
         {
-            await _userLoginService.CheckUserLoggedInAsync();
+            if (!await IsUserLoggedInAsync())
+            {
+                Debug.WriteLine("User is not logged in, navigating to login...");
+                NavigateLogin();
+            }
+            if (await IsUserLoggedInAsync())
+            {
+                Debug.WriteLine("User is logged in.");
+            }
+            else
+            {
+                Debug.WriteLine("User is not logged in, navigating to login...");
+                NavigateLogin();
+            }
+        }
+        async void NavigateLogin()
+        {
+            try
+            {
+                await Shell.Current.GoToAsync($"///login");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error navigating to login: {ex.Message}");
+            }
         }
 
         private void OnInputModifierClicked(object sender, EventArgs e)
@@ -264,6 +283,30 @@ namespace CSimple.Pages
         private bool NetworkIsSuitable()
         {
             return false;
+        }
+
+        private async Task<bool> IsUserLoggedInAsync()
+        {
+            try
+            {
+                var userToken = await SecureStorage.GetAsync("userToken");
+
+                if (!string.IsNullOrEmpty(userToken))
+                {
+                    Debug.WriteLine("User token found: " + userToken);
+                    return true;
+                }
+                else
+                {
+                    Debug.WriteLine("No user token found.");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error retrieving user token: {ex.Message}");
+                return false;
+            }
         }
 
         private void OnMouseMoved(Microsoft.Maui.Graphics.Point delta)
