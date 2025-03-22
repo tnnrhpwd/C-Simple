@@ -17,6 +17,23 @@ public partial class HomePage : ContentPage
         InitializeComponent();
         _dataService = dataService;
         LogoutCommand = new Command(ExecuteLogout);
+
+        // Add NavigateCommand implementation
+        NavigateCommand = new Command<string>(async (route) =>
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(route))
+                {
+                    await Shell.Current.GoToAsync(route);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Navigation error: {ex.Message}");
+            }
+        });
+
         BindingContext = vm;
         if (!isSetup)
         {
