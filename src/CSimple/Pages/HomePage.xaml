@@ -8,33 +8,6 @@
              x:Class="CSimple.Pages.HomePage"
              x:Name="this">
     <ContentPage.MenuBarItems>
-        <!-- Add hamburger menu as first item -->
-        <MenuBarItem Text="?">
-            <MenuFlyoutItem Text="Home"
-                            Command="{Binding NavigateCommand}"
-                            CommandParameter="///home" />
-            <MenuFlyoutItem Text="Net"
-                            Command="{Binding NavigateCommand}"
-                            CommandParameter="///net" />
-            <MenuFlyoutItem Text="Observe"
-                            Command="{Binding NavigateCommand}"
-                            CommandParameter="///observe" />
-            <MenuFlyoutItem Text="Orient"
-                            Command="{Binding NavigateCommand}"
-                            CommandParameter="///orient" />
-            <MenuFlyoutItem Text="Goal"
-                            Command="{Binding NavigateCommand}"
-                            CommandParameter="///goal" />
-            <MenuFlyoutItem Text="Plan"
-                            Command="{Binding NavigateCommand}"
-                            CommandParameter="///plan" />
-            <MenuFlyoutItem Text="Action"
-                            Command="{Binding NavigateCommand}"
-                            CommandParameter="///action" />
-            <MenuFlyoutItem Text="Settings"
-                            Command="{Binding NavigateCommand}"
-                            CommandParameter="///settings" />
-        </MenuBarItem>
         <MenuBarItem Text="File">
             <MenuFlyoutItem Text="Quit"
                             Command="{Binding QuitCommand}" />
@@ -65,7 +38,7 @@
                        VerticalOptions="StartAndExpand" />
                 <Button Text="Get Started"
                         Command="{Binding NavigateCommand}"
-                        CommandParameter="LoginPage"
+                        CommandParameter="login"
                         HorizontalOptions="Center"
                         VerticalOptions="CenterAndExpand" />
                 <FlexLayout IsVisible="{OnIdiom Phone=False, Default=True}"
