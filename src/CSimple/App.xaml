@@ -9,8 +9,7 @@
     <Application.MainPage>
         <Shell FlyoutWidth="200"
                FlyoutBackgroundColor="{StaticResource Background_Mid}"
-               FlyoutBehavior="Flyout"
-               Title="Simple">
+               FlyoutBehavior="Flyout">
             <!-- Desktop/Tablet -->
             <FlyoutItem Title="Home"
                         Route="home"
