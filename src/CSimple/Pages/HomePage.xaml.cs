@@ -114,26 +114,4 @@ public partial class HomePage : ContentPage
                     ?.ShowNotification("Hello from .NET MAUI", "How's your weather? 🌞");
         }
     }
-
-    private async void OnGetStartedClicked(object sender, EventArgs e)
-    {
-        try
-        {
-            Debug.WriteLine("Get Started button clicked, attempting navigation to action page");
-            await Shell.Current.GoToAsync("///action");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Navigation error in Get Started button click: {ex.Message}");
-            // Fallback approach if the first one fails
-            try
-            {
-                await Shell.Current.GoToAsync($"///{nameof(ActionPage)}");
-            }
-            catch (Exception innerEx)
-            {
-                Debug.WriteLine($"Fallback navigation also failed: {innerEx.Message}");
-            }
-        }
-    }
 }
