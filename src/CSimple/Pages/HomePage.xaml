@@ -37,8 +37,7 @@
                     HorizontalOptions="Center" 
                     VerticalOptions="StartAndExpand"/>
                 <Button Text="Get Started" 
-                    Command="{Binding NavigateCommand}" 
-                    CommandParameter="LoginPage" 
+                    Clicked="OnGetStartedClicked"
                     HorizontalOptions="Center" 
                     VerticalOptions="CenterAndExpand"/>
                 <FlexLayout
