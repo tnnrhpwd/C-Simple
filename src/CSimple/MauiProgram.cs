@@ -53,6 +53,7 @@ public static class MauiProgram
         services.AddSingleton<SettingsPage>();
         services.AddSingleton<DataService>();
         services.AddSingleton<GlobalInputCapture>();
+        services.AddSingleton<IOnTrainModelClickedService, OnTrainModelClickedService>();
 
 #if WINDOWS
         services.AddSingleton<ITrayService, WinUI.TrayService>();

@@ -1,28 +1,21 @@
-﻿using Microsoft.Maui.Controls;
-using System.Threading.Tasks;
-using CSimple.ViewModels;
+﻿using CSimple.ViewModels;
 
 namespace CSimple.Pages
 {
     public partial class OrientPage : ContentPage
     {
-        public OrientPage()
+        private readonly IOnTrainModelClickedService _trainService;
+
+        public OrientPage(IOnTrainModelClickedService trainService)
         {
             InitializeComponent();
+            _trainService = trainService;
             BindingContext = new OrientViewModel();
-            Console.WriteLine("OrientPage initialized.");
-            BindingContext = this;
-
         }
 
         private async void OnTrainModelClicked(object sender, EventArgs e)
         {
-            var viewModel = BindingContext as OrientViewModel;
-            if (viewModel != null)
-            {
-                await viewModel.TrainModelAsync();
-            }
-            Console.WriteLine("Model trained.");
+            await _trainService.HandleTrainModelAsync(BindingContext);
         }
     }
 }
