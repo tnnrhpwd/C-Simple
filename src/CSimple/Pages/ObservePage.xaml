@@ -1,138 +1,484 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CSimple.Pages.ObservePage"
-             Title="Observe">
-
-    <AbsoluteLayout>
-        <ScrollView AbsoluteLayout.LayoutFlags="All" AbsoluteLayout.LayoutBounds="0,0,1,1">
-            <VerticalStackLayout Padding="10" Spacing="20">
-                <Label Text="Observe" 
-                       FontSize="Large"
-                       FontAttributes="Bold"
-                       HorizontalOptions="Center" />
-                <Label Text="This page allows users to observe data or metrics related to their goals." 
-                       FontSize="Medium"
-                       HorizontalOptions="Center" />
-                       
-                <!-- Action Name Input and Save Checkbox -->
-                <HorizontalStackLayout Spacing="10">
-                    <Entry x:Name="ActionNameInput" 
-                           Placeholder="Action Name" 
-                           HorizontalOptions="FillAndExpand" />
-                </HorizontalStackLayout>
-                
-                <!-- Button to open Modifier Input Popup -->
-                <Button Text="Input Modifier" 
-                        Clicked="OnInputModifierClicked" 
-                        VerticalOptions="Center"
-                        BackgroundColor="Blue"
-                        TextColor="White" />
-
-                <!-- Read All Toggle Switch -->
-                <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
-                    <Label Text="Read All" FontSize="Medium" VerticalOptions="Center" />
-                    <Switch IsToggled="{Binding IsReadAllToggled}" />
-                </HorizontalStackLayout>
-
-                <!-- Grid Layout for two columns -->
-                <Grid ColumnDefinitions="*,*">
-                    <!-- Left Column -->
-                    <VerticalStackLayout Grid.Column="0" Spacing="20">
-                        <!-- PC Visual Output -->
-                        <HorizontalStackLayout HorizontalOptions="FillAndExpand">
-                            <Label Text="PC Visual Output" FontSize="Medium" VerticalOptions="Center" />
-                            <Button Text="{Binding PCVisualButtonText}" 
-                                    Command="{Binding TogglePCVisualCommand}" 
-                                    HorizontalOptions="End"
-                                    BackgroundColor="Blue"
-                                    TextColor="White" />
-                        </HorizontalStackLayout>
-
-                        <!-- PC Audible Output -->
-                        <HorizontalStackLayout HorizontalOptions="FillAndExpand">
-                            <Label Text="PC Audible Output" FontSize="Medium" VerticalOptions="Center" />
-                            <Button Text="{Binding PCAudibleButtonText}" 
-                                    Command="{Binding TogglePCAudibleCommand}" 
-                                    HorizontalOptions="End"
-                                    BackgroundColor="Blue"
-                                    TextColor="White" />
-                        </HorizontalStackLayout>
-                        
-                        <!-- User Visual Output -->
-                        <HorizontalStackLayout HorizontalOptions="FillAndExpand">
-                            <Label Text="User Visual Output" FontSize="Medium" VerticalOptions="Center" />
-                            <Button Text="{Binding UserVisualButtonText}" 
-                                    Command="{Binding ToggleUserVisualCommand}" 
-                                    HorizontalOptions="End"
-                                    BackgroundColor="Blue"
-                                    TextColor="White" />
-                        </HorizontalStackLayout>
-                        
-                        <!-- User Audible Output -->
-                        <HorizontalStackLayout HorizontalOptions="FillAndExpand">
-                            <Label Text="User Audible Output" FontSize="Medium" VerticalOptions="Center" />
-                            <Button Text="{Binding UserAudibleButtonText}" 
-                                    Command="{Binding ToggleUserAudibleCommand}" 
-                                    HorizontalOptions="End"
-                                    BackgroundColor="Blue"
-                                    TextColor="White" />
-                        </HorizontalStackLayout>
-                        
-                        <!-- User Touch Output -->
-                        <VerticalStackLayout>
-                            <HorizontalStackLayout HorizontalOptions="FillAndExpand">
-                                <Label Text="User Touch Output" FontSize="Medium" VerticalOptions="Center" />
-                                <Button Text="{Binding UserTouchButtonText}" 
-                                        Command="{Binding ToggleUserTouchCommand}" 
-                                        HorizontalOptions="End"
-                                        BackgroundColor="Blue"
-                                        TextColor="White" />
-                            </HorizontalStackLayout>
-                            <Label x:Name="MouseMovementLabel" 
-                                   Text="Mouse movement: ΔX = 0, ΔY = 0"
-                                   FontSize="Small" />
-                            <Label x:Name="ButtonLabel"
-                                   Text="No button is pressed."
-                                   FontSize="Small" />
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-
-                    <!-- Right Column -->
-                    <VerticalStackLayout Grid.Column="1" Spacing="20">
-                        <!-- PC Visual Output Image -->
-                        <Image x:Name="CapturedImage" HeightRequest="50" BackgroundColor="LightGray" Source="{Binding CapturedImageSource}" />
-
-                        <!-- PC Audible Output BoxView -->
-                        <BoxView HeightRequest="50" BackgroundColor="LightGray" />
-
-                        <!-- User Visual Output BoxView -->
-                        <BoxView HeightRequest="50" BackgroundColor="LightGray" />
-
-                        <!-- User Audible Output BoxView -->
-                        <BoxView HeightRequest="50" BackgroundColor="LightGray" />
-
-                        <!-- User Touch Output Entry -->
-                        <Entry x:Name="UserTouchOutput" IsReadOnly="True" BackgroundColor="#F0F0F0" />
-                    </VerticalStackLayout>
-                </Grid>
-            </VerticalStackLayout>
-        </ScrollView>
-
-        <!-- Popup for Input Modifier -->
-        <ContentView x:Name="InputModifierPopup" BackgroundColor="#80000000" IsVisible="False" AbsoluteLayout.LayoutFlags="All" AbsoluteLayout.LayoutBounds="0,0,1,1">
-            <Frame BackgroundColor="White" Padding="20" WidthRequest="300" HeightRequest="350" HorizontalOptions="Center" VerticalOptions="Center" CornerRadius="10" BorderColor="Gray" HasShadow="True">
-                <VerticalStackLayout Spacing="15">
-                    <Label Text="Input Modifier" FontSize="Medium" HorizontalOptions="Center" TextColor="Black"/>
-                    <Entry x:Name="ModifierNameEntry" Placeholder="Enter Modifier Name" WidthRequest="250" BackgroundColor="#F0F0F0" TextColor="Black" PlaceholderColor="Black"/>
-                    <Entry x:Name="DescriptionEntry" Placeholder="Enter Description" WidthRequest="250" BackgroundColor="#F0F0F0" TextColor="Black" PlaceholderColor="Black"/>
-                    <Entry x:Name="PriorityEntry" Placeholder="Enter Priority" WidthRequest="250" BackgroundColor="#F0F0F0" TextColor="Black" PlaceholderColor="Black"/>
-                    <Entry x:Name="ConditionEntry" Placeholder="Enter Condition" WidthRequest="250" BackgroundColor="#F0F0F0" TextColor="Black" PlaceholderColor="Black"/>
-                    <Entry x:Name="ModifyActionEntry" Placeholder="Enter Modify Action" WidthRequest="250" BackgroundColor="#F0F0F0" TextColor="Black" PlaceholderColor="Black"/>
-                    <HorizontalStackLayout HorizontalOptions="Center" Spacing="20">
-                        <Button Text="Okay" Clicked="OnOkayClicked" BackgroundColor="Green" TextColor="White"/>
-                    </HorizontalStackLayout>
+             Title="Observe"
+             Shell.NavBarIsVisible="True"
+             BackgroundColor="{AppThemeBinding Light=#f5f7fa, Dark=#121212}">
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <!-- Fixed Colors -->
+            <Color x:Key="PrimaryColor">#5C6BC0</Color>
+            <Color x:Key="SecondaryColor">#F48FB1</Color>
+            <Color x:Key="TertiaryColor">#81C784</Color>
+            <Color x:Key="NeutralColor">#B0BEC5</Color>
+            <Color x:Key="LightBackground">#f5f7fa</Color>
+            <Color x:Key="DarkBackground">#121212</Color>
+            <Color x:Key="LightCardBackground">#ffffff</Color>
+            <Color x:Key="DarkCardBackground">#2d2d2d</Color>
+            <Color x:Key="LightTextPrimary">#212121</Color>
+            <Color x:Key="DarkTextPrimary">#f5f5f5</Color>
+            <Color x:Key="LightTextSecondary">#757575</Color>
+            <Color x:Key="DarkTextSecondary">#b0b0b0</Color>
+            <!-- Styles with fixed theme binding -->
+            <Style x:Key="CardStyle"
+                   TargetType="Border">
+                <Setter Property="Stroke">
+                    <Setter.Value>
+                        <AppThemeBinding Light="#e0e0e0"
+                                         Dark="#424242" />
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="StrokeThickness"
+                        Value="1" />
+                <Setter Property="StrokeShape"
+                        Value="RoundRectangle 8,8,8,8" />
+                <Setter Property="Background">
+                    <Setter.Value>
+                        <AppThemeBinding Light="{StaticResource LightCardBackground}"
+                                         Dark="{StaticResource DarkCardBackground}" />
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Padding"
+                        Value="16" />
+                <Setter Property="Margin"
+                        Value="0,0,0,16" />
+                <Setter Property="Shadow">
+                    <Setter.Value>
+                        <Shadow Brush="{AppThemeBinding Light=#20000000, Dark=#40000000}"
+                                Offset="0,2"
+                                Radius="4" />
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="HeaderLabelStyle"
+                   TargetType="Label">
+                <Setter Property="FontSize"
+                        Value="18" />
+                <Setter Property="FontAttributes"
+                        Value="Bold" />
+                <Setter Property="TextColor">
+                    <Setter.Value>
+                        <AppThemeBinding Light="{StaticResource LightTextPrimary}"
+                                         Dark="{StaticResource DarkTextPrimary}" />
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Margin"
+                        Value="0,0,0,12" />
+            </Style>
+            <Style x:Key="SubHeaderLabelStyle"
+                   TargetType="Label">
+                <Setter Property="FontSize"
+                        Value="16" />
+                <Setter Property="FontAttributes"
+                        Value="Bold" />
+                <Setter Property="TextColor">
+                    <Setter.Value>
+                        <AppThemeBinding Light="{StaticResource LightTextPrimary}"
+                                         Dark="{StaticResource DarkTextPrimary}" />
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Margin"
+                        Value="0,8,0,8" />
+            </Style>
+            <Style x:Key="BodyLabelStyle"
+                   TargetType="Label">
+                <Setter Property="FontSize"
+                        Value="14" />
+                <Setter Property="TextColor">
+                    <Setter.Value>
+                        <AppThemeBinding Light="{StaticResource LightTextSecondary}"
+                                         Dark="{StaticResource DarkTextSecondary}" />
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Margin"
+                        Value="0,0,0,8" />
+            </Style>
+            <Style x:Key="ModernButtonStyle"
+                   TargetType="Button">
+                <Setter Property="BackgroundColor"
+                        Value="{StaticResource PrimaryColor}" />
+                <Setter Property="TextColor"
+                        Value="White" />
+                <Setter Property="FontSize"
+                        Value="14" />
+                <Setter Property="CornerRadius"
+                        Value="6" />
+                <Setter Property="Padding"
+                        Value="16,10" />
+                <Setter Property="Margin"
+                        Value="0,8,8,8" />
+                <Setter Property="HeightRequest"
+                        Value="40" />
+                <Setter Property="MinimumWidthRequest"
+                        Value="100" />
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="Pressed">
+                                <VisualState.Setters>
+                                    <Setter Property="BackgroundColor"
+                                            Value="#4051B5" />
+                                    <Setter Property="Scale"
+                                            Value="0.98" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Disabled">
+                                <VisualState.Setters>
+                                    <Setter Property="BackgroundColor"
+                                            Value="#BDBDBD" />
+                                    <Setter Property="TextColor"
+                                            Value="#757575" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
+            </Style>
+            <Style x:Key="ReadButtonStyle"
+                   TargetType="Button"
+                   BasedOn="{StaticResource ModernButtonStyle}">
+                <Setter Property="BackgroundColor"
+                        Value="{StaticResource PrimaryColor}" />
+            </Style>
+            <Style x:Key="StopButtonStyle"
+                   TargetType="Button"
+                   BasedOn="{StaticResource ModernButtonStyle}">
+                <Setter Property="BackgroundColor"
+                        Value="{StaticResource SecondaryColor}" />
+            </Style>
+            <Style x:Key="ActionButtonStyle"
+                   TargetType="Button"
+                   BasedOn="{StaticResource ModernButtonStyle}">
+                <Setter Property="BackgroundColor"
+                        Value="{StaticResource TertiaryColor}" />
+            </Style>
+            <Style x:Key="ModernEntryStyle"
+                   TargetType="Entry">
+                <Setter Property="FontSize"
+                        Value="14" />
+                <Setter Property="TextColor">
+                    <Setter.Value>
+                        <AppThemeBinding Light="{StaticResource LightTextPrimary}"
+                                         Dark="{StaticResource DarkTextPrimary}" />
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="BackgroundColor"
+                        Value="Transparent" />
+                <Setter Property="Margin"
+                        Value="0,4,0,12" />
+                <Setter Property="MinimumHeightRequest"
+                        Value="40" />
+            </Style>
+            <Style x:Key="SwitchStyle"
+                   TargetType="Switch">
+                <Setter Property="OnColor"
+                        Value="{StaticResource PrimaryColor}" />
+                <Setter Property="ThumbColor"
+                        Value="White" />
+            </Style>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+    <Grid RowDefinitions="Auto,*,Auto"
+          Padding="16">
+        <!-- Header Section -->
+        <Border Style="{StaticResource CardStyle}"
+                Grid.Row="0">
+            <Grid ColumnDefinitions="*,Auto">
+                <VerticalStackLayout Grid.Column="0"
+                                     Spacing="8">
+                    <Label Text="Action Recording Dashboard"
+                           Style="{StaticResource HeaderLabelStyle}" />
+                    <Label Text="Capture and analyze user interactions in real-time"
+                           Style="{StaticResource BodyLabelStyle}" />
                 </VerticalStackLayout>
-            </Frame>
-        </ContentView>
-    </AbsoluteLayout>
+                <HorizontalStackLayout Grid.Column="1"
+                                       VerticalOptions="Center">
+                    <Label Text="Record All"
+                           VerticalOptions="Center"
+                           Margin="0,0,8,0" />
+                    <Switch IsToggled="{Binding IsReadAllToggled}"
+                            Style="{StaticResource SwitchStyle}"
+                            VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Grid>
+        </Border>
+        <!-- Main Content - Replace VerticalStackLayout with FlexLayout -->
+        <ScrollView Grid.Row="1"
+                    Margin="0,16,0,0">
+            <FlexLayout Direction="Row"
+                        Wrap="Wrap"
+                        JustifyContent="Start"
+                        AlignItems="Start"
+                        AlignContent="Start">
+                <!-- Action Information Card -->
+                <Border Style="{StaticResource CardStyle}"
+                        FlexLayout.Basis="100%"
+                        FlexLayout.Grow="1">
+                    <VerticalStackLayout>
+                        <Label Text="Action Configuration"
+                               Style="{StaticResource SubHeaderLabelStyle}" />
+                        <Label Text="Action Name"
+                               Style="{StaticResource BodyLabelStyle}" />
+                        <Entry x:Name="ActionNameInput"
+                               Placeholder="Enter action name"
+                               Style="{StaticResource ModernEntryStyle}"
+                               MaxLength="50" />
+                        <Grid ColumnDefinitions="*,*,*"
+                              RowDefinitions="Auto,Auto"
+                              Margin="0,8,0,0">
+                            <Label Text="Modifier Name"
+                                   Grid.Column="0"
+                                   Style="{StaticResource BodyLabelStyle}" />
+                            <Entry x:Name="ModifierNameEntry"
+                                   Placeholder="Modifier"
+                                   Grid.Row="1"
+                                   Grid.Column="0"
+                                   Style="{StaticResource ModernEntryStyle}" />
+                            <Label Text="Priority"
+                                   Grid.Column="1"
+                                   Style="{StaticResource BodyLabelStyle}" />
+                            <Entry x:Name="PriorityEntry"
+                                   Placeholder="1-10"
+                                   Grid.Row="1"
+                                   Grid.Column="1"
+                                   Keyboard="Numeric"
+                                   Style="{StaticResource ModernEntryStyle}" />
+                            <Button Text="More Options"
+                                    Grid.Row="1"
+                                    Grid.Column="2"
+                                    Style="{StaticResource ModernButtonStyle}"
+                                    Clicked="OnInputModifierClicked" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+                <!-- Capture Controls Card -->
+                <Border Style="{StaticResource CardStyle}"
+                        FlexLayout.Basis="{OnIdiom Phone=100%, Default=48%}"
+                        FlexLayout.Grow="1"
+                        Margin="0,0,8,16">
+                    <VerticalStackLayout>
+                        <Label Text="Capture Controls"
+                               Style="{StaticResource SubHeaderLabelStyle}" />
+                        <Grid ColumnDefinitions="Auto,*,Auto"
+                              RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                              Margin="0,8">
+                            <!-- User Data Capture Row Headers -->
+                            <Label Text="User Input"
+                                   Grid.Row="0"
+                                   Grid.Column="0"
+                                   Grid.ColumnSpan="3"
+                                   Style="{StaticResource BodyLabelStyle}"
+                                   FontAttributes="Bold"
+                                   Margin="0,0,0,12" />
+                            <!-- User Touch Row -->
+                            <Label Text="Touch"
+                                   Grid.Row="1"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center"
+                                   Margin="0,0,12,0" />
+                            <ProgressBar Progress="0.8"
+                                         Grid.Row="1"
+                                         Grid.Column="1"
+                                         VerticalOptions="Center"
+                                         ProgressColor="{StaticResource TertiaryColor}" />
+                            <Button Text="{Binding UserTouchButtonText}"
+                                    Grid.Row="1"
+                                    Grid.Column="2"
+                                    Command="{Binding ToggleUserTouchCommand}"
+                                    Style="{StaticResource ModernButtonStyle}" />
+                            <!-- User Visual Row -->
+                            <Label Text="Visual"
+                                   Grid.Row="2"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center"
+                                   Margin="0,0,12,0" />
+                            <ProgressBar Progress="0.6"
+                                         Grid.Row="2"
+                                         Grid.Column="1"
+                                         VerticalOptions="Center"
+                                         ProgressColor="{StaticResource TertiaryColor}" />
+                            <Button Text="{Binding UserVisualButtonText}"
+                                    Grid.Row="2"
+                                    Grid.Column="2"
+                                    Command="{Binding ToggleUserVisualCommand}"
+                                    Style="{StaticResource ModernButtonStyle}" />
+                            <!-- User Audio Row -->
+                            <Label Text="Audio"
+                                   Grid.Row="3"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center"
+                                   Margin="0,0,12,0" />
+                            <ProgressBar Progress="0.4"
+                                         Grid.Row="3"
+                                         Grid.Column="1"
+                                         VerticalOptions="Center"
+                                         ProgressColor="{StaticResource TertiaryColor}" />
+                            <Button Text="{Binding UserAudibleButtonText}"
+                                    Grid.Row="3"
+                                    Grid.Column="2"
+                                    Command="{Binding ToggleUserAudibleCommand}"
+                                    Style="{StaticResource ModernButtonStyle}" />
+                            <!-- System Capture Row Headers -->
+                            <Label Text="System Data"
+                                   Grid.Row="4"
+                                   Grid.Column="0"
+                                   Grid.ColumnSpan="3"
+                                   Style="{StaticResource BodyLabelStyle}"
+                                   FontAttributes="Bold"
+                                   Margin="0,20,0,12" />
+                            <!-- PC Visual Row -->
+                            <Label Text="Visual"
+                                   Grid.Row="5"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center"
+                                   Margin="0,0,12,0" />
+                            <ProgressBar Progress="0.5"
+                                         Grid.Row="5"
+                                         Grid.Column="1"
+                                         VerticalOptions="Center"
+                                         ProgressColor="{StaticResource PrimaryColor}" />
+                            <Button Text="{Binding PCVisualButtonText}"
+                                    Grid.Row="5"
+                                    Grid.Column="2"
+                                    Command="{Binding TogglePCVisualCommand}"
+                                    Style="{StaticResource ModernButtonStyle}" />
+                            <!-- PC Audio Row -->
+                            <Label Text="Audio"
+                                   Grid.Row="6"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center"
+                                   Margin="0,0,12,0" />
+                            <ProgressBar Progress="0.3"
+                                         Grid.Row="6"
+                                         Grid.Column="1"
+                                         VerticalOptions="Center"
+                                         ProgressColor="{StaticResource PrimaryColor}" />
+                            <Button Text="{Binding PCAudibleButtonText}"
+                                    Grid.Row="6"
+                                    Grid.Column="2"
+                                    Command="{Binding TogglePCAudibleCommand}"
+                                    Style="{StaticResource ModernButtonStyle}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+                <!-- Preview Card -->
+                <Border Style="{StaticResource CardStyle}"
+                        FlexLayout.Basis="{OnIdiom Phone=100%, Default=48%}"
+                        FlexLayout.Grow="1">
+                    <VerticalStackLayout>
+                        <Label Text="Capture Preview"
+                               Style="{StaticResource SubHeaderLabelStyle}" />
+                        <Grid ColumnDefinitions="*,*"
+                              RowDefinitions="Auto,Auto,*"
+                              Margin="0,8">
+                            <!-- Media Preview -->
+                            <Frame Grid.Row="0"
+                                   Grid.Column="0"
+                                   Grid.ColumnSpan="2"
+                                   BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#333333}"
+                                   CornerRadius="6"
+                                   HasShadow="False"
+                                   Padding="0"
+                                   HeightRequest="200">
+                                <Image Source="{Binding CapturedImageSource}"
+                                       Aspect="AspectFill" />
+                            </Frame>
+                            <!-- Input Status -->
+                            <Frame Grid.Row="1"
+                                   Grid.Column="0"
+                                   Grid.ColumnSpan="2"
+                                   Margin="0,12,0,0"
+                                   BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#333333}"
+                                   CornerRadius="6"
+                                   HasShadow="False"
+                                   Padding="12">
+                                <Label x:Name="ButtonLabel"
+                                       Text="No active key/mouse presses"
+                                       MaxLines="4"
+                                       LineBreakMode="TailTruncation" />
+                            </Frame>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+                <!-- Actions Card -->
+                <Border Style="{StaticResource CardStyle}"
+                        FlexLayout.Basis="100%"
+                        FlexLayout.Grow="1">
+                    <VerticalStackLayout>
+                        <Label Text="Recorded Actions"
+                               Style="{StaticResource SubHeaderLabelStyle}" />
+                        <CollectionView ItemsSource="{Binding Data}"
+                                        EmptyView="No actions recorded yet"
+                                        HeightRequest="200">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame Margin="0,4"
+                                           Padding="12"
+                                           BackgroundColor="{AppThemeBinding Light=#f9f9f9, Dark=#222222}"
+                                           CornerRadius="6"
+                                           HasShadow="False">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <VerticalStackLayout Grid.Column="0">
+                                                <Label Text="{Binding Data.ActionGroupObject.ActionName}"
+                                                       FontAttributes="Bold" />
+                                                <Label Text="{Binding Data.Text}"
+                                                       FontSize="12"
+                                                       TextColor="{StaticResource TextSecondaryColor}" />
+                                                <Label Text="{Binding Data.ActionGroupObject.ActionArray.Count, StringFormat='Actions: {0}'}"
+                                                       FontSize="12"
+                                                       TextColor="{StaticResource TextSecondaryColor}" />
+                                            </VerticalStackLayout>
+                                            <HorizontalStackLayout Grid.Column="1"
+                                                                   VerticalOptions="Center">
+                                                <Label Text="{Binding Data.Files.Count, StringFormat='Files: {0}'}"
+                                                       Margin="0,0,8,0" />
+                                            </HorizontalStackLayout>
+                                        </Grid>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <HorizontalStackLayout HorizontalOptions="End"
+                                               Margin="0,12,0,0">
+                            <Button Text="Load"
+                                    Command="{Binding LoadFromFileCommand}"
+                                    Style="{StaticResource ModernButtonStyle}" />
+                            <Button Text="Save"
+                                    Command="{Binding SaveToFileCommand}"
+                                    Style="{StaticResource ModernButtonStyle}" />
+                            <Button Text="Save Action"
+                                    Command="{Binding SaveActionCommand}"
+                                    Style="{StaticResource ActionButtonStyle}" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+            </FlexLayout>
+        </ScrollView>
+        <!-- Input Modifier Popup -->
+        <Grid x:Name="InputModifierPopup"
+              Grid.Row="0"
+              Grid.RowSpan="3"
+              BackgroundColor="#80000000"
+              IsVisible="false">
+            <Border Style="{StaticResource CardStyle}"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center"
+                    WidthRequest="300">
+                <VerticalStackLayout>
+                    <Label Text="Additional Settings"
+                           Style="{StaticResource SubHeaderLabelStyle}" />
+                    <Label Text="Description"
+                           Style="{StaticResource BodyLabelStyle}" />
+                    <Entry x:Name="DescriptionEntry"
+                           Placeholder="Enter description"
+                           Style="{StaticResource ModernEntryStyle}" />
+                    <Button Text="OK"
+                            Clicked="OnOkayClicked"
+                            Style="{StaticResource ModernButtonStyle}"
+                            HorizontalOptions="End" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
 </ContentPage>
