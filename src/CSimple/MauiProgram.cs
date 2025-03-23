@@ -1,4 +1,5 @@
 ﻿using CSimple.Pages;
+using CSimple.Services;
 using CSimple.ViewModels;
 using Microsoft.Maui.LifecycleEvents;
 using Microsoft.UI;
@@ -53,7 +54,8 @@ public static class MauiProgram
         services.AddSingleton<SettingsPage>();
         services.AddSingleton<DataService>();
         services.AddSingleton<SettingsService>();
-        services.AddSingleton<GoalService>();  // Add the new GoalService
+        services.AddSingleton<FileService>();  // Register FileService
+        services.AddSingleton<GoalService>();  // GoalService depends on FileService
         services.AddSingleton<GlobalInputCapture>();
         services.AddSingleton<IOnTrainModelClickedService, OnTrainModelClickedService>();
 
