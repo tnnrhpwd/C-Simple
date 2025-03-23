@@ -1,7 +1,6 @@
-﻿using Microsoft.Maui.Storage;
+﻿using CSimple.Services;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Text.Json;
 using System.Windows.Input;
 
 namespace CSimple.Pages
@@ -18,8 +17,7 @@ namespace CSimple.Pages
         public ICommand ToggleCreateGoalCommand { get; }
         public ICommand ToggleMyGoalsCommand { get; }
         public ICommand SubmitGoalCommand { get; }
-        private readonly DataService _dataService;
-        private readonly FileService _fileService;
+        private readonly GoalService _goalService;
 
         public GoalPage()
         {
@@ -28,9 +26,10 @@ namespace CSimple.Pages
             ToggleCreateGoalCommand = new Command(OnToggleCreateGoal);
             ToggleMyGoalsCommand = new Command(OnToggleMyGoals);
             SubmitGoalCommand = new Command(OnSubmitGoal);
+
             // Initialize services
-            _dataService = new DataService();
-            _fileService = new FileService();
+            _goalService = ServiceProvider.GetService<GoalService>();
+
             // Bind the context
             BindingContext = this;
             CheckUserLoggedIn();
@@ -40,7 +39,7 @@ namespace CSimple.Pages
 
         private async void CheckUserLoggedIn()
         {
-            if (!await IsUserLoggedInAsync())
+            if (!await _goalService.IsUserLoggedInAsync())
             {
                 Debug.WriteLine("User is not logged in, navigating to login...");
                 NavigateLogin();
@@ -64,32 +63,6 @@ namespace CSimple.Pages
             }
         }
 
-        private async Task<bool> IsUserLoggedInAsync()
-        {
-            try
-            {
-                // Retrieve stored token
-                var userToken = await SecureStorage.GetAsync("userToken");
-
-                // Check if token exists and is not empty
-                if (!string.IsNullOrEmpty(userToken))
-                {
-                    Debug.WriteLine("User token found: " + userToken);
-                    return true; // User is logged in
-                }
-                else
-                {
-                    Debug.WriteLine("No user token found.");
-                    return false; // User is not logged in
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error retrieving user token: {ex.Message}");
-                return false;
-            }
-        }
-
         private void OnToggleCreateGoal()
         {
             ShowNewGoal = !ShowNewGoal;
@@ -109,8 +82,8 @@ namespace CSimple.Pages
             if (!string.IsNullOrWhiteSpace(NewGoalText))
             {
                 MyGoals.Add(NewGoalText);
-                await SaveGoalsToFile();
-                await SaveGoalToBackend(NewGoalText);
+                await _goalService.SaveGoalsToFile(MyGoals);
+                await _goalService.SaveGoalToBackend(NewGoalText);
                 NewGoalText = string.Empty;
                 OnPropertyChanged(nameof(NewGoalText));
             }
@@ -123,116 +96,12 @@ namespace CSimple.Pages
 
         private async Task LoadGoalsFromBackend()
         {
-            try
-            {
-                var token = await SecureStorage.GetAsync("userToken");
-                if (string.IsNullOrEmpty(token))
-                {
-                    Debug.WriteLine("User is not logged in.");
-                    return;
-                }
-
-                var data = "Goal";
-                var goals = await _dataService.GetDataAsync(data, token);
-                var formattedGoals = FormatGoalsFromBackend(goals.Data.Cast<DataItem>().ToList());
-
-                MyGoals.Clear();
-                foreach (var goal in formattedGoals)
-                {
-                    MyGoals.Add(goal);
-                }
-
-                var result = await _dataService.GetDataAsync("Goal", token);
-                if (result?.Data != null)
-                {
-                    AllDataItems.Clear();
-                    foreach (var item in result.Data)
-                    {
-                        AllDataItems.Add(item);
-                    }
-                }
-
-                await SaveGoalsToFile();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading goals from backend: {ex.Message}");
-            }
-        }
-
-        private ObservableCollection<string> FormatGoalsFromBackend(IEnumerable<DataItem> goalItems)
-        {
-            var formattedGoals = new ObservableCollection<string>();
-
-            foreach (var goalItem in goalItems)
-            {
-                // if (goalItem.Data.Text.Contains("|Goal"))
-                // {
-                //     formattedGoals.Add(goalItem.Data.Text);
-                // }
-            }
-
-            return formattedGoals;
-        }
-
-        private async Task SaveGoalToBackend(string goal)
-        {
-            try
-            {
-                var token = await SecureStorage.GetAsync("userToken");
-                if (string.IsNullOrEmpty(token))
-                {
-                    Debug.WriteLine("User is not logged in.");
-                    return;
-                }
-
-                var data = $"Goal:{goal}";
-                var response = await _dataService.CreateDataAsync(data, token);
-                if (response.DataIsSuccess)
-                {
-                    Debug.WriteLine("Goal saved to backend");
-                }
-                else
-                {
-                    Debug.WriteLine("Failed to save goal to backend");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error saving goal to backend: {ex.Message}");
-            }
-        }
-
-        private async Task SaveGoalsToFile()
-        {
-            try
-            {
-                Debug.WriteLine("Goals saved to file");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error saving goals to file: {ex.Message}");
-            }
-            await Task.CompletedTask;
+            await _goalService.LoadGoalsFromBackend(MyGoals, AllDataItems);
         }
 
         private async Task LoadGoalsFromFile()
         {
-            try
-            {
-                // var loadedGoals = await _fileService.LoadGoalsAsync();
-                MyGoals.Clear();
-                // foreach (var goal in loadedGoals)
-                // {
-                //     MyGoals.Add(goal);
-                // }
-                Debug.WriteLine("Goals loaded from file");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading goals from file: {ex.Message}");
-            }
-            await Task.CompletedTask;
+            await _goalService.LoadGoalsFromFile(MyGoals);
         }
     }
 }

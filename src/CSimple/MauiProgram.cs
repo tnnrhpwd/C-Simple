@@ -52,7 +52,8 @@ public static class MauiProgram
         services.AddSingleton<NetPage>();
         services.AddSingleton<SettingsPage>();
         services.AddSingleton<DataService>();
-        services.AddSingleton<SettingsService>();  // Add this line
+        services.AddSingleton<SettingsService>();
+        services.AddSingleton<GoalService>();  // Add the new GoalService
         services.AddSingleton<GlobalInputCapture>();
         services.AddSingleton<IOnTrainModelClickedService, OnTrainModelClickedService>();
 
