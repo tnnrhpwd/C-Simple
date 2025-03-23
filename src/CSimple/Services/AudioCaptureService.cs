@@ -12,6 +12,8 @@ namespace CSimple.Services
         #region Events
         public event Action<string> DebugMessageLogged;
         public event Action<string> FileCaptured;
+        public event Action<float> PCLevelChanged;
+        public event Action<float> WebcamLevelChanged;
         #endregion
 
         #region Properties
@@ -21,6 +23,10 @@ namespace CSimple.Services
         private WaveFileWriter _loopbackWriter;
         private string _pcAudioDirectory;
         private string _webcamAudioDirectory;
+        private bool _savePCAudio;
+        private bool _saveWebcamAudio;
+        private string _tempPcFilePath;
+        private string _tempWebcamFilePath;
         #endregion
 
         public AudioCaptureService()
@@ -38,18 +44,23 @@ namespace CSimple.Services
             Directory.CreateDirectory(_webcamAudioDirectory);
         }
 
-        public void StartPCAudioRecording()
+        public void StartPCAudioRecording(bool saveRecording = true)
         {
             try
             {
-                string filePath = Path.Combine(_pcAudioDirectory, $"PCAudio_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
+                _savePCAudio = saveRecording;
+                _tempPcFilePath = Path.Combine(_pcAudioDirectory, $"PCAudio_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
 
                 _loopbackCapture = new WasapiLoopbackCapture();
-                _loopbackWriter = new WaveFileWriter(filePath, _loopbackCapture.WaveFormat);
+                _loopbackWriter = new WaveFileWriter(_tempPcFilePath, _loopbackCapture.WaveFormat);
 
                 _loopbackCapture.DataAvailable += (s, a) =>
                 {
                     _loopbackWriter.Write(a.Buffer, 0, a.BytesRecorded);
+
+                    // Calculate audio level
+                    float level = CalculateLevel(a.Buffer, a.BytesRecorded);
+                    PCLevelChanged?.Invoke(level);
                 };
 
                 _loopbackCapture.RecordingStopped += (s, a) =>
@@ -57,9 +68,32 @@ namespace CSimple.Services
                     _loopbackWriter?.Dispose();
                     _loopbackWriter = null;
                     _loopbackCapture.Dispose();
-                    LogDebug($"PC audio recording saved to: {filePath}");
-                    FileCaptured?.Invoke(filePath);
-                    ExtractMFCCs(filePath);
+
+                    if (_savePCAudio)
+                    {
+                        LogDebug($"PC audio recording saved to: {_tempPcFilePath}");
+                        FileCaptured?.Invoke(_tempPcFilePath);
+                        ExtractMFCCs(_tempPcFilePath);
+                    }
+                    else
+                    {
+                        // Delete the file if we're not supposed to save it
+                        if (File.Exists(_tempPcFilePath))
+                        {
+                            try
+                            {
+                                File.Delete(_tempPcFilePath);
+                                LogDebug("PC audio recording discarded");
+                            }
+                            catch (Exception ex)
+                            {
+                                LogDebug($"Error deleting temporary audio file: {ex.Message}");
+                            }
+                        }
+                    }
+
+                    // Reset audio level
+                    PCLevelChanged?.Invoke(0);
                 };
 
                 _loopbackCapture.StartRecording();
@@ -77,11 +111,12 @@ namespace CSimple.Services
             LogDebug("Stopped recording PC audio.");
         }
 
-        public void StartWebcamAudioRecording()
+        public void StartWebcamAudioRecording(bool saveRecording = true)
         {
             try
             {
-                string filePath = Path.Combine(_webcamAudioDirectory, $"WebcamAudio_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
+                _saveWebcamAudio = saveRecording;
+                _tempWebcamFilePath = Path.Combine(_webcamAudioDirectory, $"WebcamAudio_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
 
                 _waveIn = new WaveInEvent();
 
@@ -94,11 +129,15 @@ namespace CSimple.Services
 
                 _waveIn.DeviceNumber = deviceNumber;
                 _waveIn.WaveFormat = new WaveFormat(44100, 1);
-                _writer = new WaveFileWriter(filePath, _waveIn.WaveFormat);
+                _writer = new WaveFileWriter(_tempWebcamFilePath, _waveIn.WaveFormat);
 
                 _waveIn.DataAvailable += (s, a) =>
                 {
                     _writer.Write(a.Buffer, 0, a.BytesRecorded);
+
+                    // Calculate audio level
+                    float level = CalculateLevel(a.Buffer, a.BytesRecorded);
+                    WebcamLevelChanged?.Invoke(level);
                 };
 
                 _waveIn.RecordingStopped += (s, a) =>
@@ -106,9 +145,32 @@ namespace CSimple.Services
                     _writer?.Dispose();
                     _writer = null;
                     _waveIn.Dispose();
-                    LogDebug($"Webcam audio recording saved to: {filePath}");
-                    FileCaptured?.Invoke(filePath);
-                    ExtractMFCCs(filePath);
+
+                    if (_saveWebcamAudio)
+                    {
+                        LogDebug($"Webcam audio recording saved to: {_tempWebcamFilePath}");
+                        FileCaptured?.Invoke(_tempWebcamFilePath);
+                        ExtractMFCCs(_tempWebcamFilePath);
+                    }
+                    else
+                    {
+                        // Delete the file if we're not supposed to save it
+                        if (File.Exists(_tempWebcamFilePath))
+                        {
+                            try
+                            {
+                                File.Delete(_tempWebcamFilePath);
+                                LogDebug("Webcam audio recording discarded");
+                            }
+                            catch (Exception ex)
+                            {
+                                LogDebug($"Error deleting temporary audio file: {ex.Message}");
+                            }
+                        }
+                    }
+
+                    // Reset audio level
+                    WebcamLevelChanged?.Invoke(0);
                 };
 
                 _waveIn.StartRecording();
@@ -187,6 +249,24 @@ namespace CSimple.Services
             {
                 LogDebug($"Error extracting MFCCs: {ex.Message}");
             }
+        }
+
+        // Calculate audio level from raw buffer data
+        private float CalculateLevel(byte[] buffer, int bytesRecorded)
+        {
+            // Simple RMS calculation
+            float sum = 0;
+            int sampleCount = bytesRecorded / 2; // 16-bit samples
+
+            for (int i = 0; i < bytesRecorded; i += 2)
+            {
+                short sample = (short)((buffer[i + 1] << 8) | buffer[i]);
+                float normalized = sample / 32768f;
+                sum += normalized * normalized;
+            }
+
+            float rms = (float)Math.Sqrt(sum / sampleCount);
+            return Math.Min(1.0f, rms * 5.0f); // Scale up a bit for better visualization
         }
 
         private void LogDebug(string message)

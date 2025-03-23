@@ -55,6 +55,93 @@ namespace CSimple.Pages
         public ICommand SaveToFileCommand { get; }
         public ICommand LoadFromFileCommand { get; }
 
+        // Save options
+        private bool _saveRecord = true;
+        public bool SaveRecord
+        {
+            get => _saveRecord;
+            set
+            {
+                if (_saveRecord != value)
+                {
+                    _saveRecord = value;
+                    OnPropertyChanged();
+
+                    // If not saving at all, disable the other options
+                    if (!value)
+                    {
+                        SaveLocally = false;
+                        UploadToBackend = false;
+                    }
+                }
+            }
+        }
+
+        private bool _saveLocally = true;
+        public bool SaveLocally
+        {
+            get => _saveLocally;
+            set
+            {
+                if (_saveLocally != value)
+                {
+                    _saveLocally = value;
+                    OnPropertyChanged();
+
+                    // If saving locally, we need to save the record
+                    if (value && !SaveRecord)
+                        SaveRecord = true;
+                }
+            }
+        }
+
+        private bool _uploadToBackend = false;
+        public bool UploadToBackend
+        {
+            get => _uploadToBackend;
+            set
+            {
+                if (_uploadToBackend != value)
+                {
+                    _uploadToBackend = value;
+                    OnPropertyChanged();
+
+                    // If uploading to backend, we need to save the record
+                    if (value && !SaveRecord)
+                        SaveRecord = true;
+                }
+            }
+        }
+
+        // Audio levels for progress bars
+        private float _pcAudioLevel;
+        public float PCAudioLevel
+        {
+            get => _pcAudioLevel;
+            set
+            {
+                if (_pcAudioLevel != value)
+                {
+                    _pcAudioLevel = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        private float _userAudioLevel;
+        public float UserAudioLevel
+        {
+            get => _userAudioLevel;
+            set
+            {
+                if (_userAudioLevel != value)
+                {
+                    _userAudioLevel = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         public ObservePage()
         {
             InitializeComponent();
@@ -73,6 +160,8 @@ namespace CSimple.Pages
             _screenService.DebugMessageLogged += message => Debug.WriteLine(message);
             _audioService.FileCaptured += OnFileCaptured;
             _audioService.DebugMessageLogged += message => Debug.WriteLine(message);
+            _audioService.PCLevelChanged += level => Dispatcher.Dispatch(() => PCAudioLevel = level);
+            _audioService.WebcamLevelChanged += level => Dispatcher.Dispatch(() => UserAudioLevel = level);
             _dataService.DebugMessageLogged += message => Debug.WriteLine(message);
             _mouseService.MouseMoved += OnMouseMoved;
 
@@ -86,7 +175,9 @@ namespace CSimple.Pages
 
             TogglePCAudibleCommand = new Command(() =>
             {
-                PCAudibleButtonText = ToggleOutput(PCAudibleButtonText, _audioService.StartPCAudioRecording, _audioService.StopPCAudioRecording);
+                PCAudibleButtonText = ToggleOutput(PCAudibleButtonText,
+                    () => _audioService.StartPCAudioRecording(SaveRecord),
+                    _audioService.StopPCAudioRecording);
                 OnPropertyChanged(nameof(PCAudibleButtonText));
                 UpdateButtonVisualState(PCAudibleButtonText);
             });
@@ -100,7 +191,9 @@ namespace CSimple.Pages
 
             ToggleUserAudibleCommand = new Command(() =>
             {
-                UserAudibleButtonText = ToggleOutput(UserAudibleButtonText, _audioService.StartWebcamAudioRecording, _audioService.StopWebcamAudioRecording);
+                UserAudibleButtonText = ToggleOutput(UserAudibleButtonText,
+                    () => _audioService.StartWebcamAudioRecording(SaveRecord),
+                    _audioService.StopWebcamAudioRecording);
                 OnPropertyChanged(nameof(UserAudibleButtonText));
                 UpdateButtonVisualState(UserAudibleButtonText);
             });
@@ -184,8 +277,16 @@ namespace CSimple.Pages
         {
             _inputService.StopCapturing();
             _mouseService.StopTracking();
-            await SaveNewActionGroup();
-            await SaveDataItemsToFile();
+
+            // Only save if we're saving records
+            if (SaveRecord)
+            {
+                await SaveNewActionGroup();
+
+                // Only save to file if that option is enabled
+                if (SaveLocally)
+                    await SaveDataItemsToFile();
+            }
         }
 
         // Update StopAllCaptures method
@@ -198,7 +299,9 @@ namespace CSimple.Pages
             }
             if (PCAudibleButtonText == "Stop")
             {
-                PCAudibleButtonText = ToggleOutput(PCAudibleButtonText, _audioService.StartPCAudioRecording, _audioService.StopPCAudioRecording);
+                PCAudibleButtonText = ToggleOutput(PCAudibleButtonText,
+                    () => _audioService.StartPCAudioRecording(SaveRecord),
+                    _audioService.StopPCAudioRecording);
                 OnPropertyChanged(nameof(PCAudibleButtonText));
             }
             if (UserVisualButtonText == "Stop")
@@ -208,7 +311,9 @@ namespace CSimple.Pages
             }
             if (UserAudibleButtonText == "Stop")
             {
-                UserAudibleButtonText = ToggleOutput(UserAudibleButtonText, _audioService.StartWebcamAudioRecording, _audioService.StopWebcamAudioRecording);
+                UserAudibleButtonText = ToggleOutput(UserAudibleButtonText,
+                    () => _audioService.StartWebcamAudioRecording(SaveRecord),
+                    _audioService.StopWebcamAudioRecording);
                 OnPropertyChanged(nameof(UserAudibleButtonText));
             }
             if (UserTouchButtonText == "Stop")
@@ -224,9 +329,13 @@ namespace CSimple.Pages
             if (value)
             {
                 PCVisualButtonText = ToggleOutput(PCVisualButtonText, StartPCVisual, StopPCVisual);
-                PCAudibleButtonText = ToggleOutput(PCAudibleButtonText, _audioService.StartPCAudioRecording, _audioService.StopPCAudioRecording);
+                PCAudibleButtonText = ToggleOutput(PCAudibleButtonText,
+                    () => _audioService.StartPCAudioRecording(SaveRecord),
+                    _audioService.StopPCAudioRecording);
                 UserVisualButtonText = ToggleOutput(UserVisualButtonText, StartUserVisual, StopUserVisual);
-                UserAudibleButtonText = ToggleOutput(UserAudibleButtonText, _audioService.StartWebcamAudioRecording, _audioService.StopWebcamAudioRecording);
+                UserAudibleButtonText = ToggleOutput(UserAudibleButtonText,
+                    () => _audioService.StartWebcamAudioRecording(SaveRecord),
+                    _audioService.StopWebcamAudioRecording);
                 UserTouchButtonText = ToggleOutput(UserTouchButtonText, StartUserTouch, StopUserTouch);
 
                 OnPropertyChanged(nameof(PCVisualButtonText));
@@ -305,6 +414,9 @@ namespace CSimple.Pages
 
         private void SaveAction()
         {
+            // If not saving records, don't proceed
+            if (!SaveRecord) return;
+
             string actionName = ActionNameInput?.Text;
             if (string.IsNullOrEmpty(actionName) || string.IsNullOrEmpty(UserTouchInputText)) return;
 
@@ -347,8 +459,12 @@ namespace CSimple.Pages
         {
             try
             {
-                if (Data.Any())
+                if (Data.Any() && UploadToBackend)
+                {
+                    // Only upload if explicitly requested
                     await _dataService.CompressAndUploadAsync(new List<DataItem> { Data.Last() });
+                    Debug.WriteLine("Uploaded action group to backend");
+                }
             }
             catch (Exception ex)
             {
@@ -358,8 +474,12 @@ namespace CSimple.Pages
 
         private async Task SaveDataItemsToFile()
         {
-            await _dataService.SaveDataItemsToFile(Data);
-            await _dataService.SaveLocalRichDataAsync(Data);
+            if (SaveLocally)
+            {
+                await _dataService.SaveDataItemsToFile(Data);
+                await _dataService.SaveLocalRichDataAsync(Data);
+                Debug.WriteLine("Saved action group to local storage");
+            }
         }
 
         private async Task LoadDataItemsFromFile()

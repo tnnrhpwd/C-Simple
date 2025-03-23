@@ -224,6 +224,51 @@
                                Placeholder="Enter action name"
                                Style="{StaticResource ModernEntryStyle}"
                                MaxLength="50" />
+                        <!-- Save Options Section -->
+                        <Label Text="Save Options"
+                               Style="{StaticResource BodyLabelStyle}"
+                               FontAttributes="Bold"
+                               Margin="0,12,0,8" />
+                        <Grid ColumnDefinitions="Auto,*"
+                              RowDefinitions="Auto,Auto,Auto"
+                              Margin="0,0,0,12">
+                            <!-- Save Record Option -->
+                            <Label Text="Save Record"
+                                   Grid.Row="0"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center"
+                                   Margin="0,0,12,0" />
+                            <Switch IsToggled="{Binding SaveRecord}"
+                                    Grid.Row="0"
+                                    Grid.Column="1"
+                                    HorizontalOptions="Start"
+                                    VerticalOptions="Center"
+                                    Style="{StaticResource SwitchStyle}" />
+                            <!-- Save Locally Option -->
+                            <Label Text="Save Locally"
+                                   Grid.Row="1"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center"
+                                   Margin="0,0,12,0" />
+                            <Switch IsToggled="{Binding SaveLocally}"
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    HorizontalOptions="Start"
+                                    VerticalOptions="Center"
+                                    Style="{StaticResource SwitchStyle}" />
+                            <!-- Upload to Backend Option -->
+                            <Label Text="Upload to Backend"
+                                   Grid.Row="2"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center"
+                                   Margin="0,0,12,0" />
+                            <Switch IsToggled="{Binding UploadToBackend}"
+                                    Grid.Row="2"
+                                    Grid.Column="1"
+                                    HorizontalOptions="Start"
+                                    VerticalOptions="Center"
+                                    Style="{StaticResource SwitchStyle}" />
+                        </Grid>
                         <Grid ColumnDefinitions="*,*,*"
                               RowDefinitions="Auto,Auto"
                               Margin="0,8,0,0">
@@ -309,7 +354,7 @@
                                    Grid.Column="0"
                                    VerticalOptions="Center"
                                    Margin="0,0,12,0" />
-                            <ProgressBar Progress="0.4"
+                            <ProgressBar Progress="{Binding UserAudioLevel}"
                                          Grid.Row="3"
                                          Grid.Column="1"
                                          VerticalOptions="Center"
@@ -349,7 +394,7 @@
                                    Grid.Column="0"
                                    VerticalOptions="Center"
                                    Margin="0,0,12,0" />
-                            <ProgressBar Progress="0.3"
+                            <ProgressBar Progress="{Binding PCAudioLevel}"
                                          Grid.Row="6"
                                          Grid.Column="1"
                                          VerticalOptions="Center"
