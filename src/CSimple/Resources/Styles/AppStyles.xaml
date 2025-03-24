@@ -203,4 +203,54 @@
         <Setter Property="ThumbColor"
                 Value="White" />
     </Style>
+    <!-- Keyboard Key Style -->
+    <Style TargetType="Border"
+           x:Key="KeyboardKeyStyle">
+        <Setter Property="WidthRequest"
+                Value="32" />
+        <Setter Property="HeightRequest"
+                Value="32" />
+        <Setter Property="StrokeThickness"
+                Value="1" />
+        <Setter Property="Stroke"
+                Value="{AppThemeBinding Light=#CCCCCC, Dark=#555555}" />
+        <Setter Property="BackgroundColor"
+                Value="{AppThemeBinding Light=White, Dark=#222222}" />
+        <Setter Property="StrokeShape"
+                Value="RoundRectangle 4,4,4,4" />
+        <Setter Property="Padding"
+                Value="2" />
+    </Style>
+    <!-- Add a style class for keyboard keys -->
+    <Style TargetType="Border"
+           Class="KeyboardKey"
+           BasedOn="{StaticResource KeyboardKeyStyle}">
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup Name="CommonStates">
+                    <VisualState Name="Normal" />
+                    <VisualState Name="Active">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor"
+                                    Value="{StaticResource TertiaryColor}" />
+                            <Setter Property="Stroke"
+                                    Value="{StaticResource TertiaryDarkColor}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+    <!-- Labels inside keyboard keys -->
+    <Style TargetType="Label"
+           x:Key="KeyLabelStyle">
+        <Setter Property="HorizontalOptions"
+                Value="Center" />
+        <Setter Property="VerticalOptions"
+                Value="Center" />
+        <Setter Property="FontSize"
+                Value="10" />
+        <Setter Property="TextColor"
+                Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+    </Style>
 </ResourceDictionary>

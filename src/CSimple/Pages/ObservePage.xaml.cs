@@ -584,10 +584,19 @@ namespace CSimple.Pages
         private void OnInputModifierClicked(object sender, EventArgs e) => InputModifierPopupControl.Show();
         private void OnOkayClicked(object sender, EventArgs e) => InputModifierPopupControl.Hide();
 
-        private void OnMouseMoved(Microsoft.Maui.Graphics.Point delta) =>
-            Dispatcher.Dispatch(() => Debug.WriteLine($"Mouse Movement: X={delta.X}, Y={delta.Y}"));
+        private void OnMouseMoved(Microsoft.Maui.Graphics.Point delta)
+        {
+            Dispatcher.Dispatch(() =>
+            {
+                if (CapturePreviewCard != null)
+                {
+                    CapturePreviewCard.UpdateMouseMovement(delta);
+                }
+                Debug.WriteLine($"Mouse Movement: X={delta.X}, Y={delta.Y}");
+            });
+        }
 
-        // Updated OnInputCaptured method to track active key count
+        // Updated OnInputCaptured method to visualize keyboard/mouse
         private void OnInputCaptured(string inputJson)
         {
             Dispatcher.Dispatch(async () =>
@@ -596,17 +605,29 @@ namespace CSimple.Pages
                 Debug.WriteLine(inputJson);
                 SaveAction();
 
-                // Update touch level based on active key count
-                int activeKeyCount = _inputService.GetActiveKeyCount();
-                UserTouchLevel = Math.Min(activeKeyCount / 5.0f, 1.0f); // Scale: 5 keys = 100%
-
-                // Fix the color usage and access through component
-                if (CapturePreviewCard != null)
+                try
                 {
-                    var originalColor = Colors.Transparent;
-                    await ButtonColorAnimation(Colors.LightGreen);
-                    CapturePreviewCard.ButtonLabelText = _inputService.GetActiveInputsDisplay();
-                    await ButtonColorAnimation(originalColor);
+                    // Deserialize action item
+                    var actionItem = JsonConvert.DeserializeObject<ActionItem>(inputJson);
+
+                    // Update touch level based on active key count
+                    int activeKeyCount = _inputService.GetActiveKeyCount();
+                    UserTouchLevel = Math.Min(activeKeyCount / 5.0f, 1.0f); // Scale: 5 keys = 100%
+
+                    if (CapturePreviewCard != null)
+                    {
+                        // Update the key display
+                        var isPressed = actionItem.EventType == 0x0100 || // Key down
+                                       actionItem.EventType == 0x0201 || // Left mouse down
+                                       actionItem.EventType == 0x0204;   // Right mouse down
+
+                        CapturePreviewCard.UpdateInputActivity(actionItem.KeyCode, isPressed);
+                        CapturePreviewCard.ButtonLabelText = _inputService.GetActiveInputsDisplay();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error updating input visualization: {ex.Message}");
                 }
             });
         }
