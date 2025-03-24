@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="CSimple.Components.CapturePreviewCard">
+             x:Class="CSimple.Components.CapturePreviewCard"
+             x:Name="root">
     <Border Style="{StaticResource ModernCardStyle}"
             FlexLayout.Basis="{OnIdiom Phone=100%, Default=48%}"
             FlexLayout.Grow="1"
@@ -23,14 +24,14 @@
                            Margin="0,4,0,0">
                         <Grid>
                             <Image x:Name="ScreenCaptureImage"
-                                   Source="{Binding ScreenCaptureSource, Mode=OneWay}"
+                                   Source="{Binding Source={x:Reference Name=root}, Path=ScreenCaptureSource}"
                                    Aspect="AspectFill" />
                             <!-- Overlay and loading indicator for screen -->
                             <Grid BackgroundColor="#80000000"
-                                  IsVisible="{Binding IsScreenCaptureInactive}">
+                                  IsVisible="{Binding Source={x:Reference Name=root}, Path=IsScreenCaptureInactive}">
                                 <VerticalStackLayout HorizontalOptions="Center"
                                                      VerticalOptions="Center">
-                                    <ActivityIndicator IsRunning="{Binding IsLoadingScreenPreview}"
+                                    <ActivityIndicator IsRunning="{Binding Source={x:Reference Name=root}, Path=IsLoadingScreenPreview}"
                                                        Color="{StaticResource PrimaryColor}"
                                                        HeightRequest="40"
                                                        WidthRequest="40" />
@@ -56,14 +57,14 @@
                            Margin="0,4,0,0">
                         <Grid>
                             <Image x:Name="WebcamCaptureImage"
-                                   Source="{Binding WebcamCaptureSource, Mode=OneWay}"
+                                   Source="{Binding Source={x:Reference Name=root}, Path=WebcamCaptureSource}"
                                    Aspect="AspectFill" />
                             <!-- Overlay and loading indicator for webcam -->
                             <Grid BackgroundColor="#80000000"
-                                  IsVisible="{Binding IsWebcamCaptureInactive}">
+                                  IsVisible="{Binding Source={x:Reference Name=root}, Path=IsWebcamCaptureInactive}">
                                 <VerticalStackLayout HorizontalOptions="Center"
                                                      VerticalOptions="Center">
-                                    <ActivityIndicator IsRunning="{Binding IsLoadingWebcamPreview}"
+                                    <ActivityIndicator IsRunning="{Binding Source={x:Reference Name=root}, Path=IsLoadingWebcamPreview}"
                                                        Color="{StaticResource PrimaryColor}"
                                                        HeightRequest="40"
                                                        WidthRequest="40" />

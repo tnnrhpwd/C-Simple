@@ -207,7 +207,7 @@ namespace CSimple.Services
         {
             try
             {
-                // Get real-time screen and webcam captures
+                // Set up webcam for preview
                 using var webcamCapture = new VideoCapture(0);
                 using var webcamFrame = new Mat();
 
@@ -215,41 +215,48 @@ namespace CSimple.Services
                 {
                     LogDebug("Failed to open webcam for preview.");
                 }
+                else
+                {
+                    LogDebug("Webcam opened successfully for preview.");
+                }
 
                 while (!token.IsCancellationRequested && _previewModeActive)
                 {
                     try
                     {
-                        // Capture and send screen frame
-                        if (ScreenPreviewFrameReady != null)
+                        // 1. Get the screen preview
+                        var screenImage = CaptureScreenForPreview();
+                        if (screenImage != null)
                         {
-                            // Capture actual screen image
-                            var screenImage = CaptureScreenForPreview();
-                            if (screenImage != null)
-                            {
-                                ScreenPreviewFrameReady.Invoke(screenImage);
-                            }
+                            // Make sure we're on a background thread when invoking the event
+                            ScreenPreviewFrameReady?.Invoke(screenImage);
+                            LogDebug("Screen preview frame captured and sent");
                         }
 
-                        // Capture and send webcam frame
-                        if (WebcamPreviewFrameReady != null && webcamCapture.IsOpened())
+                        // 2. Get the webcam preview
+                        if (webcamCapture.IsOpened())
                         {
                             if (webcamCapture.Read(webcamFrame) && !webcamFrame.Empty())
                             {
                                 var webcamImage = ConvertMatToImageSource(webcamFrame);
                                 if (webcamImage != null)
                                 {
-                                    WebcamPreviewFrameReady.Invoke(webcamImage);
+                                    WebcamPreviewFrameReady?.Invoke(webcamImage);
+                                    LogDebug("Webcam preview frame captured and sent");
                                 }
                             }
                         }
 
-                        // Delay between frames
-                        await Task.Delay(100, token); // Faster update rate for smoother preview
+                        // Short delay for next frame
+                        await Task.Delay(200, token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw; // Rethrow to exit the loop
                     }
                     catch (Exception ex)
                     {
-                        DebugMessageLogged?.Invoke($"Error capturing preview frame: {ex.Message}");
+                        LogDebug($"Frame capture error: {ex.Message}");
                         await Task.Delay(1000, token); // Longer delay on error
                     }
                 }
@@ -257,10 +264,11 @@ namespace CSimple.Services
             catch (OperationCanceledException)
             {
                 // Expected when cancellation is requested
+                LogDebug("Preview mode cancelled");
             }
             catch (Exception ex)
             {
-                DebugMessageLogged?.Invoke($"Error in preview frame generation: {ex.Message}");
+                LogDebug($"Error in preview generation: {ex.Message}");
             }
         }
 
@@ -269,30 +277,36 @@ namespace CSimple.Services
 #if WINDOWS
             try
             {
-                // Capture primary screen
+                // Get the primary screen
                 var bounds = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
                 using (var bitmap = new Bitmap(bounds.Width, bounds.Height))
                 {
                     using (var g = Graphics.FromImage(bitmap))
                     {
                         g.CopyFromScreen(bounds.Location, System.Drawing.Point.Empty, bounds.Size);
-                    }
 
-                    // Convert to stream and create image source
-                    using (var memoryStream = new MemoryStream())
-                    {
-                        bitmap.Save(memoryStream, ImageFormat.Png);
-                        memoryStream.Position = 0;
+                        // Optional: resize the bitmap for preview performance
+                        var resizedBitmap = new Bitmap(bitmap, new System.Drawing.Size(
+                            Math.Min(bounds.Width, 640),
+                            Math.Min(bounds.Height, 360)));
 
-                        // Return as StreamImageSource
-                        var streamImageSource = ImageSource.FromStream(() => new MemoryStream(memoryStream.ToArray()));
-                        return streamImageSource;
+                        // Convert to a format that MAUI can display
+                        using (var memoryStream = new MemoryStream())
+                        {
+                            resizedBitmap.Save(memoryStream, ImageFormat.Jpeg);
+                            memoryStream.Position = 0;
+
+                            // Create a copy to avoid memory issues
+                            var data = memoryStream.ToArray();
+
+                            return ImageSource.FromStream(() => new MemoryStream(data));
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                LogDebug($"Error capturing screen for preview: {ex.Message}");
+                LogDebug($"Screen capture error: {ex.Message}");
             }
 #endif
             return null;
@@ -302,27 +316,44 @@ namespace CSimple.Services
         {
             try
             {
-                // Save to temporary file and load as image source
-                string tempFile = Path.Combine(Path.GetTempPath(), $"webcam_preview_{Guid.NewGuid()}.jpg");
-                Cv2.ImWrite(tempFile, frame);
+                // Resize the frame for better performance
+                using var resizedFrame = new Mat();
+                Cv2.Resize(frame, resizedFrame, new OpenCvSharp.Size(320, 240));
 
-                // Create image source from file
+                // Create a temporary file with a unique name
+                string tempFile = Path.Combine(Path.GetTempPath(), $"webcam_{Guid.NewGuid()}.jpg");
+
+                // Save the frame to a file
+                Cv2.ImWrite(tempFile, resizedFrame);
+
+                // Load the file as an ImageSource
                 var imageSource = ImageSource.FromFile(tempFile);
 
-                // Schedule file deletion after a delay
+                // Schedule the file for deletion
                 Task.Run(async () =>
                 {
-                    await Task.Delay(5000); // Delete after 5 seconds
-                    try { File.Delete(tempFile); } catch { }
+                    try
+                    {
+                        await Task.Delay(1000);
+                        if (File.Exists(tempFile))
+                            File.Delete(tempFile);
+                    }
+                    catch { /* Ignore cleanup errors */ }
                 });
 
                 return imageSource;
             }
             catch (Exception ex)
             {
-                LogDebug($"Error converting Mat to ImageSource: {ex.Message}");
+                LogDebug($"Error converting webcam frame: {ex.Message}");
                 return null;
             }
+        }
+
+        // Add this new method to get a single screenshot
+        public ImageSource GetSingleScreenshot()
+        {
+            return CaptureScreenForPreview();
         }
 
         private void LogDebug(string message)

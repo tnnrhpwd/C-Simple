@@ -110,7 +110,19 @@ namespace CSimple.Components
         {
             if (_isPreviewActive)
             {
-                ScreenCaptureSource = source;
+                // Use Dispatcher instead of Device.BeginInvokeOnMainThread
+                Dispatcher.Dispatch(() =>
+                {
+                    ScreenCaptureSource = null;
+                    ScreenCaptureSource = source;
+
+                    // Update visibility states
+                    if (ScreenCaptureStatus != null)
+                    {
+                        ScreenCaptureStatus.Text = "Screen feed active";
+                        IsLoadingScreenPreview = false;
+                    }
+                });
             }
         }
 
@@ -118,7 +130,19 @@ namespace CSimple.Components
         {
             if (_isPreviewActive)
             {
-                WebcamCaptureSource = source;
+                // Use Dispatcher instead of Device.BeginInvokeOnMainThread
+                Dispatcher.Dispatch(() =>
+                {
+                    WebcamCaptureSource = null;
+                    WebcamCaptureSource = source;
+
+                    // Update visibility states
+                    if (WebcamCaptureStatus != null)
+                    {
+                        WebcamCaptureStatus.Text = "Webcam feed active";
+                        IsLoadingWebcamPreview = false;
+                    }
+                });
             }
         }
 

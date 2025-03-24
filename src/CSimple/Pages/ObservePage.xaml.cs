@@ -231,12 +231,19 @@ namespace CSimple.Pages
             // Add welcome animation
             await this.FadeTo(0, 0);
             await this.FadeTo(1, 400, Easing.CubicOut);
+
+            // Start previews with a slight delay to ensure UI is ready
+            await Task.Delay(500);
+            UpdatePreviewSources(true);
+            RefreshPreviewFrames();
         }
 
         protected override void OnDisappearing()
         {
-            base.OnDisappearing();
+            // Stop all captures and previews when navigating away
             StopAllCaptures();
+            UpdatePreviewSources(false);
+            base.OnDisappearing();
         }
 
         // Update the ToggleOutput method to return a string instead of using ref
@@ -377,13 +384,13 @@ namespace CSimple.Pages
                 {
                     // Start preview sources
                     _screenService.StartPreviewMode();
-                    _inputService.StartPreviewMode();
+                    Debug.WriteLine("Started screen and webcam preview mode");
                 }
                 else
                 {
                     // Stop preview sources
                     _screenService.StopPreviewMode();
-                    _inputService.StopPreviewMode();
+                    Debug.WriteLine("Stopped screen and webcam preview mode");
                 }
             }
         }
@@ -534,24 +541,58 @@ namespace CSimple.Pages
 
         private void OnScreenPreviewFrameReady(ImageSource source)
         {
+            if (source == null) return;
+
+            // Use Dispatcher to update UI from background thread
             Dispatcher.Dispatch(() =>
             {
-                if (CapturePreviewCard != null)
+                try
                 {
-                    CapturePreviewCard.UpdateScreenCapture(source);
+                    if (CapturePreviewCard != null)
+                    {
+                        CapturePreviewCard.UpdateScreenCapture(source);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error updating screen preview: {ex.Message}");
                 }
             });
         }
 
         private void OnWebcamPreviewFrameReady(ImageSource source)
         {
+            if (source == null) return;
+
+            // Use Dispatcher to update UI from background thread
             Dispatcher.Dispatch(() =>
             {
-                if (CapturePreviewCard != null)
+                try
                 {
-                    CapturePreviewCard.UpdateWebcamCapture(source);
+                    if (CapturePreviewCard != null)
+                    {
+                        CapturePreviewCard.UpdateWebcamCapture(source);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error updating webcam preview: {ex.Message}");
                 }
             });
+        }
+
+        // Add a method to explicitly trigger preview updates
+        private void RefreshPreviewFrames()
+        {
+            if (_screenService != null && CapturePreviewCard != null && CapturePreviewCard.IsScreenCaptureInactive)
+            {
+                // Force an initial screen capture
+                var screenImage = _screenService.GetSingleScreenshot();
+                if (screenImage != null)
+                {
+                    CapturePreviewCard.UpdateScreenCapture(screenImage);
+                }
+            }
         }
     }
 
