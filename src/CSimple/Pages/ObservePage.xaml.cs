@@ -142,6 +142,52 @@ namespace CSimple.Pages
             }
         }
 
+        // Add new properties for progress bar levels
+        private float _userTouchLevel = 0.0f;
+        public float UserTouchLevel
+        {
+            get => _userTouchLevel;
+            set
+            {
+                if (_userTouchLevel != value)
+                {
+                    _userTouchLevel = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        private float _userVisualLevel = 0.0f;
+        public float UserVisualLevel
+        {
+            get => _userVisualLevel;
+            set
+            {
+                if (_userVisualLevel != value)
+                {
+                    _userVisualLevel = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        private float _pcVisualLevel = 0.0f;
+        public float PCVisualLevel
+        {
+            get => _pcVisualLevel;
+            set
+            {
+                if (_pcVisualLevel != value)
+                {
+                    _pcVisualLevel = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        // Scaled version of PC audio level to prevent always showing max
+        public float PCAudioScaledLevel => Math.Min(PCAudioLevel * 0.5f, 1.0f);
+
         public ObservePage()
         {
             InitializeComponent();
@@ -253,11 +299,23 @@ namespace CSimple.Pages
             {
                 buttonText = "Stop";
                 startAction();
+
+                // Update visual levels when starting
+                if (startAction == StartUserVisual)
+                    UserVisualLevel = 1.0f;
+                else if (startAction == StartPCVisual)
+                    PCVisualLevel = 1.0f;
             }
             else
             {
                 buttonText = "Read";
                 stopAction();
+
+                // Update visual levels when stopping
+                if (stopAction == StopUserVisual)
+                    UserVisualLevel = 0.0f;
+                else if (stopAction == StopPCVisual)
+                    PCVisualLevel = 0.0f;
             }
             return buttonText;
         }
@@ -278,10 +336,12 @@ namespace CSimple.Pages
 
         private void StopUserVisual() => _userVisualCts?.Cancel();
 
+        // Updated StartUserTouch method to reset touch level
         private void StartUserTouch()
         {
             _inputService.StartCapturing();
             _mouseService.StartTracking(IntPtr.Zero);
+            UserTouchLevel = 0.0f; // Reset to zero when starting
         }
 
         private async void StopUserTouch()
@@ -410,6 +470,7 @@ namespace CSimple.Pages
         private void OnMouseMoved(Microsoft.Maui.Graphics.Point delta) =>
             Dispatcher.Dispatch(() => Debug.WriteLine($"Mouse Movement: X={delta.X}, Y={delta.Y}"));
 
+        // Updated OnInputCaptured method to track active key count
         private void OnInputCaptured(string inputJson)
         {
             Dispatcher.Dispatch(async () =>
@@ -417,6 +478,10 @@ namespace CSimple.Pages
                 UserTouchInputText = inputJson;
                 Debug.WriteLine(inputJson);
                 SaveAction();
+
+                // Update touch level based on active key count
+                int activeKeyCount = _inputService.GetActiveKeyCount();
+                UserTouchLevel = Math.Min(activeKeyCount / 5.0f, 1.0f); // Scale: 5 keys = 100%
 
                 // Fix the color usage and access through component
                 if (CapturePreviewCard != null)

@@ -6,7 +6,7 @@
     <Border Style="{StaticResource ModernCardStyle}"
             FlexLayout.Basis="{OnIdiom Phone=100%, Default=48%}"
             FlexLayout.Grow="1"
-            MinimumWidthRequest="300">
+            MinimumWidthRequest="320">
         <VerticalStackLayout Spacing="12">
             <Label Text="Capture Preview"
                    Style="{StaticResource SubHeaderStyle}" />
@@ -16,16 +16,21 @@
                 <!-- Screen Preview -->
                 <VerticalStackLayout Grid.Row="0"
                                      Grid.Column="0"
-                                     Margin="0,0,6,4">
+                                     Margin="0,0,6,4"
+                                     HorizontalOptions="FillAndExpand">
                     <Label Text="Screen Capture"
                            Style="{StaticResource CaptionStyle}" />
                     <Frame Style="{StaticResource PreviewFrameStyle}"
-                           HeightRequest="160"
+                           HeightRequest="180"
+                           WidthRequest="{OnPlatform WinUI=240, Default=160}"
+                           HorizontalOptions="FillAndExpand"
                            Margin="0,4,0,0">
                         <Grid>
                             <Image x:Name="ScreenCaptureImage"
                                    Source="{Binding Source={x:Reference Name=root}, Path=ScreenCaptureSource}"
-                                   Aspect="AspectFill" />
+                                   Aspect="AspectFill"
+                                   HorizontalOptions="FillAndExpand"
+                                   VerticalOptions="FillAndExpand" />
                             <!-- Overlay and loading indicator for screen -->
                             <Grid BackgroundColor="#80000000"
                                   IsVisible="{Binding Source={x:Reference Name=root}, Path=IsScreenCaptureInactive}">
@@ -40,7 +45,10 @@
                                            HorizontalOptions="Center"
                                            TextColor="White"
                                            FontSize="12"
-                                           Margin="0,8,0,0" />
+                                           MaxLines="2"
+                                           LineBreakMode="WordWrap"
+                                           HorizontalTextAlignment="Center"
+                                           Margin="8,8,8,0" />
                                 </VerticalStackLayout>
                             </Grid>
                         </Grid>
@@ -49,16 +57,21 @@
                 <!-- Webcam Preview -->
                 <VerticalStackLayout Grid.Row="0"
                                      Grid.Column="1"
-                                     Margin="6,0,0,4">
+                                     Margin="6,0,0,4"
+                                     HorizontalOptions="FillAndExpand">
                     <Label Text="Webcam Feed"
                            Style="{StaticResource CaptionStyle}" />
                     <Frame Style="{StaticResource PreviewFrameStyle}"
-                           HeightRequest="160"
+                           HeightRequest="180"
+                           WidthRequest="{OnPlatform WinUI=240, Default=160}"
+                           HorizontalOptions="FillAndExpand"
                            Margin="0,4,0,0">
                         <Grid>
                             <Image x:Name="WebcamCaptureImage"
                                    Source="{Binding Source={x:Reference Name=root}, Path=WebcamCaptureSource}"
-                                   Aspect="AspectFill" />
+                                   Aspect="AspectFill"
+                                   HorizontalOptions="FillAndExpand"
+                                   VerticalOptions="FillAndExpand" />
                             <!-- Overlay and loading indicator for webcam -->
                             <Grid BackgroundColor="#80000000"
                                   IsVisible="{Binding Source={x:Reference Name=root}, Path=IsWebcamCaptureInactive}">
@@ -73,7 +86,10 @@
                                            HorizontalOptions="Center"
                                            TextColor="White"
                                            FontSize="12"
-                                           Margin="0,8,0,0" />
+                                           MaxLines="2"
+                                           LineBreakMode="WordWrap"
+                                           HorizontalTextAlignment="Center"
+                                           Margin="8,8,8,0" />
                                 </VerticalStackLayout>
                             </Grid>
                         </Grid>

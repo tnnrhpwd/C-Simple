@@ -285,14 +285,19 @@ namespace CSimple.Services
                     {
                         g.CopyFromScreen(bounds.Location, System.Drawing.Point.Empty, bounds.Size);
 
-                        // Optional: resize the bitmap for preview performance
+                        // Calculate aspect ratio and determine target size
+                        double aspectRatio = (double)bounds.Width / bounds.Height;
+                        int targetHeight = 360;
+                        int targetWidth = (int)(targetHeight * aspectRatio);
+
+                        // Resize for preview while maintaining aspect ratio
                         var resizedBitmap = new Bitmap(bitmap, new System.Drawing.Size(
-                            Math.Min(bounds.Width, 640),
-                            Math.Min(bounds.Height, 360)));
+                            targetWidth, targetHeight));
 
                         // Convert to a format that MAUI can display
                         using (var memoryStream = new MemoryStream())
                         {
+                            // Use JPEG for smaller file size
                             resizedBitmap.Save(memoryStream, ImageFormat.Jpeg);
                             memoryStream.Position = 0;
 
@@ -316,15 +321,22 @@ namespace CSimple.Services
         {
             try
             {
-                // Resize the frame for better performance
+                // Calculate aspect ratio to maintain proportions
+                double aspectRatio = (double)frame.Width / frame.Height;
+                int targetHeight = 240;
+                int targetWidth = (int)(targetHeight * aspectRatio);
+
+                // Resize the frame for better performance while maintaining aspect ratio
                 using var resizedFrame = new Mat();
-                Cv2.Resize(frame, resizedFrame, new OpenCvSharp.Size(320, 240));
+                Cv2.Resize(frame, resizedFrame, new OpenCvSharp.Size(targetWidth, targetHeight));
 
                 // Create a temporary file with a unique name
                 string tempFile = Path.Combine(Path.GetTempPath(), $"webcam_{Guid.NewGuid()}.jpg");
 
-                // Save the frame to a file
-                Cv2.ImWrite(tempFile, resizedFrame);
+                // Save the frame to a file with higher quality
+                // Use OpenCvSharp's correct parameter syntax
+                var imgParams = new int[] { (int)ImwriteFlags.JpegQuality, 95 };
+                Cv2.ImWrite(tempFile, resizedFrame, imgParams);
 
                 // Load the file as an ImageSource
                 var imageSource = ImageSource.FromFile(tempFile);

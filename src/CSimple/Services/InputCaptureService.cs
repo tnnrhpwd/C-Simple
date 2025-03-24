@@ -125,6 +125,12 @@ namespace CSimple.Services
             return activeInputsDisplay.ToString();
         }
 
+        // Add a method to get the count of active keys for the progress bar
+        public int GetActiveKeyCount()
+        {
+            return _activeKeyPresses.Count;
+        }
+
 #if WINDOWS
         private IntPtr SetHook(LowLevelKeyboardProc proc, int hookType)
         {
