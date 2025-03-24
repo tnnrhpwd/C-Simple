@@ -211,19 +211,25 @@
                         Wrap="Wrap"
                         JustifyContent="Start"
                         AlignItems="Start"
-                        AlignContent="Start">
+                        AlignContent="Start"
+                        Padding="0,4">
                 <!-- Action Information Card Component -->
                 <components:ActionConfigurationCard x:Name="ActionConfigCard"
-                                                    InputModifierClicked="OnInputModifierClicked" />
+                                                    InputModifierClicked="OnInputModifierClicked"
+                                                    BindingContext="{Binding}"
+                                                    Margin="0,8,8,8" />
                 <!-- Capture Controls Card Component -->
                 <components:CaptureControlsCard x:Name="CaptureControlsCard"
-                                                BindingContext="{Binding}" />
+                                                BindingContext="{Binding}"
+                                                Margin="8,8,0,8" />
                 <!-- Preview Card Component -->
                 <components:CapturePreviewCard x:Name="CapturePreviewCard"
-                                               BindingContext="{Binding}" />
+                                               BindingContext="{Binding}"
+                                               Margin="0,8,8,8" />
                 <!-- Actions Card Component -->
                 <components:RecordedActionsCard x:Name="RecordedActionsCard"
-                                                BindingContext="{Binding}" />
+                                                BindingContext="{Binding}"
+                                                Margin="8,8,0,8" />
             </FlexLayout>
         </ScrollView>
         <!-- Input Modifier Popup Component -->

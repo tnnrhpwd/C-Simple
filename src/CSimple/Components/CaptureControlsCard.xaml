@@ -5,8 +5,10 @@
     <Border Style="{StaticResource CardStyle}"
             FlexLayout.Basis="{OnIdiom Phone=100%, Default=48%}"
             FlexLayout.Grow="1"
-            Margin="0,0,8,16">
-        <VerticalStackLayout>
+            Margin="0,0,8,16"
+            Padding="20"
+            MinimumWidthRequest="300">
+        <VerticalStackLayout Spacing="8">
             <Label Text="Capture Controls"
                    Style="{StaticResource SubHeaderLabelStyle}" />
             <Grid ColumnDefinitions="Auto,*,Auto"

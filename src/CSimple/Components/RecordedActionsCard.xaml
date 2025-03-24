@@ -4,8 +4,10 @@
              x:Class="CSimple.Components.RecordedActionsCard">
     <Border Style="{StaticResource CardStyle}"
             FlexLayout.Basis="100%"
-            FlexLayout.Grow="1">
-        <VerticalStackLayout>
+            FlexLayout.Grow="1"
+            Padding="20"
+            MinimumWidthRequest="320">
+        <VerticalStackLayout Spacing="8">
             <Label Text="Recorded Actions"
                    Style="{StaticResource SubHeaderLabelStyle}" />
             <CollectionView ItemsSource="{Binding Data}"

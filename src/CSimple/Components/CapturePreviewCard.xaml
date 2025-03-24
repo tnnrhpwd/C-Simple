@@ -4,27 +4,73 @@
              x:Class="CSimple.Components.CapturePreviewCard">
     <Border Style="{StaticResource CardStyle}"
             FlexLayout.Basis="{OnIdiom Phone=100%, Default=48%}"
-            FlexLayout.Grow="1">
-        <VerticalStackLayout>
+            FlexLayout.Grow="1"
+            Padding="20"
+            MinimumWidthRequest="300">
+        <VerticalStackLayout Spacing="8">
             <Label Text="Capture Preview"
                    Style="{StaticResource SubHeaderLabelStyle}" />
-            <Grid ColumnDefinitions="*,*"
-                  RowDefinitions="Auto,Auto,*"
+            <Grid RowDefinitions="Auto,Auto,Auto"
+                  ColumnDefinitions="*,*"
                   Margin="0,8">
-                <!-- Media Preview -->
-                <Frame Grid.Row="0"
+                <!-- Screen Preview -->
+                <Label Text="Screen Capture"
+                       Grid.Row="0"
                        Grid.Column="0"
-                       Grid.ColumnSpan="2"
+                       Style="{StaticResource BodyLabelStyle}"
+                       FontAttributes="Bold"
+                       Margin="0,0,8,4" />
+                <!-- Webcam Preview -->
+                <Label Text="Webcam Feed"
+                       Grid.Row="0"
+                       Grid.Column="1"
+                       Style="{StaticResource BodyLabelStyle}"
+                       FontAttributes="Bold"
+                       Margin="8,0,0,4" />
+                <!-- Screen Preview Frame -->
+                <Frame Grid.Row="1"
+                       Grid.Column="0"
                        BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#333333}"
                        CornerRadius="6"
                        HasShadow="False"
                        Padding="0"
-                       HeightRequest="200">
-                    <Image Source="{Binding CapturedImageSource}"
-                           Aspect="AspectFill" />
+                       Margin="0,0,4,0"
+                       HeightRequest="150">
+                    <Grid>
+                        <Image x:Name="ScreenCaptureImage"
+                               Source="{Binding ScreenCaptureSource}"
+                               Aspect="AspectFill" />
+                        <Label x:Name="ScreenCaptureStatus"
+                               Text="Screen capture inactive"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light=#757575, Dark=#b0b0b0}"
+                               IsVisible="{Binding IsScreenCaptureInactive}" />
+                    </Grid>
+                </Frame>
+                <!-- Webcam Preview Frame -->
+                <Frame Grid.Row="1"
+                       Grid.Column="1"
+                       BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#333333}"
+                       CornerRadius="6"
+                       HasShadow="False"
+                       Padding="0"
+                       Margin="4,0,0,0"
+                       HeightRequest="150">
+                    <Grid>
+                        <Image x:Name="WebcamCaptureImage"
+                               Source="{Binding WebcamCaptureSource}"
+                               Aspect="AspectFill" />
+                        <Label x:Name="WebcamCaptureStatus"
+                               Text="Webcam inactive"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light=#757575, Dark=#b0b0b0}"
+                               IsVisible="{Binding IsWebcamCaptureInactive}" />
+                    </Grid>
                 </Frame>
                 <!-- Input Status -->
-                <Frame Grid.Row="1"
+                <Frame Grid.Row="2"
                        Grid.Column="0"
                        Grid.ColumnSpan="2"
                        Margin="0,12,0,0"

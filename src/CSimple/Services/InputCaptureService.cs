@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 
 namespace CSimple.Services
@@ -20,6 +22,8 @@ namespace CSimple.Services
         private DateTime _mouseLeftButtonDownTimestamp;
         private DateTime _lastMouseEventTime = DateTime.MinValue;
         private bool _isActive = false;
+        private bool _previewModeActive = false;
+        private CancellationTokenSource _previewCts;
         #endregion
 
         #region Constants
@@ -235,6 +239,49 @@ namespace CSimple.Services
         private void LogDebug(string message)
         {
             DebugMessageLogged?.Invoke(message);
+        }
+
+        public void StartPreviewMode()
+        {
+            _previewModeActive = true;
+            _previewCts = new CancellationTokenSource();
+
+            // Start monitoring input for preview
+            Task.Run(() => MonitorInputForPreview(_previewCts.Token));
+
+            DebugMessageLogged?.Invoke("Input capture preview mode started");
+        }
+
+        public void StopPreviewMode()
+        {
+            _previewModeActive = false;
+            _previewCts?.Cancel();
+            _previewCts = null;
+
+            DebugMessageLogged?.Invoke("Input capture preview mode stopped");
+        }
+
+        private async Task MonitorInputForPreview(CancellationToken token)
+        {
+            try
+            {
+                // This is a placeholder for input monitoring in preview mode
+                // In a real implementation, you would monitor actual inputs without recording
+
+                while (!token.IsCancellationRequested && _previewModeActive)
+                {
+                    // Simulated delay between input checks
+                    await Task.Delay(100, token);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancellation is requested
+            }
+            catch (Exception ex)
+            {
+                DebugMessageLogged?.Invoke($"Error in input preview monitoring: {ex.Message}");
+            }
         }
     }
 }

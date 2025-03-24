@@ -9,6 +9,7 @@ using OpenCvSharp;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
 #endif
+using Microsoft.Maui.Controls;
 
 namespace CSimple.Services
 {
@@ -17,11 +18,15 @@ namespace CSimple.Services
         #region Events
         public event Action<string> DebugMessageLogged;
         public event Action<string> FileCaptured;
+        public event Action<ImageSource> ScreenPreviewFrameReady;
+        public event Action<ImageSource> WebcamPreviewFrameReady;
         #endregion
 
         #region Properties
         private string _screenshotsDirectory;
         private string _webcamImagesDirectory;
+        private bool _previewModeActive = false;
+        private CancellationTokenSource _previewCts;
         #endregion
 
         #region Windows API
@@ -128,6 +133,12 @@ namespace CSimple.Services
                 {
                     CaptureScreens(actionName, userTouchInputText);
                     Thread.Sleep(1000); // Capture every second
+
+                    if (_previewModeActive && ScreenPreviewFrameReady != null)
+                    {
+                        // In a real implementation, you would send preview frames periodically
+                        // This is just a placeholder
+                    }
                 }
             }, cancellationToken);
         }
@@ -162,8 +173,75 @@ namespace CSimple.Services
                         LogDebug($"Webcam image saved to: {filePath}");
                     }
                     Thread.Sleep(1000);
+
+                    if (_previewModeActive && WebcamPreviewFrameReady != null)
+                    {
+                        // In a real implementation, you would send preview frames periodically
+                        // This is just a placeholder
+                    }
                 }
             }, cancellationToken);
+        }
+
+        public void StartPreviewMode()
+        {
+            _previewModeActive = true;
+            _previewCts = new CancellationTokenSource();
+
+            // Start sending preview frames
+            Task.Run(() => GeneratePreviewFrames(_previewCts.Token));
+
+            DebugMessageLogged?.Invoke("Screen capture preview mode started");
+        }
+
+        public void StopPreviewMode()
+        {
+            _previewModeActive = false;
+            _previewCts?.Cancel();
+            _previewCts = null;
+
+            DebugMessageLogged?.Invoke("Screen capture preview mode stopped");
+        }
+
+        private async Task GeneratePreviewFrames(CancellationToken token)
+        {
+            try
+            {
+                // For demo purposes, we'll use placeholder images
+                // In a real implementation, you would capture actual screen and webcam frames
+
+                while (!token.IsCancellationRequested && _previewModeActive)
+                {
+                    // Simulate screen capture frames
+                    if (ScreenPreviewFrameReady != null)
+                    {
+                        // In a real implementation, you would capture an actual screen frame
+                        // This is just a placeholder to show the concept
+                        var screenImage = new FileImageSource { File = "screen_placeholder.png" };
+                        ScreenPreviewFrameReady.Invoke(screenImage);
+                    }
+
+                    // Simulate webcam capture frames
+                    if (WebcamPreviewFrameReady != null)
+                    {
+                        // In a real implementation, you would capture an actual webcam frame
+                        // This is just a placeholder to show the concept
+                        var webcamImage = new FileImageSource { File = "webcam_placeholder.png" };
+                        WebcamPreviewFrameReady.Invoke(webcamImage);
+                    }
+
+                    // Delay between frames
+                    await Task.Delay(500, token);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancellation is requested
+            }
+            catch (Exception ex)
+            {
+                DebugMessageLogged?.Invoke($"Error in preview frame generation: {ex.Message}");
+            }
         }
 
         private void LogDebug(string message)

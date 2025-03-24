@@ -4,8 +4,10 @@
              x:Class="CSimple.Components.ActionConfigurationCard">
     <Border Style="{StaticResource CardStyle}"
             FlexLayout.Basis="100%"
-            FlexLayout.Grow="1">
-        <VerticalStackLayout>
+            FlexLayout.Grow="1"
+            Padding="20"
+            MinimumWidthRequest="320">
+        <VerticalStackLayout Spacing="8">
             <Label Text="Action Configuration"
                    Style="{StaticResource SubHeaderLabelStyle}" />
             <Label Text="Action Name"

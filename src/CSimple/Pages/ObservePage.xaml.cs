@@ -56,7 +56,7 @@ namespace CSimple.Pages
         public ICommand LoadFromFileCommand { get; }
 
         // Save options
-        private bool _saveRecord = true;
+        private bool _saveRecord = false; // Changed from true to false
         public bool SaveRecord
         {
             get => _saveRecord;
@@ -77,7 +77,7 @@ namespace CSimple.Pages
             }
         }
 
-        private bool _saveLocally = true;
+        private bool _saveLocally = false; // Changed from true to false
         public bool SaveLocally
         {
             get => _saveLocally;
@@ -164,6 +164,10 @@ namespace CSimple.Pages
             _audioService.WebcamLevelChanged += level => Dispatcher.Dispatch(() => UserAudioLevel = level);
             _dataService.DebugMessageLogged += message => Debug.WriteLine(message);
             _mouseService.MouseMoved += OnMouseMoved;
+
+            // Add preview frame handlers
+            _screenService.ScreenPreviewFrameReady += OnScreenPreviewFrameReady;
+            _screenService.WebcamPreviewFrameReady += OnWebcamPreviewFrameReady;
 
             // Init commands with visual state handling
             TogglePCVisualCommand = new Command(() =>
@@ -345,10 +349,42 @@ namespace CSimple.Pages
                 OnPropertyChanged(nameof(UserTouchButtonText));
 
                 await _dataService.CompressAndUploadAsync(Data.ToList());
+
+                // Update preview sources regardless of save settings
+                UpdatePreviewSources(true);
             }
             else
             {
                 StopAllCaptures();
+
+                // Clear preview sources when stopping all recordings
+                UpdatePreviewSources(false);
+            }
+        }
+
+        // Add properties for tracking active streams
+        public bool IsRecordingActive => IsReadAllToggled ||
+                                       UserVisualButtonText == "Stop" ||
+                                       PCVisualButtonText == "Stop";
+
+        private void UpdatePreviewSources(bool isActive)
+        {
+            if (CapturePreviewCard != null)
+            {
+                CapturePreviewCard.SetPreviewActive(isActive);
+
+                if (isActive)
+                {
+                    // Start preview sources
+                    _screenService.StartPreviewMode();
+                    _inputService.StartPreviewMode();
+                }
+                else
+                {
+                    // Stop preview sources
+                    _screenService.StopPreviewMode();
+                    _inputService.StopPreviewMode();
+                }
             }
         }
 
@@ -494,6 +530,28 @@ namespace CSimple.Pages
             var items = await _dataService.LoadDataItemsFromFile();
             Data = new ObservableCollection<DataItem>(items);
             OnPropertyChanged(nameof(Data));
+        }
+
+        private void OnScreenPreviewFrameReady(ImageSource source)
+        {
+            Dispatcher.Dispatch(() =>
+            {
+                if (CapturePreviewCard != null)
+                {
+                    CapturePreviewCard.UpdateScreenCapture(source);
+                }
+            });
+        }
+
+        private void OnWebcamPreviewFrameReady(ImageSource source)
+        {
+            Dispatcher.Dispatch(() =>
+            {
+                if (CapturePreviewCard != null)
+                {
+                    CapturePreviewCard.UpdateWebcamCapture(source);
+                }
+            });
         }
     }
 
