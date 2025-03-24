@@ -135,7 +135,7 @@
                        Margin="0,12,0,0"
                        Style="{StaticResource PreviewFrameStyle}"
                        Padding="12">
-                    <Grid RowDefinitions="Auto,*"
+                    <Grid RowDefinitions="Auto,*,Auto"
                           RowSpacing="8">
                         <Label Text="Input Activity"
                                Style="{StaticResource CaptionStyle}"
@@ -143,186 +143,221 @@
                         <Grid Grid.Row="1"
                               ColumnDefinitions="Auto,*"
                               ColumnSpacing="16">
-                            <!-- Mouse Visualization -->
+                            <!-- Enhanced Mouse Visualization with modern design -->
                             <Border Grid.Column="0"
-                                    StrokeShape="RoundRectangle 12,12,12,12"
-                                    StrokeThickness="1"
+                                    StrokeShape="RoundRectangle 16,16,16,16"
+                                    StrokeThickness="1.5"
                                     Stroke="{AppThemeBinding Light=#CCCCCC, Dark=#555555}"
-                                    BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#333333}"
-                                    WidthRequest="80"
-                                    HeightRequest="120"
+                                    BackgroundColor="{AppThemeBinding Light=#F9F9F9, Dark=#292929}"
+                                    WidthRequest="90"
+                                    HeightRequest="140"
                                     VerticalOptions="Start"
-                                    Padding="4">
+                                    Padding="4"
+                                    Shadow="{Shadow Brush={AppThemeBinding Light=#20000000, Dark=#40000000}, Offset='0,2', Radius='4', Opacity='0.2'}">
                                 <Grid RowDefinitions="Auto,*,Auto"
-                                      RowSpacing="2">
-                                    <!-- Left and Right Mouse Buttons -->
+                                      RowSpacing="4">
+                                    <!-- Left and Right Mouse Buttons with improved styling -->
                                     <Grid ColumnDefinitions="*,*"
                                           Grid.Row="0">
                                         <Border x:Name="LeftMouseButton"
                                                 Grid.Column="0"
-                                                Margin="2"
-                                                StrokeThickness="1"
+                                                Margin="4"
+                                                StrokeThickness="1.5"
                                                 Stroke="{AppThemeBinding Light=#CCCCCC, Dark=#555555}"
                                                 BackgroundColor="{AppThemeBinding Light=White, Dark=#222222}"
-                                                StrokeShape="RoundRectangle 6,6,0,0">
+                                                StrokeShape="RoundRectangle 8,8,0,8">
                                             <Label Text="L"
                                                    HorizontalOptions="Center"
                                                    VerticalOptions="Center"
-                                                   FontSize="12" />
+                                                   FontSize="14"
+                                                   FontAttributes="Bold" />
                                         </Border>
                                         <Border x:Name="RightMouseButton"
                                                 Grid.Column="1"
-                                                Margin="2"
-                                                StrokeThickness="1"
+                                                Margin="4"
+                                                StrokeThickness="1.5"
                                                 Stroke="{AppThemeBinding Light=#CCCCCC, Dark=#555555}"
                                                 BackgroundColor="{AppThemeBinding Light=White, Dark=#222222}"
-                                                StrokeShape="RoundRectangle 0,6,6,0">
+                                                StrokeShape="RoundRectangle 0,8,8,8">
                                             <Label Text="R"
                                                    HorizontalOptions="Center"
                                                    VerticalOptions="Center"
-                                                   FontSize="12" />
+                                                   FontSize="14"
+                                                   FontAttributes="Bold" />
                                         </Border>
                                     </Grid>
-                                    <!-- Mouse Body -->
+                                    <!-- Mouse Body with improved design -->
                                     <Border Grid.Row="1"
-                                            Margin="2,0,2,0"
-                                            StrokeThickness="1"
+                                            Margin="4,0,4,0"
+                                            StrokeThickness="1.5"
                                             Stroke="{AppThemeBinding Light=#CCCCCC, Dark=#555555}"
-                                            BackgroundColor="{AppThemeBinding Light=White, Dark=#222222}">
-                                        <!-- Scroll Wheel -->
-                                        <Border WidthRequest="15"
-                                                HeightRequest="15"
-                                                HorizontalOptions="Center"
-                                                VerticalOptions="Start"
-                                                Margin="0,5,0,0"
-                                                StrokeThickness="1"
-                                                Stroke="{AppThemeBinding Light=#CCCCCC, Dark=#555555}"
-                                                BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}"
-                                                StrokeShape="Ellipse" />
+                                            BackgroundColor="{AppThemeBinding Light=White, Dark=#222222}"
+                                            StrokeShape="RoundRectangle 10,10,10,10">
+                                        <!-- Scroll Wheel with subtle shine effect -->
+                                        <Grid>
+                                            <Border x:Name="MiddleMouseButton"
+                                                    WidthRequest="20"
+                                                    HeightRequest="20"
+                                                    HorizontalOptions="Center"
+                                                    VerticalOptions="Start"
+                                                    Margin="0,10,0,0"
+                                                    StrokeThickness="1"
+                                                    Stroke="{AppThemeBinding Light=#CCCCCC, Dark=#555555}"
+                                                    BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}"
+                                                    StrokeShape="Ellipse" />
+                                            <!-- Scroll wheel highlight -->
+                                            <Border WidthRequest="18"
+                                                    HeightRequest="8"
+                                                    HorizontalOptions="Center"
+                                                    VerticalOptions="Start"
+                                                    Margin="0,11,0,0"
+                                                    StrokeThickness="0"
+                                                    BackgroundColor="{AppThemeBinding Light=#20FFFFFF, Dark=#20FFFFFF}"
+                                                    StrokeShape="Ellipse" />
+                                        </Grid>
                                     </Border>
-                                    <!-- Mouse Movement Indicators -->
-                                    <Grid Grid.Row="2"
-                                          Grid.RowSpan="2">
-                                        <Grid.Resources>
-                                            <Style TargetType="Path">
-                                                <Setter Property="Stroke"
-                                                        Value="{AppThemeBinding Light=#777777, Dark=#BBBBBB}" />
-                                                <Setter Property="StrokeThickness"
-                                                        Value="2" />
-                                            </Style>
-                                        </Grid.Resources>
-                                        <!-- Up Arrow -->
+                                    <!-- Mouse Movement Indicators - Fixed positioning -->
+                                    <AbsoluteLayout Grid.Row="0"
+                                                    Grid.RowSpan="3"
+                                                    HorizontalOptions="Fill"
+                                                    VerticalOptions="Fill">
+                                        <!-- Up Arrow - Centered at top -->
                                         <Path x:Name="MouseUpArrow"
-                                              Data="M 40,0 L 30,10 L 50,10 Z"
+                                              AbsoluteLayout.LayoutBounds="0.5,0,20,16"
+                                              AbsoluteLayout.LayoutFlags="PositionProportional"
+                                              Data="M 10,0 L 0,14 L 20,14 Z"
                                               Fill="{AppThemeBinding Light=Transparent, Dark=Transparent}"
-                                              Opacity="0.5"
-                                              VerticalOptions="Start"
-                                              HorizontalOptions="Center"
-                                              Margin="0,-5,0,0" />
-                                        <!-- Down Arrow -->
+                                              Stroke="{AppThemeBinding Light=#777777, Dark=#BBBBBB}"
+                                              StrokeThickness="2"
+                                              StrokeLineCap="Round"
+                                              StrokeLineJoin="Round"
+                                              Opacity="0.7" />
+                                        <!-- Down Arrow - Centered at bottom -->
                                         <Path x:Name="MouseDownArrow"
-                                              Data="M 40,110 L 30,100 L 50,100 Z"
+                                              AbsoluteLayout.LayoutBounds="0.5,1,20,16"
+                                              AbsoluteLayout.LayoutFlags="PositionProportional"
+                                              Data="M 10,16 L 0,2 L 20,2 Z"
                                               Fill="{AppThemeBinding Light=Transparent, Dark=Transparent}"
-                                              Opacity="0.5"
-                                              VerticalOptions="End"
-                                              HorizontalOptions="Center"
-                                              Margin="0,0,0,-5" />
-                                        <!-- Left Arrow -->
+                                              Stroke="{AppThemeBinding Light=#777777, Dark=#BBBBBB}"
+                                              StrokeThickness="2"
+                                              StrokeLineCap="Round"
+                                              StrokeLineJoin="Round"
+                                              Opacity="0.7" />
+                                        <!-- Left Arrow - Centered at left -->
                                         <Path x:Name="MouseLeftArrow"
-                                              Data="M 0,60 L 10,50 L 10,70 Z"
+                                              AbsoluteLayout.LayoutBounds="0,0.5,16,20"
+                                              AbsoluteLayout.LayoutFlags="PositionProportional"
+                                              Data="M 0,10 L 14,0 L 14,20 Z"
                                               Fill="{AppThemeBinding Light=Transparent, Dark=Transparent}"
-                                              Opacity="0.5"
-                                              VerticalOptions="Center"
-                                              HorizontalOptions="Start"
-                                              Margin="-5,0,0,0" />
-                                        <!-- Right Arrow -->
+                                              Stroke="{AppThemeBinding Light=#777777, Dark=#BBBBBB}"
+                                              StrokeThickness="2"
+                                              StrokeLineCap="Round"
+                                              StrokeLineJoin="Round"
+                                              Opacity="0.7" />
+                                        <!-- Right Arrow - Centered at right -->
                                         <Path x:Name="MouseRightArrow"
-                                              Data="M 80,60 L 70,50 L 70,70 Z"
+                                              AbsoluteLayout.LayoutBounds="1,0.5,16,20"
+                                              AbsoluteLayout.LayoutFlags="PositionProportional"
+                                              Data="M 16,10 L 2,0 L 2,20 Z"
                                               Fill="{AppThemeBinding Light=Transparent, Dark=Transparent}"
-                                              Opacity="0.5"
-                                              VerticalOptions="Center"
-                                              HorizontalOptions="End"
-                                              Margin="0,0,-5,0" />
-                                    </Grid>
+                                              Stroke="{AppThemeBinding Light=#777777, Dark=#BBBBBB}"
+                                              StrokeThickness="2"
+                                              StrokeLineCap="Round"
+                                              StrokeLineJoin="Round"
+                                              Opacity="0.7" />
+                                    </AbsoluteLayout>
                                 </Grid>
                             </Border>
-                            <!-- Keyboard Visualization -->
+                            <!-- Enhanced Keyboard Visualization -->
                             <ScrollView Grid.Column="1"
                                         Orientation="Both"
                                         VerticalOptions="Start"
                                         HorizontalScrollBarVisibility="Always"
                                         VerticalScrollBarVisibility="Always">
-                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
-                                      RowSpacing="2"
+                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+                                      RowSpacing="4"
                                       Padding="2">
+                                    <!-- Modern keyboard styling for all rows -->
                                     <!-- Function Key Row -->
                                     <Grid Grid.Row="0"
                                           ColumnDefinitions="*,*,*,*,*,*,*,*,*,*,*,*"
-                                          ColumnSpacing="2">
+                                          ColumnSpacing="4">
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="0"
                                                 x:Name="KeyEsc">
-                                            <Label Text="Esc" />
+                                            <Label Text="Esc"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="1"
                                                 x:Name="KeyF1">
-                                            <Label Text="F1" />
+                                            <Label Text="F1"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="2"
                                                 x:Name="KeyF2">
-                                            <Label Text="F2" />
+                                            <Label Text="F2"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="3"
                                                 x:Name="KeyF3">
-                                            <Label Text="F3" />
+                                            <Label Text="F3"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="4"
                                                 x:Name="KeyF4">
-                                            <Label Text="F4" />
+                                            <Label Text="F4"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="5"
                                                 x:Name="KeyF5">
-                                            <Label Text="F5" />
+                                            <Label Text="F5"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="6"
                                                 x:Name="KeyF6">
-                                            <Label Text="F6" />
+                                            <Label Text="F6"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="7"
                                                 x:Name="KeyF7">
-                                            <Label Text="F7" />
+                                            <Label Text="F7"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="8"
                                                 x:Name="KeyF8">
-                                            <Label Text="F8" />
+                                            <Label Text="F8"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="9"
                                                 x:Name="KeyF9">
-                                            <Label Text="F9" />
+                                            <Label Text="F9"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="10"
                                                 x:Name="KeyF10">
-                                            <Label Text="F10" />
+                                            <Label Text="F10"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="11"
                                                 x:Name="KeyF11">
-                                            <Label Text="F11" />
+                                            <Label Text="F11"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                     </Grid>
                                     <!-- Number Row -->
                                     <Grid Grid.Row="1"
-                                          ColumnDefinitions="*,*,*,*,*,*,*,*,*,*,*,*,*"
+                                          ColumnDefinitions="*,*,*,*,*,*,*,*,*,*,*,*,*,2*"
                                           ColumnSpacing="2">
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="0"
@@ -365,8 +400,7 @@
                                             <Label Text="7" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
-                                                Grid.Column="8"
-                                                x:Name="Key8">
+                                                Grid.Column="8">
                                             <Label Text="8" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
@@ -389,168 +423,338 @@
                                                 x:Name="KeyPlus">
                                             <Label Text="+" />
                                         </Border>
+                                        <Border StyleClass="KeyboardKey"
+                                                Grid.Column="13"
+                                                x:Name="KeyBackspace">
+                                            <Label Text="Backspace"
+                                                   Style="{StaticResource KeyLabelStyle}"
+                                                   FontSize="8" />
+                                        </Border>
                                     </Grid>
-                                    <!-- QWERTY Row -->
+                                    <!-- Add Tab key row -->
                                     <Grid Grid.Row="2"
-                                          ColumnDefinitions="*,*,*,*,*,*,*,*,*,*"
+                                          ColumnDefinitions="1.5*,*,*,*,*,*,*,*,*,*,*,1.5*"
                                           ColumnSpacing="2">
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="0"
-                                                x:Name="KeyQ">
-                                            <Label Text="Q" />
+                                                x:Name="KeyTab">
+                                            <Label Text="Tab"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="1"
-                                                x:Name="KeyW">
-                                            <Label Text="W" />
+                                                x:Name="KeyQ">
+                                            <Label Text="Q"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="2"
-                                                x:Name="KeyE">
-                                            <Label Text="E" />
+                                                x:Name="KeyW">
+                                            <Label Text="W"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="3"
-                                                x:Name="KeyR">
-                                            <Label Text="R" />
+                                                x:Name="KeyE">
+                                            <Label Text="E"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="4"
-                                                x:Name="KeyT">
-                                            <Label Text="T" />
+                                                x:Name="KeyR">
+                                            <Label Text="R"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="5"
-                                                x:Name="KeyY">
-                                            <Label Text="Y" />
+                                                x:Name="KeyT">
+                                            <Label Text="T"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="6"
-                                                x:Name="KeyU">
-                                            <Label Text="U" />
+                                                x:Name="KeyY">
+                                            <Label Text="Y"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="7"
-                                                x:Name="KeyI">
-                                            <Label Text="I" />
+                                                x:Name="KeyU">
+                                            <Label Text="U"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="8"
-                                                x:Name="KeyO">
-                                            <Label Text="O" />
+                                                x:Name="KeyI">
+                                            <Label Text="I"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="9"
+                                                x:Name="KeyO">
+                                            <Label Text="O"
+                                                   Style="{StaticResource KeyLabelStyle}" />
+                                        </Border>
+                                        <Border StyleClass="KeyboardKey"
+                                                Grid.Column="10"
                                                 x:Name="KeyP">
-                                            <Label Text="P" />
+                                            <Label Text="P"
+                                                   Style="{StaticResource KeyLabelStyle}" />
+                                        </Border>
+                                        <Border StyleClass="KeyboardKey"
+                                                Grid.Column="11"
+                                                x:Name="KeyEnter">
+                                            <Label Text="Enter"
+                                                   Style="{StaticResource KeyLabelStyle}"
+                                                   FontSize="8" />
                                         </Border>
                                     </Grid>
-                                    <!-- ASDF Row -->
+                                    <!-- Add Caps Lock to ASDF row -->
                                     <Grid Grid.Row="3"
-                                          ColumnDefinitions="*,*,*,*,*,*,*,*,*"
+                                          ColumnDefinitions="1.75*,*,*,*,*,*,*,*,*,*,1.25*"
                                           ColumnSpacing="2">
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="0"
-                                                x:Name="KeyA">
-                                            <Label Text="A" />
+                                                x:Name="KeyCapsLock">
+                                            <Label Text="Caps"
+                                                   Style="{StaticResource KeyLabelStyle}"
+                                                   FontSize="8" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="1"
-                                                x:Name="KeyS">
-                                            <Label Text="S" />
+                                                x:Name="KeyA">
+                                            <Label Text="A"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="2"
-                                                x:Name="KeyD">
-                                            <Label Text="D" />
+                                                x:Name="KeyS">
+                                            <Label Text="S"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="3"
-                                                x:Name="KeyF">
-                                            <Label Text="F" />
+                                                x:Name="KeyD">
+                                            <Label Text="D"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="4"
-                                                x:Name="KeyG">
-                                            <Label Text="G" />
+                                                x:Name="KeyF">
+                                            <Label Text="F"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="5"
-                                                x:Name="KeyH">
-                                            <Label Text="H" />
+                                                x:Name="KeyG">
+                                            <Label Text="G"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="6"
-                                                x:Name="KeyJ">
-                                            <Label Text="J" />
+                                                x:Name="KeyH">
+                                            <Label Text="H"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="7"
-                                                x:Name="KeyK">
-                                            <Label Text="K" />
+                                                x:Name="KeyJ">
+                                            <Label Text="J"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="8"
+                                                x:Name="KeyK">
+                                            <Label Text="K"
+                                                   Style="{StaticResource KeyLabelStyle}" />
+                                        </Border>
+                                        <Border StyleClass="KeyboardKey"
+                                                Grid.Column="9"
                                                 x:Name="KeyL">
-                                            <Label Text="L" />
+                                            <Label Text="L"
+                                                   Style="{StaticResource KeyLabelStyle}" />
+                                        </Border>
+                                        <Border StyleClass="KeyboardKey"
+                                                Grid.Column="10"
+                                                x:Name="KeyEnter2">
+                                            <Label Text="Enter"
+                                                   Style="{StaticResource KeyLabelStyle}"
+                                                   FontSize="8" />
                                         </Border>
                                     </Grid>
-                                    <!-- ZXCV Row -->
+                                    <!-- Add Shift to ZXCV row -->
                                     <Grid Grid.Row="4"
-                                          ColumnDefinitions="*,*,*,*,*,*,*,2*"
+                                          ColumnDefinitions="2*,*,*,*,*,*,*,*,2*"
                                           ColumnSpacing="2">
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="0"
-                                                x:Name="KeyZ">
-                                            <Label Text="Z" />
+                                                x:Name="KeyShift">
+                                            <Label Text="Shift"
+                                                   Style="{StaticResource KeyLabelStyle}"
+                                                   FontSize="8" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="1"
-                                                x:Name="KeyX">
-                                            <Label Text="X" />
+                                                x:Name="KeyZ">
+                                            <Label Text="Z"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="2"
-                                                x:Name="KeyC">
-                                            <Label Text="C" />
+                                                x:Name="KeyX">
+                                            <Label Text="X"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="3"
-                                                x:Name="KeyV">
-                                            <Label Text="V" />
+                                                x:Name="KeyC">
+                                            <Label Text="C"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="4"
-                                                x:Name="KeyB">
-                                            <Label Text="B" />
+                                                x:Name="KeyV">
+                                            <Label Text="V"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="5"
-                                                x:Name="KeyN">
-                                            <Label Text="N" />
+                                                x:Name="KeyB">
+                                            <Label Text="B"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="6"
-                                                x:Name="KeyM">
-                                            <Label Text="M" />
+                                                x:Name="KeyN">
+                                            <Label Text="N"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
                                         <Border StyleClass="KeyboardKey"
                                                 Grid.Column="7"
-                                                x:Name="KeySpace">
-                                            <Label Text="Space" />
+                                                x:Name="KeyM">
+                                            <Label Text="M"
+                                                   Style="{StaticResource KeyLabelStyle}" />
                                         </Border>
+                                        <Border StyleClass="KeyboardKey"
+                                                Grid.Column="8"
+                                                x:Name="KeyShiftRight">
+                                            <Label Text="Shift"
+                                                   Style="{StaticResource KeyLabelStyle}"
+                                                   FontSize="8" />
+                                        </Border>
+                                    </Grid>
+                                    <!-- Add bottom row with Ctrl, Alt, Space -->
+                                    <Grid Grid.Row="5"
+                                          ColumnDefinitions="1.25*,1.25*,5*,1.25*,1.25*"
+                                          ColumnSpacing="2">
+                                        <Border StyleClass="KeyboardKey"
+                                                Grid.Column="0"
+                                                x:Name="KeyCtrl">
+                                            <Label Text="Ctrl"
+                                                   Style="{StaticResource KeyLabelStyle}"
+                                                   FontSize="8" />
+                                        </Border>
+                                        <Border StyleClass="KeyboardKey"
+                                                Grid.Column="1"
+                                                x:Name="KeyAlt">
+                                            <Label Text="Alt"
+                                                   Style="{StaticResource KeyLabelStyle}"
+                                                   FontSize="8" />
+                                        </Border>
+                                        <Border StyleClass="KeyboardKey"
+                                                Grid.Column="2"
+                                                x:Name="KeySpace">
+                                            <Label Text="Space"
+                                                   Style="{StaticResource KeyLabelStyle}" />
+                                        </Border>
+                                        <Border StyleClass="KeyboardKey"
+                                                Grid.Column="3"
+                                                x:Name="KeyAltRight">
+                                            <Label Text="Alt"
+                                                   Style="{StaticResource KeyLabelStyle}"
+                                                   FontSize="8" />
+                                        </Border>
+                                        <Border StyleClass="KeyboardKey"
+                                                Grid.Column="4"
+                                                x:Name="KeyCtrlRight">
+                                            <Label Text="Ctrl"
+                                                   Style="{StaticResource KeyLabelStyle}"
+                                                   FontSize="8" />
+                                        </Border>
+                                    </Grid>
+                                    <!-- Arrow keys and special keys -->
+                                    <Grid Grid.Row="6"
+                                          ColumnDefinitions="*,*,*,*"
+                                          ColumnSpacing="4"
+                                          Margin="0,8,0,0">
+                                        <Border StyleClass="KeyboardKey"
+                                                Grid.Column="0"
+                                                x:Name="KeyArrowLeft">
+                                            <Label Text="←"
+                                                   Style="{StaticResource KeyLabelStyle}"
+                                                   FontSize="14" />
+                                        </Border>
+                                        <StackLayout Grid.Column="1"
+                                                     Spacing="2">
+                                            <Border StyleClass="KeyboardKey"
+                                                    x:Name="KeyArrowUp"
+                                                    HeightRequest="28">
+                                                <Label Text="↑"
+                                                       Style="{StaticResource KeyLabelStyle}"
+                                                       FontSize="14" />
+                                            </Border>
+                                            <Border StyleClass="KeyboardKey"
+                                                    x:Name="KeyArrowDown"
+                                                    HeightRequest="28">
+                                                <Label Text="↓"
+                                                       Style="{StaticResource KeyLabelStyle}"
+                                                       FontSize="14" />
+                                            </Border>
+                                        </StackLayout>
+                                        <Border StyleClass="KeyboardKey"
+                                                Grid.Column="2"
+                                                x:Name="KeyArrowRight">
+                                            <Label Text="→"
+                                                   Style="{StaticResource KeyLabelStyle}"
+                                                   FontSize="14" />
+                                        </Border>
+                                        <StackLayout Grid.Column="3"
+                                                     Spacing="2">
+                                            <Border StyleClass="KeyboardKey"
+                                                    x:Name="KeyDelete"
+                                                    HeightRequest="28">
+                                                <Label Text="Del"
+                                                       Style="{StaticResource KeyLabelStyle}"
+                                                       FontSize="8" />
+                                            </Border>
+                                            <Border StyleClass="KeyboardKey"
+                                                    x:Name="KeyEnd"
+                                                    HeightRequest="28">
+                                                <Label Text="End"
+                                                       Style="{StaticResource KeyLabelStyle}"
+                                                       FontSize="8" />
+                                            </Border>
+                                        </StackLayout>
                                     </Grid>
                                 </Grid>
                             </ScrollView>
                         </Grid>
-                        <!-- Text display for current input activity -->
-                        <Label x:Name="ButtonLabel"
-                               Grid.Row="2"
-                               Text="No active key/mouse presses"
-                               MaxLines="2"
-                               LineBreakMode="TailTruncation"
-                               Style="{StaticResource BodyTextStyle}"
-                               IsVisible="False" />
+                        <!-- Text display for current input activity MOVED HERE -->
+                        <Border Grid.Row="2"
+                                Margin="0,12,0,0"
+                                Padding="12,8"
+                                StrokeThickness="1"
+                                Stroke="{AppThemeBinding Light=#DDDDDD, Dark=#444444}"
+                                BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#333333}"
+                                StrokeShape="RoundRectangle 6,6,6,6">
+                            <Label x:Name="ButtonLabel"
+                                   Text="No active key/mouse presses"
+                                   MaxLines="2"
+                                   LineBreakMode="TailTruncation"
+                                   Style="{StaticResource BodyTextStyle}"
+                                   Margin="0"
+                                   HorizontalTextAlignment="Center" />
+                        </Border>
                     </Grid>
                 </Frame>
             </Grid>

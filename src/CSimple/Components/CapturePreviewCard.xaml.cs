@@ -239,7 +239,7 @@ namespace CSimple.Components
             {
                 // Map virtual key codes to keyboard UI elements
                 // Common virtual key codes (Windows)
-                _keyMapping[27] = FindBorderByName("KeyEsc");
+                _keyMapping[27] = FindBorderByName("KeyEsc");    // Escape
 
                 // Function keys
                 for (ushort i = 112; i <= 123; i++)
@@ -248,12 +248,33 @@ namespace CSimple.Components
                     _keyMapping[i] = FindBorderByName(keyName);
                 }
 
+                // Special keys
+                _keyMapping[13] = FindBorderByName("KeyEnter");   // Enter
+                _keyMapping[8] = FindBorderByName("KeyBackspace"); // Backspace
+                _keyMapping[9] = FindBorderByName("KeyTab");      // Tab
+                _keyMapping[16] = FindBorderByName("KeyShift");   // Shift
+                _keyMapping[17] = FindBorderByName("KeyCtrl");    // Ctrl
+                _keyMapping[18] = FindBorderByName("KeyAlt");     // Alt
+                _keyMapping[20] = FindBorderByName("KeyCapsLock"); // Caps Lock
+                _keyMapping[46] = FindBorderByName("KeyDelete");  // Delete
+                _keyMapping[33] = FindBorderByName("KeyPageUp");  // Page Up
+                _keyMapping[34] = FindBorderByName("KeyPageDown"); // Page Down
+                _keyMapping[35] = FindBorderByName("KeyEnd");     // End
+                _keyMapping[36] = FindBorderByName("KeyHome");    // Home
+
+                // Arrow keys
+                _keyMapping[37] = FindBorderByName("KeyArrowLeft");  // Left arrow
+                _keyMapping[38] = FindBorderByName("KeyArrowUp");    // Up arrow
+                _keyMapping[39] = FindBorderByName("KeyArrowRight"); // Right arrow
+                _keyMapping[40] = FindBorderByName("KeyArrowDown");  // Down arrow
+
                 // Numbers and letters - populate safely
                 PopulateKeyboardDictionary();
 
                 // Mouse
-                _keyMapping[513] = FindBorderByName("LeftMouseButton");  // Left mouse button (0x0201)
-                _keyMapping[516] = FindBorderByName("RightMouseButton"); // Right mouse button (0x0204)
+                _keyMapping[513] = FindBorderByName("LeftMouseButton");   // Left mouse button (0x0201)
+                _keyMapping[516] = FindBorderByName("RightMouseButton");  // Right mouse button (0x0204)
+                _keyMapping[519] = FindBorderByName("MiddleMouseButton"); // Middle mouse button (0x0207)
             }
             catch (Exception ex)
             {
@@ -345,43 +366,99 @@ namespace CSimple.Components
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine($"InputActivity: Key={keyCode}, Pressed={isPressed}");
+
+                // Store key/press info in a temporary variable for direct UI update
+                bool keyFound = false;
+
                 if (_keyMapping != null && _keyMapping.TryGetValue(keyCode, out var keyElement) && keyElement != null)
                 {
-                    if (isPressed)
+                    keyFound = true;
+                    // We found the key in our mapping, so update its visual state
+
+                    Dispatcher.Dispatch(() =>
                     {
-                        VisualStateManager.GoToState(keyElement, "Active");
-                    }
-                    else
+                        try
+                        {
+                            if (isPressed)
+                            {
+                                // First ensure we're in the normal state to reset any animation
+                                VisualStateManager.GoToState(keyElement, "Normal");
+                                // Then go to active state
+                                VisualStateManager.GoToState(keyElement, "Active");
+
+                                // Update the label to show the key that was pressed
+                                string keyName = GetKeyName(keyCode);
+                                ButtonLabelText = $"Key pressed: {keyName} ({keyCode})";
+                            }
+                            else
+                            {
+                                VisualStateManager.GoToState(keyElement, "Normal");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error applying visual state: {ex.Message}");
+                        }
+                    });
+                }
+
+                // If key wasn't in mapping, still update the label
+                if (!keyFound)
+                {
+                    Dispatcher.Dispatch(() =>
                     {
-                        VisualStateManager.GoToState(keyElement, "Normal");
-                    }
+                        string keyName = GetKeyName(keyCode);
+                        ButtonLabelText = $"Key pressed: {keyName} ({keyCode})";
+                    });
+
+                    System.Diagnostics.Debug.WriteLine($"Key {keyCode} not in mapping or visual keyboard");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error updating input activity: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error updating input: {ex.Message}");
             }
         }
 
         public void UpdateMouseMovement(Microsoft.Maui.Graphics.Point delta)
         {
-            // Highlight arrows based on movement direction
-            double threshold = 5.0; // Minimum movement to trigger highlight
+            // Always process mouse movements
+            double threshold = 3.0; // Lower threshold for more sensitivity
 
             if (Math.Abs(delta.X) > threshold || Math.Abs(delta.Y) > threshold)
             {
-                // Show arrows in the direction of movement
-                if (delta.X > threshold)
-                    MouseRightArrow.Fill = _activeKeyColor;
-                else if (delta.X < -threshold)
-                    MouseLeftArrow.Fill = _activeKeyColor;
+                Dispatcher.Dispatch(() =>
+                {
+                    try
+                    {
+                        // Clear previous arrow fills
+                        MouseRightArrow.Fill = Colors.Transparent;
+                        MouseLeftArrow.Fill = Colors.Transparent;
+                        MouseUpArrow.Fill = Colors.Transparent;
+                        MouseDownArrow.Fill = Colors.Transparent;
 
-                if (delta.Y > threshold)
-                    MouseDownArrow.Fill = _activeKeyColor;
-                else if (delta.Y < -threshold)
-                    MouseUpArrow.Fill = _activeKeyColor;
+                        // Update active arrows based on movement direction
+                        if (delta.X > threshold)
+                            MouseRightArrow.Fill = _activeKeyColor;
+                        else if (delta.X < -threshold)
+                            MouseLeftArrow.Fill = _activeKeyColor;
 
-                // Schedule a reset after a short delay
+                        if (delta.Y > threshold)
+                            MouseDownArrow.Fill = _activeKeyColor;
+                        else if (delta.Y < -threshold)
+                            MouseUpArrow.Fill = _activeKeyColor;
+
+                        // Update the label to show the mouse movement
+                        ButtonLabelText = $"Mouse moved: X={delta.X:0.0}, Y={delta.Y:0.0}";
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error updating mouse arrows: {ex.Message}");
+                    }
+                });
+
+                // Schedule a reset after a delay
                 ResetMouseArrowsAfterDelay();
             }
         }
@@ -404,10 +481,18 @@ namespace CSimple.Components
                         {
                             Dispatcher.Dispatch(() =>
                             {
-                                MouseRightArrow.Fill = _inactiveKeyColor;
-                                MouseLeftArrow.Fill = _inactiveKeyColor;
-                                MouseUpArrow.Fill = _inactiveKeyColor;
-                                MouseDownArrow.Fill = _inactiveKeyColor;
+                                try
+                                {
+                                    // Reset to transparent (not _inactiveKeyColor)
+                                    MouseRightArrow.Fill = Colors.Transparent;
+                                    MouseLeftArrow.Fill = Colors.Transparent;
+                                    MouseUpArrow.Fill = Colors.Transparent;
+                                    MouseDownArrow.Fill = Colors.Transparent;
+                                }
+                                catch (Exception ex)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Error resetting mouse arrows: {ex.Message}");
+                                }
                             });
                         }
                     }, TaskScheduler.Current);
@@ -416,6 +501,45 @@ namespace CSimple.Components
             {
                 // Expected when cancellation occurs
             }
+        }
+
+        private string GetKeyName(ushort keyCode)
+        {
+            // Common key mappings
+            Dictionary<ushort, string> keyNames = new Dictionary<ushort, string>
+            {
+                { 8, "Backspace" }, { 9, "Tab" }, { 13, "Enter" }, { 16, "Shift" },
+                { 17, "Ctrl" }, { 18, "Alt" }, { 19, "Pause" }, { 20, "Caps Lock" },
+                { 27, "Esc" }, { 32, "Space" }, { 33, "Page Up" }, { 34, "Page Down" },
+                { 35, "End" }, { 36, "Home" }, { 37, "Left Arrow" }, { 38, "Up Arrow" },
+                { 39, "Right Arrow" }, { 40, "Down Arrow" }, { 45, "Insert" }, { 46, "Delete" },
+                { 91, "Windows" }, { 93, "Menu" }, { 144, "Num Lock" }, { 186, ";" },
+                { 187, "=" }, { 188, "," }, { 189, "-" }, { 190, "." }, { 191, "/" },
+                { 192, "`" }, { 219, "[" }, { 220, "\\" }, { 221, "]" }, { 222, "'" },
+                { 513, "Left Mouse" }, { 516, "Right Mouse" }, { 519, "Middle Mouse" },
+                { 0x0200, "Mouse Move" }
+            };
+
+            // Add F1-F12
+            for (ushort i = 112; i <= 123; i++)
+            {
+                keyNames[i] = $"F{i - 111}";
+            }
+
+            // Add numbers
+            for (ushort i = 48; i <= 57; i++)
+            {
+                keyNames[i] = $"{i - 48}";
+            }
+
+            // Add letters
+            for (ushort i = 65; i <= 90; i++)
+            {
+                keyNames[i] = $"{(char)i}";
+            }
+
+            // Return the key name if it exists, otherwise return the key code
+            return keyNames.ContainsKey(keyCode) ? keyNames[keyCode] : $"Key {keyCode}";
         }
 
         // Use 'new' keyword to explicitly hide the inherited method

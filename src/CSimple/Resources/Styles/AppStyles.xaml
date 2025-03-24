@@ -207,21 +207,29 @@
     <Style TargetType="Border"
            x:Key="KeyboardKeyStyle">
         <Setter Property="WidthRequest"
-                Value="32" />
+                Value="38" />
         <Setter Property="HeightRequest"
-                Value="32" />
+                Value="38" />
         <Setter Property="StrokeThickness"
-                Value="1" />
+                Value="1.5" />
         <Setter Property="Stroke"
                 Value="{AppThemeBinding Light=#CCCCCC, Dark=#555555}" />
         <Setter Property="BackgroundColor"
-                Value="{AppThemeBinding Light=White, Dark=#222222}" />
+                Value="{AppThemeBinding Light=#FDFDFD, Dark=#222222}" />
         <Setter Property="StrokeShape"
-                Value="RoundRectangle 4,4,4,4" />
+                Value="RoundRectangle 6,6,6,6" />
         <Setter Property="Padding"
                 Value="2" />
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="{AppThemeBinding Light=#20000000, Dark=#40000000}"
+                        Offset="0,1"
+                        Radius="2"
+                        Opacity="0.2" />
+            </Setter.Value>
+        </Setter>
     </Style>
-    <!-- Add a style class for keyboard keys -->
+    <!-- Add a style class for keyboard keys with enhanced active states -->
     <Style TargetType="Border"
            Class="KeyboardKey"
            BasedOn="{StaticResource KeyboardKeyStyle}">
@@ -235,6 +243,16 @@
                                     Value="{StaticResource TertiaryColor}" />
                             <Setter Property="Stroke"
                                     Value="{StaticResource TertiaryDarkColor}" />
+                            <Setter Property="ScaleX"
+                                    Value="1.08" />
+                            <Setter Property="ScaleY"
+                                    Value="1.08" />
+                            <Setter Property="Shadow">
+                                <Shadow Brush="{StaticResource TertiaryDarkColor}"
+                                        Offset="0,2"
+                                        Radius="4"
+                                        Opacity="0.3" />
+                            </Setter>
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
@@ -249,7 +267,9 @@
         <Setter Property="VerticalOptions"
                 Value="Center" />
         <Setter Property="FontSize"
-                Value="10" />
+                Value="12" />
+        <Setter Property="FontAttributes"
+                Value="Bold" />
         <Setter Property="TextColor"
                 Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
     </Style>

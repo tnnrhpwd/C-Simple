@@ -614,15 +614,24 @@ namespace CSimple.Pages
                     int activeKeyCount = _inputService.GetActiveKeyCount();
                     UserTouchLevel = Math.Min(activeKeyCount / 5.0f, 1.0f); // Scale: 5 keys = 100%
 
+                    // Always update the visualization, regardless of preview state
                     if (CapturePreviewCard != null)
                     {
-                        // Update the key display
-                        var isPressed = actionItem.EventType == 0x0100 || // Key down
+                        // Clear existing data
+                        Debug.WriteLine($"Updating key: {actionItem.KeyCode}, EventType: {actionItem.EventType}");
+
+                        // Determine if key is being pressed or released
+                        var isPressed = actionItem.EventType == 0x0100 || // Key down (WM_KEYDOWN)
                                        actionItem.EventType == 0x0201 || // Left mouse down
                                        actionItem.EventType == 0x0204;   // Right mouse down
 
+                        // Update the key display with keycode and press state
                         CapturePreviewCard.UpdateInputActivity(actionItem.KeyCode, isPressed);
-                        CapturePreviewCard.ButtonLabelText = _inputService.GetActiveInputsDisplay();
+
+                        // Animate button to show there's activity
+                        var originalColor = Colors.Transparent;
+                        await ButtonColorAnimation(Colors.LightGreen);
+                        await ButtonColorAnimation(originalColor);
                     }
                 }
                 catch (Exception ex)
