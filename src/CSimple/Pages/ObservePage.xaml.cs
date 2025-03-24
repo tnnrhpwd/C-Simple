@@ -21,6 +21,15 @@ namespace CSimple.Pages
                 {
                     _isReadAllToggled = value;
                     OnPropertyChanged();
+
+                    // Enable previews when "Record All" is toggled on
+                    if (value && CapturePreviewCard != null)
+                    {
+                        // Enable preview regardless of previous user preference
+                        CapturePreviewCard.IsPreviewEnabled = true;
+                        CapturePreviewCard.IsUserToggledOff = false;
+                    }
+
                     ToggleAllOutputs(value);
                 }
             }
@@ -278,18 +287,57 @@ namespace CSimple.Pages
             await this.FadeTo(0, 0);
             await this.FadeTo(1, 400, Easing.CubicOut);
 
-            // Start previews with a slight delay to ensure UI is ready
+            // Register for preview toggle events
+            if (CapturePreviewCard != null)
+            {
+                CapturePreviewCard.PreviewEnabledChanged += OnPreviewEnabledChanged;
+
+                // Ensure preview is disabled by default
+                CapturePreviewCard.IsPreviewEnabled = false;
+                CapturePreviewCard.IsUserToggledOff = true;
+            }
+
+            // Start preview sources with a slight delay to ensure UI is ready
+            // But leave the preview display disabled
             await Task.Delay(500);
             UpdatePreviewSources(true);
-            RefreshPreviewFrames();
         }
 
         protected override void OnDisappearing()
         {
+            // Unregister from events
+            if (CapturePreviewCard != null)
+            {
+                CapturePreviewCard.PreviewEnabledChanged -= OnPreviewEnabledChanged;
+            }
+
             // Stop all captures and previews when navigating away
             StopAllCaptures();
             UpdatePreviewSources(false);
             base.OnDisappearing();
+        }
+
+        private void OnPreviewEnabledChanged(object sender, bool isEnabled)
+        {
+            // When preview is disabled, we'll still keep the preview service running
+            // but the CapturePreviewCard will not update its UI elements
+            Debug.WriteLine($"Preview toggled to: {isEnabled}");
+
+            // Always track the user toggle state
+            if (CapturePreviewCard != null)
+            {
+                CapturePreviewCard.IsUserToggledOff = !isEnabled && CapturePreviewCard.IsToggleChangedByUser;
+            }
+
+            // Optionally pause/resume preview generation to save resources
+            if (_screenService != null)
+            {
+                if (isEnabled)
+                {
+                    // Force refresh of previews when enabled
+                    RefreshPreviewFrames();
+                }
+            }
         }
 
         // Update the ToggleOutput method to return a string instead of using ref
@@ -302,9 +350,17 @@ namespace CSimple.Pages
 
                 // Update visual levels when starting
                 if (startAction == StartUserVisual)
+                {
                     UserVisualLevel = 1.0f;
+                    // Enable previews when starting screen capture
+                    EnablePreviewIfNeeded();
+                }
                 else if (startAction == StartPCVisual)
+                {
                     PCVisualLevel = 1.0f;
+                    // Enable previews when starting webcam capture
+                    EnablePreviewIfNeeded();
+                }
             }
             else
             {
@@ -313,12 +369,56 @@ namespace CSimple.Pages
 
                 // Update visual levels when stopping
                 if (stopAction == StopUserVisual)
+                {
                     UserVisualLevel = 0.0f;
+                    // Check if we should disable previews
+                    CheckAndDisablePreviewIfNeeded();
+                }
                 else if (stopAction == StopPCVisual)
+                {
                     PCVisualLevel = 0.0f;
+                    // Check if we should disable previews
+                    CheckAndDisablePreviewIfNeeded();
+                }
             }
             return buttonText;
         }
+
+        // Helper method to enable previews when visual captures are active
+        private void EnablePreviewIfNeeded()
+        {
+            if (CapturePreviewCard != null)
+            {
+                // Only enable if the user hasn't explicitly disabled it with the toggle
+                if (!CapturePreviewCard.IsUserToggledOff)
+                {
+                    // Enable preview if it's not already enabled
+                    if (!CapturePreviewCard.IsPreviewEnabled)
+                    {
+                        CapturePreviewCard.IsPreviewEnabled = true;
+                        // StartPreviewMode handled by the property change event
+                    }
+                }
+            }
+        }
+
+        // Helper method to check if we should disable previews
+        private void CheckAndDisablePreviewIfNeeded()
+        {
+            // Only disable previews if both visual captures are off and we're not toggled to "Record All"
+            if (!IsRecordingActive && !IsReadAllToggled)
+            {
+                if (CapturePreviewCard != null && !CapturePreviewCard.IsUserToggledOff)
+                {
+                    CapturePreviewCard.IsPreviewEnabled = false;
+                }
+            }
+        }
+
+        // Add properties for tracking active streams
+        public bool IsRecordingActive =>
+            UserVisualButtonText == "Stop" ||
+            PCVisualButtonText == "Stop";
 
         private void StartPCVisual()
         {
@@ -399,6 +499,14 @@ namespace CSimple.Pages
         {
             if (value)
             {
+                // First enable preview mode if Record All is enabled
+                if (CapturePreviewCard != null)
+                {
+                    CapturePreviewCard.IsPreviewEnabled = true;
+                    CapturePreviewCard.IsUserToggledOff = false;
+                }
+
+                // Then toggle all the recording buttons
                 PCVisualButtonText = ToggleOutput(PCVisualButtonText, StartPCVisual, StopPCVisual);
                 PCAudibleButtonText = ToggleOutput(PCAudibleButtonText,
                     () => _audioService.StartPCAudioRecording(SaveRecord),
@@ -429,28 +537,37 @@ namespace CSimple.Pages
             }
         }
 
-        // Add properties for tracking active streams
-        public bool IsRecordingActive => IsReadAllToggled ||
-                                       UserVisualButtonText == "Stop" ||
-                                       PCVisualButtonText == "Stop";
-
         private void UpdatePreviewSources(bool isActive)
         {
             if (CapturePreviewCard != null)
             {
                 CapturePreviewCard.SetPreviewActive(isActive);
 
+                // Default to disabled on page load
+                // Only auto-enable if user hasn't explicitly turned it off AND we have active captures
+                if (isActive && !CapturePreviewCard.IsUserToggledOff && IsRecordingActive)
+                {
+                    CapturePreviewCard.IsPreviewEnabled = true;
+                }
+                else if (!isActive)
+                {
+                    // When stopping all captures, respect user's toggle preference
+                    if (!CapturePreviewCard.IsUserToggledOff)
+                    {
+                        CapturePreviewCard.IsPreviewEnabled = false;
+                    }
+                }
+
+                // Start the capture service - it will always run, but preview updates depend on IsPreviewEnabled
                 if (isActive)
                 {
-                    // Start preview sources
                     _screenService.StartPreviewMode();
-                    Debug.WriteLine("Started screen and webcam preview mode");
+                    Debug.WriteLine("Started screen and webcam preview service");
                 }
                 else
                 {
-                    // Stop preview sources
                     _screenService.StopPreviewMode();
-                    Debug.WriteLine("Stopped screen and webcam preview mode");
+                    Debug.WriteLine("Stopped screen and webcam preview service");
                 }
             }
         }

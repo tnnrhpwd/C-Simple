@@ -8,8 +8,23 @@
             FlexLayout.Grow="1"
             MinimumWidthRequest="320">
         <VerticalStackLayout Spacing="12">
-            <Label Text="Capture Preview"
-                   Style="{StaticResource SubHeaderStyle}" />
+            <Grid ColumnDefinitions="*, Auto">
+                <Label Text="Capture Preview"
+                       Style="{StaticResource SubHeaderStyle}"
+                       VerticalOptions="Center" />
+                <HorizontalStackLayout Grid.Column="1"
+                                       Spacing="8"
+                                       VerticalOptions="Center">
+                    <Label Text="Show Feeds"
+                           VerticalOptions="Center"
+                           FontSize="14" />
+                    <Switch x:Name="PreviewToggle"
+                            IsToggled="{Binding Source={x:Reference root}, Path=IsPreviewEnabled}"
+                            Toggled="OnPreviewToggled"
+                            OnColor="{StaticResource PrimaryColor}"
+                            ThumbColor="White" />
+                </HorizontalStackLayout>
+            </Grid>
             <Grid RowDefinitions="Auto,Auto,Auto"
                   ColumnDefinitions="*,*"
                   Margin="0,8">
@@ -31,12 +46,21 @@
                                    Aspect="AspectFill"
                                    HorizontalOptions="FillAndExpand"
                                    VerticalOptions="FillAndExpand" />
+                            <!-- Preview disabled message -->
+                            <Grid BackgroundColor="#80000000"
+                                  IsVisible="{Binding Source={x:Reference root}, Path=IsPreviewDisabled}">
+                                <Label Text="Preview disabled"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"
+                                       TextColor="White"
+                                       FontSize="14" />
+                            </Grid>
                             <!-- Overlay and loading indicator for screen -->
                             <Grid BackgroundColor="#80000000"
-                                  IsVisible="{Binding Source={x:Reference Name=root}, Path=IsScreenCaptureInactive}">
+                                  IsVisible="{Binding Source={x:Reference root}, Path=IsScreenWaiting}">
                                 <VerticalStackLayout HorizontalOptions="Center"
                                                      VerticalOptions="Center">
-                                    <ActivityIndicator IsRunning="{Binding Source={x:Reference Name=root}, Path=IsLoadingScreenPreview}"
+                                    <ActivityIndicator IsRunning="{Binding Source={x:Reference root}, Path=IsLoadingScreenPreview}"
                                                        Color="{StaticResource PrimaryColor}"
                                                        HeightRequest="40"
                                                        WidthRequest="40" />
@@ -72,12 +96,21 @@
                                    Aspect="AspectFill"
                                    HorizontalOptions="FillAndExpand"
                                    VerticalOptions="FillAndExpand" />
+                            <!-- Preview disabled message -->
+                            <Grid BackgroundColor="#80000000"
+                                  IsVisible="{Binding Source={x:Reference root}, Path=IsPreviewDisabled}">
+                                <Label Text="Preview disabled"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"
+                                       TextColor="White"
+                                       FontSize="14" />
+                            </Grid>
                             <!-- Overlay and loading indicator for webcam -->
                             <Grid BackgroundColor="#80000000"
-                                  IsVisible="{Binding Source={x:Reference Name=root}, Path=IsWebcamCaptureInactive}">
+                                  IsVisible="{Binding Source={x:Reference root}, Path=IsWebcamWaiting}">
                                 <VerticalStackLayout HorizontalOptions="Center"
                                                      VerticalOptions="Center">
-                                    <ActivityIndicator IsRunning="{Binding Source={x:Reference Name=root}, Path=IsLoadingWebcamPreview}"
+                                    <ActivityIndicator IsRunning="{Binding Source={x:Reference root}, Path=IsLoadingWebcamPreview}"
                                                        Color="{StaticResource PrimaryColor}"
                                                        HeightRequest="40"
                                                        WidthRequest="40" />

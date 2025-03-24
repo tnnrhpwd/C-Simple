@@ -230,7 +230,6 @@ namespace CSimple.Services
                         {
                             // Make sure we're on a background thread when invoking the event
                             ScreenPreviewFrameReady?.Invoke(screenImage);
-                            LogDebug("Screen preview frame captured and sent");
                         }
 
                         // 2. Get the webcam preview
@@ -242,7 +241,6 @@ namespace CSimple.Services
                                 if (webcamImage != null)
                                 {
                                     WebcamPreviewFrameReady?.Invoke(webcamImage);
-                                    LogDebug("Webcam preview frame captured and sent");
                                 }
                             }
                         }

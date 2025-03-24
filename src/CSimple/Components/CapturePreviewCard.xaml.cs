@@ -11,15 +11,76 @@ namespace CSimple.Components
         private bool _isPreviewActive;
         private bool _isLoadingScreenPreview;
         private bool _isLoadingWebcamPreview;
+        // Change default value to false
+        private bool _isPreviewEnabled = false;
+        private bool _isUserToggledOff = true;
+        private bool _isToggleChangedByUser = false;
 
         // Use 'new' keyword to explicitly hide the inherited member
         public new event PropertyChangedEventHandler PropertyChanged;
+
+        // Add event for preview toggled
+        public event EventHandler<bool> PreviewEnabledChanged;
 
         public CapturePreviewCard()
         {
             InitializeComponent();
             this.BindingContext = this;
+
+            // Initialize preview toggle state to off
+            PreviewToggle.IsToggled = _isPreviewEnabled;
         }
+
+        public bool IsPreviewEnabled
+        {
+            get => _isPreviewEnabled;
+            set
+            {
+                if (_isPreviewEnabled != value)
+                {
+                    _isPreviewEnabled = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsPreviewDisabled));
+                    OnPropertyChanged(nameof(IsScreenWaiting));
+                    OnPropertyChanged(nameof(IsWebcamWaiting));
+
+                    // Update the toggle UI to match (without triggering the toggle event)
+                    _isToggleChangedByUser = false;
+                    PreviewToggle.IsToggled = value;
+                    _isToggleChangedByUser = true;
+
+                    // Notify parent of change
+                    PreviewEnabledChanged?.Invoke(this, value);
+                }
+            }
+        }
+
+        // Property to track if the user has explicitly toggled off previews
+        public bool IsUserToggledOff
+        {
+            get => _isUserToggledOff;
+            set
+            {
+                if (_isUserToggledOff != value)
+                {
+                    _isUserToggledOff = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        // Property to track if the toggle was changed by user (vs programmatically)
+        public bool IsToggleChangedByUser
+        {
+            get => _isToggleChangedByUser;
+            private set => _isToggleChangedByUser = value;
+        }
+
+        public bool IsPreviewDisabled => !IsPreviewEnabled;
+
+        public bool IsScreenWaiting => IsScreenCaptureInactive && IsPreviewEnabled;
+
+        public bool IsWebcamWaiting => IsWebcamCaptureInactive && IsPreviewEnabled;
 
         public ImageSource ScreenCaptureSource
         {
@@ -31,7 +92,8 @@ namespace CSimple.Components
                     _screenCaptureSource = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(IsScreenCaptureInactive));
-                    IsLoadingScreenPreview = _screenCaptureSource == null && _isPreviewActive;
+                    OnPropertyChanged(nameof(IsScreenWaiting));
+                    IsLoadingScreenPreview = _screenCaptureSource == null && _isPreviewActive && IsPreviewEnabled;
                 }
             }
         }
@@ -46,7 +108,8 @@ namespace CSimple.Components
                     _webcamCaptureSource = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(IsWebcamCaptureInactive));
-                    IsLoadingWebcamPreview = _webcamCaptureSource == null && _isPreviewActive;
+                    OnPropertyChanged(nameof(IsWebcamWaiting));
+                    IsLoadingWebcamPreview = _webcamCaptureSource == null && _isPreviewActive && IsPreviewEnabled;
                 }
             }
         }
@@ -98,8 +161,8 @@ namespace CSimple.Components
             }
 
             // Update loading states
-            IsLoadingScreenPreview = isActive && ScreenCaptureSource == null;
-            IsLoadingWebcamPreview = isActive && WebcamCaptureSource == null;
+            IsLoadingScreenPreview = isActive && ScreenCaptureSource == null && IsPreviewEnabled;
+            IsLoadingWebcamPreview = isActive && WebcamCaptureSource == null && IsPreviewEnabled;
 
             // Update status texts
             ScreenCaptureStatus.Text = isActive ? "Waiting for screen feed..." : "Screen capture inactive";
@@ -108,7 +171,7 @@ namespace CSimple.Components
 
         public void UpdateScreenCapture(ImageSource source)
         {
-            if (_isPreviewActive)
+            if (_isPreviewActive && IsPreviewEnabled)
             {
                 // Use Dispatcher instead of Device.BeginInvokeOnMainThread
                 Dispatcher.Dispatch(() =>
@@ -128,7 +191,7 @@ namespace CSimple.Components
 
         public void UpdateWebcamCapture(ImageSource source)
         {
-            if (_isPreviewActive)
+            if (_isPreviewActive && IsPreviewEnabled)
             {
                 // Use Dispatcher instead of Device.BeginInvokeOnMainThread
                 Dispatcher.Dispatch(() =>
@@ -144,6 +207,13 @@ namespace CSimple.Components
                     }
                 });
             }
+        }
+
+        private void OnPreviewToggled(object sender, ToggledEventArgs e)
+        {
+            // Mark this as a user-initiated change
+            _isToggleChangedByUser = true;
+            IsPreviewEnabled = e.Value;
         }
 
         // Use 'new' keyword to explicitly hide the inherited method
