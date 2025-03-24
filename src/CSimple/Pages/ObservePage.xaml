@@ -1,5 +1,6 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:components="clr-namespace:CSimple.Components"
              x:Class="CSimple.Pages.ObservePage"
              Title="Observe"
              Shell.NavBarIsVisible="True"
@@ -203,7 +204,7 @@
                 </HorizontalStackLayout>
             </Grid>
         </Border>
-        <!-- Main Content - Replace VerticalStackLayout with FlexLayout -->
+        <!-- Main Content - Using Components -->
         <ScrollView Grid.Row="1"
                     Margin="0,16,0,0">
             <FlexLayout Direction="Row"
@@ -211,319 +212,24 @@
                         JustifyContent="Start"
                         AlignItems="Start"
                         AlignContent="Start">
-                <!-- Action Information Card -->
-                <Border Style="{StaticResource CardStyle}"
-                        FlexLayout.Basis="100%"
-                        FlexLayout.Grow="1">
-                    <VerticalStackLayout>
-                        <Label Text="Action Configuration"
-                               Style="{StaticResource SubHeaderLabelStyle}" />
-                        <Label Text="Action Name"
-                               Style="{StaticResource BodyLabelStyle}" />
-                        <Entry x:Name="ActionNameInput"
-                               Placeholder="Enter action name"
-                               Style="{StaticResource ModernEntryStyle}"
-                               MaxLength="50" />
-                        <!-- Save Options Section -->
-                        <Label Text="Save Options"
-                               Style="{StaticResource BodyLabelStyle}"
-                               FontAttributes="Bold"
-                               Margin="0,12,0,8" />
-                        <Grid ColumnDefinitions="Auto,*"
-                              RowDefinitions="Auto,Auto,Auto"
-                              Margin="0,0,0,12">
-                            <!-- Save Record Option -->
-                            <Label Text="Save Record"
-                                   Grid.Row="0"
-                                   Grid.Column="0"
-                                   VerticalOptions="Center"
-                                   Margin="0,0,12,0" />
-                            <Switch IsToggled="{Binding SaveRecord}"
-                                    Grid.Row="0"
-                                    Grid.Column="1"
-                                    HorizontalOptions="Start"
-                                    VerticalOptions="Center"
-                                    Style="{StaticResource SwitchStyle}" />
-                            <!-- Save Locally Option -->
-                            <Label Text="Save Locally"
-                                   Grid.Row="1"
-                                   Grid.Column="0"
-                                   VerticalOptions="Center"
-                                   Margin="0,0,12,0" />
-                            <Switch IsToggled="{Binding SaveLocally}"
-                                    Grid.Row="1"
-                                    Grid.Column="1"
-                                    HorizontalOptions="Start"
-                                    VerticalOptions="Center"
-                                    Style="{StaticResource SwitchStyle}" />
-                            <!-- Upload to Backend Option -->
-                            <Label Text="Upload to Backend"
-                                   Grid.Row="2"
-                                   Grid.Column="0"
-                                   VerticalOptions="Center"
-                                   Margin="0,0,12,0" />
-                            <Switch IsToggled="{Binding UploadToBackend}"
-                                    Grid.Row="2"
-                                    Grid.Column="1"
-                                    HorizontalOptions="Start"
-                                    VerticalOptions="Center"
-                                    Style="{StaticResource SwitchStyle}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,*,*"
-                              RowDefinitions="Auto,Auto"
-                              Margin="0,8,0,0">
-                            <Label Text="Modifier Name"
-                                   Grid.Column="0"
-                                   Style="{StaticResource BodyLabelStyle}" />
-                            <Entry x:Name="ModifierNameEntry"
-                                   Placeholder="Modifier"
-                                   Grid.Row="1"
-                                   Grid.Column="0"
-                                   Style="{StaticResource ModernEntryStyle}" />
-                            <Label Text="Priority"
-                                   Grid.Column="1"
-                                   Style="{StaticResource BodyLabelStyle}" />
-                            <Entry x:Name="PriorityEntry"
-                                   Placeholder="1-10"
-                                   Grid.Row="1"
-                                   Grid.Column="1"
-                                   Keyboard="Numeric"
-                                   Style="{StaticResource ModernEntryStyle}" />
-                            <Button Text="More Options"
-                                    Grid.Row="1"
-                                    Grid.Column="2"
-                                    Style="{StaticResource ModernButtonStyle}"
-                                    Clicked="OnInputModifierClicked" />
-                        </Grid>
-                    </VerticalStackLayout>
-                </Border>
-                <!-- Capture Controls Card -->
-                <Border Style="{StaticResource CardStyle}"
-                        FlexLayout.Basis="{OnIdiom Phone=100%, Default=48%}"
-                        FlexLayout.Grow="1"
-                        Margin="0,0,8,16">
-                    <VerticalStackLayout>
-                        <Label Text="Capture Controls"
-                               Style="{StaticResource SubHeaderLabelStyle}" />
-                        <Grid ColumnDefinitions="Auto,*,Auto"
-                              RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
-                              Margin="0,8">
-                            <!-- User Data Capture Row Headers -->
-                            <Label Text="User Input"
-                                   Grid.Row="0"
-                                   Grid.Column="0"
-                                   Grid.ColumnSpan="3"
-                                   Style="{StaticResource BodyLabelStyle}"
-                                   FontAttributes="Bold"
-                                   Margin="0,0,0,12" />
-                            <!-- User Touch Row -->
-                            <Label Text="Touch"
-                                   Grid.Row="1"
-                                   Grid.Column="0"
-                                   VerticalOptions="Center"
-                                   Margin="0,0,12,0" />
-                            <ProgressBar Progress="0.8"
-                                         Grid.Row="1"
-                                         Grid.Column="1"
-                                         VerticalOptions="Center"
-                                         ProgressColor="{StaticResource TertiaryColor}" />
-                            <Button Text="{Binding UserTouchButtonText}"
-                                    Grid.Row="1"
-                                    Grid.Column="2"
-                                    Command="{Binding ToggleUserTouchCommand}"
-                                    Style="{StaticResource ModernButtonStyle}" />
-                            <!-- User Visual Row -->
-                            <Label Text="Visual"
-                                   Grid.Row="2"
-                                   Grid.Column="0"
-                                   VerticalOptions="Center"
-                                   Margin="0,0,12,0" />
-                            <ProgressBar Progress="0.6"
-                                         Grid.Row="2"
-                                         Grid.Column="1"
-                                         VerticalOptions="Center"
-                                         ProgressColor="{StaticResource TertiaryColor}" />
-                            <Button Text="{Binding UserVisualButtonText}"
-                                    Grid.Row="2"
-                                    Grid.Column="2"
-                                    Command="{Binding ToggleUserVisualCommand}"
-                                    Style="{StaticResource ModernButtonStyle}" />
-                            <!-- User Audio Row -->
-                            <Label Text="Audio"
-                                   Grid.Row="3"
-                                   Grid.Column="0"
-                                   VerticalOptions="Center"
-                                   Margin="0,0,12,0" />
-                            <ProgressBar Progress="{Binding UserAudioLevel}"
-                                         Grid.Row="3"
-                                         Grid.Column="1"
-                                         VerticalOptions="Center"
-                                         ProgressColor="{StaticResource TertiaryColor}" />
-                            <Button Text="{Binding UserAudibleButtonText}"
-                                    Grid.Row="3"
-                                    Grid.Column="2"
-                                    Command="{Binding ToggleUserAudibleCommand}"
-                                    Style="{StaticResource ModernButtonStyle}" />
-                            <!-- System Capture Row Headers -->
-                            <Label Text="System Data"
-                                   Grid.Row="4"
-                                   Grid.Column="0"
-                                   Grid.ColumnSpan="3"
-                                   Style="{StaticResource BodyLabelStyle}"
-                                   FontAttributes="Bold"
-                                   Margin="0,20,0,12" />
-                            <!-- PC Visual Row -->
-                            <Label Text="Visual"
-                                   Grid.Row="5"
-                                   Grid.Column="0"
-                                   VerticalOptions="Center"
-                                   Margin="0,0,12,0" />
-                            <ProgressBar Progress="0.5"
-                                         Grid.Row="5"
-                                         Grid.Column="1"
-                                         VerticalOptions="Center"
-                                         ProgressColor="{StaticResource PrimaryColor}" />
-                            <Button Text="{Binding PCVisualButtonText}"
-                                    Grid.Row="5"
-                                    Grid.Column="2"
-                                    Command="{Binding TogglePCVisualCommand}"
-                                    Style="{StaticResource ModernButtonStyle}" />
-                            <!-- PC Audio Row -->
-                            <Label Text="Audio"
-                                   Grid.Row="6"
-                                   Grid.Column="0"
-                                   VerticalOptions="Center"
-                                   Margin="0,0,12,0" />
-                            <ProgressBar Progress="{Binding PCAudioLevel}"
-                                         Grid.Row="6"
-                                         Grid.Column="1"
-                                         VerticalOptions="Center"
-                                         ProgressColor="{StaticResource PrimaryColor}" />
-                            <Button Text="{Binding PCAudibleButtonText}"
-                                    Grid.Row="6"
-                                    Grid.Column="2"
-                                    Command="{Binding TogglePCAudibleCommand}"
-                                    Style="{StaticResource ModernButtonStyle}" />
-                        </Grid>
-                    </VerticalStackLayout>
-                </Border>
-                <!-- Preview Card -->
-                <Border Style="{StaticResource CardStyle}"
-                        FlexLayout.Basis="{OnIdiom Phone=100%, Default=48%}"
-                        FlexLayout.Grow="1">
-                    <VerticalStackLayout>
-                        <Label Text="Capture Preview"
-                               Style="{StaticResource SubHeaderLabelStyle}" />
-                        <Grid ColumnDefinitions="*,*"
-                              RowDefinitions="Auto,Auto,*"
-                              Margin="0,8">
-                            <!-- Media Preview -->
-                            <Frame Grid.Row="0"
-                                   Grid.Column="0"
-                                   Grid.ColumnSpan="2"
-                                   BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#333333}"
-                                   CornerRadius="6"
-                                   HasShadow="False"
-                                   Padding="0"
-                                   HeightRequest="200">
-                                <Image Source="{Binding CapturedImageSource}"
-                                       Aspect="AspectFill" />
-                            </Frame>
-                            <!-- Input Status -->
-                            <Frame Grid.Row="1"
-                                   Grid.Column="0"
-                                   Grid.ColumnSpan="2"
-                                   Margin="0,12,0,0"
-                                   BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#333333}"
-                                   CornerRadius="6"
-                                   HasShadow="False"
-                                   Padding="12">
-                                <Label x:Name="ButtonLabel"
-                                       Text="No active key/mouse presses"
-                                       MaxLines="4"
-                                       LineBreakMode="TailTruncation" />
-                            </Frame>
-                        </Grid>
-                    </VerticalStackLayout>
-                </Border>
-                <!-- Actions Card -->
-                <Border Style="{StaticResource CardStyle}"
-                        FlexLayout.Basis="100%"
-                        FlexLayout.Grow="1">
-                    <VerticalStackLayout>
-                        <Label Text="Recorded Actions"
-                               Style="{StaticResource SubHeaderLabelStyle}" />
-                        <CollectionView ItemsSource="{Binding Data}"
-                                        EmptyView="No actions recorded yet"
-                                        HeightRequest="200">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <Frame Margin="0,4"
-                                           Padding="12"
-                                           BackgroundColor="{AppThemeBinding Light=#f9f9f9, Dark=#222222}"
-                                           CornerRadius="6"
-                                           HasShadow="False">
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <VerticalStackLayout Grid.Column="0">
-                                                <Label Text="{Binding Data.ActionGroupObject.ActionName}"
-                                                       FontAttributes="Bold" />
-                                                <Label Text="{Binding Data.Text}"
-                                                       FontSize="12"
-                                                       TextColor="{StaticResource TextSecondaryColor}" />
-                                                <Label Text="{Binding Data.ActionGroupObject.ActionArray.Count, StringFormat='Actions: {0}'}"
-                                                       FontSize="12"
-                                                       TextColor="{StaticResource TextSecondaryColor}" />
-                                            </VerticalStackLayout>
-                                            <HorizontalStackLayout Grid.Column="1"
-                                                                   VerticalOptions="Center">
-                                                <Label Text="{Binding Data.Files.Count, StringFormat='Files: {0}'}"
-                                                       Margin="0,0,8,0" />
-                                            </HorizontalStackLayout>
-                                        </Grid>
-                                    </Frame>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                        <HorizontalStackLayout HorizontalOptions="End"
-                                               Margin="0,12,0,0">
-                            <Button Text="Load"
-                                    Command="{Binding LoadFromFileCommand}"
-                                    Style="{StaticResource ModernButtonStyle}" />
-                            <Button Text="Save"
-                                    Command="{Binding SaveToFileCommand}"
-                                    Style="{StaticResource ModernButtonStyle}" />
-                            <Button Text="Save Action"
-                                    Command="{Binding SaveActionCommand}"
-                                    Style="{StaticResource ActionButtonStyle}" />
-                        </HorizontalStackLayout>
-                    </VerticalStackLayout>
-                </Border>
+                <!-- Action Information Card Component -->
+                <components:ActionConfigurationCard x:Name="ActionConfigCard"
+                                                    InputModifierClicked="OnInputModifierClicked" />
+                <!-- Capture Controls Card Component -->
+                <components:CaptureControlsCard x:Name="CaptureControlsCard"
+                                                BindingContext="{Binding}" />
+                <!-- Preview Card Component -->
+                <components:CapturePreviewCard x:Name="CapturePreviewCard"
+                                               BindingContext="{Binding}" />
+                <!-- Actions Card Component -->
+                <components:RecordedActionsCard x:Name="RecordedActionsCard"
+                                                BindingContext="{Binding}" />
             </FlexLayout>
         </ScrollView>
-        <!-- Input Modifier Popup -->
-        <Grid x:Name="InputModifierPopup"
-              Grid.Row="0"
-              Grid.RowSpan="3"
-              BackgroundColor="#80000000"
-              IsVisible="false">
-            <Border Style="{StaticResource CardStyle}"
-                    HorizontalOptions="Center"
-                    VerticalOptions="Center"
-                    WidthRequest="300">
-                <VerticalStackLayout>
-                    <Label Text="Additional Settings"
-                           Style="{StaticResource SubHeaderLabelStyle}" />
-                    <Label Text="Description"
-                           Style="{StaticResource BodyLabelStyle}" />
-                    <Entry x:Name="DescriptionEntry"
-                           Placeholder="Enter description"
-                           Style="{StaticResource ModernEntryStyle}" />
-                    <Button Text="OK"
-                            Clicked="OnOkayClicked"
-                            Style="{StaticResource ModernButtonStyle}"
-                            HorizontalOptions="End" />
-                </VerticalStackLayout>
-            </Border>
-        </Grid>
+        <!-- Input Modifier Popup Component -->
+        <components:InputModifierPopup x:Name="InputModifierPopupControl"
+                                       Grid.Row="0"
+                                       Grid.RowSpan="3"
+                                       OkayClicked="OnOkayClicked" />
     </Grid>
 </ContentPage>

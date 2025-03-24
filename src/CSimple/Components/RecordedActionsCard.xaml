@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CSimple.Components.RecordedActionsCard">
+    <Border Style="{StaticResource CardStyle}"
+            FlexLayout.Basis="100%"
+            FlexLayout.Grow="1">
+        <VerticalStackLayout>
+            <Label Text="Recorded Actions"
+                   Style="{StaticResource SubHeaderLabelStyle}" />
+            <CollectionView ItemsSource="{Binding Data}"
+                            EmptyView="No actions recorded yet"
+                            HeightRequest="200">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Frame Margin="0,4"
+                               Padding="12"
+                               BackgroundColor="{AppThemeBinding Light=#f9f9f9, Dark=#222222}"
+                               CornerRadius="6"
+                               HasShadow="False">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Grid.Column="0">
+                                    <Label Text="{Binding Data.ActionGroupObject.ActionName}"
+                                           FontAttributes="Bold" />
+                                    <Label Text="{Binding Data.Text}"
+                                           FontSize="12"
+                                           TextColor="{StaticResource TextSecondaryColor}" />
+                                    <Label Text="{Binding Data.ActionGroupObject.ActionArray.Count, StringFormat='Actions: {0}'}"
+                                           FontSize="12"
+                                           TextColor="{StaticResource TextSecondaryColor}" />
+                                </VerticalStackLayout>
+                                <HorizontalStackLayout Grid.Column="1"
+                                                       VerticalOptions="Center">
+                                    <Label Text="{Binding Data.Files.Count, StringFormat='Files: {0}'}"
+                                           Margin="0,0,8,0" />
+                                </HorizontalStackLayout>
+                            </Grid>
+                        </Frame>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+            <HorizontalStackLayout HorizontalOptions="End"
+                                   Margin="0,12,0,0">
+                <Button Text="Load"
+                        Command="{Binding LoadFromFileCommand}"
+                        Style="{StaticResource ModernButtonStyle}" />
+                <Button Text="Save"
+                        Command="{Binding SaveToFileCommand}"
+                        Style="{StaticResource ModernButtonStyle}" />
+                <Button Text="Save Action"
+                        Command="{Binding SaveActionCommand}"
+                        Style="{StaticResource ActionButtonStyle}" />
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

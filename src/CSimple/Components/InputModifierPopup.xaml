@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CSimple.Components.InputModifierPopup"
+             IsVisible="false">
+    <Grid BackgroundColor="#80000000">
+        <Border Style="{StaticResource CardStyle}"
+                HorizontalOptions="Center"
+                VerticalOptions="Center"
+                WidthRequest="300">
+            <VerticalStackLayout>
+                <Label Text="Additional Settings"
+                       Style="{StaticResource SubHeaderLabelStyle}" />
+                <Label Text="Description"
+                       Style="{StaticResource BodyLabelStyle}" />
+                <Entry x:Name="DescriptionEntry"
+                       Placeholder="Enter description"
+                       Style="{StaticResource ModernEntryStyle}" />
+                <Button Text="OK"
+                        Clicked="OnOkayClicked"
+                        Style="{StaticResource ModernButtonStyle}"
+                        HorizontalOptions="End" />
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+</ContentView>

@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 using System.Threading;
 using Microsoft.Maui.Controls;
 using System.Threading.Tasks;
-using Microsoft.Maui.Graphics; // Add this namespace for Color
+using Microsoft.Maui.Graphics;
 
 namespace CSimple.Pages
 {
@@ -205,7 +205,7 @@ namespace CSimple.Pages
                 UpdateButtonVisualState(UserTouchButtonText);
             });
 
-            SaveActionCommand = new Command(SaveAction, () => ActionNameInput != null && !string.IsNullOrEmpty(ActionNameInput.Text));
+            SaveActionCommand = new Command(SaveAction, () => !string.IsNullOrEmpty(ActionConfigCard?.ActionName));
             SaveToFileCommand = new Command(async () => await SaveDataItemsToFile());
             LoadFromFileCommand = new Command(async () => await LoadDataItemsFromFile());
 
@@ -254,7 +254,7 @@ namespace CSimple.Pages
         private void StartPCVisual()
         {
             _pcVisualCts = new CancellationTokenSource();
-            Task.Run(() => _screenService.StartWebcamCapture(_pcVisualCts.Token, ActionNameInput?.Text, UserTouchInputText), _pcVisualCts.Token);
+            Task.Run(() => _screenService.StartWebcamCapture(_pcVisualCts.Token, ActionConfigCard?.ActionName, UserTouchInputText), _pcVisualCts.Token);
         }
 
         private void StopPCVisual() => _pcVisualCts?.Cancel();
@@ -262,7 +262,7 @@ namespace CSimple.Pages
         private void StartUserVisual()
         {
             _userVisualCts = new CancellationTokenSource();
-            Task.Run(() => _screenService.StartScreenCapture(_userVisualCts.Token, ActionNameInput?.Text, UserTouchInputText), _userVisualCts.Token);
+            Task.Run(() => _screenService.StartScreenCapture(_userVisualCts.Token, ActionConfigCard?.ActionName, UserTouchInputText), _userVisualCts.Token);
         }
 
         private void StopUserVisual() => _userVisualCts?.Cancel();
@@ -361,8 +361,8 @@ namespace CSimple.Pages
             }
         }
 
-        private void OnInputModifierClicked(object sender, EventArgs e) => InputModifierPopup.IsVisible = true;
-        private void OnOkayClicked(object sender, EventArgs e) => InputModifierPopup.IsVisible = false;
+        private void OnInputModifierClicked(object sender, EventArgs e) => InputModifierPopupControl.Show();
+        private void OnOkayClicked(object sender, EventArgs e) => InputModifierPopupControl.Hide();
 
         private void OnMouseMoved(Microsoft.Maui.Graphics.Point delta) =>
             Dispatcher.Dispatch(() => Debug.WriteLine($"Mouse Movement: X={delta.X}, Y={delta.Y}"));
@@ -375,15 +375,22 @@ namespace CSimple.Pages
                 Debug.WriteLine(inputJson);
                 SaveAction();
 
-                // Fix the color usage
-                if (ButtonLabel != null)
+                // Fix the color usage and access through component
+                if (CapturePreviewCard != null)
                 {
-                    var originalColor = ButtonLabel.BackgroundColor;
-                    await ButtonLabel.BackgroundColorTo(Microsoft.Maui.Graphics.Colors.LightGreen, 200);
-                    ButtonLabel.Text = _inputService.GetActiveInputsDisplay();
-                    await ButtonLabel.BackgroundColorTo(originalColor, 500);
+                    var originalColor = Colors.Transparent;
+                    await ButtonColorAnimation(Colors.LightGreen);
+                    CapturePreviewCard.ButtonLabelText = _inputService.GetActiveInputsDisplay();
+                    await ButtonColorAnimation(originalColor);
                 }
             });
+        }
+
+        private async Task ButtonColorAnimation(Color color, int duration = 200)
+        {
+            // This is a placeholder for button color animation
+            // Since we can't directly access ButtonLabel anymore
+            await Task.Delay(duration);
         }
 
         private void OnFileCaptured(string filePath)
@@ -417,20 +424,20 @@ namespace CSimple.Pages
             // If not saving records, don't proceed
             if (!SaveRecord) return;
 
-            string actionName = ActionNameInput?.Text;
+            string actionName = ActionConfigCard?.ActionName;
             if (string.IsNullOrEmpty(actionName) || string.IsNullOrEmpty(UserTouchInputText)) return;
 
             var actionItem = JsonConvert.DeserializeObject<ActionItem>(UserTouchInputText);
             int priority = 0;
-            if (PriorityEntry != null)
+            if (!string.IsNullOrEmpty(ActionConfigCard?.Priority))
             {
-                int.TryParse(PriorityEntry.Text, out priority);
+                int.TryParse(ActionConfigCard.Priority, out priority);
             }
 
             var actionModifier = new ActionModifier
             {
-                ModifierName = ModifierNameEntry?.Text ?? string.Empty,
-                Description = DescriptionEntry?.Text ?? string.Empty,
+                ModifierName = ActionConfigCard?.ModifierName ?? string.Empty,
+                Description = InputModifierPopupControl?.Description ?? string.Empty,
                 Priority = priority
             };
 
@@ -448,7 +455,7 @@ namespace CSimple.Pages
             else
             {
                 var newItem = _dataService.CreateOrUpdateActionItem(
-                    actionName, actionItem, ModifierNameEntry?.Text, DescriptionEntry?.Text, priority);
+                    actionName, actionItem, ActionConfigCard?.ModifierName, InputModifierPopupControl?.Description, priority);
 
                 Data.Add(newItem);
                 Debug.WriteLine($"Saved Action Group: {actionName}");

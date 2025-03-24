@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CSimple.Components.CapturePreviewCard">
+    <Border Style="{StaticResource CardStyle}"
+            FlexLayout.Basis="{OnIdiom Phone=100%, Default=48%}"
+            FlexLayout.Grow="1">
+        <VerticalStackLayout>
+            <Label Text="Capture Preview"
+                   Style="{StaticResource SubHeaderLabelStyle}" />
+            <Grid ColumnDefinitions="*,*"
+                  RowDefinitions="Auto,Auto,*"
+                  Margin="0,8">
+                <!-- Media Preview -->
+                <Frame Grid.Row="0"
+                       Grid.Column="0"
+                       Grid.ColumnSpan="2"
+                       BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#333333}"
+                       CornerRadius="6"
+                       HasShadow="False"
+                       Padding="0"
+                       HeightRequest="200">
+                    <Image Source="{Binding CapturedImageSource}"
+                           Aspect="AspectFill" />
+                </Frame>
+                <!-- Input Status -->
+                <Frame Grid.Row="1"
+                       Grid.Column="0"
+                       Grid.ColumnSpan="2"
+                       Margin="0,12,0,0"
+                       BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#333333}"
+                       CornerRadius="6"
+                       HasShadow="False"
+                       Padding="12">
+                    <Label x:Name="ButtonLabel"
+                           Text="No active key/mouse presses"
+                           MaxLines="4"
+                           LineBreakMode="TailTruncation" />
+                </Frame>
+            </Grid>
+        </VerticalStackLayout>
+    </Border>
+</ContentView>
