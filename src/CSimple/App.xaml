@@ -4,129 +4,387 @@
              xmlns:page="clr-namespace:CSimple.Pages"
              x:Class="CSimple.App">
     <Application.Resources>
-        <ResourceDictionary Source="Resources/Styles/DefaultTheme.xaml"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Use only resource dictionaries that exist -->
+                <ResourceDictionary Source="Resources/Styles/DefaultTheme.xaml" />
+                <!-- Remove or comment out missing resources -->
+                <!-- <ResourceDictionary Source="Resources/Styles/Colors.xaml" /> -->
+                <!-- <ResourceDictionary Source="Resources/Styles/Styles.xaml" /> -->
+                <!-- Define AppStyles inline to avoid file reference issues -->
+                <ResourceDictionary>
+                    <!-- Color Palette -->
+                    <Color x:Key="PrimaryColor">#5C6BC0</Color>
+                    <Color x:Key="PrimaryDarkColor">#3949AB</Color>
+                    <Color x:Key="PrimaryLightColor">#7986CB</Color>
+                    <Color x:Key="SecondaryColor">#F48FB1</Color>
+                    <Color x:Key="SecondaryDarkColor">#F06292</Color>
+                    <Color x:Key="TertiaryColor">#81C784</Color>
+                    <Color x:Key="TertiaryDarkColor">#66BB6A</Color>
+                    <Color x:Key="NeutralColor">#B0BEC5</Color>
+                    <!-- Background Colors -->
+                    <Color x:Key="BackgroundLight">#f5f7fa</Color>
+                    <Color x:Key="BackgroundDark">#121212</Color>
+                    <Color x:Key="CardBackgroundLight">#ffffff</Color>
+                    <Color x:Key="CardBackgroundDark">#1e1e1e</Color>
+                    <Color x:Key="SurfaceBackgroundLight">#f0f0f0</Color>
+                    <Color x:Key="SurfaceBackgroundDark">#2a2a2a</Color>
+                    <!-- Text Colors -->
+                    <Color x:Key="TextPrimaryLight">#212121</Color>
+                    <Color x:Key="TextPrimaryDark">#f5f5f5</Color>
+                    <Color x:Key="TextSecondaryLight">#757575</Color>
+                    <Color x:Key="TextSecondaryDark">#b0b0b0</Color>
+                    <!-- Enhanced Card Style -->
+                    <Style x:Key="ModernCardStyle"
+                           TargetType="Border">
+                        <Setter Property="StrokeShape"
+                                Value="RoundRectangle 12,12,12,12" />
+                        <Setter Property="Stroke">
+                            <Setter.Value>
+                                <AppThemeBinding Light="#e0e0e0"
+                                                 Dark="#424242" />
+                            </Setter.Value>
+                        </Setter>
+                        <Setter Property="StrokeThickness"
+                                Value="1" />
+                        <Setter Property="Background">
+                            <Setter.Value>
+                                <AppThemeBinding Light="{StaticResource CardBackgroundLight}"
+                                                 Dark="{StaticResource CardBackgroundDark}" />
+                            </Setter.Value>
+                        </Setter>
+                        <Setter Property="Padding"
+                                Value="20" />
+                        <Setter Property="Margin"
+                                Value="6" />
+                        <Setter Property="Shadow">
+                            <Setter.Value>
+                                <Shadow Brush="{AppThemeBinding Light=#20000000, Dark=#40000000}"
+                                        Offset="0,4"
+                                        Radius="8"
+                                        Opacity="0.3" />
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                    <!-- Frame Styles -->
+                    <Style x:Key="PreviewFrameStyle"
+                           TargetType="Frame">
+                        <Setter Property="CornerRadius"
+                                Value="8" />
+                        <Setter Property="HasShadow"
+                                Value="False" />
+                        <Setter Property="Padding"
+                                Value="0" />
+                        <Setter Property="BackgroundColor">
+                            <Setter.Value>
+                                <AppThemeBinding Light="{StaticResource SurfaceBackgroundLight}"
+                                                 Dark="{StaticResource SurfaceBackgroundDark}" />
+                            </Setter.Value>
+                        </Setter>
+                        <Setter Property="BorderColor">
+                            <Setter.Value>
+                                <AppThemeBinding Light="#e0e0e0"
+                                                 Dark="#424242" />
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                    <!-- Button Styles -->
+                    <Style x:Key="ModernButtonBaseStyle"
+                           TargetType="Button">
+                        <Setter Property="TextColor"
+                                Value="White" />
+                        <Setter Property="FontSize"
+                                Value="14" />
+                        <Setter Property="CornerRadius"
+                                Value="8" />
+                        <Setter Property="Padding"
+                                Value="16,10" />
+                        <Setter Property="Margin"
+                                Value="4" />
+                        <Setter Property="HeightRequest"
+                                Value="42" />
+                        <Setter Property="MinimumWidthRequest"
+                                Value="100" />
+                        <Setter Property="FontAttributes"
+                                Value="Bold" />
+                    </Style>
+                    <Style x:Key="PrimaryButtonStyle"
+                           TargetType="Button"
+                           BasedOn="{StaticResource ModernButtonBaseStyle}">
+                        <Setter Property="BackgroundColor"
+                                Value="{StaticResource PrimaryColor}" />
+                    </Style>
+                    <Style x:Key="SecondaryButtonStyle"
+                           TargetType="Button"
+                           BasedOn="{StaticResource ModernButtonBaseStyle}">
+                        <Setter Property="BackgroundColor"
+                                Value="{StaticResource SecondaryColor}" />
+                    </Style>
+                    <Style x:Key="SuccessButtonStyle"
+                           TargetType="Button"
+                           BasedOn="{StaticResource ModernButtonBaseStyle}">
+                        <Setter Property="BackgroundColor"
+                                Value="{StaticResource TertiaryColor}" />
+                    </Style>
+                    <!-- Label Styles -->
+                    <Style x:Key="HeaderStyle"
+                           TargetType="Label">
+                        <Setter Property="FontSize"
+                                Value="22" />
+                        <Setter Property="FontAttributes"
+                                Value="Bold" />
+                        <Setter Property="TextColor">
+                            <Setter.Value>
+                                <AppThemeBinding Light="{StaticResource TextPrimaryLight}"
+                                                 Dark="{StaticResource TextPrimaryDark}" />
+                            </Setter.Value>
+                        </Setter>
+                        <Setter Property="Margin"
+                                Value="0,0,0,12" />
+                    </Style>
+                    <Style x:Key="SubHeaderStyle"
+                           TargetType="Label">
+                        <Setter Property="FontSize"
+                                Value="18" />
+                        <Setter Property="FontAttributes"
+                                Value="Bold" />
+                        <Setter Property="TextColor">
+                            <Setter.Value>
+                                <AppThemeBinding Light="{StaticResource TextPrimaryLight}"
+                                                 Dark="{StaticResource TextPrimaryDark}" />
+                            </Setter.Value>
+                        </Setter>
+                        <Setter Property="Margin"
+                                Value="0,8,0,12" />
+                    </Style>
+                    <Style x:Key="CaptionStyle"
+                           TargetType="Label">
+                        <Setter Property="FontSize"
+                                Value="15" />
+                        <Setter Property="FontAttributes"
+                                Value="Bold" />
+                        <Setter Property="TextColor">
+                            <Setter.Value>
+                                <AppThemeBinding Light="{StaticResource TextPrimaryLight}"
+                                                 Dark="{StaticResource TextPrimaryDark}" />
+                            </Setter.Value>
+                        </Setter>
+                        <Setter Property="Margin"
+                                Value="0,4,0,4" />
+                    </Style>
+                    <Style x:Key="BodyTextStyle"
+                           TargetType="Label">
+                        <Setter Property="FontSize"
+                                Value="14" />
+                        <Setter Property="TextColor">
+                            <Setter.Value>
+                                <AppThemeBinding Light="{StaticResource TextSecondaryLight}"
+                                                 Dark="{StaticResource TextSecondaryDark}" />
+                            </Setter.Value>
+                        </Setter>
+                        <Setter Property="Margin"
+                                Value="0,0,0,8" />
+                    </Style>
+                    <!-- Entry Style -->
+                    <Style x:Key="ModernEntryStyle"
+                           TargetType="Entry">
+                        <Setter Property="FontSize"
+                                Value="14" />
+                        <Setter Property="TextColor">
+                            <Setter.Value>
+                                <AppThemeBinding Light="{StaticResource TextPrimaryLight}"
+                                                 Dark="{StaticResource TextPrimaryDark}" />
+                            </Setter.Value>
+                        </Setter>
+                        <Setter Property="BackgroundColor"
+                                Value="Transparent" />
+                        <Setter Property="Margin"
+                                Value="0,4,0,12" />
+                        <Setter Property="MinimumHeightRequest"
+                                Value="44" />
+                    </Style>
+                    <!-- Switch Style -->
+                    <Style x:Key="ModernSwitchStyle"
+                           TargetType="Switch">
+                        <Setter Property="OnColor"
+                                Value="{StaticResource PrimaryColor}" />
+                        <Setter Property="ThumbColor"
+                                Value="White" />
+                    </Style>
+                </ResourceDictionary>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Application.Resources>
-
     <Application.MainPage>
-        <Shell 
-            FlyoutWidth="200" 
-            FlyoutBackgroundColor="{StaticResource Background_Mid}"
-            FlyoutBehavior="Flyout">
-
-            <!-- Desktop/Tablet-->
-            <FlyoutItem Title="Home" Route="home" Style="{StaticResource HomeFlyout}">
-                <ShellContent ContentTemplate="{DataTemplate page:HomePage}"/>
+        <Shell FlyoutWidth="200"
+               FlyoutBackgroundColor="{StaticResource Background_Mid}"
+               FlyoutBehavior="Flyout">
+            <!-- Desktop/Tablet -->
+            <FlyoutItem Title="Home"
+                        Route="home"
+                        Style="{StaticResource HomeFlyout}">
+                <ShellContent ContentTemplate="{DataTemplate page:HomePage}" />
             </FlyoutItem>
-            <FlyoutItem Title="Favorites" Route="favorites" FlyoutItemIsVisible="False">
-                <ShellContent ContentTemplate="{DataTemplate page:FavoritesPage}"/>
+            <FlyoutItem Title="Favorites"
+                        Route="favorites"
+                        FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:FavoritesPage}" />
             </FlyoutItem>
-            <FlyoutItem Title="Net" Route="net" Style="{StaticResource NetFlyout}">
-                <ShellContent ContentTemplate="{DataTemplate page:NetPage}"/>
+            <FlyoutItem Title="Net"
+                        Route="net"
+                        Style="{StaticResource NetFlyout}">
+                <ShellContent ContentTemplate="{DataTemplate page:NetPage}" />
             </FlyoutItem>
-            <FlyoutItem Title="Map" Route="map" FlyoutItemIsVisible="False">
-                <ShellContent ContentTemplate="{DataTemplate page:MapPage}"/>
+            <FlyoutItem Title="Map"
+                        Route="map"
+                        FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:MapPage}" />
             </FlyoutItem>
-            <FlyoutItem Title="About" Route="about" FlyoutItemIsVisible="False">
-                <ShellContent ContentTemplate="{DataTemplate page:AboutPage}"/>
+            <FlyoutItem Title="About"
+                        Route="about"
+                        FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:AboutPage}" />
             </FlyoutItem>
-            <FlyoutItem Title="Observe" Route="observe" Style="{StaticResource ObserveFlyout}">
-                <ShellContent ContentTemplate="{DataTemplate page:ObservePage}"/>
+            <FlyoutItem Title="Observe"
+                        Route="observe"
+                        Style="{StaticResource ObserveFlyout}">
+                <ShellContent ContentTemplate="{DataTemplate page:ObservePage}" />
             </FlyoutItem>
-            <FlyoutItem Title="Orient" Route="orient" Style="{StaticResource OrientFlyout}">
-                <ShellContent ContentTemplate="{DataTemplate page:OrientPage}"/>
+            <FlyoutItem Title="Orient"
+                        Route="orient"
+                        Style="{StaticResource OrientFlyout}">
+                <ShellContent ContentTemplate="{DataTemplate page:OrientPage}" />
             </FlyoutItem>
-            <FlyoutItem Title="Goal" Route="goal" Style="{StaticResource GoalFlyout}">
-                <ShellContent ContentTemplate="{DataTemplate page:GoalPage}"/>
+            <FlyoutItem Title="Goal"
+                        Route="goal"
+                        Style="{StaticResource GoalFlyout}">
+                <ShellContent ContentTemplate="{DataTemplate page:GoalPage}" />
             </FlyoutItem>
-            <FlyoutItem Title="Plan" Route="plan" Style="{StaticResource PlanFlyout}">
-                <ShellContent ContentTemplate="{DataTemplate page:PlanPage}"/>
+            <FlyoutItem Title="Plan"
+                        Route="plan"
+                        Style="{StaticResource PlanFlyout}">
+                <ShellContent ContentTemplate="{DataTemplate page:PlanPage}" />
             </FlyoutItem>
-            <FlyoutItem Title="Action" Route="action" Style="{StaticResource ActionFlyout}">
-                <ShellContent ContentTemplate="{DataTemplate page:ActionPage}"/>
+            <FlyoutItem Title="Action"
+                        Route="action"
+                        Style="{StaticResource ActionFlyout}">
+                <ShellContent ContentTemplate="{DataTemplate page:ActionPage}" />
             </FlyoutItem>
-            <FlyoutItem Title="Contact" Route="contact" FlyoutItemIsVisible="False">
-                <ShellContent ContentTemplate="{DataTemplate page:ContactPage}"/>
+            <FlyoutItem Title="Contact"
+                        Route="contact"
+                        FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:ContactPage}" />
             </FlyoutItem>
-            <FlyoutItem Title="Login" Route="login" FlyoutItemIsVisible="False">
-                <ShellContent ContentTemplate="{DataTemplate page:LoginPage}"/>
+            <FlyoutItem Title="Login"
+                        Route="login"
+                        FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:LoginPage}" />
             </FlyoutItem>
-            <FlyoutItem Title="Privacy" Route="privacy" FlyoutItemIsVisible="False">
-                <ShellContent ContentTemplate="{DataTemplate page:PrivacyPage}"/>
+            <FlyoutItem Title="Privacy"
+                        Route="privacy"
+                        FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:PrivacyPage}" />
             </FlyoutItem>
-            <FlyoutItem Title="Terms" Route="terms" FlyoutItemIsVisible="False">
-                <ShellContent ContentTemplate="{DataTemplate page:TermsPage}"/>
+            <FlyoutItem Title="Terms"
+                        Route="terms"
+                        FlyoutItemIsVisible="False">
+                <ShellContent ContentTemplate="{DataTemplate page:TermsPage}" />
             </FlyoutItem>
-            <FlyoutItem Title="Settings" Route="settings" Style="{StaticResource SettingsFlyout}">
-                <ShellContent ContentTemplate="{DataTemplate page:SettingsPage}"/>
+            <FlyoutItem Title="Settings"
+                        Route="settings"
+                        Style="{StaticResource SettingsFlyout}">
+                <ShellContent ContentTemplate="{DataTemplate page:SettingsPage}" />
             </FlyoutItem>
-
             <!-- Phone -->
             <TabBar x:Name="PhoneTabs">
-                <Tab Title="Home" Icon="tab_home.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:HomePage}"/>
+                <Tab Title="Home"
+                     Icon="tab_home.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:HomePage}" />
                 </Tab>
-                <Tab Title="Favorites" Icon="tab_favorites.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:FavoritesPage}"/>
+                <Tab Title="Favorites"
+                     Icon="tab_favorites.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:FavoritesPage}" />
                 </Tab>
-                <Tab Title="Map" Icon="tab_map.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:MapPage}"/>
+                <Tab Title="Map"
+                     Icon="tab_map.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:MapPage}" />
                 </Tab>
-                <Tab Title="Net" Icon="tab_net.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:NetPage}"/>
+                <Tab Title="Net"
+                     Icon="tab_net.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:NetPage}" />
                 </Tab>
-                <Tab Title="Settings" Icon="tab_settings.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:SettingsPage}"/>
+                <Tab Title="Settings"
+                     Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:SettingsPage}" />
                 </Tab>
-                <Tab Title="About" Icon="tab_settings.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:AboutPage}"/>
+                <Tab Title="About"
+                     Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:AboutPage}" />
                 </Tab>
-
-                <Tab Title="Contact" Icon="tab_settings.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:ContactPage}"/>
+                <Tab Title="Contact"
+                     Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:ContactPage}" />
                 </Tab>
-                <Tab Title="Observe" Icon="tab_settings.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:ObservePage}"/>
+                <Tab Title="Observe"
+                     Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:ObservePage}" />
                 </Tab>
-                <Tab Title="Orient" Icon="tab_settings.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:OrientPage}"/>
+                <Tab Title="Orient"
+                     Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:OrientPage}" />
                 </Tab>
-                <Tab Title="Goal" Icon="tab_settings.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:GoalPage}"/>
+                <Tab Title="Goal"
+                     Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:GoalPage}" />
                 </Tab>
-                <Tab Title="Plan" Icon="tab_settings.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:PlanPage}"/>
+                <Tab Title="Plan"
+                     Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:PlanPage}" />
                 </Tab>
-                <Tab Title="Action" Icon="tab_settings.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:ActionPage}"/>
+                <Tab Title="Action"
+                     Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:ActionPage}" />
                 </Tab>
-                <Tab Title="Login" Icon="tab_settings.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:LoginPage}"/>
+                <Tab Title="Login"
+                     Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:LoginPage}" />
                 </Tab>
-                <Tab Title="Privacy" Icon="tab_settings.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:PrivacyPage}"/>
+                <Tab Title="Privacy"
+                     Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:PrivacyPage}" />
                 </Tab>
-                <Tab Title="Terms" Icon="tab_settings.png">
-                    <ShellContent ContentTemplate="{DataTemplate page:TermsPage}"/>
+                <Tab Title="Terms"
+                     Icon="tab_settings.png">
+                    <ShellContent ContentTemplate="{DataTemplate page:TermsPage}" />
                 </Tab>
             </TabBar>
             <Shell.ItemTemplate>
                 <DataTemplate>
-                    <Grid WidthRequest="150" HeightRequest="64"
-                        HorizontalOptions="Start" VerticalOptions="Center"
-                        ColumnDefinitions="Auto, 5, Auto" RowDefinitions="*, Auto, *">
-                        <BoxView HeightRequest="15" Grid.Row="0" Grid.ColumnSpan="3"/>
+                    <Grid WidthRequest="150"
+                          HeightRequest="64"
+                          HorizontalOptions="Start"
+                          VerticalOptions="Center"
+                          ColumnDefinitions="Auto, 5, Auto"
+                          RowDefinitions="*, Auto, *">
+                        <BoxView HeightRequest="15"
+                                 Grid.Row="0"
+                                 Grid.ColumnSpan="3" />
                         <Image Source="{Binding FlyoutIcon}"
-                            VerticalOptions="Center"
-                            HorizontalOptions="Start"
-                            HeightRequest="34"
-                            WidthRequest="34"
-                            Grid.Row="1" Grid.Column="0"/>
+                               VerticalOptions="Center"
+                               HorizontalOptions="Start"
+                               HeightRequest="34"
+                               WidthRequest="34"
+                               Grid.Row="1"
+                               Grid.Column="0" />
                         <Label Text="{Binding Title}"
-                            VerticalOptions="Center"
-                            HorizontalOptions="Start"
-                            WidthRequest="170"
-                            Grid.Row="1" Grid.Column="2"/>
-                        <BoxView HeightRequest="15" Grid.Row="2" Grid.ColumnSpan="3"/>
+                               VerticalOptions="Center"
+                               HorizontalOptions="Start"
+                               WidthRequest="170"
+                               Grid.Row="1"
+                               Grid.Column="2" />
+                        <BoxView HeightRequest="15"
+                                 Grid.Row="2"
+                                 Grid.ColumnSpan="3" />
                     </Grid>
                 </DataTemplate>
             </Shell.ItemTemplate>

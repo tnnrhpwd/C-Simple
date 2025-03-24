@@ -207,31 +207,51 @@ namespace CSimple.Services
         {
             try
             {
-                // For demo purposes, we'll use placeholder images
-                // In a real implementation, you would capture actual screen and webcam frames
+                // Get real-time screen and webcam captures
+                using var webcamCapture = new VideoCapture(0);
+                using var webcamFrame = new Mat();
+
+                if (!webcamCapture.IsOpened())
+                {
+                    LogDebug("Failed to open webcam for preview.");
+                }
 
                 while (!token.IsCancellationRequested && _previewModeActive)
                 {
-                    // Simulate screen capture frames
-                    if (ScreenPreviewFrameReady != null)
+                    try
                     {
-                        // In a real implementation, you would capture an actual screen frame
-                        // This is just a placeholder to show the concept
-                        var screenImage = new FileImageSource { File = "screen_placeholder.png" };
-                        ScreenPreviewFrameReady.Invoke(screenImage);
-                    }
+                        // Capture and send screen frame
+                        if (ScreenPreviewFrameReady != null)
+                        {
+                            // Capture actual screen image
+                            var screenImage = CaptureScreenForPreview();
+                            if (screenImage != null)
+                            {
+                                ScreenPreviewFrameReady.Invoke(screenImage);
+                            }
+                        }
 
-                    // Simulate webcam capture frames
-                    if (WebcamPreviewFrameReady != null)
+                        // Capture and send webcam frame
+                        if (WebcamPreviewFrameReady != null && webcamCapture.IsOpened())
+                        {
+                            if (webcamCapture.Read(webcamFrame) && !webcamFrame.Empty())
+                            {
+                                var webcamImage = ConvertMatToImageSource(webcamFrame);
+                                if (webcamImage != null)
+                                {
+                                    WebcamPreviewFrameReady.Invoke(webcamImage);
+                                }
+                            }
+                        }
+
+                        // Delay between frames
+                        await Task.Delay(100, token); // Faster update rate for smoother preview
+                    }
+                    catch (Exception ex)
                     {
-                        // In a real implementation, you would capture an actual webcam frame
-                        // This is just a placeholder to show the concept
-                        var webcamImage = new FileImageSource { File = "webcam_placeholder.png" };
-                        WebcamPreviewFrameReady.Invoke(webcamImage);
+                        DebugMessageLogged?.Invoke($"Error capturing preview frame: {ex.Message}");
+                        await Task.Delay(1000, token); // Longer delay on error
                     }
-
-                    // Delay between frames
-                    await Task.Delay(500, token);
                 }
             }
             catch (OperationCanceledException)
@@ -241,6 +261,67 @@ namespace CSimple.Services
             catch (Exception ex)
             {
                 DebugMessageLogged?.Invoke($"Error in preview frame generation: {ex.Message}");
+            }
+        }
+
+        private ImageSource CaptureScreenForPreview()
+        {
+#if WINDOWS
+            try
+            {
+                // Capture primary screen
+                var bounds = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
+                using (var bitmap = new Bitmap(bounds.Width, bounds.Height))
+                {
+                    using (var g = Graphics.FromImage(bitmap))
+                    {
+                        g.CopyFromScreen(bounds.Location, System.Drawing.Point.Empty, bounds.Size);
+                    }
+
+                    // Convert to stream and create image source
+                    using (var memoryStream = new MemoryStream())
+                    {
+                        bitmap.Save(memoryStream, ImageFormat.Png);
+                        memoryStream.Position = 0;
+
+                        // Return as StreamImageSource
+                        var streamImageSource = ImageSource.FromStream(() => new MemoryStream(memoryStream.ToArray()));
+                        return streamImageSource;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"Error capturing screen for preview: {ex.Message}");
+            }
+#endif
+            return null;
+        }
+
+        private ImageSource ConvertMatToImageSource(Mat frame)
+        {
+            try
+            {
+                // Save to temporary file and load as image source
+                string tempFile = Path.Combine(Path.GetTempPath(), $"webcam_preview_{Guid.NewGuid()}.jpg");
+                Cv2.ImWrite(tempFile, frame);
+
+                // Create image source from file
+                var imageSource = ImageSource.FromFile(tempFile);
+
+                // Schedule file deletion after a delay
+                Task.Run(async () =>
+                {
+                    await Task.Delay(5000); // Delete after 5 seconds
+                    try { File.Delete(tempFile); } catch { }
+                });
+
+                return imageSource;
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"Error converting Mat to ImageSource: {ex.Message}");
+                return null;
             }
         }
 

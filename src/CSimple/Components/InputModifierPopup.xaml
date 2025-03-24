@@ -4,21 +4,21 @@
              x:Class="CSimple.Components.InputModifierPopup"
              IsVisible="false">
     <Grid BackgroundColor="#80000000">
-        <Border Style="{StaticResource CardStyle}"
+        <Border Style="{StaticResource ModernCardStyle}"
                 HorizontalOptions="Center"
                 VerticalOptions="Center"
-                WidthRequest="300">
-            <VerticalStackLayout>
+                WidthRequest="320">
+            <VerticalStackLayout Spacing="12">
                 <Label Text="Additional Settings"
-                       Style="{StaticResource SubHeaderLabelStyle}" />
+                       Style="{StaticResource SubHeaderStyle}" />
                 <Label Text="Description"
-                       Style="{StaticResource BodyLabelStyle}" />
+                       Style="{StaticResource CaptionStyle}" />
                 <Entry x:Name="DescriptionEntry"
                        Placeholder="Enter description"
                        Style="{StaticResource ModernEntryStyle}" />
                 <Button Text="OK"
                         Clicked="OnOkayClicked"
-                        Style="{StaticResource ModernButtonStyle}"
+                        Style="{StaticResource PrimaryButtonStyle}"
                         HorizontalOptions="End" />
             </VerticalStackLayout>
         </Border>

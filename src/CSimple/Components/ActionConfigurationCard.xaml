@@ -2,71 +2,73 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CSimple.Components.ActionConfigurationCard">
-    <Border Style="{StaticResource CardStyle}"
+    <Border Style="{StaticResource ModernCardStyle}"
             FlexLayout.Basis="100%"
             FlexLayout.Grow="1"
-            Padding="20"
             MinimumWidthRequest="320">
-        <VerticalStackLayout Spacing="8">
+        <VerticalStackLayout Spacing="12">
             <Label Text="Action Configuration"
-                   Style="{StaticResource SubHeaderLabelStyle}" />
+                   Style="{StaticResource SubHeaderStyle}" />
             <Label Text="Action Name"
-                   Style="{StaticResource BodyLabelStyle}" />
+                   Style="{StaticResource CaptionStyle}" />
             <Entry x:Name="ActionNameInput"
                    Placeholder="Enter action name"
                    Style="{StaticResource ModernEntryStyle}"
                    MaxLength="50" />
             <!-- Save Options Section -->
-            <Label Text="Save Options"
-                   Style="{StaticResource BodyLabelStyle}"
-                   FontAttributes="Bold"
-                   Margin="0,12,0,8" />
-            <Grid ColumnDefinitions="Auto,*"
-                  RowDefinitions="Auto,Auto,Auto"
-                  Margin="0,0,0,12">
-                <!-- Save Record Option -->
-                <Label Text="Save Record"
-                       Grid.Row="0"
-                       Grid.Column="0"
-                       VerticalOptions="Center"
-                       Margin="0,0,12,0" />
-                <Switch IsToggled="{Binding SaveRecord}"
-                        Grid.Row="0"
-                        Grid.Column="1"
-                        HorizontalOptions="Start"
-                        VerticalOptions="Center"
-                        Style="{StaticResource SwitchStyle}" />
-                <!-- Save Locally Option -->
-                <Label Text="Save Locally"
-                       Grid.Row="1"
-                       Grid.Column="0"
-                       VerticalOptions="Center"
-                       Margin="0,0,12,0" />
-                <Switch IsToggled="{Binding SaveLocally}"
-                        Grid.Row="1"
-                        Grid.Column="1"
-                        HorizontalOptions="Start"
-                        VerticalOptions="Center"
-                        Style="{StaticResource SwitchStyle}" />
-                <!-- Upload to Backend Option -->
-                <Label Text="Upload to Backend"
-                       Grid.Row="2"
-                       Grid.Column="0"
-                       VerticalOptions="Center"
-                       Margin="0,0,12,0" />
-                <Switch IsToggled="{Binding UploadToBackend}"
-                        Grid.Row="2"
-                        Grid.Column="1"
-                        HorizontalOptions="Start"
-                        VerticalOptions="Center"
-                        Style="{StaticResource SwitchStyle}" />
-            </Grid>
+            <Frame Style="{StaticResource PreviewFrameStyle}"
+                   Padding="12">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Save Options"
+                           Style="{StaticResource CaptionStyle}" />
+                    <Grid ColumnDefinitions="Auto,*"
+                          RowDefinitions="Auto,Auto,Auto"
+                          Margin="0,0,0,8">
+                        <!-- Save Record Option -->
+                        <Label Text="Save Record"
+                               Grid.Row="0"
+                               Grid.Column="0"
+                               VerticalOptions="Center"
+                               Margin="0,0,12,0" />
+                        <Switch IsToggled="{Binding SaveRecord}"
+                                Grid.Row="0"
+                                Grid.Column="1"
+                                HorizontalOptions="Start"
+                                VerticalOptions="Center"
+                                Style="{StaticResource ModernSwitchStyle}" />
+                        <!-- Save Locally Option -->
+                        <Label Text="Save Locally"
+                               Grid.Row="1"
+                               Grid.Column="0"
+                               VerticalOptions="Center"
+                               Margin="0,0,12,0" />
+                        <Switch IsToggled="{Binding SaveLocally}"
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                HorizontalOptions="Start"
+                                VerticalOptions="Center"
+                                Style="{StaticResource ModernSwitchStyle}" />
+                        <!-- Upload to Backend Option -->
+                        <Label Text="Upload to Backend"
+                               Grid.Row="2"
+                               Grid.Column="0"
+                               VerticalOptions="Center"
+                               Margin="0,0,12,0" />
+                        <Switch IsToggled="{Binding UploadToBackend}"
+                                Grid.Row="2"
+                                Grid.Column="1"
+                                HorizontalOptions="Start"
+                                VerticalOptions="Center"
+                                Style="{StaticResource ModernSwitchStyle}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Frame>
             <Grid ColumnDefinitions="*,*,*"
                   RowDefinitions="Auto,Auto"
                   Margin="0,8,0,0">
                 <Label Text="Modifier Name"
                        Grid.Column="0"
-                       Style="{StaticResource BodyLabelStyle}" />
+                       Style="{StaticResource CaptionStyle}" />
                 <Entry x:Name="ModifierNameEntry"
                        Placeholder="Modifier"
                        Grid.Row="1"
@@ -74,7 +76,7 @@
                        Style="{StaticResource ModernEntryStyle}" />
                 <Label Text="Priority"
                        Grid.Column="1"
-                       Style="{StaticResource BodyLabelStyle}" />
+                       Style="{StaticResource CaptionStyle}" />
                 <Entry x:Name="PriorityEntry"
                        Placeholder="1-10"
                        Grid.Row="1"
@@ -84,7 +86,7 @@
                 <Button Text="More Options"
                         Grid.Row="1"
                         Grid.Column="2"
-                        Style="{StaticResource ModernButtonStyle}"
+                        Style="{StaticResource PrimaryButtonStyle}"
                         Clicked="OnInputModifierClicked" />
             </Grid>
         </VerticalStackLayout>

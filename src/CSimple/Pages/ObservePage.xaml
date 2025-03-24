@@ -4,194 +4,23 @@
              x:Class="CSimple.Pages.ObservePage"
              Title="Observe"
              Shell.NavBarIsVisible="True"
-             BackgroundColor="{AppThemeBinding Light=#f5f7fa, Dark=#121212}">
+             BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}">
     <ContentPage.Resources>
-        <ResourceDictionary>
-            <!-- Fixed Colors -->
-            <Color x:Key="PrimaryColor">#5C6BC0</Color>
-            <Color x:Key="SecondaryColor">#F48FB1</Color>
-            <Color x:Key="TertiaryColor">#81C784</Color>
-            <Color x:Key="NeutralColor">#B0BEC5</Color>
-            <Color x:Key="LightBackground">#f5f7fa</Color>
-            <Color x:Key="DarkBackground">#121212</Color>
-            <Color x:Key="LightCardBackground">#ffffff</Color>
-            <Color x:Key="DarkCardBackground">#2d2d2d</Color>
-            <Color x:Key="LightTextPrimary">#212121</Color>
-            <Color x:Key="DarkTextPrimary">#f5f5f5</Color>
-            <Color x:Key="LightTextSecondary">#757575</Color>
-            <Color x:Key="DarkTextSecondary">#b0b0b0</Color>
-            <!-- Styles with fixed theme binding -->
-            <Style x:Key="CardStyle"
-                   TargetType="Border">
-                <Setter Property="Stroke">
-                    <Setter.Value>
-                        <AppThemeBinding Light="#e0e0e0"
-                                         Dark="#424242" />
-                    </Setter.Value>
-                </Setter>
-                <Setter Property="StrokeThickness"
-                        Value="1" />
-                <Setter Property="StrokeShape"
-                        Value="RoundRectangle 8,8,8,8" />
-                <Setter Property="Background">
-                    <Setter.Value>
-                        <AppThemeBinding Light="{StaticResource LightCardBackground}"
-                                         Dark="{StaticResource DarkCardBackground}" />
-                    </Setter.Value>
-                </Setter>
-                <Setter Property="Padding"
-                        Value="16" />
-                <Setter Property="Margin"
-                        Value="0,0,0,16" />
-                <Setter Property="Shadow">
-                    <Setter.Value>
-                        <Shadow Brush="{AppThemeBinding Light=#20000000, Dark=#40000000}"
-                                Offset="0,2"
-                                Radius="4" />
-                    </Setter.Value>
-                </Setter>
-            </Style>
-            <Style x:Key="HeaderLabelStyle"
-                   TargetType="Label">
-                <Setter Property="FontSize"
-                        Value="18" />
-                <Setter Property="FontAttributes"
-                        Value="Bold" />
-                <Setter Property="TextColor">
-                    <Setter.Value>
-                        <AppThemeBinding Light="{StaticResource LightTextPrimary}"
-                                         Dark="{StaticResource DarkTextPrimary}" />
-                    </Setter.Value>
-                </Setter>
-                <Setter Property="Margin"
-                        Value="0,0,0,12" />
-            </Style>
-            <Style x:Key="SubHeaderLabelStyle"
-                   TargetType="Label">
-                <Setter Property="FontSize"
-                        Value="16" />
-                <Setter Property="FontAttributes"
-                        Value="Bold" />
-                <Setter Property="TextColor">
-                    <Setter.Value>
-                        <AppThemeBinding Light="{StaticResource LightTextPrimary}"
-                                         Dark="{StaticResource DarkTextPrimary}" />
-                    </Setter.Value>
-                </Setter>
-                <Setter Property="Margin"
-                        Value="0,8,0,8" />
-            </Style>
-            <Style x:Key="BodyLabelStyle"
-                   TargetType="Label">
-                <Setter Property="FontSize"
-                        Value="14" />
-                <Setter Property="TextColor">
-                    <Setter.Value>
-                        <AppThemeBinding Light="{StaticResource LightTextSecondary}"
-                                         Dark="{StaticResource DarkTextSecondary}" />
-                    </Setter.Value>
-                </Setter>
-                <Setter Property="Margin"
-                        Value="0,0,0,8" />
-            </Style>
-            <Style x:Key="ModernButtonStyle"
-                   TargetType="Button">
-                <Setter Property="BackgroundColor"
-                        Value="{StaticResource PrimaryColor}" />
-                <Setter Property="TextColor"
-                        Value="White" />
-                <Setter Property="FontSize"
-                        Value="14" />
-                <Setter Property="CornerRadius"
-                        Value="6" />
-                <Setter Property="Padding"
-                        Value="16,10" />
-                <Setter Property="Margin"
-                        Value="0,8,8,8" />
-                <Setter Property="HeightRequest"
-                        Value="40" />
-                <Setter Property="MinimumWidthRequest"
-                        Value="100" />
-                <Setter Property="VisualStateManager.VisualStateGroups">
-                    <VisualStateGroupList>
-                        <VisualStateGroup x:Name="CommonStates">
-                            <VisualState x:Name="Normal" />
-                            <VisualState x:Name="Pressed">
-                                <VisualState.Setters>
-                                    <Setter Property="BackgroundColor"
-                                            Value="#4051B5" />
-                                    <Setter Property="Scale"
-                                            Value="0.98" />
-                                </VisualState.Setters>
-                            </VisualState>
-                            <VisualState x:Name="Disabled">
-                                <VisualState.Setters>
-                                    <Setter Property="BackgroundColor"
-                                            Value="#BDBDBD" />
-                                    <Setter Property="TextColor"
-                                            Value="#757575" />
-                                </VisualState.Setters>
-                            </VisualState>
-                        </VisualStateGroup>
-                    </VisualStateGroupList>
-                </Setter>
-            </Style>
-            <Style x:Key="ReadButtonStyle"
-                   TargetType="Button"
-                   BasedOn="{StaticResource ModernButtonStyle}">
-                <Setter Property="BackgroundColor"
-                        Value="{StaticResource PrimaryColor}" />
-            </Style>
-            <Style x:Key="StopButtonStyle"
-                   TargetType="Button"
-                   BasedOn="{StaticResource ModernButtonStyle}">
-                <Setter Property="BackgroundColor"
-                        Value="{StaticResource SecondaryColor}" />
-            </Style>
-            <Style x:Key="ActionButtonStyle"
-                   TargetType="Button"
-                   BasedOn="{StaticResource ModernButtonStyle}">
-                <Setter Property="BackgroundColor"
-                        Value="{StaticResource TertiaryColor}" />
-            </Style>
-            <Style x:Key="ModernEntryStyle"
-                   TargetType="Entry">
-                <Setter Property="FontSize"
-                        Value="14" />
-                <Setter Property="TextColor">
-                    <Setter.Value>
-                        <AppThemeBinding Light="{StaticResource LightTextPrimary}"
-                                         Dark="{StaticResource DarkTextPrimary}" />
-                    </Setter.Value>
-                </Setter>
-                <Setter Property="BackgroundColor"
-                        Value="Transparent" />
-                <Setter Property="Margin"
-                        Value="0,4,0,12" />
-                <Setter Property="MinimumHeightRequest"
-                        Value="40" />
-            </Style>
-            <Style x:Key="SwitchStyle"
-                   TargetType="Switch">
-                <Setter Property="OnColor"
-                        Value="{StaticResource PrimaryColor}" />
-                <Setter Property="ThumbColor"
-                        Value="White" />
-            </Style>
-        </ResourceDictionary>
+        <!-- Import app styles -->
+        <ResourceDictionary Source="../Resources/Styles/AppStyles.xaml" />
     </ContentPage.Resources>
     <Grid RowDefinitions="Auto,*,Auto"
           Padding="16">
         <!-- Header Section -->
-        <Border Style="{StaticResource CardStyle}"
+        <Border Style="{StaticResource ModernCardStyle}"
                 Grid.Row="0">
             <Grid ColumnDefinitions="*,Auto">
                 <VerticalStackLayout Grid.Column="0"
                                      Spacing="8">
                     <Label Text="Action Recording Dashboard"
-                           Style="{StaticResource HeaderLabelStyle}" />
+                           Style="{StaticResource HeaderStyle}" />
                     <Label Text="Capture and analyze user interactions in real-time"
-                           Style="{StaticResource BodyLabelStyle}" />
+                           Style="{StaticResource BodyTextStyle}" />
                 </VerticalStackLayout>
                 <HorizontalStackLayout Grid.Column="1"
                                        VerticalOptions="Center">
@@ -199,7 +28,7 @@
                            VerticalOptions="Center"
                            Margin="0,0,8,0" />
                     <Switch IsToggled="{Binding IsReadAllToggled}"
-                            Style="{StaticResource SwitchStyle}"
+                            Style="{StaticResource ModernSwitchStyle}"
                             VerticalOptions="Center" />
                 </HorizontalStackLayout>
             </Grid>

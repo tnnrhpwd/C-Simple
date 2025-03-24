@@ -9,6 +9,8 @@ namespace CSimple.Components
         private ImageSource _screenCaptureSource;
         private ImageSource _webcamCaptureSource;
         private bool _isPreviewActive;
+        private bool _isLoadingScreenPreview;
+        private bool _isLoadingWebcamPreview;
 
         // Use 'new' keyword to explicitly hide the inherited member
         public new event PropertyChangedEventHandler PropertyChanged;
@@ -29,6 +31,7 @@ namespace CSimple.Components
                     _screenCaptureSource = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(IsScreenCaptureInactive));
+                    IsLoadingScreenPreview = _screenCaptureSource == null && _isPreviewActive;
                 }
             }
         }
@@ -43,6 +46,33 @@ namespace CSimple.Components
                     _webcamCaptureSource = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(IsWebcamCaptureInactive));
+                    IsLoadingWebcamPreview = _webcamCaptureSource == null && _isPreviewActive;
+                }
+            }
+        }
+
+        public bool IsLoadingScreenPreview
+        {
+            get => _isLoadingScreenPreview;
+            set
+            {
+                if (_isLoadingScreenPreview != value)
+                {
+                    _isLoadingScreenPreview = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public bool IsLoadingWebcamPreview
+        {
+            get => _isLoadingWebcamPreview;
+            set
+            {
+                if (_isLoadingWebcamPreview != value)
+                {
+                    _isLoadingWebcamPreview = value;
+                    OnPropertyChanged();
                 }
             }
         }
@@ -67,6 +97,11 @@ namespace CSimple.Components
                 WebcamCaptureSource = null;
             }
 
+            // Update loading states
+            IsLoadingScreenPreview = isActive && ScreenCaptureSource == null;
+            IsLoadingWebcamPreview = isActive && WebcamCaptureSource == null;
+
+            // Update status texts
             ScreenCaptureStatus.Text = isActive ? "Waiting for screen feed..." : "Screen capture inactive";
             WebcamCaptureStatus.Text = isActive ? "Waiting for webcam feed..." : "Webcam inactive";
         }

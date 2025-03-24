@@ -19,31 +19,27 @@ public static class MauiProgram
                 fonts.AddFont("fa-solid-900.ttf", "FontAwesome");
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 fonts.AddFont("OpenSans-SemiBold.ttf", "OpenSansSemiBold");
-            });
-        builder.ConfigureLifecycleEvents(lifecycle =>
+            })
+            .ConfigureMauiHandlers(handlers =>
             {
-#if WINDOWS
-
-                //lifecycle
-                //    .AddWindows(windows =>
-                //        windows.OnNativeMessage((app, args) => {
-                //            if (WindowExtensions.Hwnd == IntPtr.Zero)
-                //            {
-                //                WindowExtensions.Hwnd = args.Hwnd;
-                //                WindowExtensions.SetIcon("Platforms/Windows/trayicon.ico");
-                //            }
-                //        }));
-
-                lifecycle.AddWindows(windows => windows.OnWindowCreated((window) =>
-                {
-                    // 'del.ExtendsContentIntoTitleBar = true;
-                    var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
-                    var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
-                    var appWindow = AppWindow.GetFromWindowId(windowId);
-                    appWindow.Resize(new SizeInt32(800, 900));
-                }));
-#endif
+                // Add any handler configuration here
             });
+
+        // No need to register styles here - they are already included in App.xaml
+
+        builder.ConfigureLifecycleEvents(lifecycle =>
+        {
+#if WINDOWS
+            lifecycle.AddWindows(windows => windows.OnWindowCreated((window) =>
+            {
+                // 'del.ExtendsContentIntoTitleBar = true;
+                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
+                var appWindow = AppWindow.GetFromWindowId(windowId);
+                appWindow.Resize(new SizeInt32(800, 900));
+            }));
+#endif
+        });
 
         var services = builder.Services;
         services.AddSingleton<HomeViewModel>();

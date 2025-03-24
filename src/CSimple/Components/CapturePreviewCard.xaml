@@ -2,86 +2,99 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CSimple.Components.CapturePreviewCard">
-    <Border Style="{StaticResource CardStyle}"
+    <Border Style="{StaticResource ModernCardStyle}"
             FlexLayout.Basis="{OnIdiom Phone=100%, Default=48%}"
             FlexLayout.Grow="1"
-            Padding="20"
             MinimumWidthRequest="300">
-        <VerticalStackLayout Spacing="8">
+        <VerticalStackLayout Spacing="12">
             <Label Text="Capture Preview"
-                   Style="{StaticResource SubHeaderLabelStyle}" />
+                   Style="{StaticResource SubHeaderStyle}" />
             <Grid RowDefinitions="Auto,Auto,Auto"
                   ColumnDefinitions="*,*"
                   Margin="0,8">
                 <!-- Screen Preview -->
-                <Label Text="Screen Capture"
-                       Grid.Row="0"
-                       Grid.Column="0"
-                       Style="{StaticResource BodyLabelStyle}"
-                       FontAttributes="Bold"
-                       Margin="0,0,8,4" />
+                <VerticalStackLayout Grid.Row="0"
+                                     Grid.Column="0"
+                                     Margin="0,0,6,4">
+                    <Label Text="Screen Capture"
+                           Style="{StaticResource CaptionStyle}" />
+                    <Frame Style="{StaticResource PreviewFrameStyle}"
+                           HeightRequest="160"
+                           Margin="0,4,0,0">
+                        <Grid>
+                            <Image x:Name="ScreenCaptureImage"
+                                   Source="{Binding ScreenCaptureSource, Mode=OneWay}"
+                                   Aspect="AspectFill" />
+                            <!-- Overlay and loading indicator for screen -->
+                            <Grid BackgroundColor="#80000000"
+                                  IsVisible="{Binding IsScreenCaptureInactive}">
+                                <VerticalStackLayout HorizontalOptions="Center"
+                                                     VerticalOptions="Center">
+                                    <ActivityIndicator IsRunning="{Binding IsLoadingScreenPreview}"
+                                                       Color="{StaticResource PrimaryColor}"
+                                                       HeightRequest="40"
+                                                       WidthRequest="40" />
+                                    <Label x:Name="ScreenCaptureStatus"
+                                           Text="Waiting for screen feed..."
+                                           HorizontalOptions="Center"
+                                           TextColor="White"
+                                           FontSize="12"
+                                           Margin="0,8,0,0" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Grid>
+                    </Frame>
+                </VerticalStackLayout>
                 <!-- Webcam Preview -->
-                <Label Text="Webcam Feed"
-                       Grid.Row="0"
-                       Grid.Column="1"
-                       Style="{StaticResource BodyLabelStyle}"
-                       FontAttributes="Bold"
-                       Margin="8,0,0,4" />
-                <!-- Screen Preview Frame -->
-                <Frame Grid.Row="1"
-                       Grid.Column="0"
-                       BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#333333}"
-                       CornerRadius="6"
-                       HasShadow="False"
-                       Padding="0"
-                       Margin="0,0,4,0"
-                       HeightRequest="150">
-                    <Grid>
-                        <Image x:Name="ScreenCaptureImage"
-                               Source="{Binding ScreenCaptureSource}"
-                               Aspect="AspectFill" />
-                        <Label x:Name="ScreenCaptureStatus"
-                               Text="Screen capture inactive"
-                               HorizontalOptions="Center"
-                               VerticalOptions="Center"
-                               TextColor="{AppThemeBinding Light=#757575, Dark=#b0b0b0}"
-                               IsVisible="{Binding IsScreenCaptureInactive}" />
-                    </Grid>
-                </Frame>
-                <!-- Webcam Preview Frame -->
-                <Frame Grid.Row="1"
-                       Grid.Column="1"
-                       BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#333333}"
-                       CornerRadius="6"
-                       HasShadow="False"
-                       Padding="0"
-                       Margin="4,0,0,0"
-                       HeightRequest="150">
-                    <Grid>
-                        <Image x:Name="WebcamCaptureImage"
-                               Source="{Binding WebcamCaptureSource}"
-                               Aspect="AspectFill" />
-                        <Label x:Name="WebcamCaptureStatus"
-                               Text="Webcam inactive"
-                               HorizontalOptions="Center"
-                               VerticalOptions="Center"
-                               TextColor="{AppThemeBinding Light=#757575, Dark=#b0b0b0}"
-                               IsVisible="{Binding IsWebcamCaptureInactive}" />
-                    </Grid>
-                </Frame>
+                <VerticalStackLayout Grid.Row="0"
+                                     Grid.Column="1"
+                                     Margin="6,0,0,4">
+                    <Label Text="Webcam Feed"
+                           Style="{StaticResource CaptionStyle}" />
+                    <Frame Style="{StaticResource PreviewFrameStyle}"
+                           HeightRequest="160"
+                           Margin="0,4,0,0">
+                        <Grid>
+                            <Image x:Name="WebcamCaptureImage"
+                                   Source="{Binding WebcamCaptureSource, Mode=OneWay}"
+                                   Aspect="AspectFill" />
+                            <!-- Overlay and loading indicator for webcam -->
+                            <Grid BackgroundColor="#80000000"
+                                  IsVisible="{Binding IsWebcamCaptureInactive}">
+                                <VerticalStackLayout HorizontalOptions="Center"
+                                                     VerticalOptions="Center">
+                                    <ActivityIndicator IsRunning="{Binding IsLoadingWebcamPreview}"
+                                                       Color="{StaticResource PrimaryColor}"
+                                                       HeightRequest="40"
+                                                       WidthRequest="40" />
+                                    <Label x:Name="WebcamCaptureStatus"
+                                           Text="Waiting for webcam feed..."
+                                           HorizontalOptions="Center"
+                                           TextColor="White"
+                                           FontSize="12"
+                                           Margin="0,8,0,0" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Grid>
+                    </Frame>
+                </VerticalStackLayout>
                 <!-- Input Status -->
-                <Frame Grid.Row="2"
+                <Frame Grid.Row="1"
                        Grid.Column="0"
                        Grid.ColumnSpan="2"
                        Margin="0,12,0,0"
-                       BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#333333}"
-                       CornerRadius="6"
-                       HasShadow="False"
+                       Style="{StaticResource PreviewFrameStyle}"
                        Padding="12">
-                    <Label x:Name="ButtonLabel"
-                           Text="No active key/mouse presses"
-                           MaxLines="4"
-                           LineBreakMode="TailTruncation" />
+                    <VerticalStackLayout>
+                        <Label Text="Input Activity"
+                               Style="{StaticResource CaptionStyle}"
+                               Margin="0,0,0,4" />
+                        <Label x:Name="ButtonLabel"
+                               Text="No active key/mouse presses"
+                               MaxLines="4"
+                               LineBreakMode="TailTruncation"
+                               Style="{StaticResource BodyTextStyle}" />
+                    </VerticalStackLayout>
                 </Frame>
             </Grid>
         </VerticalStackLayout>
