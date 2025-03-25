@@ -3,10 +3,175 @@
              x:Class="CSimple.Pages.ActionDetailPage"
              BackgroundColor="White"
              Padding="20">
-    <StackLayout Spacing="20">
-        <Label Text="{Binding ActionName}" FontSize="Title" HorizontalOptions="Center"/>
-        <Label Text="{Binding ActionArrayFormatted}" FontSize="Body"/>
-        
-        <Button Text="Close" Command="{Binding CloseCommand}" VerticalOptions="End"/>
-    </StackLayout>
+    <ScrollView>
+        <VerticalStackLayout Spacing="20">
+            <Label Text="{Binding ActionName}"
+                   FontSize="Title"
+                   HorizontalOptions="Center" />
+            <!-- Action Type and Metadata -->
+            <Frame BorderColor="{StaticResource Primary}"
+                   CornerRadius="10"
+                   Padding="15">
+                <Grid ColumnDefinitions="Auto,*"
+                      RowDefinitions="Auto,Auto,Auto,Auto"
+                      ColumnSpacing="10"
+                      RowSpacing="10">
+                    <Label Grid.Row="0"
+                           Grid.Column="0"
+                           Text="Type:"
+                           FontAttributes="Bold" />
+                    <Label Grid.Row="0"
+                           Grid.Column="1"
+                           Text="{Binding ActionType}" />
+                    <Label Grid.Row="1"
+                           Grid.Column="0"
+                           Text="Created:"
+                           FontAttributes="Bold" />
+                    <Label Grid.Row="1"
+                           Grid.Column="1"
+                           Text="{Binding CreatedAt}" />
+                    <Label Grid.Row="2"
+                           Grid.Column="0"
+                           Text="Duration:"
+                           FontAttributes="Bold" />
+                    <Label Grid.Row="2"
+                           Grid.Column="1"
+                           Text="{Binding Duration}" />
+                    <Label Grid.Row="3"
+                           Grid.Column="0"
+                           Text="Confidence:"
+                           FontAttributes="Bold" />
+                    <ProgressBar Grid.Row="3"
+                                 Grid.Column="1"
+                                 Progress="{Binding Confidence}"
+                                 ProgressColor="{StaticResource Primary}" />
+                </Grid>
+            </Frame>
+            <!-- Action Sequence -->
+            <Label Text="Action Sequence"
+                   FontSize="Medium"
+                   FontAttributes="Bold" />
+            <Frame BorderColor="{StaticResource Primary}"
+                   CornerRadius="10"
+                   Padding="15">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{Binding ActionArrayFormatted}"
+                           FontFamily="Courier New" />
+                    <CollectionView ItemsSource="{Binding ActionSteps}"
+                                    EmptyView="No steps available">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame Margin="0,5"
+                                       Padding="10"
+                                       CornerRadius="5"
+                                       BorderColor="LightGray">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <Label Grid.Column="0"
+                                               Text="{Binding StepNumber}"
+                                               FontAttributes="Bold"
+                                               Margin="0,0,10,0" />
+                                        <Label Grid.Column="1"
+                                               Text="{Binding Description}" />
+                                        <Label Grid.Column="2"
+                                               Text="{Binding Duration}" />
+                                    </Grid>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Frame>
+            <!-- Prediction Details -->
+            <Label Text="Neural Network Prediction"
+                   FontSize="Medium"
+                   FontAttributes="Bold" />
+            <Frame BorderColor="{StaticResource Primary}"
+                   CornerRadius="10"
+                   Padding="15"
+                   IsVisible="{Binding HasPrediction}">
+                <VerticalStackLayout Spacing="10">
+                    <Grid ColumnDefinitions="Auto,*"
+                          RowDefinitions="Auto,Auto,Auto"
+                          ColumnSpacing="10"
+                          RowSpacing="10">
+                        <Label Grid.Row="0"
+                               Grid.Column="0"
+                               Text="Goal:"
+                               FontAttributes="Bold" />
+                        <Label Grid.Row="0"
+                               Grid.Column="1"
+                               Text="{Binding PredictionGoal}" />
+                        <Label Grid.Row="1"
+                               Grid.Column="0"
+                               Text="Model:"
+                               FontAttributes="Bold" />
+                        <Label Grid.Row="1"
+                               Grid.Column="1"
+                               Text="{Binding PredictionModel}" />
+                        <Label Grid.Row="2"
+                               Grid.Column="0"
+                               Text="Score:"
+                               FontAttributes="Bold" />
+                        <ProgressBar Grid.Row="2"
+                                     Grid.Column="1"
+                                     Progress="{Binding PredictionScore}"
+                                     ProgressColor="#FF9800" />
+                    </Grid>
+                    <Label Text="Similar Actions"
+                           FontSize="Small"
+                           FontAttributes="Bold" />
+                    <CollectionView ItemsSource="{Binding SimilarActions}"
+                                    HeightRequest="120">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame Margin="5"
+                                       Padding="10"
+                                       CornerRadius="5"
+                                       BorderColor="LightGray">
+                                    <StackLayout>
+                                        <Label Text="{Binding Name}"
+                                               FontAttributes="Bold" />
+                                        <Label Text="{Binding Similarity, StringFormat='Similarity: {0:P0}'}"
+                                               FontSize="Small" />
+                                    </StackLayout>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Horizontal"
+                                               ItemSpacing="10" />
+                        </CollectionView.ItemsLayout>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Frame>
+            <Frame BorderColor="{StaticResource Primary}"
+                   CornerRadius="10"
+                   Padding="15"
+                   IsVisible="{Binding NoPrediction}">
+                <VerticalStackLayout>
+                    <Label Text="No prediction available for this action"
+                           HorizontalOptions="Center" />
+                    <Button Text="Generate Prediction"
+                            Command="{Binding GeneratePredictionCommand}"
+                            BackgroundColor="{StaticResource Primary}"
+                            TextColor="White"
+                            Margin="0,10,0,0" />
+                </VerticalStackLayout>
+            </Frame>
+            <!-- Action Controls -->
+            <Grid ColumnDefinitions="*,*"
+                  ColumnSpacing="20">
+                <Button Grid.Column="0"
+                        Text="Edit"
+                        Command="{Binding EditCommand}"
+                        BackgroundColor="#2196F3"
+                        TextColor="White" />
+                <Button Grid.Column="1"
+                        Text="Close"
+                        Command="{Binding CloseCommand}"
+                        BackgroundColor="#757575"
+                        TextColor="White" />
+            </Grid>
+        </VerticalStackLayout>
+    </ScrollView>
 </ContentPage>

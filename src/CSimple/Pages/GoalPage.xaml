@@ -4,48 +4,256 @@
              Title="Goal">
     <ContentPage.Content>
         <ScrollView>
-            <VerticalStackLayout Padding="10" Spacing="15">
-                <Label Text="Goals" FontSize="Large" FontAttributes="Bold" HorizontalOptions="Center" />
-                <Label Text="Every journey begins with a step. Where are you going?" HorizontalOptions="Center" />
-
-                <Frame CornerRadius="10" Padding="0">
-                    <Button Text="{Binding CreateGoalButtonText}"
-                            Command="{Binding ToggleCreateGoalCommand}"
-                            TextColor="White" />
+            <VerticalStackLayout Padding="15"
+                                 Spacing="20">
+                <Label Text="Goals"
+                       FontSize="Title"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center" />
+                <Label Text="Define your objectives and let AI help you achieve them"
+                       HorizontalOptions="Center"
+                       TextColor="Gray" />
+                <!-- Goal Types Tabs -->
+                <Frame CornerRadius="10"
+                       Padding="5"
+                       BackgroundColor="#f0f0f0">
+                    <HorizontalStackLayout HorizontalOptions="Center">
+                        <Button Text="My Goals"
+                                Command="{Binding SwitchToMyGoalsCommand}"
+                                BackgroundColor="{Binding IsMyGoalsSelected, Converter={StaticResource BoolToColorConverter}}"
+                                TextColor="White"
+                                CornerRadius="5"
+                                Margin="5" />
+                        <Button Text="Shared Goals"
+                                Command="{Binding SwitchToSharedGoalsCommand}"
+                                BackgroundColor="{Binding IsSharedGoalsSelected, Converter={StaticResource BoolToColorConverter}}"
+                                TextColor="White"
+                                CornerRadius="5"
+                                Margin="5" />
+                        <Button Text="Discover"
+                                Command="{Binding SwitchToDiscoverGoalsCommand}"
+                                BackgroundColor="{Binding IsDiscoverSelected, Converter={StaticResource BoolToColorConverter}}"
+                                TextColor="White"
+                                CornerRadius="5"
+                                Margin="5" />
+                    </HorizontalStackLayout>
                 </Frame>
-
-                <Frame IsVisible="{Binding ShowNewGoal}" Padding="10" CornerRadius="10">
-                    <StackLayout>
-                        <Label Text="Create New Goal" FontSize="Medium" FontAttributes="Bold" HorizontalOptions="Center" />
-                        <Entry Placeholder="Enter goal details..." Text="{Binding NewGoalText}" />
-                        <Frame CornerRadius="10" Padding="0">
-                            <Button BackgroundColor="Green" Text="Submit Goal" Command="{Binding SubmitGoalCommand}" TextColor="White" />
-                        </Frame>
-                    </StackLayout>
-                </Frame>
-
-                <Frame CornerRadius="10" Padding="0">
-                    <Button Text="{Binding MyGoalsButtonText}"
-                            Command="{Binding ToggleMyGoalsCommand}"
-                            TextColor="White" />
-                </Frame>
-
-                <Frame IsVisible="{Binding ShowMyGoals}" Padding="10" CornerRadius="10">
-                    <StackLayout>
-                        <Label Text="My Goals" FontSize="Medium" FontAttributes="Bold" HorizontalOptions="Center" />
-                        <CollectionView ItemsSource="{Binding MyGoals}">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <Frame CornerRadius="10" Padding="10" Margin="5">
-                                        <StackLayout>
-                                            <Label Text="{Binding .}" FontSize="Small" />
-                                        </StackLayout>
-                                    </Frame>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                    </StackLayout>
-                </Frame>
+                <!-- My Goals Section -->
+                <VerticalStackLayout IsVisible="{Binding IsMyGoalsSelected}"
+                                     Spacing="15">
+                    <Frame CornerRadius="10"
+                           Padding="0">
+                        <Button Text="{Binding CreateGoalButtonText}"
+                                Command="{Binding ToggleCreateGoalCommand}"
+                                TextColor="White" />
+                    </Frame>
+                    <Frame IsVisible="{Binding ShowNewGoal}"
+                           Padding="15"
+                           CornerRadius="10"
+                           BorderColor="{StaticResource Primary}">
+                        <VerticalStackLayout Spacing="15">
+                            <Label Text="Create New Goal"
+                                   FontSize="Medium"
+                                   FontAttributes="Bold"
+                                   HorizontalOptions="Center" />
+                            <Picker Title="Goal Type"
+                                    ItemsSource="{Binding GoalTypes}"
+                                    SelectedItem="{Binding SelectedGoalType}" />
+                            <Entry Placeholder="Goal Title"
+                                   Text="{Binding NewGoalTitle}" />
+                            <Editor Placeholder="Enter goal details and description..."
+                                    Text="{Binding NewGoalText}"
+                                    HeightRequest="100"
+                                    AutoSize="TextChanges" />
+                            <Grid ColumnDefinitions="Auto,*"
+                                  RowDefinitions="Auto,Auto"
+                                  ColumnSpacing="10">
+                                <Label Grid.Row="0"
+                                       Grid.Column="0"
+                                       Text="Priority:"
+                                       VerticalOptions="Center" />
+                                <Slider Grid.Row="0"
+                                        Grid.Column="1"
+                                        Minimum="1"
+                                        Maximum="5"
+                                        Value="{Binding GoalPriority}"
+                                        ThumbColor="{StaticResource Primary}"
+                                        MinimumTrackColor="{StaticResource Primary}" />
+                                <Label Grid.Row="1"
+                                       Grid.Column="0"
+                                       Text="Deadline:"
+                                       VerticalOptions="Center" />
+                                <DatePicker Grid.Row="1"
+                                            Grid.Column="1"
+                                            Date="{Binding GoalDeadline}" />
+                            </Grid>
+                            <StackLayout Orientation="Horizontal">
+                                <CheckBox IsChecked="{Binding ShareGoal}"
+                                          Color="{StaticResource Primary}" />
+                                <Label Text="Share this goal publicly"
+                                       VerticalOptions="Center" />
+                            </StackLayout>
+                            <Frame CornerRadius="10"
+                                   Padding="0">
+                                <Button BackgroundColor="Green"
+                                        Text="Submit Goal"
+                                        Command="{Binding SubmitGoalCommand}"
+                                        TextColor="White" />
+                            </Frame>
+                        </VerticalStackLayout>
+                    </Frame>
+                    <CollectionView ItemsSource="{Binding MyGoals}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame CornerRadius="10"
+                                       Padding="15"
+                                       Margin="0,5"
+                                       BorderColor="{StaticResource Primary}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <VerticalStackLayout Grid.Column="0"
+                                                             Spacing="5">
+                                            <Label Text="{Binding Title}"
+                                                   FontSize="Medium"
+                                                   FontAttributes="Bold" />
+                                            <Label Text="{Binding Description}"
+                                                   FontSize="Small" />
+                                            <ProgressBar Progress="{Binding Progress}"
+                                                         ProgressColor="{StaticResource Primary}" />
+                                            <HorizontalStackLayout Spacing="10">
+                                                <Label Text="{Binding Deadline, StringFormat='Due: {0:d}'}"
+                                                       FontSize="Micro"
+                                                       TextColor="Gray" />
+                                                <Label Text="{Binding Priority, StringFormat='Priority: {0}'}"
+                                                       FontSize="Micro"
+                                                       TextColor="Gray" />
+                                            </HorizontalStackLayout>
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="1"
+                                                             Spacing="5">
+                                            <Button Text="Edit"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditGoalCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    WidthRequest="80" />
+                                            <Button Text="Share"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ShareGoalCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    WidthRequest="80" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+                <!-- Shared Goals Section -->
+                <VerticalStackLayout IsVisible="{Binding IsSharedGoalsSelected}"
+                                     Spacing="15">
+                    <SearchBar Placeholder="Search your shared goals"
+                               Text="{Binding SharedGoalSearchQuery}" />
+                    <CollectionView ItemsSource="{Binding SharedGoals}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame CornerRadius="10"
+                                       Padding="15"
+                                       Margin="0,5"
+                                       BorderColor="LightGray">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <VerticalStackLayout Grid.Column="0"
+                                                             Spacing="5">
+                                            <Label Text="{Binding Title}"
+                                                   FontSize="Medium"
+                                                   FontAttributes="Bold" />
+                                            <Label Text="{Binding Description}"
+                                                   FontSize="Small" />
+                                            <HorizontalStackLayout Spacing="10">
+                                                <Label Text="{Binding SharedWith, StringFormat='Shared with: {0} users'}"
+                                                       FontSize="Micro"
+                                                       TextColor="Gray" />
+                                                <Label Text="{Binding SharedDate, StringFormat='Shared on: {0:d}'}"
+                                                       FontSize="Micro"
+                                                       TextColor="Gray" />
+                                            </HorizontalStackLayout>
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="1"
+                                                Text="Unshare"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.UnshareGoalCommand}"
+                                                CommandParameter="{Binding .}"
+                                                BackgroundColor="#FF5252"
+                                                TextColor="White"
+                                                VerticalOptions="Center" />
+                                    </Grid>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+                <!-- Discover Goals Section -->
+                <VerticalStackLayout IsVisible="{Binding IsDiscoverSelected}"
+                                     Spacing="15">
+                    <SearchBar Placeholder="Search for goals to download"
+                               Text="{Binding DiscoverSearchQuery}" />
+                    <Label Text="Popular Categories"
+                           FontAttributes="Bold" />
+                    <HorizontalStackLayout Spacing="10"
+                                           HorizontalOptions="Center">
+                        <Button Text="Productivity"
+                                Command="{Binding FilterCategoryCommand}"
+                                CommandParameter="Productivity" />
+                        <Button Text="Business"
+                                Command="{Binding FilterCategoryCommand}"
+                                CommandParameter="Business" />
+                        <Button Text="Personal"
+                                Command="{Binding FilterCategoryCommand}"
+                                CommandParameter="Personal" />
+                    </HorizontalStackLayout>
+                    <CollectionView ItemsSource="{Binding DiscoverGoals}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame CornerRadius="10"
+                                       Padding="15"
+                                       Margin="0,5">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <Image Grid.Column="0"
+                                               Source="{Binding CreatorImage}"
+                                               WidthRequest="40"
+                                               HeightRequest="40"
+                                               VerticalOptions="Start"
+                                               Margin="0,0,10,0" />
+                                        <VerticalStackLayout Grid.Column="1"
+                                                             Spacing="5">
+                                            <Label Text="{Binding Title}"
+                                                   FontSize="Medium"
+                                                   FontAttributes="Bold" />
+                                            <Label Text="{Binding Description}"
+                                                   FontSize="Small" />
+                                            <HorizontalStackLayout Spacing="10">
+                                                <Image Source="star.png"
+                                                       WidthRequest="12"
+                                                       HeightRequest="12" />
+                                                <Label Text="{Binding Rating}"
+                                                       FontSize="Micro"
+                                                       TextColor="Gray" />
+                                                <Label Text="{Binding Downloads, StringFormat='{0} downloads'}"
+                                                       FontSize="Micro"
+                                                       TextColor="Gray" />
+                                                <Label Text="{Binding Creator}"
+                                                       FontSize="Micro"
+                                                       TextColor="Gray" />
+                                            </HorizontalStackLayout>
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="2"
+                                                Text="Download"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DownloadGoalCommand}"
+                                                CommandParameter="{Binding .}"
+                                                BackgroundColor="#4CAF50"
+                                                TextColor="White"
+                                                VerticalOptions="Center" />
+                                    </Grid>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
             </VerticalStackLayout>
         </ScrollView>
     </ContentPage.Content>

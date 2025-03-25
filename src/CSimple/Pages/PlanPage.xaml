@@ -4,122 +4,332 @@
              Title="Plan">
     <ContentPage.Content>
         <ScrollView>
-            <VerticalStackLayout Padding="10"
-                                 Spacing="15">
-                <Label Text="Plans"
-                       FontSize="Large"
+            <VerticalStackLayout Padding="15"
+                                 Spacing="20">
+                <Label Text="Resource Planning"
+                       FontSize="Title"
                        FontAttributes="Bold"
                        HorizontalOptions="Center" />
+                <!-- Calendar Section -->
                 <Frame CornerRadius="10"
-                       Padding="10"
-                       BackgroundColor="LightGray">
-                    <Grid x:Name="CalendarGrid">
-                        <!-- Days of the week -->
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <!-- Days of the week labels -->
-                        <Label Text="Sun"
-                               Grid.Row="0"
-                               Grid.Column="0"
-                               HorizontalOptions="Center" />
-                        <Label Text="Mon"
-                               Grid.Row="0"
-                               Grid.Column="1"
-                               HorizontalOptions="Center" />
-                        <Label Text="Tue"
-                               Grid.Row="0"
-                               Grid.Column="2"
-                               HorizontalOptions="Center" />
-                        <Label Text="Wed"
-                               Grid.Row="0"
-                               Grid.Column="3"
-                               HorizontalOptions="Center" />
-                        <Label Text="Thu"
-                               Grid.Row="0"
-                               Grid.Column="4"
-                               HorizontalOptions="Center" />
-                        <Label Text="Fri"
-                               Grid.Row="0"
-                               Grid.Column="5"
-                               HorizontalOptions="Center" />
-                        <Label Text="Sat"
-                               Grid.Row="0"
-                               Grid.Column="6"
-                               HorizontalOptions="Center" />
-                        <!-- Calendar days will be populated here -->
-                    </Grid>
-                </Frame>
-                <Label Text="Every journey begins with a step. What is your plan?"
-                       HorizontalOptions="Center" />
-                <Frame CornerRadius="10"
-                       Padding="0">
-                    <Button Text="{Binding CreatePlanButtonText}"
-                            Command="{Binding ToggleCreatePlanCommand}"
-                            TextColor="White" />
-                </Frame>
-                <Frame IsVisible="{Binding ShowNewPlan}"
-                       Padding="10"
-                       CornerRadius="10">
-                    <VerticalStackLayout>
-                        <Label Text="Create New Plan"
+                       Padding="15"
+                       BorderColor="{StaticResource Primary}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Schedule Overview"
                                FontSize="Medium"
                                FontAttributes="Bold"
                                HorizontalOptions="Center" />
-                        <Entry Placeholder="Enter plan details..."
-                               Text="{Binding NewPlanText}" />
-                        <Frame CornerRadius="10"
-                               Padding="0">
-                            <Button BackgroundColor="Green"
-                                    Text="Submit Plan"
-                                    Command="{Binding SubmitPlanCommand}"
-                                    TextColor="White" />
-                        </Frame>
+                        <HorizontalStackLayout Spacing="10"
+                                               HorizontalOptions="Center">
+                            <Button Text="&lt;"
+                                    Command="{Binding PreviousMonthCommand}"
+                                    WidthRequest="40" />
+                            <Label Text="{Binding CurrentMonthYear}"
+                                   FontSize="Medium"
+                                   VerticalOptions="Center" />
+                            <Button Text=">"
+                                    Command="{Binding NextMonthCommand}"
+                                    WidthRequest="40" />
+                        </HorizontalStackLayout>
+                        <Grid x:Name="CalendarGrid"
+                              BackgroundColor="White">
+                            <!-- Days of the week -->
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <!-- Days of the week labels -->
+                            <Label Text="Sun"
+                                   Grid.Row="0"
+                                   Grid.Column="0"
+                                   HorizontalOptions="Center" />
+                            <Label Text="Mon"
+                                   Grid.Row="0"
+                                   Grid.Column="1"
+                                   HorizontalOptions="Center" />
+                            <Label Text="Tue"
+                                   Grid.Row="0"
+                                   Grid.Column="2"
+                                   HorizontalOptions="Center" />
+                            <Label Text="Wed"
+                                   Grid.Row="0"
+                                   Grid.Column="3"
+                                   HorizontalOptions="Center" />
+                            <Label Text="Thu"
+                                   Grid.Row="0"
+                                   Grid.Column="4"
+                                   HorizontalOptions="Center" />
+                            <Label Text="Fri"
+                                   Grid.Row="0"
+                                   Grid.Column="5"
+                                   HorizontalOptions="Center" />
+                            <Label Text="Sat"
+                                   Grid.Row="0"
+                                   Grid.Column="6"
+                                   HorizontalOptions="Center" />
+                            <!-- Calendar days will be populated here -->
+                        </Grid>
+                        <Button Text="View Today's Schedule"
+                                Command="{Binding ViewTodayCommand}"
+                                BackgroundColor="{StaticResource Primary}"
+                                TextColor="White" />
                     </VerticalStackLayout>
                 </Frame>
+                <!-- Resource Allocation -->
                 <Frame CornerRadius="10"
-                       Padding="0">
-                    <Button Text="{Binding MyPlansButtonText}"
-                            Command="{Binding ToggleMyPlansCommand}"
-                            TextColor="White" />
-                </Frame>
-                <Frame IsVisible="{Binding ShowMyPlans}"
-                       Padding="10"
-                       CornerRadius="10">
-                    <VerticalStackLayout>
-                        <Label Text="My Plans"
+                       Padding="15"
+                       BorderColor="{StaticResource Primary}">
+                    <VerticalStackLayout Spacing="15">
+                        <Label Text="Resource Allocation"
                                FontSize="Medium"
                                FontAttributes="Bold"
                                HorizontalOptions="Center" />
-                        <CollectionView ItemsSource="{Binding MyPlans}">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <Frame CornerRadius="10"
-                                           Padding="10"
-                                           Margin="5">
-                                        <VerticalStackLayout>
-                                            <Label Text="{Binding .}"
-                                                   FontSize="Small" />
-                                        </VerticalStackLayout>
-                                    </Frame>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
+                        <Grid ColumnDefinitions="*,*"
+                              RowDefinitions="Auto,Auto,Auto"
+                              ColumnSpacing="10"
+                              RowSpacing="15">
+                            <Frame Grid.Row="0"
+                                   Grid.Column="0"
+                                   BackgroundColor="#E3F2FD"
+                                   Padding="10"
+                                   CornerRadius="5">
+                                <VerticalStackLayout>
+                                    <Label Text="CPU Usage"
+                                           FontSize="Small" />
+                                    <ProgressBar Progress="{Binding CpuUsage}"
+                                                 ProgressColor="#2196F3" />
+                                    <Label Text="{Binding CpuUsageText}"
+                                           FontSize="Micro"
+                                           HorizontalOptions="End" />
+                                </VerticalStackLayout>
+                            </Frame>
+                            <Frame Grid.Row="0"
+                                   Grid.Column="1"
+                                   BackgroundColor="#E8F5E9"
+                                   Padding="10"
+                                   CornerRadius="5">
+                                <VerticalStackLayout>
+                                    <Label Text="Memory Usage"
+                                           FontSize="Small" />
+                                    <ProgressBar Progress="{Binding MemoryUsage}"
+                                                 ProgressColor="#4CAF50" />
+                                    <Label Text="{Binding MemoryUsageText}"
+                                           FontSize="Micro"
+                                           HorizontalOptions="End" />
+                                </VerticalStackLayout>
+                            </Frame>
+                            <Frame Grid.Row="1"
+                                   Grid.Column="0"
+                                   BackgroundColor="#FFF3E0"
+                                   Padding="10"
+                                   CornerRadius="5">
+                                <VerticalStackLayout>
+                                    <Label Text="Storage"
+                                           FontSize="Small" />
+                                    <ProgressBar Progress="{Binding StorageUsage}"
+                                                 ProgressColor="#FF9800" />
+                                    <Label Text="{Binding StorageUsageText}"
+                                           FontSize="Micro"
+                                           HorizontalOptions="End" />
+                                </VerticalStackLayout>
+                            </Frame>
+                            <Frame Grid.Row="1"
+                                   Grid.Column="1"
+                                   BackgroundColor="#F3E5F5"
+                                   Padding="10"
+                                   CornerRadius="5">
+                                <VerticalStackLayout>
+                                    <Label Text="Network"
+                                           FontSize="Small" />
+                                    <ProgressBar Progress="{Binding NetworkUsage}"
+                                                 ProgressColor="#9C27B0" />
+                                    <Label Text="{Binding NetworkUsageText}"
+                                           FontSize="Micro"
+                                           HorizontalOptions="End" />
+                                </VerticalStackLayout>
+                            </Frame>
+                        </Grid>
+                        <Button Text="Optimize Resource Allocation"
+                                Command="{Binding OptimizeResourcesCommand}"
+                                BackgroundColor="#00BCD4"
+                                TextColor="White" />
+                    </VerticalStackLayout>
+                </Frame>
+                <!-- Plan Management -->
+                <Frame CornerRadius="10"
+                       Padding="15"
+                       BorderColor="{StaticResource Primary}">
+                    <VerticalStackLayout Spacing="15">
+                        <Label Text="Plan Management"
+                               FontSize="Medium"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center" />
+                        <Grid ColumnDefinitions="Auto,*"
+                              RowSpacing="15">
+                            <Label Grid.Column="0"
+                                   Text="Active Goal:"
+                                   VerticalOptions="Center" />
+                            <Picker Grid.Column="1"
+                                    ItemsSource="{Binding ActiveGoals}"
+                                    SelectedItem="{Binding SelectedActiveGoal}"
+                                    Title="Select a goal to plan" />
+                        </Grid>
+                        <Button Text="{Binding CreatePlanButtonText}"
+                                Command="{Binding ToggleCreatePlanCommand}"
+                                BackgroundColor="{StaticResource Primary}"
+                                TextColor="White" />
+                        <Frame IsVisible="{Binding ShowNewPlan}"
+                               Padding="15"
+                               CornerRadius="10"
+                               BorderColor="LightGray">
+                            <VerticalStackLayout Spacing="10">
+                                <Label Text="Create New Plan"
+                                       FontSize="Medium"
+                                       FontAttributes="Bold"
+                                       HorizontalOptions="Center" />
+                                <Entry Placeholder="Plan Title"
+                                       Text="{Binding NewPlanTitle}" />
+                                <Editor Placeholder="Enter plan details..."
+                                        Text="{Binding NewPlanText}"
+                                        HeightRequest="100"
+                                        AutoSize="TextChanges" />
+                                <Grid ColumnDefinitions="Auto,*"
+                                      RowDefinitions="Auto,Auto,Auto"
+                                      ColumnSpacing="10"
+                                      RowSpacing="10">
+                                    <Label Grid.Row="0"
+                                           Grid.Column="0"
+                                           Text="Start Date:"
+                                           VerticalOptions="Center" />
+                                    <DatePicker Grid.Row="0"
+                                                Grid.Column="1"
+                                                Date="{Binding PlanStartDate}" />
+                                    <Label Grid.Row="1"
+                                           Grid.Column="0"
+                                           Text="End Date:"
+                                           VerticalOptions="Center" />
+                                    <DatePicker Grid.Row="1"
+                                                Grid.Column="1"
+                                                Date="{Binding PlanEndDate}" />
+                                    <Label Grid.Row="2"
+                                           Grid.Column="0"
+                                           Text="Priority:"
+                                           VerticalOptions="Center" />
+                                    <Slider Grid.Row="2"
+                                            Grid.Column="1"
+                                            Minimum="1"
+                                            Maximum="5"
+                                            Value="{Binding PlanPriority}" />
+                                </Grid>
+                                <Label Text="Resource Requirements" />
+                                <Grid ColumnDefinitions="Auto,*"
+                                      RowDefinitions="Auto,Auto,Auto"
+                                      ColumnSpacing="10"
+                                      RowSpacing="10">
+                                    <Label Grid.Row="0"
+                                           Grid.Column="0"
+                                           Text="CPU:"
+                                           VerticalOptions="Center" />
+                                    <Slider Grid.Row="0"
+                                            Grid.Column="1"
+                                            Minimum="0"
+                                            Maximum="100"
+                                            Value="{Binding PlanCpuRequirement}" />
+                                    <Label Grid.Row="1"
+                                           Grid.Column="0"
+                                           Text="Memory:"
+                                           VerticalOptions="Center" />
+                                    <Slider Grid.Row="1"
+                                            Grid.Column="1"
+                                            Minimum="0"
+                                            Maximum="100"
+                                            Value="{Binding PlanMemoryRequirement}" />
+                                    <Label Grid.Row="2"
+                                           Grid.Column="0"
+                                           Text="Storage:"
+                                           VerticalOptions="Center" />
+                                    <Slider Grid.Row="2"
+                                            Grid.Column="1"
+                                            Minimum="0"
+                                            Maximum="100"
+                                            Value="{Binding PlanStorageRequirement}" />
+                                </Grid>
+                                <Button BackgroundColor="Green"
+                                        Text="Submit Plan"
+                                        Command="{Binding SubmitPlanCommand}"
+                                        TextColor="White" />
+                            </VerticalStackLayout>
+                        </Frame>
+                        <Button Text="{Binding MyPlansButtonText}"
+                                Command="{Binding ToggleMyPlansCommand}"
+                                BackgroundColor="{StaticResource Primary}"
+                                TextColor="White" />
+                        <Frame IsVisible="{Binding ShowMyPlans}"
+                               Padding="15"
+                               CornerRadius="10"
+                               BorderColor="LightGray">
+                            <VerticalStackLayout Spacing="10">
+                                <Label Text="My Plans"
+                                       FontSize="Medium"
+                                       FontAttributes="Bold"
+                                       HorizontalOptions="Center" />
+                                <CollectionView ItemsSource="{Binding MyPlans}">
+                                    <CollectionView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Frame CornerRadius="10"
+                                                   Padding="15"
+                                                   Margin="0,5"
+                                                   BorderColor="{Binding Priority, Converter={StaticResource PriorityToColorConverter}}">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <VerticalStackLayout Grid.Column="0">
+                                                        <Label Text="{Binding Title}"
+                                                               FontAttributes="Bold" />
+                                                        <Label Text="{Binding Description}"
+                                                               FontSize="Small" />
+                                                        <ProgressBar Progress="{Binding Progress}" />
+                                                        <HorizontalStackLayout Spacing="5">
+                                                            <Label Text="{Binding StartDate, StringFormat='From: {0:d}'}"
+                                                                   FontSize="Micro" />
+                                                            <Label Text="{Binding EndDate, StringFormat='To: {0:d}'}"
+                                                                   FontSize="Micro" />
+                                                            <Label Text="{Binding GoalTitle, StringFormat='Goal: {0}'}"
+                                                                   FontSize="Micro" />
+                                                        </HorizontalStackLayout>
+                                                    </VerticalStackLayout>
+                                                    <VerticalStackLayout Grid.Column="1"
+                                                                         Spacing="5">
+                                                        <Button Text="Edit"
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditPlanCommand}"
+                                                                CommandParameter="{Binding .}"
+                                                                WidthRequest="80" />
+                                                        <Button Text="Delete"
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeletePlanCommand}"
+                                                                CommandParameter="{Binding .}"
+                                                                WidthRequest="80"
+                                                                BackgroundColor="#FF5252"
+                                                                TextColor="White" />
+                                                    </VerticalStackLayout>
+                                                </Grid>
+                                            </Frame>
+                                        </DataTemplate>
+                                    </CollectionView.ItemTemplate>
+                                </CollectionView>
+                            </VerticalStackLayout>
+                        </Frame>
                     </VerticalStackLayout>
                 </Frame>
             </VerticalStackLayout>

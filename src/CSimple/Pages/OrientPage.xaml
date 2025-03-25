@@ -3,23 +3,91 @@
              x:Class="CSimple.Pages.OrientPage"
              Title="Orient">
     <ScrollView>
-        <StackLayout Padding="10">
-            <Label Text="Orient" 
-                   FontSize="Title" 
-                   HorizontalOptions="Center" 
-                   VerticalOptions="StartAndExpand"/>
-            <Label Text="This page provides users with tools to orient themselves according to their goals. It will have a pie chart of the goal worked ratios this week. it could give good insights such as someone is taking too much of your time, you have x, y, or z bad habit, or show the compounding effect" 
-                   FontSize="Body"
-                   VerticalOptions="CenterAndExpand"/>
-            <Ellipse
-                   x:Name="Check"
-                   WidthRequest="80"
-                   HeightRequest="80"
-                   Stroke="{StaticResource Primary}"
-                   Fill="{StaticResource Primary}"
-                   VerticalOptions="Center"
+        <VerticalStackLayout Padding="15"
+                             Spacing="20">
+            <Label Text="Model Training Center"
+                   FontSize="Title"
                    HorizontalOptions="Center" />
-            <Button Text="Train Model" Clicked="OnTrainModelClicked" />
-        </StackLayout>
+            <!-- Basic Information Card -->
+            <Frame BorderColor="{StaticResource Primary}"
+                   CornerRadius="10"
+                   Padding="15">
+                <VerticalStackLayout>
+                    <Label Text="Neural Network Models"
+                           FontSize="Subtitle"
+                           FontAttributes="Bold" />
+                    <Label Text="This page will allow you to train and manage neural network models."
+                           Margin="0,10,0,0" />
+                    <!-- Visualization Placeholder -->
+                    <Frame HeightRequest="200"
+                           BackgroundColor="#f8f8f8"
+                           CornerRadius="8"
+                           Padding="5"
+                           Margin="0,15,0,0">
+                        <Grid>
+                            <Label Text="Model Performance Visualization"
+                                   VerticalOptions="Center"
+                                   HorizontalOptions="Center"
+                                   TextColor="Gray" />
+                            <Ellipse x:Name="Check"
+                                     WidthRequest="80"
+                                     HeightRequest="80"
+                                     Stroke="{StaticResource Primary}"
+                                     Fill="Transparent"
+                                     VerticalOptions="Center"
+                                     HorizontalOptions="Center" />
+                        </Grid>
+                    </Frame>
+                </VerticalStackLayout>
+            </Frame>
+            <!-- Simple Training Controls -->
+            <Frame BorderColor="{StaticResource Primary}"
+                   CornerRadius="10"
+                   Padding="15">
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="Model Training Controls"
+                           FontSize="Subtitle"
+                           FontAttributes="Bold" />
+                    <Picker Title="Select Model Type">
+                        <Picker.Items>
+                            <x:String>General Assistant</x:String>
+                            <x:String>Specialized Task</x:String>
+                            <x:String>Data Analysis</x:String>
+                        </Picker.Items>
+                    </Picker>
+                    <Grid ColumnDefinitions="Auto,*"
+                          RowDefinitions="Auto"
+                          ColumnSpacing="10">
+                        <Label Grid.Row="0"
+                               Grid.Column="0"
+                               Text="Epochs:"
+                               VerticalOptions="Center" />
+                        <Slider Grid.Row="0"
+                                Grid.Column="1"
+                                Minimum="1"
+                                Maximum="100"
+                                Value="10"
+                                ThumbColor="{StaticResource Primary}"
+                                MinimumTrackColor="{StaticResource Primary}" />
+                    </Grid>
+                    <Button Text="Train Model"
+                            BackgroundColor="{StaticResource Primary}"
+                            TextColor="White"
+                            Clicked="OnTrainModelClicked" />
+                </VerticalStackLayout>
+            </Frame>
+            <!-- Basic Model List -->
+            <Frame BorderColor="{StaticResource Primary}"
+                   CornerRadius="10"
+                   Padding="15">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Available Models"
+                           FontSize="Subtitle"
+                           FontAttributes="Bold" />
+                    <Label Text="Your trained models will appear here."
+                           Margin="0,5,0,10" />
+                </VerticalStackLayout>
+            </Frame>
+        </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

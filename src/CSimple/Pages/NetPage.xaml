@@ -2,19 +2,196 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CSimple.Pages.NetPage"
              Title="Net">
-       <ContentPage.Content>
-              <ScrollView>
-                     <VerticalStackLayout Padding="10">
-                            <Label Text="Net" FontSize="Large" FontAttributes="Bold" />
-                            <Label Text="Every journey begins with a step. Where are you going?"/>
-            <ScrollView>
-                <VerticalStackLayout x:Name="ChatContainer" />
-            </ScrollView>
-            <HorizontalStackLayout>
-                <Entry x:Name="UserInput" Placeholder="Type your message here..." HorizontalOptions="FillAndExpand" />
-                <Button Text="Send" />
-            </HorizontalStackLayout>
-                     </VerticalStackLayout>
-              </ScrollView>
-       </ContentPage.Content>
+    <ContentPage.Content>
+        <ScrollView>
+            <VerticalStackLayout Padding="15"
+                                 Spacing="20">
+                <Label Text="Neural Network Hub"
+                       FontSize="Title"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center" />
+                <!-- Neural Network Activity Dashboard -->
+                <Frame BorderColor="{StaticResource Primary}"
+                       CornerRadius="10"
+                       Padding="15">
+                    <VerticalStackLayout Spacing="15">
+                        <Label Text="Network Activity"
+                               FontSize="Medium"
+                               FontAttributes="Bold" />
+                        <!-- Network Stats -->
+                        <Grid ColumnDefinitions="*,*,*"
+                              RowDefinitions="Auto,Auto">
+                            <Frame Grid.Column="0"
+                                   BackgroundColor="#E3F2FD"
+                                   Padding="10"
+                                   Margin="5"
+                                   CornerRadius="5">
+                                <VerticalStackLayout>
+                                    <Label Text="Active Connections"
+                                           FontSize="Caption" />
+                                    <Label Text="{Binding ActiveConnections}"
+                                           FontSize="Large"
+                                           HorizontalOptions="Center"
+                                           TextColor="#2196F3" />
+                                </VerticalStackLayout>
+                            </Frame>
+                            <Frame Grid.Column="1"
+                                   BackgroundColor="#FFEBEE"
+                                   Padding="10"
+                                   Margin="5"
+                                   CornerRadius="5">
+                                <VerticalStackLayout>
+                                    <Label Text="Models Shared"
+                                           FontSize="Caption" />
+                                    <Label Text="{Binding ModelsShared}"
+                                           FontSize="Large"
+                                           HorizontalOptions="Center"
+                                           TextColor="#F44336" />
+                                </VerticalStackLayout>
+                            </Frame>
+                            <Frame Grid.Column="2"
+                                   BackgroundColor="#E0F2F1"
+                                   Padding="10"
+                                   Margin="5"
+                                   CornerRadius="5">
+                                <VerticalStackLayout>
+                                    <Label Text="Models Downloaded"
+                                           FontSize="Caption" />
+                                    <Label Text="{Binding ModelsDownloaded}"
+                                           FontSize="Large"
+                                           HorizontalOptions="Center"
+                                           TextColor="#009688" />
+                                </VerticalStackLayout>
+                            </Frame>
+                        </Grid>
+                        <!-- Network Activity Visualization -->
+                        <Frame HeightRequest="150"
+                               BackgroundColor="#f8f8f8"
+                               CornerRadius="5"
+                               Padding="10">
+                            <Grid>
+                                <Label Text="Network Activity Graph"
+                                       VerticalOptions="Center"
+                                       HorizontalOptions="Center"
+                                       TextColor="Gray" />
+                                <!-- Actual chart would go here -->
+                            </Grid>
+                        </Frame>
+                    </VerticalStackLayout>
+                </Frame>
+                <!-- Model Sharing Controls -->
+                <Frame BorderColor="{StaticResource Primary}"
+                       CornerRadius="10"
+                       Padding="15">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Model Sharing"
+                               FontSize="Medium"
+                               FontAttributes="Bold" />
+                        <Picker Title="Select Model to Share"
+                                ItemsSource="{Binding AvailableModels}"
+                                SelectedItem="{Binding SelectedModelToShare}" />
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="10">
+                            <Button Grid.Column="0"
+                                    Text="Share Model"
+                                    Command="{Binding ShareModelCommand}"
+                                    BackgroundColor="#4CAF50"
+                                    TextColor="White" />
+                            <Button Grid.Column="1"
+                                    Text="Manage Shared"
+                                    Command="{Binding ManageSharedCommand}"
+                                    BackgroundColor="#2196F3"
+                                    TextColor="White" />
+                        </Grid>
+                        <Label Text="Share with community to improve collective intelligence"
+                               FontSize="Micro"
+                               TextColor="Gray" />
+                    </VerticalStackLayout>
+                </Frame>
+                <!-- AI Assistant Chat -->
+                <Frame BorderColor="{StaticResource Primary}"
+                       CornerRadius="10"
+                       Padding="15">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="AI Assistant"
+                               FontSize="Medium"
+                               FontAttributes="Bold" />
+                        <Frame BackgroundColor="#f5f5f5"
+                               CornerRadius="5"
+                               Padding="10"
+                               HeightRequest="300">
+                            <ScrollView>
+                                <VerticalStackLayout x:Name="ChatContainer"
+                                                     Spacing="10" />
+                            </ScrollView>
+                        </Frame>
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="10">
+                            <Entry x:Name="UserInput"
+                                   Grid.Column="0"
+                                   Placeholder="Type your message here..." />
+                            <Button Grid.Column="1"
+                                    Text="Send"
+                                    Command="{Binding SendMessageCommand}"
+                                    BackgroundColor="{StaticResource Primary}"
+                                    TextColor="White" />
+                        </Grid>
+                        <HorizontalStackLayout Spacing="5">
+                            <Label Text="Model:"
+                                   VerticalOptions="Center" />
+                            <Picker WidthRequest="150"
+                                    ItemsSource="{Binding ChatModels}"
+                                    SelectedItem="{Binding SelectedChatModel}" />
+                            <CheckBox IsChecked="{Binding UseVoiceInput}" />
+                            <Label Text="Voice Input"
+                                   VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Frame>
+                <!-- Community Insights -->
+                <Frame BorderColor="{StaticResource Primary}"
+                       CornerRadius="10"
+                       Padding="15">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Community Insights"
+                               FontSize="Medium"
+                               FontAttributes="Bold" />
+                        <CollectionView ItemsSource="{Binding CommunityInsights}"
+                                        HeightRequest="200">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame Margin="5"
+                                           Padding="10"
+                                           CornerRadius="5"
+                                           BorderColor="LightGray">
+                                        <VerticalStackLayout>
+                                            <Label Text="{Binding Title}"
+                                                   FontAttributes="Bold" />
+                                            <Label Text="{Binding Description}"
+                                                   FontSize="Small" />
+                                            <HorizontalStackLayout>
+                                                <Label Text="{Binding Author}"
+                                                       FontSize="Micro"
+                                                       TextColor="Gray" />
+                                                <Label Text=" • "
+                                                       FontSize="Micro"
+                                                       TextColor="Gray" />
+                                                <Label Text="{Binding Date, StringFormat='{0:d}'}"
+                                                       FontSize="Micro"
+                                                       TextColor="Gray" />
+                                            </HorizontalStackLayout>
+                                        </VerticalStackLayout>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <Button Text="View More Insights"
+                                Command="{Binding ViewMoreInsightsCommand}"
+                                BackgroundColor="{StaticResource Primary}"
+                                TextColor="White" />
+                    </VerticalStackLayout>
+                </Frame>
+            </VerticalStackLayout>
+        </ScrollView>
+    </ContentPage.Content>
 </ContentPage>
