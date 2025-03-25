@@ -1,57 +1,421 @@
-﻿<ContentPage
-    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:m="clr-namespace:CSimple.Models"
-    xmlns:v="clr-namespace:CSimple.Views"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
-    ios:Page.UseSafeArea="True"
-    Shell.NavBarIsVisible="{OnPlatform True, MacCatalyst=False}"
-    x:Class="CSimple.Pages.HomePage"
-    x:Name="this">
-
+﻿<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:m="clr-namespace:CSimple.Models"
+             xmlns:v="clr-namespace:CSimple.Views"
+             xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+             ios:Page.UseSafeArea="True"
+             Shell.NavBarIsVisible="{OnPlatform True, MacCatalyst=False}"
+             x:Class="CSimple.Pages.HomePage"
+             x:Name="this">
     <ContentPage.MenuBarItems>
         <MenuBarItem Text="File">
-            <MenuFlyoutItem Text="Quit" Command="{Binding QuitCommand}"/>
+            <MenuFlyoutItem Text="Quit"
+                            Command="{Binding QuitCommand}" />
         </MenuBarItem>
         <MenuBarItem Text="Edit">
             <MenuFlyoutSubItem Text="Change Location">
-                <MenuFlyoutItem Text="Boston, MA"/>
-                <MenuFlyoutItem Text="Redmond, WA"/>
-                <MenuFlyoutItem Text="St. Louis, MO"/>
+                <MenuFlyoutItem Text="Boston, MA" />
+                <MenuFlyoutItem Text="Redmond, WA" />
+                <MenuFlyoutItem Text="St. Louis, MO" />
             </MenuFlyoutSubItem>
-            <MenuFlyoutItem Text="Add a Location" Command="{Binding AddLocationCommand}"/>
-        </MenuBarItem> 
+            <MenuFlyoutItem Text="Add a Location"
+                            Command="{Binding AddLocationCommand}" />
+        </MenuBarItem>
         <MenuBarItem Text="View">
-            <MenuFlyoutItem Text="Refresh" Command="{Binding RefreshCommand}"/>
-            <MenuFlyoutItem Text="Toggle Light/Dark Mode" Command="{Binding ToggleModeCommand}"/>
+            <MenuFlyoutItem Text="Refresh"
+                            Command="{Binding RefreshCommand}" />
+            <MenuFlyoutItem Text="Toggle Light/Dark Mode"
+                            Command="{Binding ToggleModeCommand}" />
         </MenuBarItem>
     </ContentPage.MenuBarItems>
-
-    <Grid>
-        <ScrollView Grid.Column="0">
-            <VerticalStackLayout
-                Padding="{OnIdiom Phone='0,50',Default='0,50'}"
-                Spacing="{OnIdiom Phone=25,Default=50}">
-                <Label Text="Welcome to Simple!" 
-                    FontSize="Title" 
-                    HorizontalOptions="Center" 
-                    VerticalOptions="StartAndExpand"/>
-                <Button Text="Get Started" 
-                    Clicked="OnGetStartedClicked"
-                    HorizontalOptions="Center" 
-                    VerticalOptions="CenterAndExpand"/>
-                <FlexLayout
-                    IsVisible="{OnIdiom Phone=False, Default=True}"
-                    MinimumHeightRequest="360"
-                    AlignItems="Center"
-                    AlignContent="Center"
-                    JustifyContent="SpaceEvenly">
-                    <v:CurrentWidget
-                        WidthRequest="200" />
+    <Grid RowDefinitions="Auto,*">
+        <!-- AI Assistant Status Bar - Improved Text Visibility -->
+        <Frame Grid.Row="0"
+               Padding="10"
+               BorderColor="{StaticResource Primary}"
+               Margin="15,15,15,0">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Image Grid.Column="0"
+                       Source="ai_icon.png"
+                       HeightRequest="32"
+                       WidthRequest="32"
+                       VerticalOptions="Center" />
+                <VerticalStackLayout Grid.Column="1"
+                                     Spacing="2"
+                                     Margin="10,0">
+                    <Label Text="{Binding ActiveAIStatus}"
+                           FontAttributes="Bold"
+                           TextColor="#1A1A1A"
+                           FontSize="16" />
+                    <Label Text="{Binding AIStatusDetail}"
+                           FontSize="Micro"
+                           TextColor="#333333" />
+                </VerticalStackLayout>
+                <VerticalStackLayout Grid.Column="2"
+                                     Spacing="2">
+                    <Switch IsToggled="{Binding IsAIEnabled}"
+                            OnColor="{StaticResource Primary}"
+                            VerticalOptions="Center" />
+                    <Label Text="AI Assistant"
+                           FontSize="10"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Grid>
+        </Frame>
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="15"
+                                 Spacing="20">
+                <Label Text="Welcome to CSimple AI"
+                       FontSize="Title"
+                       HorizontalOptions="Center" />
+                <!-- System Status Dashboard -->
+                <Frame BorderColor="{StaticResource Primary}"
+                       CornerRadius="10"
+                       Padding="15">
+                    <VerticalStackLayout Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="System Dashboard"
+                                   FontAttributes="Bold"
+                                   FontSize="Medium"
+                                   VerticalOptions="Center" />
+                            <Button Grid.Column="1"
+                                    Text="Refresh"
+                                    FontSize="Caption"
+                                    BackgroundColor="Transparent"
+                                    TextColor="{StaticResource Primary}"
+                                    Command="{Binding RefreshDashboardCommand}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*,*"
+                              RowDefinitions="Auto,Auto"
+                              ColumnSpacing="10"
+                              RowSpacing="10">
+                            <!-- Active Models -->
+                            <Frame Grid.Column="0"
+                                   BackgroundColor="#E3F2FD"
+                                   Padding="10"
+                                   CornerRadius="5">
+                                <VerticalStackLayout HorizontalOptions="Center">
+                                    <Label Text="Active Models"
+                                           FontSize="Caption"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="{Binding ActiveModelsCount}"
+                                           FontSize="Title"
+                                           TextColor="#2196F3"
+                                           HorizontalOptions="Center" />
+                                </VerticalStackLayout>
+                            </Frame>
+                            <!-- Today's Actions -->
+                            <Frame Grid.Column="1"
+                                   BackgroundColor="#E8F5E9"
+                                   Padding="10"
+                                   CornerRadius="5">
+                                <VerticalStackLayout HorizontalOptions="Center">
+                                    <Label Text="Today's Actions"
+                                           FontSize="Caption"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="{Binding TodayActionsCount}"
+                                           FontSize="Title"
+                                           TextColor="#4CAF50"
+                                           HorizontalOptions="Center" />
+                                </VerticalStackLayout>
+                            </Frame>
+                            <!-- Success Rate -->
+                            <Frame Grid.Column="2"
+                                   BackgroundColor="#FFF3E0"
+                                   Padding="10"
+                                   CornerRadius="5">
+                                <VerticalStackLayout HorizontalOptions="Center">
+                                    <Label Text="Success Rate"
+                                           FontSize="Caption"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="{Binding SuccessRate, StringFormat='{0:P0}'}"
+                                           FontSize="Title"
+                                           TextColor="#FF9800"
+                                           HorizontalOptions="Center" />
+                                </VerticalStackLayout>
+                            </Frame>
+                            <!-- System Health -->
+                            <Frame Grid.Row="1"
+                                   Grid.Column="0"
+                                   Grid.ColumnSpan="2"
+                                   BackgroundColor="#F5F5F5"
+                                   Padding="10"
+                                   CornerRadius="5">
+                                <Grid ColumnDefinitions="*,Auto"
+                                      RowDefinitions="Auto,Auto">
+                                    <Label Text="System Health"
+                                           FontAttributes="Bold" />
+                                    <Label Grid.Row="1"
+                                           Text="{Binding SystemHealthStatus}"
+                                           TextColor="Gray"
+                                           FontSize="Caption" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding SystemHealthPercentage, StringFormat='{0:P0}'}"
+                                           TextColor="{Binding SystemHealthColor}"
+                                           FontSize="Title"
+                                           VerticalOptions="Center" />
+                                </Grid>
+                            </Frame>
+                            <!-- AI Accuracy -->
+                            <Frame Grid.Row="1"
+                                   Grid.Column="2"
+                                   BackgroundColor="#F5F5F5"
+                                   Padding="10"
+                                   CornerRadius="5">
+                                <VerticalStackLayout>
+                                    <Label Text="AI Accuracy"
+                                           FontAttributes="Bold"
+                                           HorizontalOptions="Center" />
+                                    <ProgressBar Progress="{Binding AverageAIAccuracy}"
+                                                 ProgressColor="{StaticResource Primary}" />
+                                    <Label Text="{Binding AverageAIAccuracy, StringFormat='{0:P0}'}"
+                                           HorizontalOptions="Center"
+                                           FontSize="Caption" />
+                                </VerticalStackLayout>
+                            </Frame>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Frame>
+                <!-- Active Goals Summary Card -->
+                <Frame BorderColor="{StaticResource Primary}"
+                       CornerRadius="10"
+                       Padding="15">
+                    <VerticalStackLayout Spacing="15">
+                        <Label Text="Active Goals"
+                               FontAttributes="Bold"
+                               FontSize="Medium" />
+                        <!-- Active Goal Cards -->
+                        <CollectionView ItemsSource="{Binding ActiveGoals}"
+                                        EmptyView="No active goals. Create one to get started!">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame Margin="0,5"
+                                           Padding="10"
+                                           BorderColor="LightGray"
+                                           CornerRadius="5">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <VerticalStackLayout Grid.Column="0">
+                                                <Label Text="{Binding Name}"
+                                                       FontAttributes="Bold" />
+                                                <ProgressBar Progress="{Binding Progress}"
+                                                             ProgressColor="{StaticResource Primary}" />
+                                                <Label Text="{Binding Status}"
+                                                       FontSize="Caption"
+                                                       TextColor="Gray" />
+                                            </VerticalStackLayout>
+                                            <Button Grid.Column="1"
+                                                    Text="Continue"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ContinueGoalCommand}"
+                                                    CommandParameter="{Binding Id}"
+                                                    VerticalOptions="Center"
+                                                    BackgroundColor="{StaticResource Primary}"
+                                                    TextColor="White" />
+                                        </Grid>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <Button Text="Quick Start Goal"
+                                Command="{Binding QuickStartGoalCommand}"
+                                BackgroundColor="#4CAF50"
+                                TextColor="White" />
+                    </VerticalStackLayout>
+                </Frame>
+                <!-- Recent Activity Timeline -->
+                <Frame BorderColor="{StaticResource Primary}"
+                       CornerRadius="10"
+                       Padding="15">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Recent Activity"
+                               FontAttributes="Bold"
+                               FontSize="Medium" />
+                        <CollectionView ItemsSource="{Binding RecentActivities}"
+                                        HeightRequest="200"
+                                        EmptyView="No recent activity to display">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="0,8"
+                                          ColumnDefinitions="Auto,*,Auto">
+                                        <Frame Grid.Column="0"
+                                               WidthRequest="40"
+                                               HeightRequest="40"
+                                               CornerRadius="20"
+                                               Padding="0"
+                                               BackgroundColor="{Binding ActivityColor}"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Start">
+                                            <Label Text="{Binding ActivityIcon}"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center"
+                                                   FontSize="20"
+                                                   TextColor="White" />
+                                        </Frame>
+                                        <VerticalStackLayout Grid.Column="1"
+                                                             Margin="10,0">
+                                            <Label Text="{Binding ActivityTitle}"
+                                                   FontAttributes="Bold" />
+                                            <Label Text="{Binding ActivityDescription}"
+                                                   FontSize="Caption"
+                                                   TextColor="Gray" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="2"
+                                               Text="{Binding ActivityTime}"
+                                               FontSize="Micro"
+                                               TextColor="Gray"
+                                               VerticalOptions="Start" />
+                                        <Line Grid.ColumnSpan="3"
+                                              X1="20"
+                                              Y1="40"
+                                              X2="20"
+                                              Y2="80"
+                                              Stroke="{Binding ActivityColor}"
+                                              StrokeThickness="2"
+                                              IsVisible="{Binding IsNotLast}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <Button Text="View All Activity"
+                                Command="{Binding ViewAllActivityCommand}"
+                                BackgroundColor="Transparent"
+                                TextColor="{StaticResource Primary}"
+                                HorizontalOptions="End" />
+                    </VerticalStackLayout>
+                </Frame>
+                <!-- AI Suggestions Card -->
+                <Frame BorderColor="{StaticResource Primary}"
+                       CornerRadius="10"
+                       Padding="15">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Suggestions Based on Your Activity"
+                               FontAttributes="Bold"
+                               FontSize="Medium" />
+                        <CollectionView ItemsSource="{Binding AISuggestions}"
+                                        HeightRequest="180">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Horizontal"
+                                                   ItemSpacing="10" />
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame WidthRequest="200"
+                                           Padding="10"
+                                           BorderColor="LightGray"
+                                           CornerRadius="5">
+                                        <VerticalStackLayout>
+                                            <Label Text="{Binding Title}"
+                                                   FontAttributes="Bold" />
+                                            <Label Text="{Binding Description}"
+                                                   FontSize="Caption"
+                                                   TextColor="Gray" />
+                                            <Button Text="Apply"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ApplySuggestionCommand}"
+                                                    CommandParameter="{Binding Id}"
+                                                    BackgroundColor="{StaticResource Primary}"
+                                                    TextColor="White"
+                                                    Margin="0,10,0,0" />
+                                        </VerticalStackLayout>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </Frame>
+                <!-- Scheduled Tasks -->
+                <Frame BorderColor="{StaticResource Primary}"
+                       CornerRadius="10"
+                       Padding="15">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Upcoming Scheduled Tasks"
+                               FontAttributes="Bold"
+                               FontSize="Medium" />
+                        <CollectionView ItemsSource="{Binding ScheduledTasks}"
+                                        EmptyView="No scheduled tasks">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame Margin="0,5"
+                                           Padding="10"
+                                           BorderColor="LightGray"
+                                           CornerRadius="5">
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding ScheduledTime}"
+                                                   FontAttributes="Bold"
+                                                   VerticalOptions="Center"
+                                                   WidthRequest="60" />
+                                            <VerticalStackLayout Grid.Column="1"
+                                                                 Margin="10,0">
+                                                <Label Text="{Binding TaskName}"
+                                                       FontAttributes="Bold" />
+                                                <Label Text="{Binding TaskDescription}"
+                                                       FontSize="Caption"
+                                                       TextColor="Gray" />
+                                            </VerticalStackLayout>
+                                            <Button Grid.Column="2"
+                                                    Text="Options"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.TaskOptionsCommand}"
+                                                    CommandParameter="{Binding Id}"
+                                                    BackgroundColor="Transparent"
+                                                    TextColor="{StaticResource Primary}"
+                                                    FontSize="Micro" />
+                                        </Grid>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <Button Text="Schedule New Task"
+                                Command="{Binding ScheduleNewTaskCommand}"
+                                BackgroundColor="{StaticResource Primary}"
+                                TextColor="White" />
+                    </VerticalStackLayout>
+                </Frame>
+                <!-- Quick Actions -->
+                <Frame BorderColor="{StaticResource Primary}"
+                       CornerRadius="10"
+                       Padding="15">
+                    <Grid ColumnDefinitions="*,*"
+                          RowDefinitions="Auto,Auto"
+                          ColumnSpacing="10"
+                          RowSpacing="10">
+                        <Button Grid.Row="0"
+                                Grid.Column="0"
+                                Text="Record New Action"
+                                Command="{Binding NavigateToObserveCommand}"
+                                BackgroundColor="#2196F3"
+                                TextColor="White" />
+                        <Button Grid.Row="0"
+                                Grid.Column="1"
+                                Text="Create New Goal"
+                                Command="{Binding CreateNewGoalCommand}"
+                                BackgroundColor="#4CAF50"
+                                TextColor="White" />
+                        <Button Grid.Row="1"
+                                Grid.Column="0"
+                                Text="Train Model"
+                                Command="{Binding TrainModelCommand}"
+                                BackgroundColor="#FF9800"
+                                TextColor="White" />
+                        <Button Grid.Row="1"
+                                Grid.Column="1"
+                                Text="Discover Shared Goals"
+                                Command="{Binding DiscoverSharedGoalsCommand}"
+                                BackgroundColor="#9C27B0"
+                                TextColor="White" />
+                    </Grid>
+                </Frame>
+                <!-- FlexLayout for larger screens -->
+                <FlexLayout IsVisible="{OnIdiom Phone=False, Default=True}"
+                            MinimumHeightRequest="200"
+                            AlignItems="Center"
+                            JustifyContent="Center">
+                    <!-- Activity visualization widget -->
+                    <Frame BorderColor="LightGray"
+                           Padding="15"
+                           CornerRadius="10"
+                           WidthRequest="300">
+                        <v:CurrentWidget />
+                    </Frame>
                 </FlexLayout>
-                <v:CurrentWidget
-                    IsVisible="{OnIdiom Phone=True, Default=False}"/>
-                <BoxView HeightRequest="1" />
             </VerticalStackLayout>
         </ScrollView>
     </Grid>

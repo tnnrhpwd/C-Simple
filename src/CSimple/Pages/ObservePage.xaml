@@ -11,18 +11,21 @@
     </ContentPage.Resources>
     <Grid RowDefinitions="Auto,*,Auto"
           Padding="16">
-        <!-- Header Section -->
+        <!-- Header Section with AI Integration Status -->
         <Border Style="{StaticResource ModernCardStyle}"
                 Grid.Row="0">
-            <Grid ColumnDefinitions="*,Auto">
-                <VerticalStackLayout Grid.Column="0"
+            <Grid RowDefinitions="Auto,Auto"
+                  ColumnDefinitions="*,Auto">
+                <VerticalStackLayout Grid.Row="0"
+                                     Grid.Column="0"
                                      Spacing="8">
-                    <Label Text="Action Recording Dashboard"
+                    <Label Text="Intelligent Action Recording"
                            Style="{StaticResource HeaderStyle}" />
-                    <Label Text="Capture and analyze user interactions in real-time"
+                    <Label Text="AI-powered system captures and learns from your interactions"
                            Style="{StaticResource BodyTextStyle}" />
                 </VerticalStackLayout>
-                <HorizontalStackLayout Grid.Column="1"
+                <HorizontalStackLayout Grid.Row="0"
+                                       Grid.Column="1"
                                        VerticalOptions="Center">
                     <Label Text="Record All"
                            VerticalOptions="Center"
@@ -31,36 +34,131 @@
                             Style="{StaticResource ModernSwitchStyle}"
                             VerticalOptions="Center" />
                 </HorizontalStackLayout>
+                <!-- AI Analysis Status Bar -->
+                <Frame Grid.Row="1"
+                       Grid.ColumnSpan="2"
+                       BackgroundColor="#E3F2FD"
+                       CornerRadius="5"
+                       Padding="10"
+                       Margin="0,10,0,0">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Image Grid.Column="0"
+                               Source="ml_icon.png"
+                               HeightRequest="24"
+                               WidthRequest="24" />
+                        <VerticalStackLayout Grid.Column="1"
+                                             Spacing="2"
+                                             Margin="10,0">
+                            <Label Text="{Binding AIAnalysisStatus}"
+                                   FontAttributes="Bold"
+                                   FontSize="Small" />
+                            <ProgressBar Progress="{Binding AIAnalysisProgress}"
+                                         IsVisible="{Binding IsAnalyzing}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="2"
+                                             Spacing="5">
+                            <HorizontalStackLayout>
+                                <Label Text="Auto-Classify"
+                                       VerticalOptions="Center"
+                                       Margin="0,0,5,0"
+                                       FontSize="Micro" />
+                                <Switch IsToggled="{Binding AutoClassifyEnabled}"
+                                        Scale="0.8" />
+                            </HorizontalStackLayout>
+                            <HorizontalStackLayout>
+                                <Label Text="Auto-Apply"
+                                       VerticalOptions="Center"
+                                       Margin="0,0,5,0"
+                                       FontSize="Micro" />
+                                <Switch IsToggled="{Binding AutoApplyEnabled}"
+                                        Scale="0.8" />
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
+                    </Grid>
+                </Frame>
             </Grid>
         </Border>
-        <!-- Main Content - Using Components -->
+        <!-- Main Content with ML Insights -->
         <ScrollView Grid.Row="1"
                     Margin="0,16,0,0">
-            <FlexLayout Direction="Row"
-                        Wrap="Wrap"
-                        JustifyContent="Start"
-                        AlignItems="Start"
-                        AlignContent="Start"
-                        Padding="0,4">
-                <!-- Action Information Card Component -->
-                <components:ActionConfigurationCard x:Name="ActionConfigCard"
-                                                    InputModifierClicked="OnInputModifierClicked"
+            <Grid RowDefinitions="Auto,*">
+                <!-- AI Insight Panel -->
+                <Frame Grid.Row="0"
+                       BorderColor="#4CAF50"
+                       BackgroundColor="#E8F5E9"
+                       Padding="12"
+                       Margin="0,0,0,15"
+                       IsVisible="{Binding HasAIInsights}"
+                       CornerRadius="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Grid.Column="0"
+                                             Spacing="4">
+                            <Label Text="AI Action Insights"
+                                   FontAttributes="Bold" />
+                            <Label Text="{Binding CurrentAIInsight}"
+                                   FontSize="Small" />
+                            <Label Text="{Binding InsightConfidence, StringFormat='Confidence: {0:P0}'}"
+                                   FontSize="Micro"
+                                   TextColor="Gray" />
+                        </VerticalStackLayout>
+                        <Button Grid.Column="1"
+                                Text="Apply"
+                                Command="{Binding ApplyAIInsightCommand}"
+                                BackgroundColor="#4CAF50"
+                                TextColor="White"
+                                VerticalOptions="Center" />
+                    </Grid>
+                </Frame>
+                <!-- Capture Components -->
+                <FlexLayout Grid.Row="1"
+                            Direction="Row"
+                            Wrap="Wrap"
+                            JustifyContent="Start"
+                            AlignItems="Start"
+                            AlignContent="Start"
+                            Padding="0,4">
+                    <!-- Action Information Card Component -->
+                    <components:ActionConfigurationCard x:Name="ActionConfigCard"
+                                                        InputModifierClicked="OnInputModifierClicked"
+                                                        BindingContext="{Binding}"
+                                                        Margin="0,8,8,8" />
+                    <!-- Capture Controls Card Component with ML recommendations -->
+                    <components:CaptureControlsCard x:Name="CaptureControlsCard"
                                                     BindingContext="{Binding}"
-                                                    Margin="0,8,8,8" />
-                <!-- Capture Controls Card Component -->
-                <components:CaptureControlsCard x:Name="CaptureControlsCard"
-                                                BindingContext="{Binding}"
-                                                Margin="8,8,0,8" />
-                <!-- Preview Card Component -->
-                <components:CapturePreviewCard x:Name="CapturePreviewCard"
-                                               BindingContext="{Binding}"
-                                               Margin="0,8,8,8" />
-                <!-- Actions Card Component -->
-                <components:RecordedActionsCard x:Name="RecordedActionsCard"
-                                                BindingContext="{Binding}"
-                                                Margin="8,8,0,8" />
-            </FlexLayout>
+                                                    Margin="8,8,0,8" />
+                    <!-- Preview Card Component with realtime analytics -->
+                    <components:CapturePreviewCard x:Name="CapturePreviewCard"
+                                                   BindingContext="{Binding}"
+                                                   Margin="0,8,8,8" />
+                    <!-- Actions Card Component with pattern recognition -->
+                    <components:RecordedActionsCard x:Name="RecordedActionsCard"
+                                                    BindingContext="{Binding}"
+                                                    Margin="8,8,0,8" />
+                </FlexLayout>
+            </Grid>
         </ScrollView>
+        <!-- Quick Response Panel - Shows AI-suggested next actions -->
+        <Frame Grid.Row="2"
+               BorderColor="{StaticResource Primary}"
+               CornerRadius="8"
+               Padding="12"
+               Margin="0,10,0,0">
+            <Grid ColumnDefinitions="*,Auto">
+                <VerticalStackLayout Grid.Column="0">
+                    <Label Text="AI Suggested Next Action"
+                           FontAttributes="Bold"
+                           FontSize="Small" />
+                    <Label Text="{Binding SuggestedNextAction}"
+                           FontSize="Small" />
+                </VerticalStackLayout>
+                <Button Grid.Column="1"
+                        Text="Execute"
+                        Command="{Binding ExecuteSuggestedActionCommand}"
+                        BackgroundColor="{StaticResource Primary}"
+                        TextColor="White"
+                        VerticalOptions="Center" />
+            </Grid>
+        </Frame>
         <!-- Input Modifier Popup Component -->
         <components:InputModifierPopup x:Name="InputModifierPopupControl"
                                        Grid.Row="0"
