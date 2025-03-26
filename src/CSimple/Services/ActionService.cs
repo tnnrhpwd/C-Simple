@@ -79,6 +79,14 @@ namespace CSimple.Services
                 }
                 Debug.WriteLine("Data Items Loaded from Backend");
 
+                // Add more detailed debugging information
+                if (result.Count > 0)
+                {
+                    var firstItem = result[0];
+                    Debug.WriteLine($"First item: {firstItem.ToString()}");
+                    Debug.WriteLine($"First item has ActionGroup? {firstItem.Data?.ActionGroupObject != null}");
+                }
+
                 // Save loaded action groups to file
                 await SaveDataItemsToFile(new List<DataItem>(result));
             }

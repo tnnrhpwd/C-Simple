@@ -6,6 +6,9 @@ using System.Text.Json;
 using System.Windows.Input;
 using System.ComponentModel;
 using CSimple.Services;
+using Microsoft.Maui.Controls;
+using CSimple.ViewModels;
+using System;
 
 namespace CSimple.Pages
 {
@@ -21,6 +24,13 @@ namespace CSimple.Pages
         public ICommand DeleteActionGroupCommand { get; set; }
         private bool _isSimulating = false;
         private readonly ActionService _actionService;
+        private ActionPageViewModel _viewModel;
+
+        // Fix: Defining the missing SortPicker as a class field
+        private Picker _sortPicker;
+
+        // Fix: Defining InputActionPopup with correct type
+        private Grid _inputActionPopup;
 
         public bool IsSimulating
         {
@@ -40,13 +50,12 @@ namespace CSimple.Pages
         public ActionPage()
         {
             InitializeComponent();
+            _viewModel = new ActionPageViewModel();
+            BindingContext = _viewModel;
 
-            // Set the BindingContext to the current instance of ActionPage
-            BindingContext = this;
-
-            // Initialize fields
-            SortPicker = this.FindByName<Picker>("SortPicker");
-            InputActionPopup = this.FindByName<ContentView>("InputActionPopup");
+            // Initialize fields - using null instead of FindByName since we don't have these elements anymore
+            _sortPicker = null; // We'll need to add this element to the XAML or handle this another way
+            _inputActionPopup = this.FindByName<Grid>("InputActionPopup");
 
             var fileService = new FileService();
             var dataService = new DataService();
@@ -93,9 +102,30 @@ namespace CSimple.Pages
         protected override async void OnAppearing()
         {
             base.OnAppearing();
-            SortPicker.SelectedIndex = 1; // default to CreatedAt Descending
+            // Load data from backend
             await LoadDataItemsFromBackend();
-            OnSortOrderChanged(SortPicker, EventArgs.Empty); // Ensure data is sorted after loading
+
+            // Sort data directly using the default index
+            if (Data?.Count > 0)
+            {
+                var sortedList = ActionService.SortDataItems(Data.ToList(), 1); // Use default index 1
+
+                Data.Clear();
+                foreach (var item in sortedList)
+                {
+                    Data.Add(item);
+                }
+
+                // This is important to notify the view that the Data source has been updated
+                OnPropertyChanged(nameof(Data));
+
+                // Log data count for debugging
+                DebugOutput($"Data collection now has {Data.Count} items");
+            }
+            else
+            {
+                DebugOutput("Data collection is empty or null after loading from backend");
+            }
         }
 
         private async Task NavigateToObservePage()
@@ -106,12 +136,12 @@ namespace CSimple.Pages
 
         private void OnInputActionClicked(object sender, EventArgs e)
         {
-            InputActionPopup.IsVisible = true;
+            _inputActionPopup.IsVisible = true;
         }
 
         private void OnOkayClick(object sender, EventArgs e)
         {
-            InputActionPopup.IsVisible = false;
+            _inputActionPopup.IsVisible = false;
         }
 
         private async void OnRowTapped(ActionGroup actionGroup)
@@ -150,20 +180,38 @@ namespace CSimple.Pages
 
         private async Task LoadDataItemsFromBackend()
         {
-            var items = await _actionService.LoadDataItemsFromBackend();
-            Data.Clear();
-            foreach (var item in items)
+            try
             {
-                Data.Add(item);
+                var items = await _actionService.LoadDataItemsFromBackend();
+
+                // Clear existing data
+                Data.Clear();
+
+                // Add new items
+                foreach (var item in items)
+                {
+                    Data.Add(item);
+                }
+
+                // Notify UI that collection has changed
+                OnPropertyChanged(nameof(Data));
+
+                // Debug output for validation
+                DebugOutput($"Loaded {items.Count} items from backend");
+            }
+            catch (Exception ex)
+            {
+                DebugOutput($"Error loading data from backend: {ex.Message}");
             }
         }
 
         private void OnSortOrderChanged(object sender, EventArgs e)
         {
-            if (SortPicker.SelectedIndex < 0 || Data == null || Data.Count == 0)
+            // Fix: Check if SortPicker exists and has a selection
+            if (_sortPicker == null || _sortPicker.SelectedIndex < 0 || Data == null || Data.Count == 0)
                 return;
 
-            var sortedList = ActionService.SortDataItems(Data.ToList(), SortPicker.SelectedIndex);
+            var sortedList = ActionService.SortDataItems(Data.ToList(), _sortPicker.SelectedIndex);
 
             Data.Clear();
             foreach (var item in sortedList)

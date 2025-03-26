@@ -13,7 +13,7 @@
                    CornerRadius="10"
                    Padding="15">
                 <Grid ColumnDefinitions="Auto,*"
-                      RowDefinitions="Auto,Auto,Auto,Auto"
+                      RowDefinitions="Auto,Auto,Auto,Auto,Auto"
                       ColumnSpacing="10"
                       RowSpacing="10">
                     <Label Grid.Row="0"
@@ -39,9 +39,16 @@
                            Text="{Binding Duration}" />
                     <Label Grid.Row="3"
                            Grid.Column="0"
+                           Text="Status:"
+                           FontAttributes="Bold" />
+                    <Label Grid.Row="3"
+                           Grid.Column="1"
+                           Text="{Binding IsSimulating, Converter={StaticResource BoolToStatusTextConverter}}" />
+                    <Label Grid.Row="4"
+                           Grid.Column="0"
                            Text="Confidence:"
                            FontAttributes="Bold" />
-                    <ProgressBar Grid.Row="3"
+                    <ProgressBar Grid.Row="4"
                                  Grid.Column="1"
                                  Progress="{Binding Confidence}"
                                  ProgressColor="{StaticResource Primary}" />
@@ -79,6 +86,152 @@
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
+                </VerticalStackLayout>
+            </Frame>
+            <!-- Media Files Section -->
+            <Label Text="Action Media Files"
+                   FontSize="Medium"
+                   FontAttributes="Bold" />
+            <Frame BorderColor="{StaticResource Primary}"
+                   CornerRadius="10"
+                   Padding="15">
+                <VerticalStackLayout Spacing="15">
+                    <!-- Images -->
+                    <Label Text="Images"
+                           FontAttributes="Bold"
+                           IsVisible="{Binding HasImages}" />
+                    <CollectionView ItemsSource="{Binding ImageFiles}"
+                                    IsVisible="{Binding HasImages}"
+                                    HeightRequest="180">
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Horizontal"
+                                               ItemSpacing="10" />
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame Padding="5"
+                                       CornerRadius="5"
+                                       BorderColor="LightGray">
+                                    <Grid RowDefinitions="*, Auto">
+                                        <Image Source="{Binding Data, Converter={StaticResource Base64ToImageConverter}}"
+                                               Aspect="AspectFit"
+                                               HeightRequest="150"
+                                               WidthRequest="150" />
+                                        <Label Grid.Row="1"
+                                               Text="{Binding Filename}"
+                                               TextColor="Gray"
+                                               FontSize="Micro"
+                                               HorizontalOptions="Center" />
+                                    </Grid>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    <!-- Audio Files -->
+                    <Label Text="Audio Recordings"
+                           FontAttributes="Bold"
+                           IsVisible="{Binding HasAudio}" />
+                    <CollectionView ItemsSource="{Binding AudioFiles}"
+                                    IsVisible="{Binding HasAudio}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame Margin="0,5"
+                                       Padding="10"
+                                       CornerRadius="5"
+                                       BorderColor="LightGray">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <Image Grid.Column="0"
+                                               Source="audio_icon.png"
+                                               WidthRequest="32"
+                                               HeightRequest="32"
+                                               VerticalOptions="Center" />
+                                        <VerticalStackLayout Grid.Column="1"
+                                                             Margin="10,0">
+                                            <Label Text="{Binding Filename}"
+                                                   FontAttributes="Bold" />
+                                            <Label Text="{Binding Duration, StringFormat='{0} seconds'}"
+                                                   FontSize="Caption"
+                                                   TextColor="Gray" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="2"
+                                                Text="Play"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.PlayAudioCommand}"
+                                                CommandParameter="{Binding .}"
+                                                WidthRequest="80"
+                                                BackgroundColor="{StaticResource Primary}"
+                                                TextColor="White"
+                                                VerticalOptions="Center" />
+                                    </Grid>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    <!-- Text Files -->
+                    <Label Text="Text Input"
+                           FontAttributes="Bold"
+                           IsVisible="{Binding HasTextData}" />
+                    <CollectionView ItemsSource="{Binding TextFiles}"
+                                    IsVisible="{Binding HasTextData}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame Margin="0,5"
+                                       Padding="10"
+                                       CornerRadius="5"
+                                       BorderColor="LightGray">
+                                    <VerticalStackLayout>
+                                        <Label Text="{Binding Filename}"
+                                               FontAttributes="Bold" />
+                                        <Label Text="{Binding Content}"
+                                               TextColor="Gray" />
+                                    </VerticalStackLayout>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    <!-- Other Files -->
+                    <Label Text="Other Files"
+                           FontAttributes="Bold"
+                           IsVisible="{Binding HasOtherFiles}" />
+                    <CollectionView ItemsSource="{Binding OtherFiles}"
+                                    IsVisible="{Binding HasOtherFiles}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame Margin="0,5"
+                                       Padding="10"
+                                       CornerRadius="5"
+                                       BorderColor="LightGray">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <Image Grid.Column="0"
+                                               Source="{Binding FileTypeIcon}"
+                                               WidthRequest="32"
+                                               HeightRequest="32"
+                                               VerticalOptions="Center" />
+                                        <VerticalStackLayout Grid.Column="1"
+                                                             Margin="10,0">
+                                            <Label Text="{Binding Filename}"
+                                                   FontAttributes="Bold" />
+                                            <Label Text="{Binding FileSize, StringFormat='{0} KB'}"
+                                                   FontSize="Caption"
+                                                   TextColor="Gray" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="2"
+                                                Text="Open"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenFileCommand}"
+                                                CommandParameter="{Binding .}"
+                                                WidthRequest="80"
+                                                BackgroundColor="{StaticResource Primary}"
+                                                TextColor="White"
+                                                VerticalOptions="Center" />
+                                    </Grid>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    <!-- No Media Message -->
+                    <Label Text="No media files associated with this action"
+                           IsVisible="{Binding HasNoMedia}"
+                           HorizontalOptions="Center"
+                           TextColor="Gray" />
                 </VerticalStackLayout>
             </Frame>
             <!-- Prediction Details -->
@@ -159,14 +312,19 @@
                 </VerticalStackLayout>
             </Frame>
             <!-- Action Controls -->
-            <Grid ColumnDefinitions="*,*"
+            <Grid ColumnDefinitions="*,*,*"
                   ColumnSpacing="20">
                 <Button Grid.Column="0"
+                        Text="Execute"
+                        Command="{Binding ExecuteCommand}"
+                        BackgroundColor="#4CAF50"
+                        TextColor="White" />
+                <Button Grid.Column="1"
                         Text="Edit"
                         Command="{Binding EditCommand}"
                         BackgroundColor="#2196F3"
                         TextColor="White" />
-                <Button Grid.Column="1"
+                <Button Grid.Column="2"
                         Text="Close"
                         Command="{Binding CloseCommand}"
                         BackgroundColor="#757575"

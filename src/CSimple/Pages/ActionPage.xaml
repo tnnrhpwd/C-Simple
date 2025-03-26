@@ -21,7 +21,6 @@
                        HeightRequest="32"
                        WidthRequest="32"
                        VerticalOptions="Center" />
-                       
                 <VerticalStackLayout Grid.Column="1"
                                      Spacing="2"
                                      Margin="10,0">
@@ -32,7 +31,6 @@
                            FontSize="Caption"
                            TextColor="#333333" />
                 </VerticalStackLayout>
-                
                 <Button Grid.Column="2"
                         Text="Auto-Execute"
                         Command="{Binding ToggleAutoExecuteCommand}"
@@ -42,119 +40,171 @@
                         HeightRequest="36" />
             </Grid>
         </Frame>
-
-        <Grid Grid.Row="1" RowDefinitions="Auto,*">
+        <Grid Grid.Row="1"
+              RowDefinitions="Auto,*">
             <!-- Action Management Tools -->
             <ScrollView Grid.Row="0">
-                <Grid RowDefinitions="Auto,Auto,Auto" Padding="10">
+                <Grid RowDefinitions="Auto,Auto,Auto"
+                      Padding="10">
                     <!-- Action Insights Panel -->
-                    <Frame Grid.Row="0" 
-                           BorderColor="#9C27B0" 
-                           BackgroundColor="#F3E5F5" 
-                           Padding="15" 
+                    <Frame Grid.Row="0"
+                           BorderColor="#9C27B0"
+                           BackgroundColor="#F3E5F5"
+                           Padding="15"
                            Margin="0,0,0,15"
                            CornerRadius="10"
                            IsVisible="{Binding HasActionInsights}">
                         <Grid ColumnDefinitions="*,Auto">
-                            <VerticalStackLayout Grid.Column="0" Spacing="5">
-                                <Label Text="AI Action Insights" FontAttributes="Bold" FontSize="Medium" />
-                                <Label Text="{Binding CurrentActionInsight}" TextColor="#333333" />
-                                <HorizontalStackLayout Spacing="15" Margin="0,8,0,0">
-                                    <Label Text="{Binding InsightConfidence, StringFormat='Confidence: {0:P0}'}" 
-                                           FontSize="Caption" TextColor="Gray" />
-                                    <Label Text="{Binding InsightSourceName}" FontSize="Caption" TextColor="Gray" />
+                            <VerticalStackLayout Grid.Column="0"
+                                                 Spacing="5">
+                                <Label Text="AI Action Insights"
+                                       FontAttributes="Bold"
+                                       FontSize="Medium" />
+                                <Label Text="{Binding CurrentActionInsight}"
+                                       TextColor="#333333" />
+                                <HorizontalStackLayout Spacing="15"
+                                                       Margin="0,8,0,0">
+                                    <Label Text="{Binding InsightConfidence, StringFormat='Confidence: {0:P0}'}"
+                                           FontSize="Caption"
+                                           TextColor="Gray" />
+                                    <Label Text="{Binding InsightSourceName}"
+                                           FontSize="Caption"
+                                           TextColor="Gray" />
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
-                            <VerticalStackLayout Grid.Column="1" Spacing="10" VerticalOptions="Center">
-                                <Button Text="Apply" 
-                                        Command="{Binding ApplyInsightCommand}" 
-                                        BackgroundColor="#9C27B0" TextColor="White" 
-                                        WidthRequest="100" HeightRequest="40" />
-                                <Button Text="Dismiss" 
-                                        Command="{Binding DismissInsightCommand}" 
-                                        BackgroundColor="Transparent" TextColor="#9C27B0" 
-                                        WidthRequest="100" HeightRequest="40" />
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="10"
+                                                 VerticalOptions="Center">
+                                <Button Text="Apply"
+                                        Command="{Binding ApplyInsightCommand}"
+                                        BackgroundColor="#9C27B0"
+                                        TextColor="White"
+                                        WidthRequest="100"
+                                        HeightRequest="40" />
+                                <Button Text="Dismiss"
+                                        Command="{Binding DismissInsightCommand}"
+                                        BackgroundColor="Transparent"
+                                        TextColor="#9C27B0"
+                                        WidthRequest="100"
+                                        HeightRequest="40" />
                             </VerticalStackLayout>
                         </Grid>
                     </Frame>
-                
                     <!-- Action Control Panel -->
-                    <Frame Grid.Row="1" BorderColor="{StaticResource Primary}" CornerRadius="10" Padding="15" Margin="0,0,0,15">
-                        <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="15">
+                    <Frame Grid.Row="1"
+                           BorderColor="{StaticResource Primary}"
+                           CornerRadius="10"
+                           Padding="15"
+                           Margin="0,0,0,15">
+                        <Grid ColumnDefinitions="*,*,*"
+                              RowDefinitions="Auto,Auto"
+                              ColumnSpacing="10"
+                              RowSpacing="15">
                             <!-- Action Statistics -->
-                            <Frame Grid.Row="0" Grid.Column="0" BackgroundColor="#E3F2FD" Padding="10" CornerRadius="5">
+                            <Frame Grid.Row="0"
+                                   Grid.Column="0"
+                                   BackgroundColor="#E3F2FD"
+                                   Padding="10"
+                                   CornerRadius="5">
                                 <VerticalStackLayout HorizontalOptions="Center">
-                                    <Label Text="Recorded" FontSize="Caption" HorizontalOptions="Center" />
-                                    <Label Text="{Binding TotalRecordedActions}" FontSize="Title" TextColor="#2196F3" HorizontalOptions="Center" />
+                                    <Label Text="Recorded"
+                                           FontSize="Caption"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="{Binding TotalRecordedActions}"
+                                           FontSize="Title"
+                                           TextColor="#2196F3"
+                                           HorizontalOptions="Center" />
                                 </VerticalStackLayout>
                             </Frame>
-                            
-                            <Frame Grid.Row="0" Grid.Column="1" BackgroundColor="#E8F5E9" Padding="10" CornerRadius="5">
+                            <Frame Grid.Row="0"
+                                   Grid.Column="1"
+                                   BackgroundColor="#E8F5E9"
+                                   Padding="10"
+                                   CornerRadius="5">
                                 <VerticalStackLayout HorizontalOptions="Center">
-                                    <Label Text="Automated" FontSize="Caption" HorizontalOptions="Center" />
-                                    <Label Text="{Binding TotalAutomatedActions}" FontSize="Title" TextColor="#4CAF50" HorizontalOptions="Center" />
+                                    <Label Text="Automated"
+                                           FontSize="Caption"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="{Binding TotalAutomatedActions}"
+                                           FontSize="Title"
+                                           TextColor="#4CAF50"
+                                           HorizontalOptions="Center" />
                                 </VerticalStackLayout>
                             </Frame>
-                            
-                            <Frame Grid.Row="0" Grid.Column="2" BackgroundColor="#FFF3E0" Padding="10" CornerRadius="5">
+                            <Frame Grid.Row="0"
+                                   Grid.Column="2"
+                                   BackgroundColor="#FFF3E0"
+                                   Padding="10"
+                                   CornerRadius="5">
                                 <VerticalStackLayout HorizontalOptions="Center">
-                                    <Label Text="Success Rate" FontSize="Caption" HorizontalOptions="Center" />
-                                    <Label Text="{Binding ActionSuccessRate, StringFormat='{0:P0}'}" FontSize="Title" TextColor="#FF9800" HorizontalOptions="Center" />
+                                    <Label Text="Success Rate"
+                                           FontSize="Caption"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="{Binding ActionSuccessRate, StringFormat='{0:P0}'}"
+                                           FontSize="Title"
+                                           TextColor="#FF9800"
+                                           HorizontalOptions="Center" />
                                 </VerticalStackLayout>
                             </Frame>
-                            
                             <!-- Action Controls -->
-                            <Button Grid.Row="1" Grid.Column="0" 
-                                    Text="Record Action" 
-                                    Command="{Binding NavigateToObservePageCommand}" 
-                                    BackgroundColor="#2196F3" TextColor="White" />
-                                    
-                            <Button Grid.Row="1" Grid.Column="1" 
-                                    Text="Import Action" 
-                                    Command="{Binding ImportActionCommand}" 
-                                    BackgroundColor="#607D8B" TextColor="White" />
-                                    
-                            <Button Grid.Row="1" Grid.Column="2" 
-                                    Text="Create Action Chain" 
-                                    Command="{Binding CreateActionChainCommand}" 
-                                    BackgroundColor="#9C27B0" TextColor="White" />
+                            <Button Grid.Row="1"
+                                    Grid.Column="0"
+                                    Text="Record Action"
+                                    Command="{Binding NavigateToObservePageCommand}"
+                                    BackgroundColor="#2196F3"
+                                    TextColor="White" />
+                            <Button Grid.Row="1"
+                                    Grid.Column="1"
+                                    Text="Import Action"
+                                    Command="{Binding ImportActionCommand}"
+                                    BackgroundColor="#607D8B"
+                                    TextColor="White" />
+                            <Button Grid.Row="1"
+                                    Grid.Column="2"
+                                    Text="Create Action Chain"
+                                    Command="{Binding CreateActionChainCommand}"
+                                    BackgroundColor="#9C27B0"
+                                    TextColor="White" />
                         </Grid>
                     </Frame>
-                
                     <!-- Smart Filtering Panel -->
-                    <Frame Grid.Row="2" BorderColor="{StaticResource Primary}" CornerRadius="10" Padding="15" Margin="0,0,0,15">
-                        <Grid RowDefinitions="Auto,Auto" RowSpacing="15">
-                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                                <SearchBar Grid.Column="0" 
-                                           Placeholder="Search actions..." 
-                                           Text="{Binding SearchQuery}" 
+                    <Frame Grid.Row="2"
+                           BorderColor="{StaticResource Primary}"
+                           CornerRadius="10"
+                           Padding="15"
+                           Margin="0,0,0,15">
+                        <Grid RowDefinitions="Auto,Auto"
+                              RowSpacing="15">
+                            <Grid ColumnDefinitions="*,*"
+                                  ColumnSpacing="10">
+                                <SearchBar Grid.Column="0"
+                                           Placeholder="Search actions..."
+                                           Text="{Binding SearchQuery}"
                                            SearchCommand="{Binding SearchCommand}"
                                            HeightRequest="40" />
-                                           
-                                <Picker Grid.Column="1" 
-                                        Title="Filter by type" 
-                                        ItemsSource="{Binding ActionTypeFilters}" 
-                                        SelectedItem="{Binding SelectedActionTypeFilter}" 
+                                <Picker Grid.Column="1"
+                                        Title="Filter by type"
+                                        ItemsSource="{Binding ActionTypeFilters}"
+                                        SelectedItem="{Binding SelectedActionTypeFilter}"
                                         HeightRequest="40" />
                             </Grid>
-                            
-                            <Grid Grid.Row="1" ColumnDefinitions="*,*,Auto" ColumnSpacing="10">
-                                <Picker Grid.Column="0" 
-                                        Title="Sort by" 
-                                        ItemsSource="{Binding SortOptions}" 
-                                        SelectedItem="{Binding SelectedSortOption}" 
+                            <Grid Grid.Row="1"
+                                  ColumnDefinitions="*,*,Auto"
+                                  ColumnSpacing="10">
+                                <Picker Grid.Column="0"
+                                        Title="Sort by"
+                                        ItemsSource="{Binding SortOptions}"
+                                        SelectedItem="{Binding SelectedSortOption}"
                                         HeightRequest="40" />
-                                        
-                                <Picker Grid.Column="1" 
-                                        Title="Group by" 
-                                        ItemsSource="{Binding GroupOptions}" 
-                                        SelectedItem="{Binding SelectedGroupOption}" 
+                                <Picker Grid.Column="1"
+                                        Title="Group by"
+                                        ItemsSource="{Binding GroupOptions}"
+                                        SelectedItem="{Binding SelectedGroupOption}"
                                         HeightRequest="40" />
-                                        
-                                <Button Grid.Column="2" 
-                                        Text="Smart Filter" 
-                                        Command="{Binding ApplySmartFilterCommand}" 
-                                        BackgroundColor="{StaticResource Primary}" 
+                                <Button Grid.Column="2"
+                                        Text="Smart Filter"
+                                        Command="{Binding ApplySmartFilterCommand}"
+                                        BackgroundColor="{StaticResource Primary}"
                                         TextColor="White"
                                         HeightRequest="40" />
                             </Grid>
@@ -162,352 +212,602 @@
                     </Frame>
                 </Grid>
             </ScrollView>
-
-            <!-- Action List Section -->
-            <TabView Grid.Row="1" x:Name="ActionTabView" TabStripBackgroundColor="#f8f8f8" TabStripHeight="60" 
-                     TabStripPlacement="Top" IsSwipeEnabled="True">
-                
-                <!-- All Actions Tab -->
-                <TabViewItem Icon="all_actions.png" Text="All Actions">
-                    <Grid RowDefinitions="*,Auto">
-                        <RefreshView Grid.Row="0" Command="{Binding RefreshDataCommand}" IsRefreshing="{Binding IsRefreshing}">
-                            <CollectionView ItemsSource="{Binding Data}" 
-                                           SelectionMode="Single" 
-                                           SelectedItem="{Binding SelectedAction}">
-                                <CollectionView.GroupHeaderTemplate>
-                                    <DataTemplate>
-                                        <StackLayout Padding="10" BackgroundColor="#F5F5F5">
-                                            <Label Text="{Binding Key}" FontAttributes="Bold" TextColor="#333333" />
-                                        </StackLayout>
-                                    </DataTemplate>
-                                </CollectionView.GroupHeaderTemplate>
-                                
+            <!-- Replace TabView with a standard tab-like interface using buttons and ContentViews -->
+            <Grid Grid.Row="1"
+                  RowDefinitions="Auto,*">
+                <!-- Tab Headers -->
+                <Grid Grid.Row="0"
+                      ColumnDefinitions="*,*,*"
+                      BackgroundColor="#f8f8f8"
+                      HeightRequest="60">
+                    <Button x:Name="AllActionsTab"
+                            Grid.Column="0"
+                            Text="All Actions"
+                            BackgroundColor="{Binding IsAllActionsTabSelected, Converter={StaticResource BoolToColorConverter}}"
+                            TextColor="White"
+                            Command="{Binding SelectAllActionsTabCommand}"
+                            CornerRadius="0"
+                            Margin="2" />
+                    <Button x:Name="ChainsTab"
+                            Grid.Column="1"
+                            Text="Action Chains"
+                            BackgroundColor="{Binding IsChainsTabSelected, Converter={StaticResource BoolToColorConverter}}"
+                            TextColor="White"
+                            Command="{Binding SelectChainsTabCommand}"
+                            CornerRadius="0"
+                            Margin="2" />
+                    <Button x:Name="AnalyticsTab"
+                            Grid.Column="2"
+                            Text="Analytics"
+                            BackgroundColor="{Binding IsAnalyticsTabSelected, Converter={StaticResource BoolToColorConverter}}"
+                            TextColor="White"
+                            Command="{Binding SelectAnalyticsTabCommand}"
+                            CornerRadius="0"
+                            Margin="2" />
+                </Grid>
+                <!-- Tab Content -->
+                <Grid Grid.Row="1">
+                    <!-- All Actions Tab Content -->
+                    <ContentView x:Name="AllActionsContent"
+                                 IsVisible="{Binding IsAllActionsTabSelected}">
+                        <Grid RowDefinitions="*,Auto">
+                            <RefreshView Grid.Row="0"
+                                         Command="{Binding RefreshDataCommand}"
+                                         IsRefreshing="{Binding IsRefreshing}">
+                                <CollectionView x:Name="ActionsCollectionView"
+                                                ItemsSource="{Binding Path=Data, Source={x:Reference this}}"
+                                                SelectionMode="Single">
+                                    <CollectionView.GroupHeaderTemplate>
+                                        <DataTemplate>
+                                            <StackLayout Padding="10"
+                                                         BackgroundColor="#F5F5F5">
+                                                <Label Text="{Binding Key}"
+                                                       FontAttributes="Bold"
+                                                       TextColor="#333333" />
+                                            </StackLayout>
+                                        </DataTemplate>
+                                    </CollectionView.GroupHeaderTemplate>
+                                    <CollectionView.ItemTemplate>
+                                        <DataTemplate>
+                                            <SwipeView>
+                                                <SwipeView.LeftItems>
+                                                    <SwipeItems>
+                                                        <SwipeItem Text="Execute"
+                                                                   BackgroundColor="#4CAF50"
+                                                                   Command="{Binding Path=ToggleSimulateActionGroupCommand, Source={x:Reference this}}"
+                                                                   CommandParameter="{Binding Data.ActionGroupObject}" />
+                                                    </SwipeItems>
+                                                </SwipeView.LeftItems>
+                                                <SwipeView.RightItems>
+                                                    <SwipeItems>
+                                                        <SwipeItem Text="Delete"
+                                                                   BackgroundColor="#F44336"
+                                                                   Command="{Binding Path=DeleteActionGroupCommand, Source={x:Reference this}}"
+                                                                   CommandParameter="{Binding .}" />
+                                                    </SwipeItems>
+                                                </SwipeView.RightItems>
+                                                <Frame CornerRadius="10"
+                                                       Padding="15"
+                                                       Margin="10,5"
+                                                       BorderColor="{Binding ActionStatusColor}">
+                                                    <Grid RowDefinitions="Auto,Auto,Auto"
+                                                          ColumnDefinitions="*,Auto">
+                                                        <!-- Action Header -->
+                                                        <Grid Grid.Row="0"
+                                                              Grid.ColumnSpan="2"
+                                                              ColumnDefinitions="Auto,*,Auto">
+                                                            <Image Grid.Column="0"
+                                                                   Source="{Binding ActionTypeIcon}"
+                                                                   WidthRequest="32"
+                                                                   HeightRequest="32"
+                                                                   Margin="0,0,10,0" />
+                                                            <VerticalStackLayout Grid.Column="1">
+                                                                <Label Text="{Binding Data.ActionGroupObject.ActionName}"
+                                                                       FontAttributes="Bold"
+                                                                       FontSize="Medium" />
+                                                                <Label Text="{Binding Creator}"
+                                                                       TextColor="Gray"
+                                                                       FontSize="Caption" />
+                                                            </VerticalStackLayout>
+                                                            <Label Grid.Column="2"
+                                                                   Text="{Binding FormattedCreatedAt}"
+                                                                   TextColor="Gray"
+                                                                   FontSize="Caption" />
+                                                        </Grid>
+                                                        <!-- Action Content -->
+                                                        <StackLayout Grid.Row="1"
+                                                                     Grid.Column="0"
+                                                                     Margin="0,10,0,10">
+                                                            <Label Text="{Binding ActionDescription}"
+                                                                   TextColor="#555555" />
+                                                            <!-- Performance Stats -->
+                                                            <Grid ColumnDefinitions="*,*,*"
+                                                                  Margin="0,10,0,0">
+                                                                <VerticalStackLayout Grid.Column="0">
+                                                                    <Label Text="Success Rate"
+                                                                           FontSize="Caption"
+                                                                           TextColor="Gray" />
+                                                                    <ProgressBar Progress="{Binding SuccessRate}"
+                                                                                 ProgressColor="#4CAF50" />
+                                                                    <Label Text="{Binding SuccessRate, StringFormat='{0:P0}'}"
+                                                                           HorizontalOptions="End"
+                                                                           FontSize="Micro" />
+                                                                </VerticalStackLayout>
+                                                                <VerticalStackLayout Grid.Column="1">
+                                                                    <Label Text="Used in Goals"
+                                                                           FontSize="Caption"
+                                                                           TextColor="Gray" />
+                                                                    <Label Text="{Binding UsedInGoalsCount}"
+                                                                           FontSize="Small"
+                                                                           HorizontalOptions="Center" />
+                                                                </VerticalStackLayout>
+                                                                <VerticalStackLayout Grid.Column="2">
+                                                                    <Label Text="Executions"
+                                                                           FontSize="Caption"
+                                                                           TextColor="Gray" />
+                                                                    <Label Text="{Binding ExecutionCount}"
+                                                                           FontSize="Small"
+                                                                           HorizontalOptions="Center" />
+                                                                </VerticalStackLayout>
+                                                            </Grid>
+                                                        </StackLayout>
+                                                        <!-- Action Controls -->
+                                                        <VerticalStackLayout Grid.Row="1"
+                                                                             Grid.Column="1"
+                                                                             Spacing="10"
+                                                                             VerticalOptions="Center">
+                                                            <Button Text="{Binding Data.ActionGroupObject.IsSimulating, Converter={StaticResource BoolToTextConverter}}"
+                                                                    Command="{Binding Path=ToggleSimulateActionGroupCommand, Source={x:Reference this}}"
+                                                                    CommandParameter="{Binding Data.ActionGroupObject}"
+                                                                    WidthRequest="110"
+                                                                    BackgroundColor="{Binding Data.ActionGroupObject.IsSimulating, Converter={StaticResource BoolToActiveColorConverter}}"
+                                                                    TextColor="White" />
+                                                            <Button Text="Details"
+                                                                    Command="{Binding Path=RowTappedCommand, Source={x:Reference this}}"
+                                                                    CommandParameter="{Binding Data.ActionGroupObject}"
+                                                                    WidthRequest="110"
+                                                                    BackgroundColor="Transparent"
+                                                                    TextColor="{StaticResource Primary}"
+                                                                    BorderColor="{StaticResource Primary}"
+                                                                    BorderWidth="1" />
+                                                        </VerticalStackLayout>
+                                                        <!-- Action files/media preview -->
+                                                        <ScrollView Grid.Row="2"
+                                                                    Grid.ColumnSpan="2"
+                                                                    Orientation="Horizontal"
+                                                                    IsVisible="{Binding HasMedia}">
+                                                            <StackLayout Orientation="Horizontal"
+                                                                         Spacing="10">
+                                                                <CollectionView ItemsSource="{Binding Data.files}"
+                                                                                HeightRequest="100">
+                                                                    <CollectionView.ItemsLayout>
+                                                                        <LinearItemsLayout Orientation="Horizontal"
+                                                                                           ItemSpacing="10" />
+                                                                    </CollectionView.ItemsLayout>
+                                                                    <CollectionView.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Frame Padding="5"
+                                                                                   CornerRadius="5"
+                                                                                   BorderColor="LightGray">
+                                                                                <Grid RowDefinitions="*, Auto">
+                                                                                    <Image Grid.Row="0"
+                                                                                           Source="{Binding Data, Converter={StaticResource Base64ToImageConverter}}"
+                                                                                           Aspect="AspectFit"
+                                                                                           HeightRequest="80"
+                                                                                           WidthRequest="120">
+                                                                                        <Image.Triggers>
+                                                                                            <DataTrigger TargetType="Image"
+                                                                                                         Binding="{Binding Data}"
+                                                                                                         Value="{x:Static sys:String.Empty}">
+                                                                                                <Setter Property="IsVisible"
+                                                                                                        Value="False" />
+                                                                                            </DataTrigger>
+                                                                                            <DataTrigger TargetType="Image"
+                                                                                                         Binding="{Binding Data}"
+                                                                                                         Value="{x:Null}">
+                                                                                                <Setter Property="IsVisible"
+                                                                                                        Value="False" />
+                                                                                            </DataTrigger>
+                                                                                        </Image.Triggers>
+                                                                                    </Image>
+                                                                                    <Label Grid.Row="1"
+                                                                                           Text="{Binding Filename}"
+                                                                                           TextColor="Gray"
+                                                                                           FontSize="Micro" />
+                                                                                </Grid>
+                                                                            </Frame>
+                                                                        </DataTemplate>
+                                                                    </CollectionView.ItemTemplate>
+                                                                </CollectionView>
+                                                            </StackLayout>
+                                                        </ScrollView>
+                                                    </Grid>
+                                                </Frame>
+                                            </SwipeView>
+                                        </DataTemplate>
+                                    </CollectionView.ItemTemplate>
+                                    <CollectionView.EmptyView>
+                                        <Grid>
+                                            <StackLayout VerticalOptions="CenterAndExpand"
+                                                         HorizontalOptions="CenterAndExpand">
+                                                <Image Source="no_actions.png"
+                                                       HeightRequest="100"
+                                                       WidthRequest="100"
+                                                       Opacity="0.5" />
+                                                <Label Text="No actions found"
+                                                       FontSize="Medium"
+                                                       TextColor="Gray"
+                                                       HorizontalOptions="Center" />
+                                                <Label Text="Try recording or creating a new action, or check your connection"
+                                                       FontSize="Small"
+                                                       TextColor="Gray"
+                                                       HorizontalOptions="Center" />
+                                                <Button Text="Record New Action"
+                                                        Command="{Binding NavigateToObservePageCommand}"
+                                                        Margin="0,20,0,0"
+                                                        BackgroundColor="{StaticResource Primary}"
+                                                        TextColor="White" />
+                                                <Button Text="Refresh Data"
+                                                        Command="{Binding RefreshDataCommand}"
+                                                        Margin="0,10,0,0"
+                                                        BackgroundColor="#2196F3"
+                                                        TextColor="White" />
+                                            </StackLayout>
+                                        </Grid>
+                                    </CollectionView.EmptyView>
+                                </CollectionView>
+                            </RefreshView>
+                            <!-- Batch Operation Panel -->
+                            <Frame Grid.Row="1"
+                                   BorderColor="{StaticResource Primary}"
+                                   Padding="10"
+                                   Margin="10">
+                                <Grid ColumnDefinitions="*,*,*,*"
+                                      ColumnSpacing="10">
+                                    <Button Grid.Column="0"
+                                            Text="Share"
+                                            Command="{Binding ShareSelectedActionsCommand}"
+                                            BackgroundColor="#2196F3"
+                                            TextColor="White" />
+                                    <Button Grid.Column="1"
+                                            Text="Copy"
+                                            Command="{Binding CopySelectedActionsCommand}"
+                                            BackgroundColor="#FF9800"
+                                            TextColor="White" />
+                                    <Button Grid.Column="2"
+                                            Text="Add to Chain"
+                                            Command="{Binding AddToChainCommand}"
+                                            BackgroundColor="#9C27B0"
+                                            TextColor="White" />
+                                    <Button Grid.Column="3"
+                                            Text="Delete"
+                                            Command="{Binding DeleteSelectedActionsCommand}"
+                                            BackgroundColor="#F44336"
+                                            TextColor="White" />
+                                </Grid>
+                            </Frame>
+                        </Grid>
+                    </ContentView>
+                    <!-- Action Chains Tab Content -->
+                    <ContentView x:Name="ChainsContent"
+                                 IsVisible="{Binding IsChainsTabSelected}">
+                        <Grid RowDefinitions="Auto,*">
+                            <Frame Grid.Row="0"
+                                   Padding="15"
+                                   Margin="10"
+                                   BorderColor="{StaticResource Primary}"
+                                   CornerRadius="10">
+                                <Grid ColumnDefinitions="*,Auto"
+                                      ColumnSpacing="15">
+                                    <VerticalStackLayout Grid.Column="0"
+                                                         Spacing="5">
+                                        <Label Text="Action Chains"
+                                               FontAttributes="Bold"
+                                               FontSize="Medium" />
+                                        <Label Text="Combine multiple actions to create powerful automation sequences"
+                                               TextColor="Gray" />
+                                    </VerticalStackLayout>
+                                    <Button Grid.Column="1"
+                                            Text="New Chain"
+                                            Command="{Binding CreateNewChainCommand}"
+                                            BackgroundColor="{StaticResource Primary}"
+                                            TextColor="White"
+                                            VerticalOptions="Center" />
+                                </Grid>
+                            </Frame>
+                            <CollectionView Grid.Row="1"
+                                            ItemsSource="{Binding ActionChains}"
+                                            SelectionMode="Single">
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate>
-                                        <SwipeView>
-                                            <SwipeView.LeftItems>
-                                                <SwipeItems>
-                                                    <SwipeItem Text="Execute" 
-                                                               BackgroundColor="#4CAF50" 
-                                                               Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ExecuteActionCommand}" 
-                                                               CommandParameter="{Binding .}" />
-                                                </SwipeItems>
-                                            </SwipeView.LeftItems>
-                                            
-                                            <SwipeView.RightItems>
-                                                <SwipeItems>
-                                                    <SwipeItem Text="Delete" 
-                                                               BackgroundColor="#F44336" 
-                                                               Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteActionGroupCommand}" 
-                                                               CommandParameter="{Binding .}" />
-                                                </SwipeItems>
-                                            </SwipeView.RightItems>
-                                            
-                                            <Frame CornerRadius="10" Padding="15" Margin="10,5" BorderColor="{Binding ActionStatusColor}">
-                                                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
-                                                    <!-- Action Header -->
-                                                    <Grid Grid.Row="0" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*,Auto">
-                                                        <Image Grid.Column="0" Source="{Binding ActionTypeIcon}" WidthRequest="32" HeightRequest="32" Margin="0,0,10,0" />
-                                                        
-                                                        <VerticalStackLayout Grid.Column="1">
-                                                            <Label Text="{Binding Data.ActionGroupObject.ActionName}" FontAttributes="Bold" FontSize="Medium" />
-                                                            <Label Text="{Binding Creator}" TextColor="Gray" FontSize="Caption" />
-                                                        </VerticalStackLayout>
-                                                        
-                                                        <Label Grid.Column="2" Text="{Binding FormattedCreatedAt}" TextColor="Gray" FontSize="Caption" />
-                                                    </Grid>
-                                                    
-                                                    <!-- Action Content -->
-                                                    <StackLayout Grid.Row="1" Grid.Column="0" Margin="0,10,0,10">
-                                                        <Label Text="{Binding ActionDescription}" TextColor="#555555" />
-                                                        
-                                                        <!-- Performance Stats -->
-                                                        <Grid ColumnDefinitions="*,*,*" Margin="0,10,0,0">
-                                                            <VerticalStackLayout Grid.Column="0">
-                                                                <Label Text="Success Rate" FontSize="Caption" TextColor="Gray" />
-                                                                <ProgressBar Progress="{Binding SuccessRate}" ProgressColor="#4CAF50" />
-                                                                <Label Text="{Binding SuccessRate, StringFormat='{0:P0}'}" HorizontalOptions="End" FontSize="Micro" />
-                                                            </VerticalStackLayout>
-                                                            
-                                                            <VerticalStackLayout Grid.Column="1">
-                                                                <Label Text="Used in Goals" FontSize="Caption" TextColor="Gray" />
-                                                                <Label Text="{Binding UsedInGoalsCount}" FontSize="Small" HorizontalOptions="Center" />
-                                                            </VerticalStackLayout>
-                                                            
-                                                            <VerticalStackLayout Grid.Column="2">
-                                                                <Label Text="Executions" FontSize="Caption" TextColor="Gray" />
-                                                                <Label Text="{Binding ExecutionCount}" FontSize="Small" HorizontalOptions="Center" />
-                                                            </VerticalStackLayout>
-                                                        </Grid>
-                                                    </StackLayout>
-                                                    
-                                                    <!-- Action Controls -->
-                                                    <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="10" VerticalOptions="Center">
-                                                        <Button Text="{Binding Data.ActionGroupObject.IsSimulating, Converter={StaticResource BoolToTextConverter}}"
-                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleSimulateActionGroupCommand}"
-                                                                CommandParameter="{Binding .}"
-                                                                WidthRequest="110"
-                                                                BackgroundColor="{Binding Data.ActionGroupObject.IsSimulating, Converter={StaticResource BoolToActiveColorConverter}}" 
-                                                                TextColor="White"/>
-                                                                
-                                                        <Button Text="Details" 
-                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ViewActionDetailsCommand}"
-                                                                CommandParameter="{Binding .}"
-                                                                WidthRequest="110"
-                                                                BackgroundColor="Transparent"
-                                                                TextColor="{StaticResource Primary}"
-                                                                BorderColor="{StaticResource Primary}"
-                                                                BorderWidth="1"/>
-                                                    </VerticalStackLayout>
-                                                    
-                                                    <!-- Action files/media preview -->
-                                                    <ScrollView Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" IsVisible="{Binding HasMedia}">
-                                                        <StackLayout Orientation="Horizontal" Spacing="10">
-                                                            <CollectionView ItemsSource="{Binding Data.files}" HeightRequest="100">
-                                                                <CollectionView.ItemsLayout>
-                                                                    <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10" />
-                                                                </CollectionView.ItemsLayout>
-                                                                <CollectionView.ItemTemplate>
-                                                                    <DataTemplate>
-                                                                        <Frame Padding="5" CornerRadius="5" BorderColor="LightGray">
-                                                                            <Grid RowDefinitions="*, Auto">
-                                                                                <Image Grid.Row="0" Source="{Binding Data, Converter={StaticResource Base64ToImageConverter}}" 
-                                                                                       Aspect="AspectFit" HeightRequest="80" WidthRequest="120">
-                                                                                    <Image.Triggers>
-                                                                                        <DataTrigger TargetType="Image" Binding="{Binding Data}" Value="{x:Static sys:String.Empty}">
-                                                                                            <Setter Property="IsVisible" Value="False" />
-                                                                                        </DataTrigger>
-                                                                                        <DataTrigger TargetType="Image" Binding="{Binding Data}" Value="{x:Null}">
-                                                                                            <Setter Property="IsVisible" Value="False" />
-                                                                                        </DataTrigger>
-                                                                                    </Image.Triggers>
-                                                                                </Image>
-                                                                                <Label Grid.Row="1" Text="{Binding Filename}" TextColor="Gray" FontSize="Micro" />
-                                                                            </Grid>
-                                                                        </Frame>
-                                                                    </DataTemplate>
-                                                                </CollectionView.ItemTemplate>
-                                                            </CollectionView>
-                                                        </StackLayout>
-                                                    </ScrollView>
+                                        <Frame Padding="15"
+                                               Margin="10,5"
+                                               CornerRadius="10"
+                                               BorderColor="{StaticResource Primary}">
+                                            <Grid RowDefinitions="Auto,Auto,Auto"
+                                                  ColumnDefinitions="*,Auto">
+                                                <!-- Chain Header -->
+                                                <VerticalStackLayout Grid.Row="0"
+                                                                     Grid.Column="0">
+                                                    <Label Text="{Binding ChainName}"
+                                                           FontAttributes="Bold"
+                                                           FontSize="Medium" />
+                                                    <Label Text="{Binding ChainDescription}"
+                                                           TextColor="Gray" />
+                                                </VerticalStackLayout>
+                                                <Label Grid.Row="0"
+                                                       Grid.Column="1"
+                                                       Text="{Binding ActionCount, StringFormat='{0} actions'}"
+                                                       TextColor="Gray"
+                                                       VerticalOptions="Center" />
+                                                <!-- Chain Actions Preview -->
+                                                <CollectionView Grid.Row="1"
+                                                                Grid.ColumnSpan="2"
+                                                                ItemsSource="{Binding Actions}"
+                                                                HeightRequest="120"
+                                                                Margin="0,10">
+                                                    <CollectionView.ItemsLayout>
+                                                        <LinearItemsLayout Orientation="Horizontal"
+                                                                           ItemSpacing="10" />
+                                                    </CollectionView.ItemsLayout>
+                                                    <CollectionView.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Frame WidthRequest="160"
+                                                                   HeightRequest="100"
+                                                                   Padding="10"
+                                                                   BorderColor="LightGray"
+                                                                   CornerRadius="5">
+                                                                <Grid RowDefinitions="Auto,*,Auto">
+                                                                    <Label Grid.Row="0"
+                                                                           Text="{Binding ActionName}"
+                                                                           FontAttributes="Bold"
+                                                                           LineBreakMode="TailTruncation" />
+                                                                    <Label Grid.Row="1"
+                                                                           Text="{Binding ActionDescription}"
+                                                                           FontSize="Micro"
+                                                                           TextColor="Gray"
+                                                                           LineBreakMode="TailTruncation" />
+                                                                    <Label Grid.Row="2"
+                                                                           Text="{Binding ExecutionOrder, StringFormat='Step {0}'}"
+                                                                           FontSize="Micro"
+                                                                           TextColor="{StaticResource Primary}" />
+                                                                </Grid>
+                                                            </Frame>
+                                                        </DataTemplate>
+                                                    </CollectionView.ItemTemplate>
+                                                </CollectionView>
+                                                <!-- Chain Controls -->
+                                                <Grid Grid.Row="2"
+                                                      Grid.ColumnSpan="2"
+                                                      ColumnDefinitions="*,*,*,*"
+                                                      ColumnSpacing="10">
+                                                    <Button Grid.Column="0"
+                                                            Text="Run"
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.RunChainCommand}"
+                                                            CommandParameter="{Binding .}"
+                                                            BackgroundColor="#4CAF50"
+                                                            TextColor="White" />
+                                                    <Button Grid.Column="1"
+                                                            Text="Edit"
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditChainCommand}"
+                                                            CommandParameter="{Binding .}"
+                                                            BackgroundColor="#2196F3"
+                                                            TextColor="White" />
+                                                    <Button Grid.Column="2"
+                                                            Text="Share"
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ShareChainCommand}"
+                                                            CommandParameter="{Binding .}"
+                                                            BackgroundColor="#FF9800"
+                                                            TextColor="White" />
+                                                    <Button Grid.Column="3"
+                                                            Text="Delete"
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteChainCommand}"
+                                                            CommandParameter="{Binding .}"
+                                                            BackgroundColor="#F44336"
+                                                            TextColor="White" />
                                                 </Grid>
-                                            </Frame>
-                                        </SwipeView>
+                                            </Grid>
+                                        </Frame>
                                     </DataTemplate>
                                 </CollectionView.ItemTemplate>
-                                
                                 <CollectionView.EmptyView>
-                                    <StackLayout VerticalOptions="CenterAndExpand" HorizontalOptions="CenterAndExpand">
-                                        <Image Source="no_actions.png" HeightRequest="100" WidthRequest="100" Opacity="0.5" />
-                                        <Label Text="No actions found" FontSize="Medium" TextColor="Gray" HorizontalOptions="Center" />
-                                        <Label Text="Try recording or creating a new action" FontSize="Small" TextColor="Gray" HorizontalOptions="Center" />
-                                        <Button Text="Record New Action" Command="{Binding NavigateToObservePageCommand}" 
-                                                Margin="0,20,0,0" BackgroundColor="{StaticResource Primary}" TextColor="White" />
+                                    <StackLayout VerticalOptions="CenterAndExpand"
+                                                 HorizontalOptions="CenterAndExpand">
+                                        <Image Source="no_chains.png"
+                                               HeightRequest="100"
+                                               WidthRequest="100"
+                                               Opacity="0.5" />
+                                        <Label Text="No action chains found"
+                                               FontSize="Medium"
+                                               TextColor="Gray"
+                                               HorizontalOptions="Center" />
+                                        <Label Text="Create a chain to automate sequences of actions"
+                                               FontSize="Small"
+                                               TextColor="Gray"
+                                               HorizontalOptions="Center" />
+                                        <Button Text="Create Chain"
+                                                Command="{Binding CreateNewChainCommand}"
+                                                Margin="0,20,0,0"
+                                                BackgroundColor="{StaticResource Primary}"
+                                                TextColor="White" />
                                     </StackLayout>
                                 </CollectionView.EmptyView>
                             </CollectionView>
-                        </RefreshView>
-                        
-                        <!-- Batch Operation Panel -->
-                        <Frame Grid.Row="1" BorderColor="{StaticResource Primary}" Padding="10" Margin="10">
-                            <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
-                                <Button Grid.Column="0" Text="Share" Command="{Binding ShareSelectedActionsCommand}" 
-                                        BackgroundColor="#2196F3" TextColor="White" />
-                                <Button Grid.Column="1" Text="Copy" Command="{Binding CopySelectedActionsCommand}" 
-                                        BackgroundColor="#FF9800" TextColor="White" />
-                                <Button Grid.Column="2" Text="Add to Chain" Command="{Binding AddToChainCommand}" 
-                                        BackgroundColor="#9C27B0" TextColor="White" />
-                                <Button Grid.Column="3" Text="Delete" Command="{Binding DeleteSelectedActionsCommand}" 
-                                        BackgroundColor="#F44336" TextColor="White" />
-                            </Grid>
-                        </Frame>
-                    </Grid>
-                </TabViewItem>
-                
-                <!-- Action Chains Tab -->
-                <TabViewItem Icon="action_chains.png" Text="Action Chains">
-                    <Grid RowDefinitions="Auto,*">
-                        <Frame Grid.Row="0" Padding="15" Margin="10" BorderColor="{StaticResource Primary}" CornerRadius="10">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="15">
-                                <VerticalStackLayout Grid.Column="0" Spacing="5">
-                                    <Label Text="Action Chains" FontAttributes="Bold" FontSize="Medium" />
-                                    <Label Text="Combine multiple actions to create powerful automation sequences" TextColor="Gray" />
-                                </VerticalStackLayout>
-                                <Button Grid.Column="1" Text="New Chain" Command="{Binding CreateNewChainCommand}" 
-                                        BackgroundColor="{StaticResource Primary}" TextColor="White" VerticalOptions="Center" />
-                            </Grid>
-                        </Frame>
-                        
-                        <CollectionView Grid.Row="1" ItemsSource="{Binding ActionChains}" SelectionMode="Single">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <Frame Padding="15" Margin="10,5" CornerRadius="10" BorderColor="{StaticResource Primary}">
-                                        <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
-                                            <!-- Chain Header -->
-                                            <VerticalStackLayout Grid.Row="0" Grid.Column="0">
-                                                <Label Text="{Binding ChainName}" FontAttributes="Bold" FontSize="Medium" />
-                                                <Label Text="{Binding ChainDescription}" TextColor="Gray" />
-                                            </VerticalStackLayout>
-                                            
-                                            <Label Grid.Row="0" Grid.Column="1" Text="{Binding ActionCount, StringFormat='{0} actions'}" 
-                                                   TextColor="Gray" VerticalOptions="Center" />
-                                            
-                                            <!-- Chain Actions Preview -->
-                                            <CollectionView Grid.Row="1" Grid.ColumnSpan="2" ItemsSource="{Binding Actions}" 
-                                                           HeightRequest="120" Margin="0,10">
-                                                <CollectionView.ItemsLayout>
-                                                    <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10" />
-                                                </CollectionView.ItemsLayout>
-                                                <CollectionView.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Frame WidthRequest="160" HeightRequest="100" Padding="10" BorderColor="LightGray" CornerRadius="5">
-                                                            <Grid RowDefinitions="Auto,*,Auto">
-                                                                <Label Grid.Row="0" Text="{Binding ActionName}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                                                <Label Grid.Row="1" Text="{Binding ActionDescription}" FontSize="Micro" TextColor="Gray" LineBreakMode="TailTruncation" />
-                                                                <Label Grid.Row="2" Text="{Binding ExecutionOrder, StringFormat='Step {0}'}" FontSize="Micro" TextColor="{StaticResource Primary}" />
-                                                            </Grid>
-                                                        </Frame>
-                                                    </DataTemplate>
-                                                </CollectionView.ItemTemplate>
-                                            </CollectionView>
-                                            
-                                            <!-- Chain Controls -->
-                                            <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
-                                                <Button Grid.Column="0" Text="Run" Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.RunChainCommand}" 
-                                                        CommandParameter="{Binding .}" BackgroundColor="#4CAF50" TextColor="White" />
-                                                <Button Grid.Column="1" Text="Edit" Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditChainCommand}" 
-                                                        CommandParameter="{Binding .}" BackgroundColor="#2196F3" TextColor="White" />
-                                                <Button Grid.Column="2" Text="Share" Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ShareChainCommand}" 
-                                                        CommandParameter="{Binding .}" BackgroundColor="#FF9800" TextColor="White" />
-                                                <Button Grid.Column="3" Text="Delete" Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteChainCommand}" 
-                                                        CommandParameter="{Binding .}" BackgroundColor="#F44336" TextColor="White" />
+                        </Grid>
+                    </ContentView>
+                    <!-- Analytics Tab Content -->
+                    <ContentView x:Name="AnalyticsContent"
+                                 IsVisible="{Binding IsAnalyticsTabSelected}">
+                        <ScrollView>
+                            <VerticalStackLayout Padding="15"
+                                                 Spacing="20">
+                                <Label Text="Action Analytics"
+                                       FontSize="Large"
+                                       FontAttributes="Bold"
+                                       HorizontalOptions="Center" />
+                                <!-- Performance Overview -->
+                                <Frame BorderColor="{StaticResource Primary}"
+                                       CornerRadius="10"
+                                       Padding="15">
+                                    <VerticalStackLayout Spacing="15">
+                                        <Label Text="Performance Overview"
+                                               FontAttributes="Bold"
+                                               FontSize="Medium" />
+                                        <!-- Action Success Rate Chart -->
+                                        <Frame HeightRequest="200"
+                                               BackgroundColor="#f8f8f8"
+                                               CornerRadius="5">
+                                            <Grid>
+                                                <Label Text="Success Rate Over Time"
+                                                       VerticalOptions="Center"
+                                                       HorizontalOptions="Center"
+                                                       TextColor="Gray" />
+                                                <!-- Actual chart would go here -->
                                             </Grid>
+                                        </Frame>
+                                        <!-- Performance Metrics -->
+                                        <Grid ColumnDefinitions="*,*,*"
+                                              ColumnSpacing="15">
+                                            <VerticalStackLayout Grid.Column="0">
+                                                <Label Text="Avg. Execution Time"
+                                                       FontSize="Caption"
+                                                       HorizontalOptions="Center" />
+                                                <Label Text="{Binding AvgExecutionTime}"
+                                                       FontAttributes="Bold"
+                                                       FontSize="Medium"
+                                                       HorizontalOptions="Center" />
+                                            </VerticalStackLayout>
+                                            <VerticalStackLayout Grid.Column="1">
+                                                <Label Text="Daily Executions"
+                                                       FontSize="Caption"
+                                                       HorizontalOptions="Center" />
+                                                <Label Text="{Binding DailyExecutions}"
+                                                       FontAttributes="Bold"
+                                                       FontSize="Medium"
+                                                       HorizontalOptions="Center" />
+                                            </VerticalStackLayout>
+                                            <VerticalStackLayout Grid.Column="2">
+                                                <Label Text="Time Saved"
+                                                       FontSize="Caption"
+                                                       HorizontalOptions="Center" />
+                                                <Label Text="{Binding TimeSaved}"
+                                                       FontAttributes="Bold"
+                                                       FontSize="Medium"
+                                                       HorizontalOptions="Center" />
+                                            </VerticalStackLayout>
                                         </Grid>
-                                    </Frame>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                            
-                            <CollectionView.EmptyView>
-                                <StackLayout VerticalOptions="CenterAndExpand" HorizontalOptions="CenterAndExpand">
-                                    <Image Source="no_chains.png" HeightRequest="100" WidthRequest="100" Opacity="0.5" />
-                                    <Label Text="No action chains found" FontSize="Medium" TextColor="Gray" HorizontalOptions="Center" />
-                                    <Label Text="Create a chain to automate sequences of actions" FontSize="Small" TextColor="Gray" HorizontalOptions="Center" />
-                                    <Button Text="Create Chain" Command="{Binding CreateNewChainCommand}" 
-                                            Margin="0,20,0,0" BackgroundColor="{StaticResource Primary}" TextColor="White" />
-                                </StackLayout>
-                            </CollectionView.EmptyView>
-                        </CollectionView>
-                    </Grid>
-                </TabViewItem>
-                
-                <!-- Analytics Tab -->
-                <TabViewItem Icon="analytics.png" Text="Analytics">
-                    <ScrollView>
-                        <VerticalStackLayout Padding="15" Spacing="20">
-                            <Label Text="Action Analytics" FontSize="Large" FontAttributes="Bold" HorizontalOptions="Center" />
-                            
-                            <!-- Performance Overview -->
-                            <Frame BorderColor="{StaticResource Primary}" CornerRadius="10" Padding="15">
-                                <VerticalStackLayout Spacing="15">
-                                    <Label Text="Performance Overview" FontAttributes="Bold" FontSize="Medium" />
-                                    
-                                    <!-- Action Success Rate Chart -->
-                                    <Frame HeightRequest="200" BackgroundColor="#f8f8f8" CornerRadius="5">
-                                        <Grid>
-                                            <Label Text="Success Rate Over Time" VerticalOptions="Center" HorizontalOptions="Center" TextColor="Gray" />
-                                            <!-- Actual chart would go here -->
-                                        </Grid>
-                                    </Frame>
-                                    
-                                    <!-- Performance Metrics -->
-                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="15">
-                                        <VerticalStackLayout Grid.Column="0">
-                                            <Label Text="Avg. Execution Time" FontSize="Caption" HorizontalOptions="Center" />
-                                            <Label Text="{Binding AvgExecutionTime}" FontAttributes="Bold" FontSize="Medium" HorizontalOptions="Center" />
-                                        </VerticalStackLayout>
-                                        
-                                        <VerticalStackLayout Grid.Column="1">
-                                            <Label Text="Daily Executions" FontSize="Caption" HorizontalOptions="Center" />
-                                            <Label Text="{Binding DailyExecutions}" FontAttributes="Bold" FontSize="Medium" HorizontalOptions="Center" />
-                                        </VerticalStackLayout>
-                                        
-                                        <VerticalStackLayout Grid.Column="2">
-                                            <Label Text="Time Saved" FontSize="Caption" HorizontalOptions="Center" />
-                                            <Label Text="{Binding TimeSaved}" FontAttributes="Bold" FontSize="Medium" HorizontalOptions="Center" />
-                                        </VerticalStackLayout>
-                                    </Grid>
-                                </VerticalStackLayout>
-                            </Frame>
-                            
-                            <!-- Action Usage Patterns -->
-                            <Frame BorderColor="{StaticResource Primary}" CornerRadius="10" Padding="15">
-                                <VerticalStackLayout Spacing="15">
-                                    <Label Text="Usage Patterns" FontAttributes="Bold" FontSize="Medium" />
-                                    
-                                    <!-- Action Distribution Chart -->
-                                    <Frame HeightRequest="200" BackgroundColor="#f8f8f8" CornerRadius="5">
-                                        <Grid>
-                                            <Label Text="Action Type Distribution" VerticalOptions="Center" HorizontalOptions="Center" TextColor="Gray" />
-                                            <!-- Actual chart would go here -->
-                                        </Grid>
-                                    </Frame>
-                                    
-                                    <!-- Most Used Actions -->
-                                    <Label Text="Most Used Actions" FontAttributes="Bold" FontSize="Small" />
-                                    <CollectionView ItemsSource="{Binding MostUsedActions}" HeightRequest="150">
-                                        <CollectionView.ItemsLayout>
-                                            <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10" />
-                                        </CollectionView.ItemsLayout>
-                                        <CollectionView.ItemTemplate>
-                                            <DataTemplate>
-                                                <Frame WidthRequest="140" HeightRequest="130" Padding="10" BorderColor="LightGray" CornerRadius="5">
-                                                    <VerticalStackLayout>
-                                                        <Label Text="{Binding ActionName}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                                        <ProgressBar Progress="{Binding UsagePercentage}" ProgressColor="{StaticResource Primary}" Margin="0,5"/>
-                                                        <Label Text="{Binding UsageCount, StringFormat='{0} uses'}" FontSize="Caption" />
-                                                        <Label Text="{Binding SuccessRate, StringFormat='Success: {0:P0}'}" FontSize="Caption" TextColor="Gray" />
-                                                    </VerticalStackLayout>
-                                                </Frame>
-                                            </DataTemplate>
-                                        </CollectionView.ItemTemplate>
-                                    </CollectionView>
-                                </VerticalStackLayout>
-                            </Frame>
-                            
-                            <!-- AI Recommendations -->
-                            <Frame BorderColor="#4CAF50" CornerRadius="10" Padding="15" BackgroundColor="#E8F5E9">
-                                <VerticalStackLayout Spacing="15">
-                                    <Label Text="AI Recommendations" FontAttributes="Bold" FontSize="Medium" />
-                                    <Label Text="{Binding AIRecommendationSummary}" TextColor="#333333" />
-                                    
-                                    <CollectionView ItemsSource="{Binding ActionRecommendations}" HeightRequest="180">
-                                        <CollectionView.ItemsLayout>
-                                            <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10" />
-                                        </CollectionView.ItemsLayout>
-                                        <CollectionView.ItemTemplate>
-                                            <DataTemplate>
-                                                <Frame WidthRequest="200" HeightRequest="170" Padding="15" BorderColor="#4CAF50" CornerRadius="5">
-                                                    <Grid RowDefinitions="Auto,*,Auto">
-                                                        <Label Grid.Row="0" Text="{Binding RecommendationType}" FontAttributes="Bold" TextColor="#4CAF50" />
-                                                        <Label Grid.Row="1" Text="{Binding RecommendationText}" TextColor="#333333" />
-                                                        <Button Grid.Row="2" Text="Apply" Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ApplyRecommendationCommand}" 
-                                                                CommandParameter="{Binding .}" BackgroundColor="#4CAF50" TextColor="White" />
-                                                    </Grid>
-                                                </Frame>
-                                            </DataTemplate>
-                                        </CollectionView.ItemTemplate>
-                                    </CollectionView>
-                                </VerticalStackLayout>
-                            </Frame>
-                        </VerticalStackLayout>
-                    </ScrollView>
-                </TabViewItem>
-            </TabView>
+                                    </VerticalStackLayout>
+                                </Frame>
+                                <!-- Action Usage Patterns -->
+                                <Frame BorderColor="{StaticResource Primary}"
+                                       CornerRadius="10"
+                                       Padding="15">
+                                    <VerticalStackLayout Spacing="15">
+                                        <Label Text="Usage Patterns"
+                                               FontAttributes="Bold"
+                                               FontSize="Medium" />
+                                        <!-- Action Distribution Chart -->
+                                        <Frame HeightRequest="200"
+                                               BackgroundColor="#f8f8f8"
+                                               CornerRadius="5">
+                                            <Grid>
+                                                <Label Text="Action Type Distribution"
+                                                       VerticalOptions="Center"
+                                                       HorizontalOptions="Center"
+                                                       TextColor="Gray" />
+                                                <!-- Actual chart would go here -->
+                                            </Grid>
+                                        </Frame>
+                                        <!-- Most Used Actions -->
+                                        <Label Text="Most Used Actions"
+                                               FontAttributes="Bold"
+                                               FontSize="Small" />
+                                        <CollectionView ItemsSource="{Binding MostUsedActions}"
+                                                        HeightRequest="150">
+                                            <CollectionView.ItemsLayout>
+                                                <LinearItemsLayout Orientation="Horizontal"
+                                                                   ItemSpacing="10" />
+                                            </CollectionView.ItemsLayout>
+                                            <CollectionView.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Frame WidthRequest="140"
+                                                           HeightRequest="130"
+                                                           Padding="10"
+                                                           BorderColor="LightGray"
+                                                           CornerRadius="5">
+                                                        <VerticalStackLayout>
+                                                            <Label Text="{Binding ActionName}"
+                                                                   FontAttributes="Bold"
+                                                                   LineBreakMode="TailTruncation" />
+                                                            <ProgressBar Progress="{Binding UsagePercentage}"
+                                                                         ProgressColor="{StaticResource Primary}"
+                                                                         Margin="0,5" />
+                                                            <Label Text="{Binding UsageCount, StringFormat='{0} uses'}"
+                                                                   FontSize="Caption" />
+                                                            <Label Text="{Binding SuccessRate, StringFormat='Success: {0:P0}'}"
+                                                                   FontSize="Caption"
+                                                                   TextColor="Gray" />
+                                                        </VerticalStackLayout>
+                                                    </Frame>
+                                                </DataTemplate>
+                                            </CollectionView.ItemTemplate>
+                                        </CollectionView>
+                                    </VerticalStackLayout>
+                                </Frame>
+                                <!-- AI Recommendations -->
+                                <Frame BorderColor="#4CAF50"
+                                       CornerRadius="10"
+                                       Padding="15"
+                                       BackgroundColor="#E8F5E9">
+                                    <VerticalStackLayout Spacing="15">
+                                        <Label Text="AI Recommendations"
+                                               FontAttributes="Bold"
+                                               FontSize="Medium" />
+                                        <Label Text="{Binding AIRecommendationSummary}"
+                                               TextColor="#333333" />
+                                        <CollectionView ItemsSource="{Binding ActionRecommendations}"
+                                                        HeightRequest="180">
+                                            <CollectionView.ItemsLayout>
+                                                <LinearItemsLayout Orientation="Horizontal"
+                                                                   ItemSpacing="10" />
+                                            </CollectionView.ItemsLayout>
+                                            <CollectionView.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Frame WidthRequest="200"
+                                                           HeightRequest="170"
+                                                           Padding="15"
+                                                           BorderColor="#4CAF50"
+                                                           CornerRadius="5">
+                                                        <Grid RowDefinitions="Auto,*,Auto">
+                                                            <Label Grid.Row="0"
+                                                                   Text="{Binding RecommendationType}"
+                                                                   FontAttributes="Bold"
+                                                                   TextColor="#4CAF50" />
+                                                            <Label Grid.Row="1"
+                                                                   Text="{Binding RecommendationText}"
+                                                                   TextColor="#333333" />
+                                                            <Button Grid.Row="2"
+                                                                    Text="Apply"
+                                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ApplyRecommendationCommand}"
+                                                                    CommandParameter="{Binding .}"
+                                                                    BackgroundColor="#4CAF50"
+                                                                    TextColor="White" />
+                                                        </Grid>
+                                                    </Frame>
+                                                </DataTemplate>
+                                            </CollectionView.ItemTemplate>
+                                        </CollectionView>
+                                    </VerticalStackLayout>
+                                </Frame>
+                            </VerticalStackLayout>
+                        </ScrollView>
+                    </ContentView>
+                </Grid>
+            </Grid>
         </Grid>
-        
         <!-- Floating Action Button for Quick Recording -->
-        <Button Grid.Row="2" 
-                Text="+" 
+        <Button Grid.Row="2"
+                Text="+"
                 FontSize="24"
                 Command="{Binding QuickRecordCommand}"
                 BackgroundColor="{StaticResource Primary}"
@@ -518,113 +818,112 @@
                 Margin="0,0,20,20"
                 HorizontalOptions="End"
                 VerticalOptions="End" />
-    </Grid>
-    
-    <!-- Action Input Popup -->
-    <ContentPage.Flyouts>
-        <FlyoutItem x:Name="InputActionPopup" IsVisible="False">
-            <ShellContent>
-                <AbsoluteLayout BackgroundColor="#80000000">
-                    <Frame BackgroundColor="White"
-                           Padding="20"
-                           WidthRequest="350"
-                           HeightRequest="450"
+        <!-- Action Input Popup - Now implemented as a Grid overlay that can be shown/hidden -->
+        <Grid x:Name="InputActionPopup"
+              Grid.RowSpan="3"
+              BackgroundColor="#80000000"
+              IsVisible="False">
+            <Frame BackgroundColor="White"
+                   Padding="20"
+                   WidthRequest="350"
+                   HeightRequest="450"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   CornerRadius="10"
+                   BorderColor="Gray"
+                   HasShadow="True">
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="Create Action"
+                           FontSize="Large"
+                           FontAttributes="Bold"
                            HorizontalOptions="Center"
-                           VerticalOptions="Center"
-                           CornerRadius="10"
-                           BorderColor="Gray"
-                           HasShadow="True"
-                           AbsoluteLayout.LayoutFlags="PositionProportional"
-                           AbsoluteLayout.LayoutBounds="0.5,0.5,AutoSize,AutoSize">
-                        <VerticalStackLayout Spacing="15">
-                            <Label Text="Create Action"
-                                   FontSize="Large"
-                                   FontAttributes="Bold"
-                                   HorizontalOptions="Center"
-                                   TextColor="Black" />
-                                   
-                            <Label Text="Basic Information" FontAttributes="Bold" Margin="0,10,0,0" />
-                            <Entry x:Name="ActionNameEntry"
-                                   Placeholder="Action Name"
-                                   Text="{Binding NewActionName}"
-                                   BackgroundColor="#F0F0F0"
-                                   TextColor="Black" />
-                                   
-                            <Editor x:Name="ActionDescriptionEntry"
-                                    Placeholder="Action Description"
-                                    Text="{Binding NewActionDescription}"
-                                    HeightRequest="80"
-                                    BackgroundColor="#F0F0F0"
-                                    TextColor="Black" />
-                                    
-                            <Label Text="Action Properties" FontAttributes="Bold" Margin="0,10,0,0" />
-                            <Picker Title="Action Type" 
-                                    ItemsSource="{Binding ActionTypes}" 
-                                    SelectedItem="{Binding SelectedActionType}" />
-                                    
-                            <Entry x:Name="ActionArrayEntry"
-                                   Placeholder="Action Commands (comma separated)"
-                                   Text="{Binding NewActionArray}"
-                                   BackgroundColor="#F0F0F0"
-                                   TextColor="Black" />
-                                   
-                            <Label Text="Media" FontAttributes="Bold" Margin="0,10,0,0" />
-                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                                <Button Grid.Column="0" Text="Add Screenshot" 
-                                        Command="{Binding AddScreenshotCommand}"
-                                        BackgroundColor="#2196F3" TextColor="White" />
-                                        
-                                <Button Grid.Column="1" Text="Add File" 
-                                        Command="{Binding AddFileCommand}"
-                                        BackgroundColor="#FF9800" TextColor="White" />
-                            </Grid>
-                            
-                            <CollectionView ItemsSource="{Binding NewActionMedia}" HeightRequest="80">
-                                <CollectionView.ItemsLayout>
-                                    <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10" />
-                                </CollectionView.ItemsLayout>
-                                <CollectionView.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid>
-                                            <Image Source="{Binding Preview}" 
-                                                   Aspect="AspectFill" 
-                                                   HeightRequest="60" 
-                                                   WidthRequest="60" />
-                                            <Button Text="×" 
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.RemoveMediaCommand}" 
-                                                    CommandParameter="{Binding .}"
-                                                    FontSize="18"
-                                                    BackgroundColor="#80000000"
-                                                    TextColor="White"
-                                                    CornerRadius="12"
-                                                    HeightRequest="24"
-                                                    WidthRequest="24"
-                                                    Padding="0"
-                                                    Margin="2"
-                                                    HorizontalOptions="End"
-                                                    VerticalOptions="Start" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </CollectionView.ItemTemplate>
-                            </CollectionView>
-                            
-                            <HorizontalStackLayout HorizontalOptions="Center" Spacing="20">
-                                <Button Text="Create"
-                                        Command="{Binding CreateActionCommand}"
-                                        BackgroundColor="#4CAF50"
-                                        TextColor="White"
-                                        WidthRequest="120" />
-                                        
-                                <Button Text="Cancel"
-                                        Command="{Binding CancelCreateActionCommand}"
-                                        BackgroundColor="#F44336"
-                                        TextColor="White"
-                                        WidthRequest="120" />
-                            </HorizontalStackLayout>
-                        </VerticalStackLayout>
-                    </Frame>
-                </AbsoluteLayout>
-            </ShellContent>
-        </FlyoutItem>
-    </ContentPage.Flyouts>
+                           TextColor="Black" />
+                    <Label Text="Basic Information"
+                           FontAttributes="Bold"
+                           Margin="0,10,0,0" />
+                    <Entry x:Name="ActionNameEntry"
+                           Placeholder="Action Name"
+                           Text="{Binding NewActionName}"
+                           BackgroundColor="#F0F0F0"
+                           TextColor="Black" />
+                    <Editor x:Name="ActionDescriptionEntry"
+                            Placeholder="Action Description"
+                            Text="{Binding NewActionDescription}"
+                            HeightRequest="80"
+                            BackgroundColor="#F0F0F0"
+                            TextColor="Black" />
+                    <Label Text="Action Properties"
+                           FontAttributes="Bold"
+                           Margin="0,10,0,0" />
+                    <Picker Title="Action Type"
+                            ItemsSource="{Binding ActionTypes}"
+                            SelectedItem="{Binding SelectedActionType}" />
+                    <Entry x:Name="ActionArrayEntry"
+                           Placeholder="Action Commands (comma separated)"
+                           Text="{Binding NewActionArray}"
+                           BackgroundColor="#F0F0F0"
+                           TextColor="Black" />
+                    <Label Text="Media"
+                           FontAttributes="Bold"
+                           Margin="0,10,0,0" />
+                    <Grid ColumnDefinitions="*,*"
+                          ColumnSpacing="10">
+                        <Button Grid.Column="0"
+                                Text="Add Screenshot"
+                                Command="{Binding AddScreenshotCommand}"
+                                BackgroundColor="#2196F3"
+                                TextColor="White" />
+                        <Button Grid.Column="1"
+                                Text="Add File"
+                                Command="{Binding AddFileCommand}"
+                                BackgroundColor="#FF9800"
+                                TextColor="White" />
+                    </Grid>
+                    <CollectionView ItemsSource="{Binding NewActionMedia}"
+                                    HeightRequest="80">
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Horizontal"
+                                               ItemSpacing="10" />
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Image Source="{Binding Preview}"
+                                           Aspect="AspectFill"
+                                           HeightRequest="60"
+                                           WidthRequest="60" />
+                                    <Button Text="×"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.RemoveMediaCommand}"
+                                            CommandParameter="{Binding .}"
+                                            FontSize="18"
+                                            BackgroundColor="#80000000"
+                                            TextColor="White"
+                                            CornerRadius="12"
+                                            HeightRequest="24"
+                                            WidthRequest="24"
+                                            Padding="0"
+                                            Margin="2"
+                                            HorizontalOptions="End"
+                                            VerticalOptions="Start" />
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    <HorizontalStackLayout HorizontalOptions="Center"
+                                           Spacing="20">
+                        <Button Text="Create"
+                                Command="{Binding CreateActionCommand}"
+                                BackgroundColor="#4CAF50"
+                                TextColor="White"
+                                WidthRequest="120" />
+                        <Button Text="Cancel"
+                                Command="{Binding CancelCreateActionCommand}"
+                                BackgroundColor="#F44336"
+                                TextColor="White"
+                                WidthRequest="120" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Frame>
+        </Grid>
+    </Grid>
 </ContentPage>
