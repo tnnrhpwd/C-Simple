@@ -29,6 +29,7 @@ namespace CSimple.Services
             EnsureFileExists(_recordedActionsFilePath);
             EnsureFileExists(_goalsFilePath);
             EnsureFileExists(_plansFilePath);
+            EnsureFileExists(_localDataItemsFilePath); // Ensure local data items file exists
         }
 
         public async Task SaveDataItemsAsync(List<DataItem> dataItems)
@@ -68,7 +69,8 @@ namespace CSimple.Services
                 await File.WriteAllTextAsync(filePath, json);
                 System.Diagnostics.Debug.WriteLine($"Successfully saved data to {filePath}");
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 System.Diagnostics.Debug.WriteLine($"Error saving data: {ex.Message}");
             }
         }

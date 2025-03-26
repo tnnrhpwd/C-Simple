@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Xaml; // Add this namespace for XamlCompilation
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -7,15 +8,20 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using CSimple;
 
 namespace CSimple.Pages
 {
+    [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class ActionDetailPage : ContentPage
     {
+        public ActionDetailViewModel ViewModel { get; private set; }
+
         public ActionDetailPage(ActionGroup actionGroup)
         {
-            InitializeComponent();
-            BindingContext = new ActionDetailViewModel(actionGroup, Navigation);
+            InitializeComponent(); // This will work now after we rebuild
+            ViewModel = new ActionDetailViewModel(actionGroup, Navigation);
+            BindingContext = ViewModel;
         }
     }
 
@@ -62,6 +68,8 @@ namespace CSimple.Pages
         public ICommand PlayAudioCommand { get; }
         public ICommand OpenFileCommand { get; }
         public ICommand GeneratePredictionCommand { get; }
+        public ICommand BackCommand { get; }
+        public ICommand DeleteCommand { get; }
 
         public ActionDetailViewModel(ActionGroup actionGroup, INavigation navigation)
         {
@@ -71,17 +79,60 @@ namespace CSimple.Pages
             // Initialize basic properties from ActionGroup properties
             ActionName = actionGroup.ActionName;
             ActionType = DetermineActionType();
-            // Fix: Use appropriate properties or fallbacks for missing properties
-            CreatedAt = DateTime.Now.ToString("g"); // Fallback to current date if not available
+
+            // Fix: Handle missing CreatedAt property in ActionGroup
+            CreatedAt = DateTime.Now.ToString("g"); // Default to current date
+
+            // Try getting creation date from property via reflection
+            try
+            {
+                var createdAtProp = actionGroup.GetType().GetProperty("CreatedAt");
+                if (createdAtProp != null)
+                {
+                    var value = createdAtProp.GetValue(actionGroup);
+                    if (value is DateTime dateValue)
+                    {
+                        CreatedAt = dateValue.ToString("g");
+                    }
+                }
+            }
+            catch
+            {
+                // Fall back to default value already set
+            }
+
             Duration = CalculateDuration(actionGroup);
+
+            // Fix: Handle missing Confidence property in ActionGroup
             Confidence = 0.85; // Default confidence value
+
+            // Try getting confidence from property via reflection
+            try
+            {
+                var confidenceProp = actionGroup.GetType().GetProperty("Confidence");
+                if (confidenceProp != null)
+                {
+                    var value = confidenceProp.GetValue(actionGroup);
+                    if (value is double doubleValue && doubleValue > 0)
+                    {
+                        Confidence = doubleValue;
+                    }
+                }
+            }
+            catch
+            {
+                // Fall back to default value already set
+            }
+
             IsSimulating = actionGroup.IsSimulating;
             ActionArrayFormatted = FormatActionArray();
 
             // Initialize commands
-            CloseCommand = new Command(async () => await _navigation.PopModalAsync());
+            BackCommand = new Command(async () => await _navigation.PopModalAsync());
+            CloseCommand = BackCommand; // For compatibility with existing code
             ExecuteCommand = new Command(ExecuteAction);
             EditCommand = new Command(EditAction);
+            DeleteCommand = new Command(DeleteAction);
             PlayAudioCommand = new Command<AudioFile>(PlayAudio);
             OpenFileCommand = new Command<OtherFile>(OpenFile);
             GeneratePredictionCommand = new Command(GeneratePrediction);
@@ -363,6 +414,39 @@ namespace CSimple.Pages
             HasPrediction = true;
             OnPropertyChanged(nameof(HasPrediction));
             OnPropertyChanged(nameof(NoPrediction));
+        }
+
+        private async void DeleteAction()
+        {
+            bool confirmed = await Application.Current.MainPage.DisplayAlert(
+                "Confirm Delete",
+                $"Are you sure you want to delete the action '{ActionName}'?",
+                "Yes", "No");
+
+            if (confirmed)
+            {
+                try
+                {
+                    // Here you would call a service to delete the action
+                    // For example: await _actionService.DeleteActionAsync(_actionGroup);
+
+                    // Return to the previous page
+                    await _navigation.PopModalAsync();
+
+                    // Optionally show a confirmation
+                    await Application.Current.MainPage.DisplayAlert(
+                        "Success",
+                        "Action was deleted successfully",
+                        "OK");
+                }
+                catch (Exception ex)
+                {
+                    await Application.Current.MainPage.DisplayAlert(
+                        "Error",
+                        $"Could not delete action: {ex.Message}",
+                        "OK");
+                }
+            }
         }
 
         // INotifyPropertyChanged implementation

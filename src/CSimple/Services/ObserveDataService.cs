@@ -117,18 +117,21 @@ namespace CSimple.Services
                 Priority = priority
             };
 
+            // Create the action group object
+            var actionGroup = new ActionGroup
+            {
+                ActionName = actionName,
+                ActionArray = new List<ActionItem> { actionItem },
+                ActionModifiers = new List<ActionModifier> { actionModifier },
+                IsSimulating = false
+            };
+
             var newDataItem = new DataItem
             {
                 Data = new DataObject
                 {
                     Text = $"Action: {actionName}",
-                    ActionGroupObject = new ActionGroup
-                    {
-                        ActionName = actionName,
-                        ActionArray = new List<ActionItem> { actionItem },
-                        ActionModifiers = new List<ActionModifier> { actionModifier },
-                        IsSimulating = false
-                    },
+                    ActionGroupObject = actionGroup,
                     Files = new List<FileItem>()
                 }
             };

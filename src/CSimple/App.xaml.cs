@@ -1,6 +1,13 @@
 ﻿using System.Diagnostics;
 using System.Windows.Input;
 using CSimple.Pages;
+using System;
+using Microsoft.Maui;
+using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Xaml;
+using CSimple.Converters;
+
+[assembly: XamlCompilation(XamlCompilationOptions.Compile)]
 
 namespace CSimple;
 
@@ -27,6 +34,12 @@ public partial class App : Application
 
         if (DeviceInfo.Idiom == DeviceIdiom.Phone)
             Shell.Current.CurrentItem = PhoneTabs;
+
+        // Register the InverseBoolConverter if it's not automatically registered
+        if (!Resources.TryGetValue("InverseBoolConverter", out _))
+        {
+            Resources.Add("InverseBoolConverter", new InverseBoolConverter());
+        }
     }
 
     async void TapGestureRecognizer_Tapped(System.Object sender, System.EventArgs e)

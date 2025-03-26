@@ -427,5 +427,41 @@ namespace CSimple.Services
             keybd_event(volumeCommand, 0, 0x0002, UIntPtr.Zero); // Key up
             Debug.WriteLine($"Executed Volume Command: {(volumeCommand == VK_VOLUME_MUTE ? "Mute" : volumeCommand == VK_VOLUME_DOWN ? "Volume Down" : "Volume Up")}");
         }
+
+        // Update method to accept any ID type
+        public async Task<List<ActionFile>> GetActionFilesAsync(string actionId)
+        {
+            try
+            {
+                // Handle null or empty actionId
+                if (string.IsNullOrEmpty(actionId))
+                {
+                    actionId = "unknown";
+                }
+
+                Debug.WriteLine($"Getting files for action ID: {actionId}");
+
+                // This would typically call a backend service or database
+                // For now, we'll return a mock list of files
+                return await Task.FromResult(new List<ActionFile>
+                {
+                    new ActionFile { Filename = $"screenshot-{actionId}.png", Data = "base64data" },
+                    new ActionFile { Filename = $"recording-{actionId}.wav", Data = "base64data" },
+                    new ActionFile { Filename = $"notes-{actionId}.txt", Data = "Sample notes for action: " + actionId }
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting action files: {ex.Message}");
+                return new List<ActionFile>();
+            }
+        }
+    }
+
+    // Add this class if it doesn't already exist
+    public class ActionFile
+    {
+        public string Filename { get; set; }
+        public string Data { get; set; }
     }
 }

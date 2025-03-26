@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:CSimple"
              xmlns:page="clr-namespace:CSimple.Pages"
+             xmlns:converters="clr-namespace:CSimple.Converters"
              x:Class="CSimple.App">
     <Application.Resources>
         <ResourceDictionary>
@@ -211,6 +212,8 @@
                         <Setter Property="ThumbColor"
                                 Value="White" />
                     </Style>
+                    <!-- Add converter -->
+                    <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
                 </ResourceDictionary>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
