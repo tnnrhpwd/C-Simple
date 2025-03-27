@@ -198,13 +198,13 @@ namespace CSimple.Services
                     int vkCode = Marshal.ReadInt32(lParam);
                     actionItem.KeyCode = (ushort)vkCode;
 
-                    if (!_activeKeyPresses.ContainsKey(actionItem.KeyCode))
+                    if (!_activeKeyPresses.ContainsKey((ushort)actionItem.KeyCode))
                     {
                         _keyPressDownTimestamps[(ushort)vkCode] = DateTime.UtcNow;
                         actionItem.EventType = WM_KEYDOWN;
                         actionItem.Duration = 0;
 
-                        _activeKeyPresses[actionItem.KeyCode] = actionItem;
+                        _activeKeyPresses[(ushort)actionItem.KeyCode] = actionItem;
 
                         NotifyInputUpdate(actionItem);
                     }
@@ -224,7 +224,7 @@ namespace CSimple.Services
                         actionItem.Duration = duration > 0 ? (int)duration : 1;
                         actionItem.EventType = WM_KEYUP;
 
-                        _activeKeyPresses.Remove(actionItem.KeyCode);
+                        _activeKeyPresses.Remove((ushort)actionItem.KeyCode);
                         _keyPressDownTimestamps.Remove((ushort)vkCode);
 
                         NotifyInputUpdate(actionItem);

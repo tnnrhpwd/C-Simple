@@ -457,11 +457,4 @@ namespace CSimple.Services
             }
         }
     }
-
-    // Add this class if it doesn't already exist
-    public class ActionFile
-    {
-        public string Filename { get; set; }
-        public string Data { get; set; }
-    }
 }

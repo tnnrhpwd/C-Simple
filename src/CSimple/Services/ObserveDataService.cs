@@ -30,7 +30,7 @@ namespace CSimple.Services
             if (string.IsNullOrEmpty(filePath) || dataItem == null) return;
 
             if (dataItem.Data.Files == null)
-                dataItem.Data.Files = new List<FileItem>();
+                dataItem.Data.Files = new List<CSimple.ActionFile>();
 
             var extension = Path.GetExtension(filePath).ToLowerInvariant();
             var contentType = extension == ".wav" ? "audio/wav" : "image/png";
@@ -40,11 +40,11 @@ namespace CSimple.Services
                 File.WriteAllBytes(filePath, Convert.FromBase64String(File.ReadAllText(filePath)));
             }
 
-            dataItem.Data.Files.Add(new FileItem
+            dataItem.Data.Files.Add(new CSimple.ActionFile
             {
-                filename = Path.GetFileName(filePath),
-                contentType = contentType,
-                data = Convert.ToBase64String(File.ReadAllBytes(filePath))
+                Filename = Path.GetFileName(filePath),
+                ContentType = contentType,
+                Data = Convert.ToBase64String(File.ReadAllBytes(filePath))
             });
 
             LogDebug($"File added to data item: {filePath}");
@@ -132,7 +132,7 @@ namespace CSimple.Services
                 {
                     Text = $"Action: {actionName}",
                     ActionGroupObject = actionGroup,
-                    Files = new List<FileItem>()
+                    Files = new List<CSimple.ActionFile>()
                 }
             };
 

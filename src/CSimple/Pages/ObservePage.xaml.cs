@@ -626,7 +626,7 @@ namespace CSimple.Pages
                                        actionItem.EventType == 0x0204;   // Right mouse down
 
                         // Update the key display with keycode and press state
-                        CapturePreviewCard.UpdateInputActivity(actionItem.KeyCode, isPressed);
+                        CapturePreviewCard.UpdateInputActivity((ushort)actionItem.KeyCode, isPressed);
 
                         // Animate button to show there's activity
                         var originalColor = Colors.Transparent;
