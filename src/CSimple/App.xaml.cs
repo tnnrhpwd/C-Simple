@@ -6,6 +6,7 @@ using Microsoft.Maui;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Xaml;
 using CSimple.Converters;
+using CSimple.Views;
 
 [assembly: XamlCompilation(XamlCompilationOptions.Compile)]
 
@@ -40,6 +41,13 @@ public partial class App : Application
         {
             Resources.Add("InverseBoolConverter", new InverseBoolConverter());
         }
+
+        // Add converter resources here after the app is initialized
+        Resources.Add("BoolToColorConverter", new BoolToColorConverter());
+        Resources.Add("IntToColorConverter", new IntToColorConverter());
+        Resources.Add("IntToBoolConverter", new IntToBoolConverter());
+
+        // MainPage = new AppShell();
     }
 
     async void TapGestureRecognizer_Tapped(System.Object sender, System.EventArgs e)

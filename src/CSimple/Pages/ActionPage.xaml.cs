@@ -858,10 +858,10 @@ namespace CSimple.Pages
                     actionGroup.HasMetrics = true; // Show metrics by default
                     actionGroup.Description = actionGroup.Description ?? $"Action for {actionGroup.ActionName}";
 
-                    // Try to set a created date if missing
-                    if (actionGroup.CreatedAt == null)
+                    // Fix DateTime null check warning
+                    if (actionGroup.CreatedAt == default(DateTime))
                     {
-                        if (item.createdAt != null)
+                        if (item.createdAt != default(DateTime))
                         {
                             actionGroup.CreatedAt = item.createdAt;
                         }

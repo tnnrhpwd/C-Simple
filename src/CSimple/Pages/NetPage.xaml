@@ -1,7 +1,8 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:CSimple.Pages"
              x:Class="CSimple.Pages.NetPage"
-                Title="Net">
+             Title="Net">
     <ContentPage.Content>
         <ScrollView>
             <VerticalStackLayout Padding="15"
@@ -10,6 +11,71 @@
                        FontSize="Title"
                        FontAttributes="Bold"
                        HorizontalOptions="Center" />
+                <!-- Mode Toggle Panel -->
+                <Frame BorderColor="{StaticResource Primary}"
+                       CornerRadius="10"
+                       Padding="15">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="AI Model Operation Modes"
+                               FontSize="Medium"
+                               FontAttributes="Bold" />
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="15">
+                            <Frame Grid.Column="0"
+                                   BackgroundColor="{Binding IsGeneralModeActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#E3F2FD|#EEEEEE}"
+                                   Padding="15"
+                                   CornerRadius="8">
+                                <VerticalStackLayout>
+                                    <Label Text="General Assistant Mode"
+                                           FontAttributes="Bold"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="Watches all inputs and responds based on learned patterns"
+                                           FontSize="Micro"
+                                           HorizontalOptions="Center"
+                                           TextColor="Gray" />
+                                    <Switch IsToggled="{Binding IsGeneralModeActive}"
+                                            OnColor="{StaticResource Primary}"
+                                            HorizontalOptions="Center"
+                                            Toggled="OnGeneralModeToggled" />
+                                </VerticalStackLayout>
+                            </Frame>
+                            <Frame Grid.Column="1"
+                                   BackgroundColor="{Binding IsSpecificModeActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#F3E5F5|#EEEEEE}"
+                                   Padding="15"
+                                   CornerRadius="8">
+                                <VerticalStackLayout>
+                                    <Label Text="Specific Goal Mode"
+                                           FontAttributes="Bold"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="Execute predefined models for specific tasks"
+                                           FontSize="Micro"
+                                           HorizontalOptions="Center"
+                                           TextColor="Gray" />
+                                    <Switch IsToggled="{Binding IsSpecificModeActive}"
+                                            OnColor="#9C27B0"
+                                            HorizontalOptions="Center"
+                                            Toggled="OnSpecificModeToggled" />
+                                </VerticalStackLayout>
+                            </Frame>
+                        </Grid>
+                        <!-- Status Display -->
+                        <Frame BackgroundColor="#F5F5F5"
+                               CornerRadius="5"
+                               Padding="10">
+                            <VerticalStackLayout>
+                                <Label Text="System Status"
+                                       FontSize="Small"
+                                       FontAttributes="Bold" />
+                                <Label Text="{Binding CurrentModelStatus}"
+                                       TextColor="#1565C0" />
+                                <Label Text="Active Models:"
+                                       FontSize="Small" />
+                                <Label Text="{Binding ActiveModelsCount, StringFormat='{0} models running'}"
+                                       TextColor="{Binding ActiveModelsCount, Converter={StaticResource IntToColorConverter}, ConverterParameter=0|#F44336|#4CAF50}" />
+                            </VerticalStackLayout>
+                        </Frame>
+                    </VerticalStackLayout>
+                </Frame>
                 <!-- Neural Network Activity Dashboard -->
                 <Frame BorderColor="{StaticResource Primary}"
                        CornerRadius="10"
@@ -27,9 +93,9 @@
                                    Margin="5"
                                    CornerRadius="5">
                                 <VerticalStackLayout>
-                                    <Label Text="Active Connections"
+                                    <Label Text="Active Models"
                                            FontSize="Caption" />
-                                    <Label Text="{Binding ActiveConnections}"
+                                    <Label Text="{Binding ActiveModelsCount}"
                                            FontSize="Large"
                                            HorizontalOptions="Center"
                                            TextColor="#2196F3" />
@@ -41,9 +107,9 @@
                                    Margin="5"
                                    CornerRadius="5">
                                 <VerticalStackLayout>
-                                    <Label Text="Models Shared"
+                                    <Label Text="Available Models"
                                            FontSize="Caption" />
-                                    <Label Text="{Binding ModelsShared}"
+                                    <Label Text="{Binding AvailableModels.Count}"
                                            FontSize="Large"
                                            HorizontalOptions="Center"
                                            TextColor="#F44336" />
@@ -55,57 +121,121 @@
                                    Margin="5"
                                    CornerRadius="5">
                                 <VerticalStackLayout>
-                                    <Label Text="Models Downloaded"
+                                    <Label Text="Available Goals"
                                            FontSize="Caption" />
-                                    <Label Text="{Binding ModelsDownloaded}"
+                                    <Label Text="{Binding AvailableGoals.Count}"
                                            FontSize="Large"
                                            HorizontalOptions="Center"
                                            TextColor="#009688" />
                                 </VerticalStackLayout>
                             </Frame>
                         </Grid>
-                        <!-- Network Activity Visualization -->
-                        <Frame HeightRequest="150"
-                               BackgroundColor="#f8f8f8"
-                               CornerRadius="5"
-                               Padding="10">
-                            <Grid>
-                                <Label Text="Network Activity Graph"
-                                       VerticalOptions="Center"
-                                       HorizontalOptions="Center"
-                                       TextColor="Gray" />
-                                <!-- Actual chart would go here -->
-                            </Grid>
-                        </Frame>
+                        <!-- Active Models List -->
+                        <Label Text="Currently Active Models"
+                               FontSize="Subtitle"
+                               FontAttributes="Bold"
+                               Margin="0,10,0,0" />
+                        <CollectionView ItemsSource="{Binding ActiveModels}"
+                                        EmptyView="No active models. Activate a model below.">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="5"
+                                          ColumnDefinitions="*,Auto">
+                                        <VerticalStackLayout Grid.Column="0">
+                                            <Label Text="{Binding Name}"
+                                                   FontAttributes="Bold" />
+                                            <Label Text="{Binding Description}"
+                                                   FontSize="Small" />
+                                            <Label Text="{Binding Type}"
+                                                   FontSize="Micro"
+                                                   TextColor="Gray" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="1"
+                                                Text="Stop"
+                                                BackgroundColor="#F44336"
+                                                TextColor="White"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type local:NetPage}}, Path=DeactivateModelCommand}"
+                                                CommandParameter="{Binding .}"
+                                                VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
                     </VerticalStackLayout>
                 </Frame>
-                <!-- Model Sharing Controls -->
+                <!-- Available Models Section -->
                 <Frame BorderColor="{StaticResource Primary}"
                        CornerRadius="10"
                        Padding="15">
                     <VerticalStackLayout Spacing="10">
-                        <Label Text="Model Sharing"
+                        <Label Text="Available Models"
                                FontSize="Medium"
                                FontAttributes="Bold" />
-                        <Picker Title="Select Model to Share"
-                                ItemsSource="{Binding AvailableModels}"
-                                SelectedItem="{Binding SelectedModelToShare}" />
-                        <Grid ColumnDefinitions="*,*"
-                              ColumnSpacing="10">
-                            <Button Grid.Column="0"
-                                    Text="Share Model"
-                                    Command="{Binding ShareModelCommand}"
-                                    BackgroundColor="#4CAF50"
-                                    TextColor="White" />
-                            <Button Grid.Column="1"
-                                    Text="Manage Shared"
-                                    Command="{Binding ManageSharedCommand}"
-                                    BackgroundColor="#2196F3"
-                                    TextColor="White" />
-                        </Grid>
-                        <Label Text="Share with community to improve collective intelligence"
-                               FontSize="Micro"
-                               TextColor="Gray" />
+                        <!-- Filtered by mode -->
+                        <Label Text="General Purpose Models"
+                               FontAttributes="Bold"
+                               IsVisible="{Binding IsGeneralModeActive}" />
+                        <CollectionView ItemsSource="{Binding AvailableModels}"
+                                        IsVisible="{Binding IsGeneralModeActive}"
+                                        EmptyView="No general models available.">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Vertical"
+                                                   ItemSpacing="8" />
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame BorderColor="LightGray"
+                                           Padding="10"
+                                           CornerRadius="5">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <VerticalStackLayout Grid.Column="0">
+                                                <Label Text="{Binding Name}"
+                                                       FontAttributes="Bold" />
+                                                <Label Text="{Binding Description}"
+                                                       FontSize="Small" />
+                                            </VerticalStackLayout>
+                                            <Button Grid.Column="1"
+                                                    Text="Activate"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ActivateModelCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    BackgroundColor="{StaticResource Primary}"
+                                                    TextColor="White" />
+                                        </Grid>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <!-- Specific Goal Section -->
+                        <Label Text="Available Goal Models"
+                               FontAttributes="Bold"
+                               IsVisible="{Binding IsSpecificModeActive}" />
+                        <CollectionView ItemsSource="{Binding AvailableGoals}"
+                                        IsVisible="{Binding IsSpecificModeActive}"
+                                        EmptyView="No goals available.">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame BorderColor="LightGray"
+                                           Padding="10"
+                                           Margin="0,4"
+                                           CornerRadius="5">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <VerticalStackLayout Grid.Column="0">
+                                                <Label Text="{Binding Name}"
+                                                       FontAttributes="Bold" />
+                                                <Label Text="{Binding Description}"
+                                                       FontSize="Small" />
+                                            </VerticalStackLayout>
+                                            <Button Grid.Column="1"
+                                                    Text="Load Goal"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.LoadSpecificGoalCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    BackgroundColor="#9C27B0"
+                                                    TextColor="White" />
+                                        </Grid>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
                     </VerticalStackLayout>
                 </Frame>
                 <!-- AI Assistant Chat -->
@@ -119,76 +249,131 @@
                         <Frame BackgroundColor="#f5f5f5"
                                CornerRadius="5"
                                Padding="10"
-                               HeightRequest="300">
+                               HeightRequest="150">
                             <ScrollView>
-                                <VerticalStackLayout x:Name="ChatContainer"
-                                                     Spacing="10" />
+                                <VerticalStackLayout Spacing="10">
+                                    <Frame BackgroundColor="White"
+                                           Padding="10"
+                                           CornerRadius="8"
+                                           BorderColor="{StaticResource Primary}">
+                                        <Label Text="{Binding LastModelOutput}"
+                                               TextColor="#333333" />
+                                    </Frame>
+                                </VerticalStackLayout>
                             </ScrollView>
                         </Frame>
                         <Grid ColumnDefinitions="*,Auto"
                               ColumnSpacing="10">
-                            <Entry x:Name="UserInput"
-                                   Grid.Column="0"
-                                   Placeholder="Type your message here..." />
+                            <Entry Grid.Column="0"
+                                   Placeholder="Type your message here..."
+                                   x:Name="MessageInput" />
                             <Button Grid.Column="1"
                                     Text="Send"
-                                    Command="{Binding SendMessageCommand}"
+                                    Command="{Binding CommunicateWithModelCommand}"
+                                    CommandParameter="{Binding Source={x:Reference MessageInput}, Path=Text}"
                                     BackgroundColor="{StaticResource Primary}"
                                     TextColor="White" />
                         </Grid>
+                        <!-- Input Mode Selection -->
                         <HorizontalStackLayout Spacing="5">
-                            <Label Text="Model:"
+                            <Label Text="Input Mode:"
                                    VerticalOptions="Center" />
-                            <Picker WidthRequest="150"
-                                    ItemsSource="{Binding ChatModels}"
-                                    SelectedItem="{Binding SelectedChatModel}" />
-                            <CheckBox IsChecked="{Binding UseVoiceInput}" />
-                            <Label Text="Voice Input"
-                                   VerticalOptions="Center" />
+                            <RadioButton Content="Text"
+                                         IsChecked="True"
+                                         GroupName="InputMode" />
+                            <RadioButton Content="Voice"
+                                         GroupName="InputMode" />
+                            <RadioButton Content="Camera"
+                                         GroupName="InputMode" />
                         </HorizontalStackLayout>
+                        <!-- Warning if no models active -->
+                        <Frame BackgroundColor="#FFF3CD"
+                               IsVisible="{Binding ActiveModelsCount, Converter={StaticResource IntToBoolConverter}, ConverterParameter=0}"
+                               Padding="10"
+                               CornerRadius="5">
+                            <VerticalStackLayout>
+                                <Label Text="No Active Models"
+                                       FontAttributes="Bold"
+                                       TextColor="#856404" />
+                                <Label Text="Activate a model above to enable the AI assistant"
+                                       TextColor="#856404"
+                                       FontSize="Small" />
+                            </VerticalStackLayout>
+                        </Frame>
                     </VerticalStackLayout>
                 </Frame>
-                <!-- Community Insights -->
+                <!-- Model Sharing Controls -->
                 <Frame BorderColor="{StaticResource Primary}"
                        CornerRadius="10"
                        Padding="15">
                     <VerticalStackLayout Spacing="10">
-                        <Label Text="Community Insights"
+                        <Label Text="Model Sharing"
                                FontSize="Medium"
                                FontAttributes="Bold" />
-                        <CollectionView ItemsSource="{Binding CommunityInsights}"
-                                        HeightRequest="200">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <Frame Margin="5"
-                                           Padding="10"
-                                           CornerRadius="5"
-                                           BorderColor="LightGray">
-                                        <VerticalStackLayout>
-                                            <Label Text="{Binding Title}"
-                                                   FontAttributes="Bold" />
-                                            <Label Text="{Binding Description}"
-                                                   FontSize="Small" />
-                                            <HorizontalStackLayout>
-                                                <Label Text="{Binding Author}"
-                                                       FontSize="Micro"
-                                                       TextColor="Gray" />
-                                                <Label Text=" • "
-                                                       FontSize="Micro"
-                                                       TextColor="Gray" />
-                                                <Label Text="{Binding Date, StringFormat='{0:d}'}"
-                                                       FontSize="Micro"
-                                                       TextColor="Gray" />
-                                            </HorizontalStackLayout>
-                                        </VerticalStackLayout>
-                                    </Frame>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                        <Button Text="View More Insights"
-                                Command="{Binding ViewMoreInsightsCommand}"
-                                BackgroundColor="{StaticResource Primary}"
-                                TextColor="White" />
+                        <Picker Title="Select Model to Share"
+                                ItemDisplayBinding="{Binding Name}"
+                                ItemsSource="{Binding AvailableModels}"
+                                x:Name="ShareModelPicker" />
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="10">
+                            <Button Grid.Column="0"
+                                    Text="Share Model"
+                                    Command="{Binding ShareModelCommand}"
+                                    CommandParameter="{Binding Source={x:Reference ShareModelPicker}, Path=SelectedItem}"
+                                    BackgroundColor="#4CAF50"
+                                    TextColor="White" />
+                            <Button Grid.Column="1"
+                                    Text="Import Model"
+                                    BackgroundColor="#2196F3"
+                                    TextColor="White" />
+                        </Grid>
+                        <Entry Placeholder="Enter share code to import model"
+                               Margin="0,10,0,0" />
+                        <Label Text="Share with community to improve collective intelligence"
+                               FontSize="Micro"
+                               TextColor="Gray" />
+                    </VerticalStackLayout>
+                </Frame>
+                <!-- Safety & Security -->
+                <Frame BorderColor="{StaticResource Primary}"
+                       CornerRadius="10"
+                       Padding="15">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Security Settings"
+                               FontSize="Medium"
+                               FontAttributes="Bold" />
+                        <Grid ColumnDefinitions="*,Auto"
+                              RowDefinitions="Auto,Auto,Auto"
+                              RowSpacing="15">
+                            <Label Text="Require Confirmation Before Actions"
+                                   Grid.Row="0"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Row="0"
+                                    Grid.Column="1"
+                                    IsToggled="True"
+                                    OnColor="{StaticResource Primary}" />
+                            <Label Text="Limit to Non-Critical Applications"
+                                   Grid.Row="1"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Row="1"
+                                    Grid.Column="1"
+                                    IsToggled="True"
+                                    OnColor="{StaticResource Primary}" />
+                            <Label Text="Restrict To Current User Session"
+                                   Grid.Row="2"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Row="2"
+                                    Grid.Column="1"
+                                    IsToggled="True"
+                                    OnColor="{StaticResource Primary}" />
+                        </Grid>
+                        <Button Text="Reset Permissions"
+                                BackgroundColor="#FF5252"
+                                TextColor="White"
+                                Margin="0,10,0,0" />
                     </VerticalStackLayout>
                 </Frame>
             </VerticalStackLayout>

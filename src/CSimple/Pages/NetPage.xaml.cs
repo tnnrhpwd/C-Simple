@@ -331,15 +331,15 @@ public partial class NetPage : ContentPage
             // For demo purposes, just update the UI
             LastModelOutput = $"Response to '{message}': Processing your request...";
 
-            // Simulate model processing
-            // In a real app, you would send to your ML backend
-
-            // Update after "processing"
-            Device.StartTimer(TimeSpan.FromSeconds(1), () =>
+            // Simulate model processing using the new recommended approach
+            // Use Dispatcher.Dispatch with Task.Delay instead
+            Task.Delay(TimeSpan.FromSeconds(1)).ContinueWith(_ =>
             {
-                LastModelOutput = $"Response to '{message}': I'll assist with that task right away.";
-                OnPropertyChanged(nameof(LastModelOutput));
-                return false;
+                Application.Current.Dispatcher.Dispatch(() =>
+                {
+                    LastModelOutput = $"Response to '{message}': I'll assist with that task right away.";
+                    OnPropertyChanged(nameof(LastModelOutput));
+                });
             });
 
             OnPropertyChanged(nameof(LastModelOutput));
@@ -367,6 +367,52 @@ public partial class NetPage : ContentPage
         Debug.WriteLine($"{context}: {ex.Message}");
         CurrentModelStatus = $"Error: {context}";
         OnPropertyChanged(nameof(CurrentModelStatus));
+    }
+
+    private void OnGeneralModeToggled(object sender, ToggledEventArgs e)
+    {
+        try
+        {
+            // Add null check to prevent NullReferenceException
+            if (ToggleGeneralModeCommand?.CanExecute(null) == true)
+            {
+                ToggleGeneralModeCommand.Execute(null);
+            }
+            else
+            {
+                // Fallback if command isn't available yet
+                IsGeneralModeActive = e.Value;
+                OnPropertyChanged(nameof(IsGeneralModeActive));
+                Debug.WriteLine("Warning: ToggleGeneralModeCommand not initialized when toggled");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error in OnGeneralModeToggled: {ex.Message}");
+        }
+    }
+
+    private void OnSpecificModeToggled(object sender, ToggledEventArgs e)
+    {
+        try
+        {
+            // Add null check to prevent NullReferenceException
+            if (ToggleSpecificModeCommand?.CanExecute(null) == true)
+            {
+                ToggleSpecificModeCommand.Execute(null);
+            }
+            else
+            {
+                // Fallback if command isn't available yet
+                IsSpecificModeActive = e.Value;
+                OnPropertyChanged(nameof(IsSpecificModeActive));
+                Debug.WriteLine("Warning: ToggleSpecificModeCommand not initialized when toggled");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error in OnSpecificModeToggled: {ex.Message}");
+        }
     }
 }
 

@@ -26,6 +26,7 @@ public static class MauiProgram
             });
 
         // No need to register styles here - they are already included in App.xaml
+        // Don't add resources to Application.Current here since it's not initialized yet
 
         builder.ConfigureLifecycleEvents(lifecycle =>
         {
