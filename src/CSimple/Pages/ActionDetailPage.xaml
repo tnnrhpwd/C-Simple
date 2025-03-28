@@ -44,10 +44,33 @@
                     Value="Bold" />
         </Style>
     </ContentPage.Resources>
-    <Grid RowDefinitions="Auto,*,Auto"
+    <Grid RowDefinitions="Auto,Auto,*,Auto"
           Padding="16">
+        <!-- Error Display - Replacing InfoBar with Grid -->
+        <Grid x:Name="ErrorDisplayGrid"
+              Grid.Row="0"
+              BackgroundColor="#FFDDDD"
+              IsVisible="False"
+              Padding="12">
+            <Grid ColumnDefinitions="*,Auto">
+                <Label x:Name="ErrorMessageLabel"
+                       TextColor="DarkRed"
+                       FontSize="14"
+                       VerticalOptions="Center" />
+                <Button Grid.Column="1"
+                        Text="×"
+                        FontSize="16"
+                        BackgroundColor="Transparent"
+                        TextColor="DarkRed"
+                        Clicked="CloseErrorButton_Clicked"
+                        WidthRequest="32"
+                        HeightRequest="32"
+                        Padding="0"
+                        VerticalOptions="Center" />
+            </Grid>
+        </Grid>
         <!-- Header -->
-        <Grid Grid.Row="0"
+        <Grid Grid.Row="1"
               ColumnDefinitions="*,Auto">
             <StackLayout Grid.Column="0">
                 <Label Text="{Binding ActionName}"
@@ -89,7 +112,7 @@
             </HorizontalStackLayout>
         </Grid>
         <!-- Content -->
-        <ScrollView Grid.Row="1"
+        <ScrollView Grid.Row="2"
                     Margin="0,16,0,0">
             <StackLayout>
                 <!-- Performance Metrics Card -->
@@ -391,7 +414,7 @@
             </StackLayout>
         </ScrollView>
         <!-- Footer -->
-        <HorizontalStackLayout Grid.Row="2"
+        <HorizontalStackLayout Grid.Row="3"
                                Spacing="12"
                                HorizontalOptions="Center"
                                Margin="0,16,0,0">

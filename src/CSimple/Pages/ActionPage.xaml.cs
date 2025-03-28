@@ -13,6 +13,10 @@ using System.Reflection;
 using System.Linq;
 using CSimple; // For ActionGroupExtensions
 using System.Runtime.CompilerServices; // Add this namespace for CallerMemberName attribute
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using System.Collections.Generic;
+using CSimple.Models;
 
 namespace CSimple.Pages
 {
@@ -198,8 +202,8 @@ namespace CSimple.Pages
         // Fix: Defining the missing SortPicker as a class field
         private Picker _sortPicker;
 
-        // Fix: Defining InputActionPopup with correct type
-        private Grid _inputActionPopup;
+        // Fix: Defining InputActionPopup with correct type using fully qualified name
+        private Microsoft.Maui.Controls.Grid _inputActionPopup;
 
         // Add a selected action property
         private ActionGroup _selectedActionGroup;
@@ -249,7 +253,7 @@ namespace CSimple.Pages
 
             // Initialize fields
             _sortPicker = this.FindByName<Picker>("SortPicker");
-            _inputActionPopup = this.FindByName<Grid>("InputActionPopup");
+            _inputActionPopup = this.FindByName<Microsoft.Maui.Controls.Grid>("InputActionPopup");
 
             var fileService = new FileService();
             var dataService = new DataService();
@@ -954,6 +958,103 @@ namespace CSimple.Pages
             {
                 IsLoading = false;
             }
+        }
+
+        private async void OnActionItemClicked(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is FrameworkElement element && element.DataContext is ActionGroup actionGroup)
+                {
+                    // Create a safe copy to pass to the detail page
+                    var safeActionGroup = SafelyCopyActionGroup(actionGroup);
+
+                    // Ensure files are safely handled
+                    var files = ActionGroupExtensions.GetFiles(actionGroup);
+                    Debug.WriteLine($"Files attached to action group: {files?.Count ?? 0}");
+
+                    // Navigate with the safe copy
+                    await Navigation.PushModalAsync(new ActionDetailPage(safeActionGroup));
+                }
+                else
+                {
+                    Debug.WriteLine("Invalid sender or DataContext in OnActionItemClicked");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Navigation error: {ex.Message}");
+                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+
+                // Show an error dialog to the user
+                ShowErrorDialog("Navigation failed",
+                    "There was a problem navigating to the action details. Please try again.");
+            }
+        }
+
+        private ActionGroup SafelyCopyActionGroup(ActionGroup source)
+        {
+            if (source == null) return null;
+
+            try
+            {
+                var copy = new ActionGroup
+                {
+                    Id = source.Id,
+                    ActionName = source.ActionName,
+                    Description = source.Description,
+                    Category = source.Category,
+                    ActionType = source.ActionType,
+                    IsSelected = false, // Reset selection state for detail page
+                    IsSimulating = false // Ensure simulation is off
+                };
+
+                // Safely copy action array
+                if (source.ActionArray != null)
+                {
+                    copy.ActionArray = source.ActionArray.Select(a => new ActionItem
+                    {
+                        EventType = a.EventType,
+                        KeyCode = a.KeyCode,
+                        Duration = a.Duration,
+                        Timestamp = a.Timestamp,
+                        Coordinates = a.Coordinates != null ? new Coordinates
+                        {
+                            X = a.Coordinates.X,
+                            Y = a.Coordinates.Y
+                        } : null
+                    }).ToList();
+                }
+
+                // Safely copy files using the extension method
+                var sourceFiles = ActionGroupExtensions.GetFiles(source);
+                if (sourceFiles != null)
+                {
+                    var copiedFiles = sourceFiles.Select(f => new ActionFile
+                    {
+                        Filename = f.Filename,
+                        ContentType = f.ContentType,
+                        Data = f.Data,
+                        AddedAt = f.AddedAt,
+                        IsProcessed = f.IsProcessed
+                    }).ToList();
+
+                    copy.SetFiles(copiedFiles);
+                }
+
+                return copy;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error copying ActionGroup: {ex.Message}");
+                return new ActionGroup { ActionName = "Error copying action" };
+            }
+        }
+
+        private async void ShowErrorDialog(string title, string content)
+        {
+            // Use MAUI's built-in alert dialog instead of WinUI ContentDialog
+            await DisplayAlert(title, content, "OK");
         }
     }
 

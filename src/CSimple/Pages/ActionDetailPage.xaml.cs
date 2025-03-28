@@ -23,6 +23,19 @@ namespace CSimple.Pages
             ViewModel = new ActionDetailViewModel(actionGroup, Navigation);
             BindingContext = ViewModel;
         }
+
+        // Method to handle the close button click for error display
+        private void CloseErrorButton_Clicked(object sender, EventArgs e)
+        {
+            ErrorDisplayGrid.IsVisible = false;
+        }
+
+        // Method to show error message
+        public void ShowError(string message)
+        {
+            ErrorMessageLabel.Text = message;
+            ErrorDisplayGrid.IsVisible = true;
+        }
     }
 
     public class ActionDetailViewModel : INotifyPropertyChanged
@@ -445,6 +458,40 @@ namespace CSimple.Pages
                         "Error",
                         $"Could not delete action: {ex.Message}",
                         "OK");
+                }
+            }
+        }
+
+        private void ShowError(string message)
+        {
+            // Check if we're on the UI thread
+            if (Application.Current.Dispatcher.IsDispatchRequired)
+            {
+                Application.Current.Dispatcher.Dispatch(() =>
+                {
+                    if (Application.Current.MainPage is ContentPage currentPage &&
+                        currentPage is ActionDetailPage detailPage)
+                    {
+                        detailPage.ShowError(message);
+                    }
+                    else
+                    {
+                        // Fallback to alert dialog
+                        Application.Current.MainPage?.DisplayAlert("Error", message, "OK");
+                    }
+                });
+            }
+            else
+            {
+                if (Application.Current.MainPage is ContentPage currentPage &&
+                    currentPage is ActionDetailPage detailPage)
+                {
+                    detailPage.ShowError(message);
+                }
+                else
+                {
+                    // Fallback to alert dialog
+                    Application.Current.MainPage?.DisplayAlert("Error", message, "OK");
                 }
             }
         }
