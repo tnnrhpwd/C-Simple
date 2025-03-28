@@ -10,6 +10,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
 using CSimple;
+using CSimple.Models;
 
 namespace CSimple.Pages
 {
@@ -36,19 +37,13 @@ namespace CSimple.Pages
                 BindingContext = new { ActionName = "Error Loading Action", ActionType = "Error" };
             }
         }
+    }
 
-        // Method to handle the close button click for error display
-        private void CloseErrorButton_Clicked(object sender, EventArgs e)
-        {
-            // ErrorDisplayGrid.IsVisible = false;
-        }
-
-        // Method to show error message
-        public void ShowError(string message)
-        {
-            // ErrorMessageLabel.Text = message;
-            // ErrorDisplayGrid.IsVisible = true;
-        }
+    public class StepViewModel
+    {
+        public string Index { get; set; }
+        public string Description { get; set; }
+        public string Duration { get; set; }
     }
 
     public class ActionDetailViewModel : INotifyPropertyChanged
@@ -56,16 +51,27 @@ namespace CSimple.Pages
         private readonly INavigation _navigation;
         private readonly ActionGroup _actionGroup;
 
-        // Basic properties - simplified for reliability
+        // Basic properties
         public string ActionName { get; set; }
         public string ActionType { get; set; }
         public string CreatedAt { get; set; }
         public string Duration { get; set; }
+        public string Description { get; set; }
+        public int UsageCount { get; set; }
+        public double SuccessRate { get; set; }
+        public bool IsPartOfTraining { get; set; }
+        public int StepCount => ActionSteps?.Count ?? 0;
         public string ActionArrayFormatted { get; set; }
+
+        // Collections
+        public ObservableCollection<StepViewModel> ActionSteps { get; } = new ObservableCollection<StepViewModel>();
+        public ObservableCollection<ModelAssignment> AssignedModels { get; } = new ObservableCollection<ModelAssignment>();
 
         // Commands
         public ICommand BackCommand { get; }
         public ICommand DeleteCommand { get; }
+        public ICommand ExecuteCommand { get; }
+        public ICommand AssignToModelCommand { get; }
 
         public ActionDetailViewModel(ActionGroup actionGroup, INavigation navigation)
         {
@@ -79,7 +85,17 @@ namespace CSimple.Pages
                 ActionType = actionGroup?.ActionType ?? "Custom Action";
                 CreatedAt = actionGroup?.CreatedAt?.ToString("g") ?? DateTime.Now.ToString("g");
                 Duration = "0.5 seconds"; // Default
+                Description = actionGroup?.Description ?? "No description available";
+                UsageCount = actionGroup?.UsageCount ?? 0;
+                SuccessRate = actionGroup?.SuccessRate ?? 0.85;
+                IsPartOfTraining = actionGroup?.IsPartOfTraining ?? false;
                 ActionArrayFormatted = FormatActionArray();
+
+                // Initialize steps
+                InitializeSteps();
+
+                // Initialize models (demo data)
+                InitializeModels();
 
                 // Setup commands
                 BackCommand = new Command(async () =>
@@ -95,6 +111,8 @@ namespace CSimple.Pages
                 });
 
                 DeleteCommand = new Command(DeleteAction);
+                ExecuteCommand = new Command(ExecuteAction);
+                AssignToModelCommand = new Command(AssignToModel);
 
                 Debug.WriteLine("ActionDetailViewModel initialized successfully");
             }
@@ -107,10 +125,70 @@ namespace CSimple.Pages
                 ActionType = "Error";
                 CreatedAt = DateTime.Now.ToString("g");
                 ActionArrayFormatted = "Could not load action data";
+                Description = "Error loading action details";
 
                 // Create a fallback command
                 BackCommand = new Command(async () => await _navigation.PopModalAsync());
                 DeleteCommand = new Command(() => { });
+                ExecuteCommand = new Command(() => { });
+                AssignToModelCommand = new Command(() => { });
+            }
+        }
+
+        private void InitializeSteps()
+        {
+            try
+            {
+                if (_actionGroup?.ActionArray != null)
+                {
+                    for (int i = 0; i < _actionGroup.ActionArray.Count; i++)
+                    {
+                        var step = _actionGroup.ActionArray[i];
+                        ActionSteps.Add(new StepViewModel
+                        {
+                            Index = (i + 1).ToString(),
+                            Description = step.ToString(),
+                            Duration = $"{(new Random().NextDouble() * 0.3).ToString("0.00")}s"
+                        });
+                    }
+                }
+
+                // Add demo steps if we don't have any
+                if (ActionSteps.Count == 0)
+                {
+                    ActionSteps.Add(new StepViewModel { Index = "1", Description = "Mouse Move to X:500, Y:300", Duration = "0.12s" });
+                    ActionSteps.Add(new StepViewModel { Index = "2", Description = "Left Click", Duration = "0.05s" });
+                    ActionSteps.Add(new StepViewModel { Index = "3", Description = "Key 65 Down (A)", Duration = "0.08s" });
+                    ActionSteps.Add(new StepViewModel { Index = "4", Description = "Key 65 Up (A)", Duration = "0.04s" });
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error initializing steps: {ex.Message}");
+                ActionSteps.Add(new StepViewModel { Index = "!", Description = "Error loading steps", Duration = "N/A" });
+            }
+        }
+
+        private void InitializeModels()
+        {
+            // Add some demo model assignments
+            if (IsPartOfTraining)
+            {
+                AssignedModels.Add(new ModelAssignment
+                {
+                    ModelId = "model1",
+                    ModelName = "General Assistant",
+                    ModelType = "Multimodal",
+                    AssignedDate = DateTime.Now.AddDays(-5)
+                });
+
+                AssignedModels.Add(new ModelAssignment
+                {
+                    ModelId = "model2",
+                    ModelName = "Workflow Automator",
+                    ModelType = "Task Specific",
+                    AssignedDate = DateTime.Now.AddDays(-2)
+                });
             }
         }
 
@@ -127,6 +205,69 @@ namespace CSimple.Pages
             {
                 Debug.WriteLine($"Error formatting action array: {ex.Message}");
                 return "Error loading action steps";
+            }
+        }
+
+        private async void ExecuteAction()
+        {
+            try
+            {
+                // Show an alert while we simulate execution
+                await Application.Current.MainPage.DisplayAlert(
+                    "Executing Action",
+                    $"Executing {ActionName}...",
+                    "OK");
+
+                // In a real app, you'd execute the action here
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error executing action: {ex.Message}");
+                await Application.Current.MainPage.DisplayAlert(
+                    "Error",
+                    $"Could not execute action: {ex.Message}",
+                    "OK");
+            }
+        }
+
+        private async void AssignToModel()
+        {
+            try
+            {
+                string modelName = await Application.Current.MainPage.DisplayPromptAsync(
+                    "Assign to Model",
+                    "Enter model name:",
+                    "Assign",
+                    "Cancel",
+                    "New Model",
+                    maxLength: 50);
+
+                if (!string.IsNullOrEmpty(modelName))
+                {
+                    var newModel = new ModelAssignment
+                    {
+                        ModelId = Guid.NewGuid().ToString(),
+                        ModelName = modelName,
+                        ModelType = "Custom Model",
+                        AssignedDate = DateTime.Now
+                    };
+
+                    AssignedModels.Add(newModel);
+
+                    // Toggle the IsPartOfTraining flag to true
+                    IsPartOfTraining = true;
+                    OnPropertyChanged(nameof(IsPartOfTraining));
+
+                    // Confirm to the user
+                    await Application.Current.MainPage.DisplayAlert(
+                        "Model Assigned",
+                        $"This action has been assigned to model '{modelName}'",
+                        "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error assigning to model: {ex.Message}");
             }
         }
 
