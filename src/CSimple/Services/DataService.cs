@@ -30,19 +30,31 @@ public class DataService
         // Wrap data under "data" property
         var wrappedData = new { data = data };
         var jsonData = JsonSerializer.Serialize(wrappedData);
-        
+
         var jsonContent = new StringContent(jsonData, System.Text.Encoding.UTF8, "application/json");
 
         // Calculate the size of the JSON content
         var dataSize = System.Text.Encoding.UTF8.GetByteCount(jsonData);
         Debug.WriteLine($"----Size of the data being sent: {dataSize} bytes----");
 
-        // Send the POST request
-        var response = await _httpClient.PostAsync(BaseUrl, jsonContent);
-        Debug.WriteLine($"Request URL: {BaseUrl} (POST) with data: {(jsonData.Length > 50 ? jsonData[..50] : jsonData)}");  // Log the request URL for debugging
+        try
+        {
+            // Send the POST request
+            var response = await _httpClient.PostAsync(BaseUrl, jsonContent);
+            Debug.WriteLine($"Request URL: {BaseUrl} (POST) with data: {(jsonData.Length > 50 ? jsonData[..50] : jsonData)}");  // Log the request URL for debugging
 
-        // Handle the response
-        return await HandleResponse<DataModel>(response);
+            // Handle the response
+            return await HandleResponse<DataModel>(response);
+        }
+        catch (HttpRequestException ex)
+        {
+            if (IsTokenExpiredError(ex))
+            {
+                await HandleTokenExpiration();
+                throw new UnauthorizedAccessException("Your session has expired. Please log in again.");
+            }
+            throw;
+        }
     }
 
     // Get data with a single 'data' query parameter
@@ -71,11 +83,26 @@ public class DataService
                 Debug.WriteLine("Length of responseContent:" + JsonSerializer.Serialize(responseContent).Length.ToString());
                 Debug.WriteLine($"1. (DataService.GetDataAsync) Raw response data: {responseContent.Length}");
 
+                // Check for token expiration
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    Debug.WriteLine("Token expired detected in GetDataAsync");
+                    await HandleTokenExpiration();
+                    throw new UnauthorizedAccessException("Your session has expired. Please log in again.");
+                }
+
                 // Handle the response
                 return await HandleResponse<DataModel>(response);
             }
             catch (HttpRequestException ex)
             {
+                if (IsTokenExpiredError(ex))
+                {
+                    Debug.WriteLine("Token expired detected from exception in GetDataAsync");
+                    await HandleTokenExpiration();
+                    throw new UnauthorizedAccessException("Your session has expired. Please log in again.");
+                }
+
                 retryCount++;
                 Debug.WriteLine($"Attempt {retryCount} failed: {ex.Message}");
                 if (retryCount >= maxRetries)
@@ -93,15 +120,39 @@ public class DataService
     // Update existing data using the backend's "compress" or "update" method
     public async Task<DataModel> UpdateDataAsync(string id, object data, string token)
     {
-        return await _updateDataService.UpdateDataAsync(id, data, token);
+        try
+        {
+            return await _updateDataService.UpdateDataAsync(id, data, token);
+        }
+        catch (HttpRequestException ex)
+        {
+            if (IsTokenExpiredError(ex))
+            {
+                await HandleTokenExpiration();
+                throw new UnauthorizedAccessException("Your session has expired. Please log in again.");
+            }
+            throw;
+        }
     }
 
     // Delete user data
     public async Task<DataModel> DeleteDataAsync(string id, string token)
     {
         SetAuthorizationHeader(token);
-        var response = await _httpClient.DeleteAsync($"{BaseUrl}{id}");
-        return await HandleResponse<DataModel>(response);
+        try
+        {
+            var response = await _httpClient.DeleteAsync($"{BaseUrl}{id}");
+            return await HandleResponse<DataModel>(response);
+        }
+        catch (HttpRequestException ex)
+        {
+            if (IsTokenExpiredError(ex))
+            {
+                await HandleTokenExpiration();
+                throw new UnauthorizedAccessException("Your session has expired. Please log in again.");
+            }
+            throw;
+        }
     }
 
     // Login user and store token and nickname locally
@@ -217,7 +268,54 @@ public class DataService
         {
             var errorContent = await response.Content.ReadAsStringAsync();
             Debug.WriteLine($"Error: {errorContent}");
+
+            // Check for unauthorized/token expired
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Debug.WriteLine("Token expired detected in HandleResponse");
+                await HandleTokenExpiration();
+                throw new UnauthorizedAccessException("Your session has expired. Please log in again.");
+            }
+
             throw new HttpRequestException($"Request failed: {response.StatusCode}");
         }
+    }
+
+    // Helper method to check if an error is related to token expiration
+    private bool IsTokenExpiredError(HttpRequestException ex)
+    {
+        // Check if the exception message indicates token expiration
+        return ex.Message.Contains("Unauthorized") ||
+               ex.Message.Contains("401") ||
+               (ex.StatusCode.HasValue && ex.StatusCode.Value == System.Net.HttpStatusCode.Unauthorized);
+    }
+
+    // Handle token expiration by logging out and redirecting to login page
+    private async Task HandleTokenExpiration()
+    {
+        Debug.WriteLine("Handling token expiration - logging out user");
+
+        // Log the user out
+        Logout();
+
+        // Navigate to login page on the main thread
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            try
+            {
+                // Display message to user
+                await Application.Current.MainPage.DisplayAlert(
+                    "Session Expired",
+                    "Your session has expired. Please log in again.",
+                    "OK");
+
+                // Navigate to login page
+                await Shell.Current.GoToAsync("///login");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error during navigation after token expiration: {ex.Message}");
+            }
+        });
     }
 }

@@ -7,41 +7,53 @@
              BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#121212}">
     <Grid RowDefinitions="Auto,*,Auto"
           Padding="16">
-        <!-- Simple header -->
-        <VerticalStackLayout Grid.Row="0"
-                             Spacing="8"
-                             Margin="0,0,0,16">
-            <Label Text="{Binding ActionName}"
-                   FontSize="28"
-                   FontAttributes="Bold" />
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*">
-                <Border Padding="8,4"
-                        BackgroundColor="{AppThemeBinding Light=#e3f2fd, Dark=#0d47a1}"
-                        StrokeShape="RoundRectangle 4">
-                    <Label Text="{Binding ActionType}"
-                           FontSize="14"
-                           TextColor="{AppThemeBinding Light=#0d47a1, Dark=#90caf9}" />
-                </Border>
-                <Label Text="|"
-                       Grid.Column="1"
-                       TextColor="Gray"
-                       Margin="12,0"
-                       VerticalOptions="Center" />
-                <Label Text="{Binding CreatedAt}"
-                       Grid.Column="2"
-                       TextColor="Gray"
-                       VerticalOptions="Center" />
-                <Button Text="Execute"
-                        Grid.Column="3"
-                        Command="{Binding ExecuteCommand}"
-                        HorizontalOptions="End"
-                        BackgroundColor="{AppThemeBinding Light=#4CAF50, Dark=#388E3C}"
-                        TextColor="White"
-                        WidthRequest="100"
-                        HeightRequest="36"
-                        CornerRadius="18" />
-            </Grid>
-        </VerticalStackLayout>
+        <!-- Simple header with back button -->
+        <Grid Grid.Row="0"
+              RowDefinitions="Auto,Auto"
+              Margin="0,0,0,16">
+            <Button Grid.Row="0"
+                    Text="← Back to Actions"
+                    Command="{Binding BackCommand}"
+                    HorizontalOptions="Start"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light=#0d47a1, Dark=#90caf9}"
+                    FontSize="14"
+                    Padding="0"
+                    Margin="0,0,0,8" />
+            <VerticalStackLayout Grid.Row="1"
+                                 Spacing="8">
+                <Label Text="{Binding ActionName}"
+                       FontSize="28"
+                       FontAttributes="Bold" />
+                <Grid ColumnDefinitions="Auto,Auto,Auto,*">
+                    <Border Padding="8,4"
+                            BackgroundColor="{AppThemeBinding Light=#e3f2fd, Dark=#0d47a1}"
+                            StrokeShape="RoundRectangle 4">
+                        <Label Text="{Binding ActionType}"
+                               FontSize="14"
+                               TextColor="{AppThemeBinding Light=#0d47a1, Dark=#90caf9}" />
+                    </Border>
+                    <Label Text="|"
+                           Grid.Column="1"
+                           TextColor="Gray"
+                           Margin="12,0"
+                           VerticalOptions="Center" />
+                    <Label Text="{Binding CreatedAt}"
+                           Grid.Column="2"
+                           TextColor="Gray"
+                           VerticalOptions="Center" />
+                    <Button Text="Execute"
+                            Grid.Column="3"
+                            Command="{Binding ExecuteCommand}"
+                            HorizontalOptions="End"
+                            BackgroundColor="{AppThemeBinding Light=#4CAF50, Dark=#388E3C}"
+                            TextColor="White"
+                            WidthRequest="100"
+                            HeightRequest="36"
+                            CornerRadius="18" />
+                </Grid>
+            </VerticalStackLayout>
+        </Grid>
         <!-- Content -->
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Spacing="16"
