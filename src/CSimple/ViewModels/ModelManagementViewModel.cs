@@ -152,29 +152,26 @@ namespace CSimple.ViewModels
             // Default selected type
             SelectedModelType = ModelTypes[0];
 
-            // Fix CS4014: Initialize without using async void or unwaited async calls
-            InitializeViewModelAsync(); // No await needed, as we're using Task.Run inside
+            // Fix CS4014: We deliberately don't await this call as we can't await in a constructor
+            // The method handles its own exceptions so it's safe to "fire and forget"
+            _ = InitializeViewModelAsync();
         }
 
-        // New method to properly handle initialization
-        private void InitializeViewModelAsync()
+        // Modified to return Task so we can add the _ = to indicate intentional non-awaiting
+        private async Task InitializeViewModelAsync()
         {
-            // Use Task.Run to avoid blocking the UI thread
-            Task.Run(async () =>
+            try
             {
-                try
+                await LoadModels();
+            }
+            catch (Exception ex)
+            {
+                // Use dispatcher to update UI properties from background thread
+                Application.Current.Dispatcher.Dispatch(() =>
                 {
-                    await LoadModels();
-                }
-                catch (Exception ex)
-                {
-                    // Use dispatcher to update UI properties from background thread
-                    Application.Current.Dispatcher.Dispatch(() =>
-                    {
-                        StatusMessage = $"Error initializing: {ex.Message}";
-                    });
-                }
-            });
+                    StatusMessage = $"Error initializing: {ex.Message}";
+                });
+            }
         }
 
         /// <summary>
@@ -278,7 +275,7 @@ namespace CSimple.ViewModels
         /// <summary>
         /// Filter models based on search text and selected type
         /// </summary>
-        // Fix CS1998: Remove async since this method runs synchronously 
+        // Fix CS1998: Ensure this method is not marked async since it runs synchronously
         private void FilterModels()
         {
             // First, reload all models from storage

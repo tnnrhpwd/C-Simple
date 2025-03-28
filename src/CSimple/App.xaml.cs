@@ -18,36 +18,56 @@ public partial class App : Application
 
     public App()
     {
-        InitializeComponent();
+        try
+        {
+            // Create converters before initialization
+            var boolToColorConverter = new BoolToColorConverter();
+            var intToColorConverter = new IntToColorConverter();
+            var intToBoolConverter = new IntToBoolConverter();
+            var inverseBoolConverter = new InverseBoolConverter();
+
+            Debug.WriteLine("App constructor: Converters created");
+
+            InitializeComponent();
+
+            Debug.WriteLine("App constructor: InitializeComponent completed");
+
+            // Register converters directly after initialization to ensure they're available
+            try
+            {
+                Resources["BoolToColorConverter"] = boolToColorConverter;
+                Resources["IntToColorConverter"] = intToColorConverter;
+                Resources["IntToBoolConverter"] = intToBoolConverter;
+                Resources["InverseBoolConverter"] = inverseBoolConverter;
+
+                Debug.WriteLine("App constructor: Converters registered successfully");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error registering converters: {ex.Message}");
+            }
+
+            // Register routes
+            Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
+            Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
+            Routing.RegisterRoute(nameof(HomePage), typeof(HomePage));
+            Routing.RegisterRoute(nameof(NetPage), typeof(NetPage));
+
+            //App.Current.UserAppTheme = AppTheme.Dark;
+
+            if (DeviceInfo.Idiom == DeviceIdiom.Phone)
+                Shell.Current.CurrentItem = PhoneTabs;
+
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Critical error in App constructor: {ex.Message}");
+        }
 
         ToggleFlyoutCommand = new Command(() =>
         {
             Shell.Current.FlyoutIsPresented = !Shell.Current.FlyoutIsPresented;
         });
-
-        // Register routes
-        Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
-        Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
-        Routing.RegisterRoute(nameof(HomePage), typeof(HomePage));
-        Routing.RegisterRoute(nameof(NetPage), typeof(NetPage));
-
-        //App.Current.UserAppTheme = AppTheme.Dark;
-
-        if (DeviceInfo.Idiom == DeviceIdiom.Phone)
-            Shell.Current.CurrentItem = PhoneTabs;
-
-        // Register the InverseBoolConverter if it's not automatically registered
-        if (!Resources.TryGetValue("InverseBoolConverter", out _))
-        {
-            Resources.Add("InverseBoolConverter", new InverseBoolConverter());
-        }
-
-        // Add converter resources here after the app is initialized
-        Resources.Add("BoolToColorConverter", new BoolToColorConverter());
-        Resources.Add("IntToColorConverter", new IntToColorConverter());
-        Resources.Add("IntToBoolConverter", new IntToBoolConverter());
-
-        // MainPage = new AppShell();
     }
 
     async void TapGestureRecognizer_Tapped(System.Object sender, System.EventArgs e)

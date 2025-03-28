@@ -149,28 +149,108 @@ public partial class NetPage : ContentPage
     {
         try
         {
-            IsGeneralModeActive = !IsGeneralModeActive;
-            OnPropertyChanged(nameof(IsGeneralModeActive));
+            Debug.WriteLine("ToggleGeneralMode: Beginning to toggle general mode");
+            // Store original state to restore if something fails
+            bool originalState = IsGeneralModeActive;
 
-            if (IsGeneralModeActive)
+            try
             {
-                CurrentModelStatus = "General mode activated";
-            }
-            else
-            {
-                CurrentModelStatus = "General mode deactivated";
-                // Deactivate general models if needed
-                var generalModels = ActiveModels.Where(m => m.Type == ModelType.General).ToList();
-                foreach (var model in generalModels)
+                // Check AvailableModels initialization
+                if (AvailableModels == null)
                 {
-                    DeactivateModel(model);
+                    Debug.WriteLine("ToggleGeneralMode: AvailableModels was null, initializing");
+                    AvailableModels = new ObservableCollection<NeuralNetworkModel>();
+                    OnPropertyChanged(nameof(AvailableModels));
+                }
+
+                // Check ActiveModels initialization
+                if (ActiveModels == null)
+                {
+                    Debug.WriteLine("ToggleGeneralMode: ActiveModels was null, initializing");
+                    ActiveModels = new ObservableCollection<NeuralNetworkModel>();
+                    OnPropertyChanged(nameof(ActiveModels));
+                }
+
+                IsGeneralModeActive = !IsGeneralModeActive;
+                Debug.WriteLine($"ToggleGeneralMode: Set IsGeneralModeActive to {IsGeneralModeActive}");
+                OnPropertyChanged(nameof(IsGeneralModeActive));
+
+                // Ensure consistent state when enabling general mode
+                if (IsGeneralModeActive && IsSpecificModeActive)
+                {
+                    Debug.WriteLine("ToggleGeneralMode: Also need to turn off specific mode");
+                    IsSpecificModeActive = false;
+                    OnPropertyChanged(nameof(IsSpecificModeActive));
+                }
+
+                if (IsGeneralModeActive)
+                {
+                    CurrentModelStatus = "General mode activated";
+                    Debug.WriteLine("ToggleGeneralMode: General mode activated");
+                }
+                else
+                {
+                    CurrentModelStatus = "General mode deactivated";
+                    Debug.WriteLine("ToggleGeneralMode: General mode deactivated");
+
+                    // Safely deactivate models using a try-catch for each model
+                    try
+                    {
+                        var generalModels = ActiveModels
+                            ?.Where(m => m?.Type == ModelType.General)
+                            ?.ToList() ?? new List<NeuralNetworkModel>();
+
+                        Debug.WriteLine($"ToggleGeneralMode: Found {generalModels.Count} general models to deactivate");
+
+                        foreach (var model in generalModels)
+                        {
+                            try
+                            {
+                                if (model != null)
+                                {
+                                    Debug.WriteLine($"ToggleGeneralMode: Deactivating model {model.Name}");
+                                    DeactivateModel(model);
+                                }
+                            }
+                            catch (Exception modelEx)
+                            {
+                                Debug.WriteLine($"Error deactivating model {model?.Name}: {modelEx.Message}");
+                            }
+                        }
+                    }
+                    catch (Exception modelsEx)
+                    {
+                        Debug.WriteLine($"Error processing general models: {modelsEx.Message}");
+                    }
+                }
+
+                OnPropertyChanged(nameof(CurrentModelStatus));
+                Debug.WriteLine("ToggleGeneralMode: Method completed successfully");
+            }
+            catch (Exception innerEx)
+            {
+                // Restore original state if the toggle failed
+                Debug.WriteLine($"ToggleGeneralMode inner exception: {innerEx.GetType().Name}: {innerEx.Message}");
+                Debug.WriteLine($"Stack trace: {innerEx.StackTrace}");
+
+                try
+                {
+                    IsGeneralModeActive = originalState;
+                    OnPropertyChanged(nameof(IsGeneralModeActive));
+
+                    CurrentModelStatus = "Error toggling general mode";
+                    OnPropertyChanged(nameof(CurrentModelStatus));
+                }
+                catch (Exception restoreEx)
+                {
+                    Debug.WriteLine($"Error restoring state: {restoreEx.Message}");
                 }
             }
-
-            OnPropertyChanged(nameof(CurrentModelStatus));
         }
         catch (Exception ex)
         {
+            Debug.WriteLine($"ToggleGeneralMode outer exception: {ex.GetType().Name}: {ex.Message}");
+            Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             HandleError("Error toggling general mode", ex);
         }
     }
@@ -179,61 +259,209 @@ public partial class NetPage : ContentPage
     {
         try
         {
-            IsSpecificModeActive = !IsSpecificModeActive;
-            OnPropertyChanged(nameof(IsSpecificModeActive));
+            // Store original state to restore if something fails
+            bool originalState = IsSpecificModeActive;
+            Debug.WriteLine($"ToggleSpecificMode: Starting toggle. Current state: {originalState}");
 
-            if (IsSpecificModeActive)
+            try
             {
-                CurrentModelStatus = "Specific mode activated";
-            }
-            else
-            {
-                CurrentModelStatus = "Specific mode deactivated";
-                // Deactivate specific goal models if needed
-                var specificModels = ActiveModels.Where(m => m.Type == ModelType.GoalSpecific).ToList();
-                foreach (var model in specificModels)
+                // Set the new state value
+                IsSpecificModeActive = !IsSpecificModeActive;
+                OnPropertyChanged(nameof(IsSpecificModeActive));
+
+                // Ensure consistent state - when enabling specific mode, make sure general mode is off
+                if (IsSpecificModeActive && IsGeneralModeActive)
                 {
-                    DeactivateModel(model);
+                    Debug.WriteLine("ToggleSpecificMode: Turning off general mode");
+                    IsGeneralModeActive = false;
+                    OnPropertyChanged(nameof(IsGeneralModeActive));
+                }
+
+                if (IsSpecificModeActive)
+                {
+                    // Extra safety - ensure AvailableGoals is initialized
+                    if (AvailableGoals == null)
+                    {
+                        Debug.WriteLine("ToggleSpecificMode: AvailableGoals was null, initializing");
+                        AvailableGoals = new ObservableCollection<SpecificGoal>();
+                        OnPropertyChanged(nameof(AvailableGoals));
+                    }
+
+                    // Double-check goals have been loaded
+                    if (AvailableGoals.Count == 0)
+                    {
+                        Debug.WriteLine("ToggleSpecificMode: AvailableGoals was empty, adding sample goal");
+                        // Add a default goal if empty to prevent UI issues
+                        AvailableGoals.Add(new SpecificGoal
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Name = "Default Goal",
+                            Description = "Sample goal"
+                        });
+                    }
+
+                    CurrentModelStatus = "Specific mode activated";
+                    Debug.WriteLine("ToggleSpecificMode: Activated specific mode");
+                }
+                else
+                {
+                    CurrentModelStatus = "Specific mode deactivated";
+                    Debug.WriteLine("ToggleSpecificMode: Deactivated specific mode");
+
+                    // Safely deactivate goal-specific models
+                    DeactivateGoalModels();
+                }
+
+                OnPropertyChanged(nameof(CurrentModelStatus));
+                Debug.WriteLine("ToggleSpecificMode: Completed successfully");
+            }
+            catch (Exception innerEx)
+            {
+                // Restore original state if the toggle failed
+                Debug.WriteLine($"ToggleSpecificMode inner exception: {innerEx.GetType().Name}: {innerEx.Message}");
+                Debug.WriteLine($"Stack trace: {innerEx.StackTrace}");
+
+                try
+                {
+                    // Restore original state
+                    IsSpecificModeActive = originalState;
+                    OnPropertyChanged(nameof(IsSpecificModeActive));
+                    CurrentModelStatus = "Error toggling specific mode";
+                    OnPropertyChanged(nameof(CurrentModelStatus));
+                }
+                catch (Exception restoreEx)
+                {
+                    Debug.WriteLine($"Error restoring state: {restoreEx.Message}");
                 }
             }
-
-            OnPropertyChanged(nameof(CurrentModelStatus));
         }
         catch (Exception ex)
         {
+            Debug.WriteLine($"ToggleSpecificMode outer exception: {ex.GetType().Name}: {ex.Message}");
+            Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             HandleError("Error toggling specific mode", ex);
+        }
+    }
+
+    private void DeactivateGoalModels()
+    {
+        try
+        {
+            Debug.WriteLine("DeactivateGoalModels: Starting");
+
+            if (ActiveModels == null)
+            {
+                Debug.WriteLine("DeactivateGoalModels: ActiveModels is null");
+                return;
+            }
+
+            // Create a copy of the collection to avoid modification during enumeration
+            var specificModels = ActiveModels
+                .Where(m => m?.Type == ModelType.GoalSpecific)
+                .ToList();
+
+            Debug.WriteLine($"DeactivateGoalModels: Found {specificModels.Count} goal-specific models");
+
+            foreach (var model in specificModels)
+            {
+                try
+                {
+                    if (model != null)
+                    {
+                        DeactivateModel(model);
+                        Debug.WriteLine($"DeactivateGoalModels: Deactivated model '{model.Name}'");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error deactivating model {model?.Name}: {ex.Message}");
+                }
+            }
+
+            Debug.WriteLine("DeactivateGoalModels: Complete");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"DeactivateGoalModels exception: {ex.Message}");
         }
     }
 
     private void ActivateModel(NeuralNetworkModel model)
     {
-        if (model == null) return;
+        if (model == null)
+        {
+            Debug.WriteLine("ActivateModel: Received null model, ignoring");
+            return;
+        }
 
         try
         {
-            // Check if mode is correct for this model type
-            if (model.Type == ModelType.General && !IsGeneralModeActive ||
-                model.Type == ModelType.GoalSpecific && !IsSpecificModeActive)
+            Debug.WriteLine($"ActivateModel: Beginning to activate model {model.Name}");
+
+            // Check ActiveModels initialization
+            if (ActiveModels == null)
             {
+                Debug.WriteLine("ActivateModel: ActiveModels was null, initializing");
+                ActiveModels = new ObservableCollection<NeuralNetworkModel>();
+                OnPropertyChanged(nameof(ActiveModels));
+            }
+
+            // Check if mode is correct for this model type
+            if ((model.Type == ModelType.General && !IsGeneralModeActive) ||
+                (model.Type == ModelType.GoalSpecific && !IsSpecificModeActive))
+            {
+                Debug.WriteLine($"ActivateModel: Cannot activate {model.Name}: Incompatible mode");
                 CurrentModelStatus = $"Cannot activate {model.Name}: Incompatible mode";
                 OnPropertyChanged(nameof(CurrentModelStatus));
                 return;
             }
 
-            // Check if not already active
-            if (!ActiveModels.Contains(model))
+            // Check if not already active - create a safe copy of the list to avoid modification during enumeration
+            bool isAlreadyActive = false;
+            try
             {
+                isAlreadyActive = ActiveModels?.Any(m => m?.Id == model.Id) ?? false;
+            }
+            catch (Exception checkEx)
+            {
+                Debug.WriteLine($"Error checking if model is active: {checkEx.Message}");
+                isAlreadyActive = false;
+            }
+
+            if (!isAlreadyActive)
+            {
+                Debug.WriteLine($"ActivateModel: Adding model {model.Name} to active models");
                 ActiveModels.Add(model);
                 CurrentModelStatus = $"Model '{model.Name}' activated";
 
+                // Validate that the model was actually added
+                bool wasAdded = ActiveModels.Contains(model);
+                Debug.WriteLine($"ActivateModel: Model was added successfully: {wasAdded}");
+
                 // Start model monitoring for system inputs
-                StartModelMonitoring(model);
+                try
+                {
+                    StartModelMonitoring(model);
+                }
+                catch (Exception monitorEx)
+                {
+                    Debug.WriteLine($"Warning: Error starting model monitoring: {monitorEx.Message}");
+                    // Continue even if monitoring fails
+                }
             }
+            else
+            {
+                Debug.WriteLine($"ActivateModel: Model {model.Name} is already active");
+            }
+
             OnPropertyChanged(nameof(ActiveModelsCount));
             OnPropertyChanged(nameof(CurrentModelStatus));
+            Debug.WriteLine("ActivateModel: Method completed successfully");
         }
         catch (Exception ex)
         {
+            Debug.WriteLine($"ActivateModel exception: {ex.GetType().Name}: {ex.Message}");
+            Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             HandleError($"Error activating model: {model?.Name}", ex);
         }
     }
@@ -263,10 +491,16 @@ public partial class NetPage : ContentPage
 
     private void LoadSpecificGoal(SpecificGoal goal)
     {
-        if (goal == null) return;
+        if (goal == null)
+        {
+            Debug.WriteLine("LoadSpecificGoal: goal is null");
+            return;
+        }
 
         try
         {
+            Debug.WriteLine($"LoadSpecificGoal: Loading goal '{goal.Name}'");
+
             // Create a model from the goal
             var goalModel = new NeuralNetworkModel
             {
@@ -278,19 +512,30 @@ public partial class NetPage : ContentPage
             };
 
             // Add to available models
+            if (AvailableModels == null)
+            {
+                Debug.WriteLine("LoadSpecificGoal: AvailableModels was null, initializing");
+                AvailableModels = new ObservableCollection<NeuralNetworkModel>();
+            }
+
             AvailableModels.Add(goalModel);
+            Debug.WriteLine("LoadSpecificGoal: Added goal model to available models");
 
             // Automatically activate if in specific mode
             if (IsSpecificModeActive)
             {
+                Debug.WriteLine("LoadSpecificGoal: Specific mode is active, activating goal model");
                 ActivateModel(goalModel);
             }
 
             CurrentModelStatus = $"Loaded goal '{goal.Name}'";
             OnPropertyChanged(nameof(CurrentModelStatus));
+            Debug.WriteLine("LoadSpecificGoal: Complete");
         }
         catch (Exception ex)
         {
+            Debug.WriteLine($"LoadSpecificGoal exception: {ex.GetType().Name}: {ex.Message}");
+            Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             HandleError($"Error loading goal: {goal?.Name}", ex);
         }
     }
@@ -373,22 +618,66 @@ public partial class NetPage : ContentPage
     {
         try
         {
-            // Add null check to prevent NullReferenceException
-            if (ToggleGeneralModeCommand?.CanExecute(null) == true)
+            Debug.WriteLine($"OnGeneralModeToggled: Toggle value = {e.Value}");
+
+            // Use direct approach with dispatcher to avoid command-related issues
+            Dispatcher.Dispatch(() =>
             {
-                ToggleGeneralModeCommand.Execute(null);
-            }
-            else
-            {
-                // Fallback if command isn't available yet
-                IsGeneralModeActive = e.Value;
-                OnPropertyChanged(nameof(IsGeneralModeActive));
-                Debug.WriteLine("Warning: ToggleGeneralModeCommand not initialized when toggled");
-            }
+                try
+                {
+                    Debug.WriteLine("OnGeneralModeToggled: Using direct toggle implementation");
+
+                    // Direct implementation without using command
+                    if (e.Value != IsGeneralModeActive)
+                    {
+                        try
+                        {
+                            ToggleGeneralMode();
+                        }
+                        catch (Exception toggleEx)
+                        {
+                            Debug.WriteLine($"Error in toggle method: {toggleEx.Message}");
+                            // Fallback - just set the property directly
+                            IsGeneralModeActive = e.Value;
+                            OnPropertyChanged(nameof(IsGeneralModeActive));
+
+                            // Ensure consistent state
+                            if (IsGeneralModeActive && IsSpecificModeActive)
+                            {
+                                IsSpecificModeActive = false;
+                                OnPropertyChanged(nameof(IsSpecificModeActive));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Debug.WriteLine("OnGeneralModeToggled: Value already matches IsGeneralModeActive, ignoring");
+                    }
+                }
+                catch (Exception dispatchEx)
+                {
+                    Debug.WriteLine($"OnGeneralModeToggled dispatch error: {dispatchEx.Message}");
+
+                    // Last resort - just set the property and hope for the best
+                    try
+                    {
+                        IsGeneralModeActive = e.Value;
+                        OnPropertyChanged(nameof(IsGeneralModeActive));
+
+                        CurrentModelStatus = $"General mode {(e.Value ? "activated" : "deactivated")} (emergency fallback)";
+                        OnPropertyChanged(nameof(CurrentModelStatus));
+                    }
+                    catch (Exception finalEx)
+                    {
+                        Debug.WriteLine($"OnGeneralModeToggled final error: {finalEx.Message}");
+                    }
+                }
+            });
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error in OnGeneralModeToggled: {ex.Message}");
+            Debug.WriteLine($"OnGeneralModeToggled exception: {ex.GetType().Name}: {ex.Message}");
+            Debug.WriteLine($"Stack trace: {ex.StackTrace}");
         }
     }
 
@@ -396,22 +685,120 @@ public partial class NetPage : ContentPage
     {
         try
         {
-            // Add null check to prevent NullReferenceException
-            if (ToggleSpecificModeCommand?.CanExecute(null) == true)
+            Debug.WriteLine($"OnSpecificModeToggled: Value={e.Value}");
+
+            // Ensure handlers don't conflict
+            if (e.Value != IsSpecificModeActive)
             {
-                ToggleSpecificModeCommand.Execute(null);
+                // Use our safer direct implementation rather than Command
+                Dispatcher.Dispatch(() =>
+                {
+                    try
+                    {
+                        Debug.WriteLine("OnSpecificModeToggled: Using direct toggle implementation");
+                        ToggleSpecificMode();
+                    }
+                    catch (Exception toggleEx)
+                    {
+                        Debug.WriteLine($"OnSpecificModeToggled toggle error: {toggleEx.Message}");
+
+                        // Last resort - just set the property value
+                        try
+                        {
+                            IsSpecificModeActive = e.Value;
+                            OnPropertyChanged(nameof(IsSpecificModeActive));
+
+                            // Ensure UI consistency
+                            if (IsSpecificModeActive && IsGeneralModeActive)
+                            {
+                                IsGeneralModeActive = false;
+                                OnPropertyChanged(nameof(IsGeneralModeActive));
+                            }
+
+                            CurrentModelStatus = $"Specific mode {(e.Value ? "activated" : "deactivated")} (emergency fallback)";
+                            OnPropertyChanged(nameof(CurrentModelStatus));
+                        }
+                        catch (Exception lastEx)
+                        {
+                            Debug.WriteLine($"OnSpecificModeToggled last resort error: {lastEx.Message}");
+                        }
+                    }
+                });
             }
             else
             {
-                // Fallback if command isn't available yet
-                IsSpecificModeActive = e.Value;
-                OnPropertyChanged(nameof(IsSpecificModeActive));
-                Debug.WriteLine("Warning: ToggleSpecificModeCommand not initialized when toggled");
+                Debug.WriteLine("OnSpecificModeToggled: Value already matches IsSpecificModeActive, ignoring");
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error in OnSpecificModeToggled: {ex.Message}");
+            Debug.WriteLine($"OnSpecificModeToggled exception: {ex.GetType().Name}: {ex.Message}");
+            Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
+    }
+
+    // Add a helper method to safely handle mode conflicts
+    private void EnsureConsistentModeState()
+    {
+        try
+        {
+            // Specific and General modes are mutually exclusive
+            if (IsSpecificModeActive && IsGeneralModeActive)
+            {
+                // Default to the most recently changed mode
+                IsGeneralModeActive = false;
+                OnPropertyChanged(nameof(IsGeneralModeActive));
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error ensuring consistent mode state: {ex.Message}");
+        }
+    }
+
+    // Add a diagnostic method to check converter registration
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+
+        try
+        {
+            // Check if converters are available through app resources
+            Debug.WriteLine("Checking for converters in resources:");
+            if (Application.Current?.Resources != null)
+            {
+                var hasColorConverter = Application.Current.Resources.TryGetValue("BoolToColorConverter", out _);
+                Debug.WriteLine($"BoolToColorConverter found: {hasColorConverter}");
+
+                var hasIntColorConverter = Application.Current.Resources.TryGetValue("IntToColorConverter", out _);
+                Debug.WriteLine($"IntToColorConverter found: {hasIntColorConverter}");
+
+                var hasIntBoolConverter = Application.Current.Resources.TryGetValue("IntToBoolConverter", out _);
+                Debug.WriteLine($"IntToBoolConverter found: {hasIntBoolConverter}");
+
+                // If any required converters are missing, try to register them
+                if (!hasColorConverter || !hasIntColorConverter || !hasIntBoolConverter)
+                {
+                    Debug.WriteLine("Attempting to register missing converters");
+
+                    if (!hasColorConverter && Application.Current.Resources != null)
+                        Application.Current.Resources.Add("BoolToColorConverter", new CSimple.Converters.BoolToColorConverter());
+
+                    if (!hasIntColorConverter && Application.Current.Resources != null)
+                        Application.Current.Resources.Add("IntToColorConverter", new CSimple.Converters.IntToColorConverter());
+
+                    if (!hasIntBoolConverter && Application.Current.Resources != null)
+                        Application.Current.Resources.Add("IntToBoolConverter", new CSimple.Converters.IntToBoolConverter());
+                }
+            }
+            else
+            {
+                Debug.WriteLine("Application.Current?.Resources is null");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error checking converters: {ex.Message}");
         }
     }
 }
