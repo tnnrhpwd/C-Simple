@@ -4,430 +4,83 @@
              xmlns:local="clr-namespace:CSimple.Pages"
              x:Class="CSimple.Pages.ActionDetailPage"
              Title="Action Details">
-    <ContentPage.Resources>
-        <Style x:Key="SectionHeaderStyle"
-               TargetType="Label">
-            <Setter Property="FontSize"
-                    Value="18" />
-            <Setter Property="FontAttributes"
-                    Value="Bold" />
-            <Setter Property="Margin"
-                    Value="0,16,0,8" />
-        </Style>
-        <Style x:Key="CardStyle"
-               TargetType="Frame">
-            <Setter Property="BackgroundColor"
-                    Value="{AppThemeBinding Light=#f8f9fa, Dark=#2a2a2a}" />
-            <Setter Property="CornerRadius"
-                    Value="8" />
-            <Setter Property="Margin"
-                    Value="0,8" />
-            <Setter Property="Padding"
-                    Value="16" />
-            <Setter Property="BorderColor"
-                    Value="{AppThemeBinding Light=#e0e0e0, Dark=#444444}" />
-            <Setter Property="HasShadow"
-                    Value="True" />
-        </Style>
-        <Style x:Key="MetricLabelStyle"
-               TargetType="Label">
-            <Setter Property="FontSize"
-                    Value="14" />
-            <Setter Property="TextColor"
-                    Value="{AppThemeBinding Light=#666666, Dark=#b0b0b0}" />
-        </Style>
-        <Style x:Key="MetricValueStyle"
-               TargetType="Label">
-            <Setter Property="FontSize"
-                    Value="16" />
-            <Setter Property="FontAttributes"
-                    Value="Bold" />
-        </Style>
-    </ContentPage.Resources>
-    <Grid RowDefinitions="Auto,Auto,*,Auto"
+    <Grid RowDefinitions="Auto,*,Auto"
           Padding="16">
-        <!-- Error Display - Replacing InfoBar with Grid -->
-        <Grid x:Name="ErrorDisplayGrid"
-              Grid.Row="0"
-              BackgroundColor="#FFDDDD"
-              IsVisible="False"
-              Padding="12">
-            <Grid ColumnDefinitions="*,Auto">
-                <Label x:Name="ErrorMessageLabel"
-                       TextColor="DarkRed"
-                       FontSize="14"
-                       VerticalOptions="Center" />
-                <Button Grid.Column="1"
-                        Text="×"
-                        FontSize="16"
-                        BackgroundColor="Transparent"
-                        TextColor="DarkRed"
-                        Clicked="CloseErrorButton_Clicked"
-                        WidthRequest="32"
-                        HeightRequest="32"
-                        Padding="0"
-                        VerticalOptions="Center" />
-            </Grid>
-        </Grid>
-        <!-- Header -->
-        <Grid Grid.Row="1"
-              ColumnDefinitions="*,Auto">
-            <StackLayout Grid.Column="0">
-                <Label Text="{Binding ActionName}"
-                       FontSize="24"
-                       FontAttributes="Bold" />
-                <StackLayout Orientation="Horizontal">
-                    <Label Text="{Binding ActionType}"
-                           TextColor="Gray"
-                           FontSize="16" />
-                    <Label Text="|"
-                           TextColor="Gray"
-                           FontSize="16"
-                           Margin="6,0" />
-                    <Label Text="{Binding CreatedAt}"
-                           TextColor="Gray"
-                           FontSize="16" />
-                </StackLayout>
-            </StackLayout>
-            <HorizontalStackLayout Grid.Column="1"
-                                   Spacing="12">
-                <Button Text="Run"
-                        Command="{Binding ExecuteCommand}"
-                        BackgroundColor="#4CAF50"
-                        TextColor="White"
-                        WidthRequest="80"
-                        HeightRequest="40" />
-                <Button Text="Edit"
-                        Command="{Binding EditCommand}"
-                        BackgroundColor="#FFC107"
-                        TextColor="White"
-                        WidthRequest="80"
-                        HeightRequest="40" />
-                <Button Text="Back"
-                        Command="{Binding BackCommand}"
-                        BackgroundColor="#9E9E9E"
-                        TextColor="White"
-                        WidthRequest="80"
-                        HeightRequest="40" />
-            </HorizontalStackLayout>
-        </Grid>
-        <!-- Content -->
-        <ScrollView Grid.Row="2"
-                    Margin="0,16,0,0">
-            <StackLayout>
-                <!-- Performance Metrics Card -->
-                <Frame Style="{StaticResource CardStyle}">
-                    <Grid ColumnDefinitions="*,*,*,*"
-                          RowDefinitions="Auto,Auto">
-                        <Label Text="Performance Metrics"
-                               FontSize="18"
+        <!-- Simple header -->
+        <VerticalStackLayout Grid.Row="0"
+                             Spacing="8">
+            <Label Text="{Binding ActionName}"
+                   FontSize="24"
+                   FontAttributes="Bold" />
+            <Label Text="{Binding ActionType}"
+                   FontSize="16"
+                   TextColor="Gray" />
+        </VerticalStackLayout>
+        <!-- Simple content -->
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="16"
+                                 Padding="0,16">
+                <!-- Basic action info -->
+                <Frame Padding="16"
+                       BorderColor="LightGray">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Action Information"
                                FontAttributes="Bold"
-                               Grid.ColumnSpan="4" />
-                        <!-- Usage Count -->
-                        <StackLayout Grid.Row="1"
-                                     Grid.Column="0"
-                                     Margin="0,16,8,0">
-                            <Label Text="Usage Count"
-                                   Style="{StaticResource MetricLabelStyle}" />
-                            <Label Text="{Binding UsageCount}"
-                                   Style="{StaticResource MetricValueStyle}" />
-                        </StackLayout>
-                        <!-- Success Rate -->
-                        <StackLayout Grid.Row="1"
-                                     Grid.Column="1"
-                                     Margin="8,16,8,0">
-                            <Label Text="Success Rate"
-                                   Style="{StaticResource MetricLabelStyle}" />
-                            <Label Text="{Binding SuccessRate, StringFormat='{0:P0}'}"
-                                   Style="{StaticResource MetricValueStyle}" />
-                        </StackLayout>
-                        <!-- Avg Duration -->
-                        <StackLayout Grid.Row="1"
-                                     Grid.Column="2"
-                                     Margin="8,16,8,0">
-                            <Label Text="Avg Duration"
-                                   Style="{StaticResource MetricLabelStyle}" />
+                               FontSize="18" />
+                        <Grid ColumnDefinitions="Auto,*"
+                              RowSpacing="8"
+                              ColumnSpacing="16">
+                            <Label Text="Type:"
+                                   Grid.Row="0"
+                                   Grid.Column="0"
+                                   FontAttributes="Bold" />
+                            <Label Text="{Binding ActionType}"
+                                   Grid.Row="0"
+                                   Grid.Column="1" />
+                            <Label Text="Created:"
+                                   Grid.Row="1"
+                                   Grid.Column="0"
+                                   FontAttributes="Bold" />
+                            <Label Text="{Binding CreatedAt}"
+                                   Grid.Row="1"
+                                   Grid.Column="1" />
+                            <Label Text="Duration:"
+                                   Grid.Row="2"
+                                   Grid.Column="0"
+                                   FontAttributes="Bold" />
                             <Label Text="{Binding Duration}"
-                                   Style="{StaticResource MetricValueStyle}" />
-                        </StackLayout>
-                        <!-- Confidence -->
-                        <StackLayout Grid.Row="1"
-                                     Grid.Column="3"
-                                     Margin="8,16,0,0">
-                            <Label Text="Confidence"
-                                   Style="{StaticResource MetricLabelStyle}" />
-                            <Label Text="{Binding Confidence, StringFormat='{0:P0}'}"
-                                   Style="{StaticResource MetricValueStyle}" />
-                        </StackLayout>
-                    </Grid>
-                </Frame>
-                <!-- Action Steps Card -->
-                <Label Text="Action Steps"
-                       Style="{StaticResource SectionHeaderStyle}" />
-                <Frame Style="{StaticResource CardStyle}">
-                    <CollectionView ItemsSource="{Binding ActionSteps}">
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Padding="0,8"
-                                      ColumnDefinitions="Auto,*,Auto">
-                                    <Label Text="{Binding StepNumber}"
-                                           Grid.Column="0"
-                                           FontAttributes="Bold"
-                                           WidthRequest="60" />
-                                    <Label Text="{Binding Description}"
-                                           Grid.Column="1" />
-                                    <Label Text="{Binding Duration}"
-                                           Grid.Column="2"
-                                           TextColor="Gray" />
-                                </Grid>
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
-                </Frame>
-                <!-- Neural Network Integration Card -->
-                <Label Text="AI Training &amp; Integration"
-                       Style="{StaticResource SectionHeaderStyle}" />
-                <Frame Style="{StaticResource CardStyle}">
-                    <StackLayout Spacing="16">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="Include in Training Dataset"
-                                   VerticalOptions="Center" />
-                            <Switch IsToggled="{Binding IsPartOfTraining}"
-                                    Grid.Column="1"
-                                    OnColor="#4CAF50" />
+                                   Grid.Row="2"
+                                   Grid.Column="1" />
                         </Grid>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="Use in Action Chains"
-                                   VerticalOptions="Center" />
-                            <Switch IsToggled="{Binding IsChained}"
-                                    Grid.Column="1"
-                                    OnColor="#2196F3" />
-                        </Grid>
-                        <Label Text="Model Assignments"
+                    </VerticalStackLayout>
+                </Frame>
+                <!-- Action steps (simplified) -->
+                <Frame Padding="16"
+                       BorderColor="LightGray">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Action Steps"
                                FontAttributes="Bold"
-                               Margin="0,8,0,0" />
-                        <CollectionView ItemsSource="{Binding AssignedModels}"
-                                        HeightRequest="120"
-                                        EmptyView="No model assignments yet">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Padding="0,8"
-                                          ColumnDefinitions="*,Auto,Auto">
-                                        <Label Text="{Binding ModelName}"
-                                               Grid.Column="0" />
-                                        <Label Text="{Binding ModelType}"
-                                               Grid.Column="1"
-                                               TextColor="Gray"
-                                               Margin="8,0" />
-                                        <Button Text="Remove"
-                                                Grid.Column="2"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type local:ActionDetailPage}}, Path=ViewModel.RemoveModelCommand}"
-                                                CommandParameter="{Binding .}"
-                                                BackgroundColor="#F44336"
-                                                TextColor="White"
-                                                HeightRequest="30"
-                                                WidthRequest="80" />
-                                    </Grid>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                        <Button Text="Add to New AI Model"
-                                Command="{Binding AddToModelCommand}"
-                                BackgroundColor="#4CAF50"
-                                TextColor="White" />
-                    </StackLayout>
+                               FontSize="18" />
+                        <Label Text="{Binding ActionArrayFormatted}"
+                               LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
                 </Frame>
-                <!-- Action Prediction -->
-                <Label Text="Predictions &amp; Automation"
-                       Style="{StaticResource SectionHeaderStyle}" />
-                <Frame Style="{StaticResource CardStyle}">
-                    <StackLayout>
-                        <!-- AI Prediction section -->
-                        <StackLayout IsVisible="{Binding HasPrediction}">
-                            <StackLayout Orientation="Horizontal">
-                                <Label Text="Prediction Goal:"
-                                       FontAttributes="Bold" />
-                                <Label Text="{Binding PredictionGoal}"
-                                       Margin="8,0,0,0" />
-                            </StackLayout>
-                            <StackLayout Orientation="Horizontal"
-                                         Margin="0,8,0,0">
-                                <Label Text="Model:"
-                                       FontAttributes="Bold" />
-                                <Label Text="{Binding PredictionModel}"
-                                       Margin="8,0,0,0" />
-                            </StackLayout>
-                            <StackLayout Orientation="Horizontal"
-                                         Margin="0,8,0,0">
-                                <Label Text="Confidence Score:"
-                                       FontAttributes="Bold" />
-                                <Label Text="{Binding PredictionScore, StringFormat='{0:P0}'}"
-                                       Margin="8,0,0,0" />
-                            </StackLayout>
-                        </StackLayout>
-                        <StackLayout IsVisible="{Binding NoPrediction}"
-                                     Margin="0,0,0,16">
-                            <Label Text="No predictions available for this action."
-                                   TextColor="Gray" />
-                        </StackLayout>
-                        <Button Text="Generate Prediction"
-                                Command="{Binding GeneratePredictionCommand}"
-                                IsVisible="{Binding NoPrediction}"
-                                BackgroundColor="#673AB7"
-                                TextColor="White" />
-                        <!-- Similar Actions -->
-                        <Label Text="Similar Actions"
-                               FontAttributes="Bold"
-                               Margin="0,16,0,8" />
-                        <CollectionView ItemsSource="{Binding SimilarActions}">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Padding="0,8"
-                                          ColumnDefinitions="*,Auto">
-                                        <Label Text="{Binding Name}"
-                                               Grid.Column="0" />
-                                        <Label Text="{Binding Similarity, StringFormat='{0:P0} match'}"
-                                               Grid.Column="1"
-                                               TextColor="{AppThemeBinding Light=#666666, Dark=#b0b0b0}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                    </StackLayout>
-                </Frame>
-                <!-- Media Files Section -->
-                <Label Text="Media &amp; Resources"
-                       Style="{StaticResource SectionHeaderStyle}" />
-                <Frame Style="{StaticResource CardStyle}"
-                       IsVisible="{Binding HasNoMedia}">
-                    <Label Text="No media files associated with this action."
-                           TextColor="Gray" />
-                </Frame>
-                <!-- Images -->
-                <Frame Style="{StaticResource CardStyle}"
-                       IsVisible="{Binding HasImages}">
-                    <StackLayout>
-                        <Label Text="Images"
-                               FontAttributes="Bold" />
-                        <CarouselView ItemsSource="{Binding ImageFiles}"
-                                      HeightRequest="200"
-                                      Margin="0,8,0,0">
-                            <CarouselView.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid>
-                                        <Image Source="{Binding Data}"
-                                               Aspect="AspectFit" />
-                                        <Label Text="{Binding Filename}"
-                                               BackgroundColor="#80000000"
-                                               TextColor="White"
-                                               Padding="8,4"
-                                               VerticalOptions="End" />
-                                    </Grid>
-                                </DataTemplate>
-                            </CarouselView.ItemTemplate>
-                        </CarouselView>
-                    </StackLayout>
-                </Frame>
-                <!-- Audio Files -->
-                <Frame Style="{StaticResource CardStyle}"
-                       IsVisible="{Binding HasAudio}">
-                    <StackLayout>
-                        <Label Text="Audio"
-                               FontAttributes="Bold" />
-                        <CollectionView ItemsSource="{Binding AudioFiles}"
-                                        Margin="0,8,0,0">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Padding="0,8"
-                                          ColumnDefinitions="*,Auto">
-                                        <Label Text="{Binding Filename}"
-                                               VerticalOptions="Center" />
-                                        <Button Text="Play"
-                                                Grid.Column="1"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type local:ActionDetailPage}}, Path=ViewModel.PlayAudioCommand}"
-                                                CommandParameter="{Binding .}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                    </StackLayout>
-                </Frame>
-                <!-- Text Files -->
-                <Frame Style="{StaticResource CardStyle}"
-                       IsVisible="{Binding HasTextData}">
-                    <StackLayout>
-                        <Label Text="Text Data"
-                               FontAttributes="Bold" />
-                        <CollectionView ItemsSource="{Binding TextFiles}"
-                                        Margin="0,8,0,0">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <StackLayout Padding="0,8">
-                                        <Label Text="{Binding Filename}"
-                                               FontAttributes="Bold" />
-                                        <Frame BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#333333}"
-                                               Padding="8"
-                                               Margin="0,4,0,0">
-                                            <Label Text="{Binding Content}"
-                                                   FontFamily="Courier New" />
-                                        </Frame>
-                                    </StackLayout>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                    </StackLayout>
-                </Frame>
-                <!-- Other Files -->
-                <Frame Style="{StaticResource CardStyle}"
-                       IsVisible="{Binding HasOtherFiles}">
-                    <StackLayout>
-                        <Label Text="Other Files"
-                               FontAttributes="Bold" />
-                        <CollectionView ItemsSource="{Binding OtherFiles}"
-                                        Margin="0,8,0,0">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Padding="0,8"
-                                          ColumnDefinitions="Auto,*,Auto,Auto">
-                                        <Image Source="{Binding FileTypeIcon}"
-                                               HeightRequest="24"
-                                               WidthRequest="24"
-                                               Grid.Column="0" />
-                                        <Label Text="{Binding Filename}"
-                                               VerticalOptions="Center"
-                                               Grid.Column="1"
-                                               Margin="8,0,0,0" />
-                                        <Label Text="{Binding FileSize, StringFormat='{0} KB'}"
-                                               VerticalOptions="Center"
-                                               Grid.Column="2"
-                                               Margin="8,0" />
-                                        <Button Text="Open"
-                                                Grid.Column="3"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type local:ActionDetailPage}}, Path=ViewModel.OpenFileCommand}"
-                                                CommandParameter="{Binding .}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                    </StackLayout>
-                </Frame>
-            </StackLayout>
+            </VerticalStackLayout>
         </ScrollView>
-        <!-- Footer -->
-        <HorizontalStackLayout Grid.Row="3"
-                               Spacing="12"
+        <!-- Footer with buttons -->
+        <HorizontalStackLayout Grid.Row="2"
                                HorizontalOptions="Center"
-                               Margin="0,16,0,0">
-            <Button Text="Delete Action"
+                               Spacing="16">
+            <Button Text="Back"
+                    Command="{Binding BackCommand}"
+                    WidthRequest="120"
+                    HeightRequest="40" />
+            <Button Text="Delete"
                     Command="{Binding DeleteCommand}"
-                    BackgroundColor="#F44336"
+                    BackgroundColor="Red"
                     TextColor="White"
-                    WidthRequest="150" />
-            <Button Text="Export Action"
-                    Command="{Binding ExportCommand}"
-                    BackgroundColor="#2196F3"
-                    TextColor="White"
-                    WidthRequest="150" />
+                    WidthRequest="120"
+                    HeightRequest="40" />
         </HorizontalStackLayout>
     </Grid>
 </ContentPage>

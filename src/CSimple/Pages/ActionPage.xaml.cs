@@ -626,26 +626,54 @@ namespace CSimple.Pages
             {
                 try
                 {
-                    // Load any additional data if needed
-                    await LoadActionDetails(actionGroup);
+                    // Create a simple copy to avoid memory issues
+                    var simpleCopy = new ActionGroup
+                    {
+                        Id = actionGroup.Id,
+                        ActionName = actionGroup.ActionName,
+                        ActionType = actionGroup.ActionType,
+                        Description = actionGroup.Description,
+                        CreatedAt = actionGroup.CreatedAt
+                    };
 
-                    // Create and navigate to the detail page
-                    var actionDetailPage = new ActionDetailPage(actionGroup);
-                    await Navigation.PushModalAsync(actionDetailPage);
+                    // Copy a limited subset of action steps to avoid memory issues
+                    if (actionGroup.ActionArray != null && actionGroup.ActionArray.Count > 0)
+                    {
+                        simpleCopy.ActionArray = new List<ActionItem>();
+                        // Only copy up to 20 actions to avoid memory issues
+                        foreach (var item in actionGroup.ActionArray.Take(20))
+                        {
+                            simpleCopy.ActionArray.Add(new ActionItem
+                            {
+                                EventType = item.EventType,
+                                KeyCode = item.KeyCode,
+                                Duration = item.Duration
+                            });
+                        }
+                    }
 
-                    // Reset selection after navigation
-                    _selectedActionGroup = null;
-                    OnPropertyChanged(nameof(SelectedActionGroup));
+                    // Avoid using the extension methods for files - this might be causing the crash
+
+                    // Use a try/catch specifically for navigation
+                    try
+                    {
+                        var detailPage = new ActionDetailPage(simpleCopy);
+                        await Navigation.PushModalAsync(detailPage);
+
+                        Debug.WriteLine("Navigation to ActionDetailPage succeeded");
+                    }
+                    catch (Exception navEx)
+                    {
+                        Debug.WriteLine($"Navigation exception: {navEx.Message}");
+                        await DisplayAlert("Navigation Error", "Could not open action details.", "OK");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error navigating to action details: {ex.Message}");
-                    await DisplayAlert("Error", "Could not display action details", "OK");
+                    Debug.WriteLine($"Error preparing action: {ex.Message}");
+                    Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                    await DisplayAlert("Error", "Could not load action details", "OK");
                 }
-            }
-            else
-            {
-                Debug.WriteLine("Tapped on null action group");
             }
         }
 
