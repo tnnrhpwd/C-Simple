@@ -17,11 +17,12 @@
                                        VerticalOptions="Center">
                     <Label Text="Show Feeds"
                            VerticalOptions="Center"
+                           TextColor="{StaticResource TextPrimary}"
                            FontSize="14" />
                     <Switch x:Name="PreviewToggle"
                             IsToggled="{Binding Source={x:Reference root}, Path=IsPreviewEnabled}"
                             Toggled="OnPreviewToggled"
-                            OnColor="{StaticResource PrimaryColor}"
+                            OnColor="{StaticResource Primary}"
                             ThumbColor="{StaticResource TextOnPrimary}" />
                 </HorizontalStackLayout>
             </Grid>
@@ -47,7 +48,7 @@
                                    HorizontalOptions="FillAndExpand"
                                    VerticalOptions="FillAndExpand" />
                             <!-- Preview disabled message -->
-                            <Grid BackgroundColor="{AppThemeBinding Light=#80000000, Dark=#80000000}"
+                            <Grid BackgroundColor="#80000000"
                                   IsVisible="{Binding Source={x:Reference root}, Path=IsPreviewDisabled}">
                                 <Label Text="Preview disabled"
                                        HorizontalOptions="Center"
@@ -56,7 +57,7 @@
                                        FontSize="14" />
                             </Grid>
                             <!-- Overlay and loading indicator for screen -->
-                            <Grid BackgroundColor="{AppThemeBinding Light=#80000000, Dark=#80000000}"
+                            <Grid BackgroundColor="#80000000"
                                   IsVisible="{Binding Source={x:Reference root}, Path=IsScreenWaiting}">
                                 <VerticalStackLayout HorizontalOptions="Center"
                                                      VerticalOptions="Center">
@@ -97,7 +98,7 @@
                                    HorizontalOptions="FillAndExpand"
                                    VerticalOptions="FillAndExpand" />
                             <!-- Preview disabled message -->
-                            <Grid BackgroundColor="{AppThemeBinding Light=#80000000, Dark=#80000000}"
+                            <Grid BackgroundColor="#80000000"
                                   IsVisible="{Binding Source={x:Reference root}, Path=IsPreviewDisabled}">
                                 <Label Text="Preview disabled"
                                        HorizontalOptions="Center"
@@ -106,7 +107,7 @@
                                        FontSize="14" />
                             </Grid>
                             <!-- Overlay and loading indicator for webcam -->
-                            <Grid BackgroundColor="{AppThemeBinding Light=#80000000, Dark=#80000000}"
+                            <Grid BackgroundColor="#80000000"
                                   IsVisible="{Binding Source={x:Reference root}, Path=IsWebcamWaiting}">
                                 <VerticalStackLayout HorizontalOptions="Center"
                                                      VerticalOptions="Center">
@@ -147,13 +148,12 @@
                             <Border Grid.Column="0"
                                     StrokeShape="RoundRectangle 16,16,16,16"
                                     StrokeThickness="1.5"
-                                    Stroke="{AppThemeBinding Light=#CCCCCC, Dark=#555555}"
-                                    BackgroundColor="{AppThemeBinding Light=#F9F9F9, Dark=#292929}"
+                                    Stroke="{StaticResource BorderColor}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource BackgroundTertiary}}"
                                     WidthRequest="90"
                                     HeightRequest="140"
                                     VerticalOptions="Start"
-                                    Padding="4"
-                                    Shadow="{Shadow Brush={AppThemeBinding Light=#20000000, Dark=#40000000}, Offset='0,2', Radius='4', Opacity='0.2'}">
+                                    Padding="4">
                                 <Grid RowDefinitions="Auto,*,Auto"
                                       RowSpacing="4">
                                     <!-- Left and Right Mouse Buttons with improved styling -->
@@ -163,12 +163,13 @@
                                                 Grid.Column="0"
                                                 Margin="4"
                                                 StrokeThickness="1.5"
-                                                Stroke="{AppThemeBinding Light=#CCCCCC, Dark=#555555}"
-                                                BackgroundColor="{AppThemeBinding Light=White, Dark=#222222}"
+                                                Stroke="{StaticResource BorderColor}"
+                                                BackgroundColor="{StaticResource BackgroundPrimary}"
                                                 StrokeShape="RoundRectangle 8,8,0,8">
                                             <Label Text="L"
                                                    HorizontalOptions="Center"
                                                    VerticalOptions="Center"
+                                                   TextColor="{StaticResource TextPrimary}"
                                                    FontSize="14"
                                                    FontAttributes="Bold" />
                                         </Border>
@@ -176,12 +177,13 @@
                                                 Grid.Column="1"
                                                 Margin="4"
                                                 StrokeThickness="1.5"
-                                                Stroke="{AppThemeBinding Light=#CCCCCC, Dark=#555555}"
-                                                BackgroundColor="{AppThemeBinding Light=White, Dark=#222222}"
+                                                Stroke="{StaticResource BorderColor}"
+                                                BackgroundColor="{StaticResource BackgroundPrimary}"
                                                 StrokeShape="RoundRectangle 0,8,8,8">
                                             <Label Text="R"
                                                    HorizontalOptions="Center"
                                                    VerticalOptions="Center"
+                                                   TextColor="{StaticResource TextPrimary}"
                                                    FontSize="14"
                                                    FontAttributes="Bold" />
                                         </Border>
@@ -190,8 +192,8 @@
                                     <Border Grid.Row="1"
                                             Margin="4,0,4,0"
                                             StrokeThickness="1.5"
-                                            Stroke="{AppThemeBinding Light=#CCCCCC, Dark=#555555}"
-                                            BackgroundColor="{AppThemeBinding Light=White, Dark=#222222}"
+                                            Stroke="{StaticResource BorderColor}"
+                                            BackgroundColor="{StaticResource BackgroundPrimary}"
                                             StrokeShape="RoundRectangle 10,10,10,10">
                                         <!-- Scroll Wheel with subtle shine effect -->
                                         <Grid>
@@ -202,8 +204,8 @@
                                                     VerticalOptions="Start"
                                                     Margin="0,10,0,0"
                                                     StrokeThickness="1"
-                                                    Stroke="{AppThemeBinding Light=#CCCCCC, Dark=#555555}"
-                                                    BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}"
+                                                    Stroke="{StaticResource BorderColor}"
+                                                    BackgroundColor="{StaticResource BackgroundSecondary}"
                                                     StrokeShape="Ellipse" />
                                             <!-- Scroll wheel highlight -->
                                             <Border WidthRequest="18"
@@ -212,7 +214,7 @@
                                                     VerticalOptions="Start"
                                                     Margin="0,11,0,0"
                                                     StrokeThickness="0"
-                                                    BackgroundColor="{AppThemeBinding Light=#20FFFFFF, Dark=#20FFFFFF}"
+                                                    BackgroundColor="#20FFFFFF"
                                                     StrokeShape="Ellipse" />
                                         </Grid>
                                     </Border>
@@ -226,8 +228,8 @@
                                               AbsoluteLayout.LayoutBounds="0.5,0,20,16"
                                               AbsoluteLayout.LayoutFlags="PositionProportional"
                                               Data="M 10,0 L 0,14 L 20,14 Z"
-                                              Fill="{AppThemeBinding Light=Transparent, Dark=Transparent}"
-                                              Stroke="{AppThemeBinding Light=#777777, Dark=#BBBBBB}"
+                                              Fill="Transparent"
+                                              Stroke="{StaticResource TextSecondary}"
                                               StrokeThickness="2"
                                               StrokeLineCap="Round"
                                               StrokeLineJoin="Round"
@@ -237,8 +239,8 @@
                                               AbsoluteLayout.LayoutBounds="0.5,1,20,16"
                                               AbsoluteLayout.LayoutFlags="PositionProportional"
                                               Data="M 10,16 L 0,2 L 20,2 Z"
-                                              Fill="{AppThemeBinding Light=Transparent, Dark=Transparent}"
-                                              Stroke="{AppThemeBinding Light=#777777, Dark=#BBBBBB}"
+                                              Fill="Transparent"
+                                              Stroke="{StaticResource TextSecondary}"
                                               StrokeThickness="2"
                                               StrokeLineCap="Round"
                                               StrokeLineJoin="Round"
@@ -248,8 +250,8 @@
                                               AbsoluteLayout.LayoutBounds="0,0.5,16,20"
                                               AbsoluteLayout.LayoutFlags="PositionProportional"
                                               Data="M 0,10 L 14,0 L 14,20 Z"
-                                              Fill="{AppThemeBinding Light=Transparent, Dark=Transparent}"
-                                              Stroke="{AppThemeBinding Light=#777777, Dark=#BBBBBB}"
+                                              Fill="Transparent"
+                                              Stroke="{StaticResource TextSecondary}"
                                               StrokeThickness="2"
                                               StrokeLineCap="Round"
                                               StrokeLineJoin="Round"
@@ -259,8 +261,8 @@
                                               AbsoluteLayout.LayoutBounds="1,0.5,16,20"
                                               AbsoluteLayout.LayoutFlags="PositionProportional"
                                               Data="M 16,10 L 2,0 L 2,20 Z"
-                                              Fill="{AppThemeBinding Light=Transparent, Dark=Transparent}"
-                                              Stroke="{AppThemeBinding Light=#777777, Dark=#BBBBBB}"
+                                              Fill="Transparent"
+                                              Stroke="{StaticResource TextSecondary}"
                                               StrokeThickness="2"
                                               StrokeLineCap="Round"
                                               StrokeLineJoin="Round"
@@ -739,13 +741,13 @@
                                 </Grid>
                             </ScrollView>
                         </Grid>
-                        <!-- Text display for current input activity MOVED HERE -->
+                        <!-- Text display for current input activity -->
                         <Border Grid.Row="2"
                                 Margin="0,12,0,0"
                                 Padding="12,8"
                                 StrokeThickness="1"
-                                Stroke="{AppThemeBinding Light=#DDDDDD, Dark=#444444}"
-                                BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#333333}"
+                                Stroke="{StaticResource BorderColor}"
+                                BackgroundColor="{StaticResource BackgroundSecondary}"
                                 StrokeShape="RoundRectangle 6,6,6,6">
                             <Label x:Name="ButtonLabel"
                                    Text="No active key/mouse presses"

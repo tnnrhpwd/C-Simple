@@ -5,6 +5,7 @@
              xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
              ios:Page.UseSafeArea="True"
              Shell.NavBarIsVisible="{OnPlatform True, MacCatalyst=False}"
+             BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource BackgroundDark}}"
              x:Class="CSimple.Pages.HomePage"
              x:Name="this">
     <ContentPage.MenuBarItems>
@@ -33,7 +34,7 @@
         <Frame Grid.Row="0"
                Padding="10"
                BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-               BackgroundColor="{StaticResource BackgroundCard}"
+               BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundCard}, Dark={StaticResource CardBackgroundDark}}"
                Margin="15,15,15,0">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <Image Grid.Column="0"
@@ -46,35 +47,36 @@
                                      Margin="10,0">
                     <Label Text="{Binding ActiveAIStatus}"
                            FontAttributes="Bold"
-                           TextColor="{StaticResource TextPrimary}"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
                            FontSize="16" />
                     <Label Text="{Binding AIStatusDetail}"
                            FontSize="Micro"
-                           TextColor="{StaticResource TextSecondary}" />
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                 </VerticalStackLayout>
                 <VerticalStackLayout Grid.Column="2"
                                      Spacing="2">
                     <Switch IsToggled="{Binding IsAIEnabled}"
                             OnColor="{StaticResource Primary}"
+                            ThumbColor="{AppThemeBinding Light=White, Dark=White}"
                             VerticalOptions="Center" />
                     <Label Text="AI Assistant"
                            FontSize="10"
-                           TextColor="{StaticResource TextSecondary}"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
                            HorizontalOptions="Center" />
                 </VerticalStackLayout>
             </Grid>
         </Frame>
         <ScrollView Grid.Row="1"
-                    BackgroundColor="{StaticResource BackgroundPrimary}">
+                    BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource BackgroundDark}}">
             <VerticalStackLayout Padding="15"
                                  Spacing="20">
                 <Label Text="Welcome to CSimple AI"
                        FontSize="Title"
-                       TextColor="{StaticResource TextPrimary}"
+                       TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
                        HorizontalOptions="Center" />
                 <!-- System Status Dashboard -->
                 <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                       BackgroundColor="{StaticResource BackgroundCard}"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
                        CornerRadius="10"
                        Padding="15">
                     <VerticalStackLayout Spacing="10">
@@ -183,12 +185,13 @@
                 </Frame>
                 <!-- Active Goals Summary Card -->
                 <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                       BackgroundColor="{StaticResource BackgroundCard}"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
                        CornerRadius="10"
                        Padding="15">
                     <VerticalStackLayout Spacing="15">
                         <Label Text="Active Goals"
                                FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
                                FontSize="Medium" />
                         <!-- Active Goal Cards -->
                         <CollectionView ItemsSource="{Binding ActiveGoals}"
@@ -197,7 +200,8 @@
                                 <DataTemplate>
                                     <Frame Margin="0,5"
                                            Padding="10"
-                                           BorderColor="{StaticResource BorderColor}"
+                                           BorderColor="{AppThemeBinding Light=#e0e0e0, Dark=#424242}"
+                                           BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource CardBackgroundDark}}"
                                            CornerRadius="5">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <VerticalStackLayout Grid.Column="0">
@@ -229,7 +233,7 @@
                 </Frame>
                 <!-- Recent Activity Timeline -->
                 <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                       BackgroundColor="{StaticResource BackgroundCard}"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
                        CornerRadius="10"
                        Padding="15">
                     <VerticalStackLayout Spacing="10">
@@ -291,7 +295,7 @@
                 </Frame>
                 <!-- AI Suggestions Card -->
                 <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                       BackgroundColor="{StaticResource BackgroundCard}"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
                        CornerRadius="10"
                        Padding="15">
                     <VerticalStackLayout Spacing="10">
@@ -331,7 +335,7 @@
                 </Frame>
                 <!-- Scheduled Tasks -->
                 <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                       BackgroundColor="{StaticResource BackgroundCard}"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
                        CornerRadius="10"
                        Padding="15">
                     <VerticalStackLayout Spacing="10">
@@ -380,7 +384,7 @@
                 </Frame>
                 <!-- Quick Actions -->
                 <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                       BackgroundColor="{StaticResource BackgroundCard}"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
                        CornerRadius="10"
                        Padding="15">
                     <Grid ColumnDefinitions="*,*"
@@ -419,8 +423,8 @@
                             AlignItems="Center"
                             JustifyContent="Center">
                     <!-- Activity visualization widget -->
-                    <Frame BorderColor="{StaticResource BorderColor}"
-                           BackgroundColor="{StaticResource BackgroundCard}"
+                    <Frame BorderColor="{AppThemeBinding Light=#e0e0e0, Dark=#424242}"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
                            Padding="15"
                            CornerRadius="10"
                            WidthRequest="300">

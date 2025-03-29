@@ -40,14 +40,21 @@
             <Color x:Key="TextSecondary">#757575</Color>
             <Color x:Key="TextHint">#9E9E9E</Color>
             <Color x:Key="TextOnPrimary">#FFFFFF</Color>
+            <Color x:Key="TextPrimaryLight">#212121</Color>
+            <Color x:Key="TextPrimaryDark">#f5f5f5</Color>
             <Color x:Key="TextOnSecondary">#FFFFFF</Color>
+            <Color x:Key="TextSecondaryLight">#757575</Color>
+            <Color x:Key="TextSecondaryDark">#b0b0b0</Color>
             <!-- Background Colors -->
             <Color x:Key="BackgroundPrimary">#FFFFFF</Color>
             <Color x:Key="BackgroundSecondary">#F5F5F5</Color>
             <Color x:Key="BackgroundTertiary">#303030</Color>
             <Color x:Key="BackgroundCard">#FFFFFF</Color>
+            <Color x:Key="BackgroundDark">#2E2E2E</Color>
             <Color x:Key="FrameBackground">#F5F5F5</Color>
-            <Color x:Key="CardBackground">#FFFFFF</Color>
+            <Color x:Key="CardBackground">#FFFFFF</Color>   
+            <Color x:Key="CardBackgroundLight">#ffffff</Color>
+            <Color x:Key="CardBackgroundDark">#1e1e1e</Color>
             <Color x:Key="BorderColor">#DDDDDD</Color>
             <!-- Warning Panel Colors -->
             <Color x:Key="WarningBackground">#FFF3CD</Color>
@@ -174,7 +181,7 @@
     </Application.Resources>
     <Application.MainPage>
         <Shell FlyoutWidth="200"
-               FlyoutBackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
+               FlyoutBackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
                FlyoutBehavior="Flyout">
             <!-- Desktop/Tablet -->
             <FlyoutItem Title="Home"
