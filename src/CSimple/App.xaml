@@ -6,221 +6,175 @@
              x:Class="CSimple.App">
     <Application.Resources>
         <ResourceDictionary>
+            <!-- Converters -->
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <converters:IntToColorConverter x:Key="IntToColorConverter" />
+            <converters:IntToBoolConverter x:Key="IntToBoolConverter" />
+            <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
+            <!-- Color Resources -->
             <ResourceDictionary.MergedDictionaries>
-                <!-- Use only resource dictionaries that exist -->
+                <!-- Default Theme -->
                 <ResourceDictionary Source="Resources/Styles/DefaultTheme.xaml" />
-                <!-- Remove or comment out missing resources -->
-                <!-- <ResourceDictionary Source="Resources/Styles/Colors.xaml" /> -->
-                <!-- <ResourceDictionary Source="Resources/Styles/Styles.xaml" /> -->
-                <!-- Define AppStyles inline to avoid file reference issues -->
-                <ResourceDictionary>
-                    <!-- Color Palette -->
-                    <Color x:Key="PrimaryColor">#5C6BC0</Color>
-                    <Color x:Key="PrimaryDarkColor">#3949AB</Color>
-                    <Color x:Key="PrimaryLightColor">#7986CB</Color>
-                    <Color x:Key="SecondaryColor">#F48FB1</Color>
-                    <Color x:Key="SecondaryDarkColor">#F06292</Color>
-                    <Color x:Key="TertiaryColor">#81C784</Color>
-                    <Color x:Key="TertiaryDarkColor">#66BB6A</Color>
-                    <Color x:Key="NeutralColor">#B0BEC5</Color>
-                    <!-- Background Colors -->
-                    <Color x:Key="BackgroundLight">#f5f7fa</Color>
-                    <Color x:Key="BackgroundDark">#121212</Color>
-                    <Color x:Key="CardBackgroundLight">#ffffff</Color>
-                    <Color x:Key="CardBackgroundDark">#1e1e1e</Color>
-                    <Color x:Key="SurfaceBackgroundLight">#f0f0f0</Color>
-                    <Color x:Key="SurfaceBackgroundDark">#2a2a2a</Color>
-                    <!-- Text Colors -->
-                    <Color x:Key="TextPrimaryLight">#212121</Color>
-                    <Color x:Key="TextPrimaryDark">#f5f5f5</Color>
-                    <Color x:Key="TextSecondaryLight">#757575</Color>
-                    <Color x:Key="TextSecondaryDark">#b0b0b0</Color>
-                    <!-- Enhanced Card Style -->
-                    <Style x:Key="ModernCardStyle"
-                           TargetType="Border">
-                        <Setter Property="StrokeShape"
-                                Value="RoundRectangle 12,12,12,12" />
-                        <Setter Property="Stroke">
-                            <Setter.Value>
-                                <AppThemeBinding Light="#e0e0e0"
-                                                 Dark="#424242" />
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Property="StrokeThickness"
-                                Value="1" />
-                        <Setter Property="Background">
-                            <Setter.Value>
-                                <AppThemeBinding Light="{StaticResource CardBackgroundLight}"
-                                                 Dark="{StaticResource CardBackgroundDark}" />
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Property="Padding"
-                                Value="20" />
-                        <Setter Property="Margin"
-                                Value="6" />
-                        <Setter Property="Shadow">
-                            <Setter.Value>
-                                <Shadow Brush="{AppThemeBinding Light=#20000000, Dark=#40000000}"
-                                        Offset="0,4"
-                                        Radius="8"
-                                        Opacity="0.3" />
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                    <!-- Frame Styles -->
-                    <Style x:Key="PreviewFrameStyle"
-                           TargetType="Frame">
-                        <Setter Property="CornerRadius"
-                                Value="8" />
-                        <Setter Property="HasShadow"
-                                Value="False" />
-                        <Setter Property="Padding"
-                                Value="0" />
-                        <Setter Property="BackgroundColor">
-                            <Setter.Value>
-                                <AppThemeBinding Light="{StaticResource SurfaceBackgroundLight}"
-                                                 Dark="{StaticResource SurfaceBackgroundDark}" />
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Property="BorderColor">
-                            <Setter.Value>
-                                <AppThemeBinding Light="#e0e0e0"
-                                                 Dark="#424242" />
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                    <!-- Button Styles -->
-                    <Style x:Key="ModernButtonBaseStyle"
-                           TargetType="Button">
-                        <Setter Property="TextColor"
-                                Value="White" />
-                        <Setter Property="FontSize"
-                                Value="14" />
-                        <Setter Property="CornerRadius"
-                                Value="8" />
-                        <Setter Property="Padding"
-                                Value="16,10" />
-                        <Setter Property="Margin"
-                                Value="4" />
-                        <Setter Property="HeightRequest"
-                                Value="42" />
-                        <Setter Property="MinimumWidthRequest"
-                                Value="100" />
-                        <Setter Property="FontAttributes"
-                                Value="Bold" />
-                    </Style>
-                    <Style x:Key="PrimaryButtonStyle"
-                           TargetType="Button"
-                           BasedOn="{StaticResource ModernButtonBaseStyle}">
-                        <Setter Property="BackgroundColor"
-                                Value="{StaticResource PrimaryColor}" />
-                    </Style>
-                    <Style x:Key="SecondaryButtonStyle"
-                           TargetType="Button"
-                           BasedOn="{StaticResource ModernButtonBaseStyle}">
-                        <Setter Property="BackgroundColor"
-                                Value="{StaticResource SecondaryColor}" />
-                    </Style>
-                    <Style x:Key="SuccessButtonStyle"
-                           TargetType="Button"
-                           BasedOn="{StaticResource ModernButtonBaseStyle}">
-                        <Setter Property="BackgroundColor"
-                                Value="{StaticResource TertiaryColor}" />
-                    </Style>
-                    <!-- Label Styles -->
-                    <Style x:Key="HeaderStyle"
-                           TargetType="Label">
-                        <Setter Property="FontSize"
-                                Value="22" />
-                        <Setter Property="FontAttributes"
-                                Value="Bold" />
-                        <Setter Property="TextColor">
-                            <Setter.Value>
-                                <AppThemeBinding Light="{StaticResource TextPrimaryLight}"
-                                                 Dark="{StaticResource TextPrimaryDark}" />
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Property="Margin"
-                                Value="0,0,0,12" />
-                    </Style>
-                    <Style x:Key="SubHeaderStyle"
-                           TargetType="Label">
-                        <Setter Property="FontSize"
-                                Value="18" />
-                        <Setter Property="FontAttributes"
-                                Value="Bold" />
-                        <Setter Property="TextColor">
-                            <Setter.Value>
-                                <AppThemeBinding Light="{StaticResource TextPrimaryLight}"
-                                                 Dark="{StaticResource TextPrimaryDark}" />
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Property="Margin"
-                                Value="0,8,0,12" />
-                    </Style>
-                    <Style x:Key="CaptionStyle"
-                           TargetType="Label">
-                        <Setter Property="FontSize"
-                                Value="15" />
-                        <Setter Property="FontAttributes"
-                                Value="Bold" />
-                        <Setter Property="TextColor">
-                            <Setter.Value>
-                                <AppThemeBinding Light="{StaticResource TextPrimaryLight}"
-                                                 Dark="{StaticResource TextPrimaryDark}" />
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Property="Margin"
-                                Value="0,4,0,4" />
-                    </Style>
-                    <Style x:Key="BodyTextStyle"
-                           TargetType="Label">
-                        <Setter Property="FontSize"
-                                Value="14" />
-                        <Setter Property="TextColor">
-                            <Setter.Value>
-                                <AppThemeBinding Light="{StaticResource TextSecondaryLight}"
-                                                 Dark="{StaticResource TextSecondaryDark}" />
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Property="Margin"
-                                Value="0,0,0,8" />
-                    </Style>
-                    <!-- Entry Style -->
-                    <Style x:Key="ModernEntryStyle"
-                           TargetType="Entry">
-                        <Setter Property="FontSize"
-                                Value="14" />
-                        <Setter Property="TextColor">
-                            <Setter.Value>
-                                <AppThemeBinding Light="{StaticResource TextPrimaryLight}"
-                                                 Dark="{StaticResource TextPrimaryDark}" />
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Property="BackgroundColor"
-                                Value="Transparent" />
-                        <Setter Property="Margin"
-                                Value="0,4,0,12" />
-                        <Setter Property="MinimumHeightRequest"
-                                Value="44" />
-                    </Style>
-                    <!-- Switch Style -->
-                    <Style x:Key="ModernSwitchStyle"
-                           TargetType="Switch">
-                        <Setter Property="OnColor"
-                                Value="{StaticResource PrimaryColor}" />
-                        <Setter Property="ThumbColor"
-                                Value="White" />
-                    </Style>
-                    <!-- Add converter -->
-                    <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
-                </ResourceDictionary>
             </ResourceDictionary.MergedDictionaries>
+            <!-- Core Color Palette -->
+            <Color x:Key="Primary">#2196F3</Color>
+            <Color x:Key="PrimaryDark">#1976D2</Color>
+            <Color x:Key="PrimaryLight">#BBDEFB</Color>
+            <Color x:Key="PrimaryExtraLight">#E3F2FD</Color>
+            <Color x:Key="Secondary">#9C27B0</Color>
+            <Color x:Key="SecondaryDark">#7B1FA2</Color>
+            <Color x:Key="SecondaryLight">#E1BEE7</Color>
+            <Color x:Key="SecondaryExtraLight">#F3E5F5</Color>
+            <Color x:Key="Tertiary">#4CAF50</Color>
+            <Color x:Key="TertiaryDark">#388E3C</Color>
+            <Color x:Key="TertiaryLight">#C8E6C9</Color>
+            <Color x:Key="Accent">#FF5722</Color>
+            <!-- Status Colors -->
+            <Color x:Key="Success">#4CAF50</Color>
+            <Color x:Key="Warning">#FFC107</Color>
+            <Color x:Key="Error">#F44336</Color>
+            <Color x:Key="ErrorLight">#FFEBEE</Color>
+            <Color x:Key="Info">#2196F3</Color>
+            <!-- Text Colors -->
+            <Color x:Key="TextPrimary">#212121</Color>
+            <Color x:Key="TextSecondary">#757575</Color>
+            <Color x:Key="TextHint">#9E9E9E</Color>
+            <Color x:Key="TextOnPrimary">#FFFFFF</Color>
+            <Color x:Key="TextOnSecondary">#FFFFFF</Color>
+            <!-- Background Colors -->
+            <Color x:Key="BackgroundPrimary">#FFFFFF</Color>
+            <Color x:Key="BackgroundSecondary">#F5F5F5</Color>
+            <Color x:Key="BackgroundTertiary">#EEEEEE</Color>
+            <Color x:Key="BackgroundCard">#FFFFFF</Color>
+            <Color x:Key="FrameBackground">#F5F5F5</Color>
+            <Color x:Key="CardBackground">#FFFFFF</Color>
+            <Color x:Key="BorderColor">#DDDDDD</Color>
+            <!-- Warning Panel Colors -->
+            <Color x:Key="WarningBackground">#FFF3CD</Color>
+            <Color x:Key="WarningText">#856404</Color>
+            <!-- Spacing Values -->
+            <x:Double x:Key="SpacingTiny">4</x:Double>
+            <x:Double x:Key="SpacingSmall">8</x:Double>
+            <x:Double x:Key="SpacingMedium">16</x:Double>
+            <x:Double x:Key="SpacingLarge">24</x:Double>
+            <x:Double x:Key="SpacingExtraLarge">32</x:Double>
+            <!-- Margin Thickness Values -->
+            <Thickness x:Key="MarginZero">0</Thickness>
+            <Thickness x:Key="MarginTiny">4</Thickness>
+            <Thickness x:Key="MarginSmall">8</Thickness>
+            <Thickness x:Key="MarginMedium">16</Thickness>
+            <Thickness x:Key="MarginLarge">24</Thickness>
+            <Thickness x:Key="MarginTopMedium">0,16,0,0</Thickness>
+            <Thickness x:Key="MarginBottomMedium">0,0,0,16</Thickness>
+            <Thickness x:Key="MarginLeftMedium">16,0,0,0</Thickness>
+            <Thickness x:Key="MarginRightMedium">0,0,16,0</Thickness>
+            <!-- Font Sizes -->
+            <x:Double x:Key="FontSizeSmall">12</x:Double>
+            <x:Double x:Key="FontSizeCaption">14</x:Double>
+            <x:Double x:Key="FontSizeBody">16</x:Double>
+            <x:Double x:Key="FontSizeSubtitle">18</x:Double>
+            <x:Double x:Key="FontSizeTitle">22</x:Double>
+            <x:Double x:Key="FontSizeHeader">26</x:Double>
+            <!-- Layout Values -->
+            <x:Double x:Key="PagePadding">15</x:Double>
+            <x:Double x:Key="CardPadding">15</x:Double>
+            <x:Double x:Key="CardContentPadding">10</x:Double>
+            <!-- Corner Radius Values -->
+            <x:Double x:Key="CornerRadiusSmall">5</x:Double>
+            <x:Double x:Key="CornerRadiusMedium">8</x:Double>
+            <x:Double x:Key="CornerRadiusLarge">10</x:Double>
+            <!-- Element Height Values -->
+            <x:Double x:Key="InputHeight">40</x:Double>
+            <x:Double x:Key="ButtonHeight">45</x:Double>
+            <x:Double x:Key="CardHeight">150</x:Double>
+            <!-- Style Resources -->
+            <!-- Frame Styles -->
+            <Style x:Key="DefaultFrameStyle"
+                   TargetType="Frame">
+                <Setter Property="CornerRadius"
+                        Value="{StaticResource CornerRadiusMedium}" />
+                <Setter Property="HasShadow"
+                        Value="False" />
+                <Setter Property="BorderColor"
+                        Value="{StaticResource BorderColor}" />
+                <Setter Property="Padding"
+                        Value="{StaticResource CardContentPadding}" />
+                <Setter Property="BackgroundColor"
+                        Value="{StaticResource BackgroundCard}" />
+            </Style>
+            <!-- Button Styles -->
+            <Style x:Key="PrimaryButtonStyle"
+                   TargetType="Button">
+                <Setter Property="TextColor"
+                        Value="{StaticResource TextOnPrimary}" />
+                <Setter Property="BackgroundColor"
+                        Value="{StaticResource Primary}" />
+                <Setter Property="FontSize"
+                        Value="{StaticResource FontSizeBody}" />
+                <Setter Property="Padding"
+                        Value="16,8" />
+                <Setter Property="CornerRadius"
+                        Value="{StaticResource CornerRadiusMedium}" />
+                <Setter Property="HeightRequest"
+                        Value="{StaticResource ButtonHeight}" />
+            </Style>
+            <Style x:Key="SecondaryButtonStyle"
+                   TargetType="Button"
+                   BasedOn="{StaticResource PrimaryButtonStyle}">
+                <Setter Property="BackgroundColor"
+                        Value="{StaticResource Secondary}" />
+            </Style>
+            <Style x:Key="DangerButtonStyle"
+                   TargetType="Button"
+                   BasedOn="{StaticResource PrimaryButtonStyle}">
+                <Setter Property="BackgroundColor"
+                        Value="{StaticResource Error}" />
+            </Style>
+            <!-- Label Styles -->
+            <Style x:Key="HeaderLabelStyle"
+                   TargetType="Label">
+                <Setter Property="FontSize"
+                        Value="{StaticResource FontSizeHeader}" />
+                <Setter Property="FontAttributes"
+                        Value="Bold" />
+                <Setter Property="TextColor"
+                        Value="{StaticResource TextPrimary}" />
+            </Style>
+            <Style x:Key="TitleLabelStyle"
+                   TargetType="Label">
+                <Setter Property="FontSize"
+                        Value="{StaticResource FontSizeTitle}" />
+                <Setter Property="FontAttributes"
+                        Value="Bold" />
+                <Setter Property="TextColor"
+                        Value="{StaticResource TextPrimary}" />
+            </Style>
+            <Style x:Key="BodyLabelStyle"
+                   TargetType="Label">
+                <Setter Property="FontSize"
+                        Value="{StaticResource FontSizeBody}" />
+                <Setter Property="TextColor"
+                        Value="{StaticResource TextSecondary}" />
+            </Style>
+            <!-- Entry Style -->
+            <Style x:Key="DefaultEntryStyle"
+                   TargetType="Entry">
+                <Setter Property="BackgroundColor"
+                        Value="{StaticResource BackgroundPrimary}" />
+                <Setter Property="TextColor"
+                        Value="{StaticResource TextPrimary}" />
+                <Setter Property="PlaceholderColor"
+                        Value="{StaticResource TextHint}" />
+                <Setter Property="HeightRequest"
+                        Value="{StaticResource InputHeight}" />
+                <Setter Property="FontSize"
+                        Value="{StaticResource FontSizeBody}" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
     <Application.MainPage>
         <Shell FlyoutWidth="200"
-               FlyoutBackgroundColor="{StaticResource Background_Mid}"
+               FlyoutBackgroundColor="{StaticResource BackgroundTertiary}"
                FlyoutBehavior="Flyout">
             <!-- Desktop/Tablet -->
             <FlyoutItem Title="Home"

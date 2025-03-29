@@ -152,26 +152,29 @@ namespace CSimple.ViewModels
             // Default selected type
             SelectedModelType = ModelTypes[0];
 
-            // Fix CS4014: We deliberately don't await this call as we can't await in a constructor
-            // The method handles its own exceptions so it's safe to "fire and forget"
-            _ = InitializeViewModelAsync();
+            // Fix CS4014: Use a method that doesn't return Task to avoid the warning
+            InitializeViewModel();
         }
 
-        // Modified to return Task so we can add the _ = to indicate intentional non-awaiting
-        private async Task InitializeViewModelAsync()
+        // Remove the Task return type to avoid awaiting
+        private void InitializeViewModel()
         {
-            try
+            // We can still use Task.Run for background operation
+            Task.Run(async () =>
             {
-                await LoadModels();
-            }
-            catch (Exception ex)
-            {
-                // Use dispatcher to update UI properties from background thread
-                Application.Current.Dispatcher.Dispatch(() =>
+                try
                 {
-                    StatusMessage = $"Error initializing: {ex.Message}";
-                });
-            }
+                    await LoadModels();
+                }
+                catch (Exception ex)
+                {
+                    // Use dispatcher to update UI properties from background thread
+                    Application.Current.Dispatcher.Dispatch(() =>
+                    {
+                        StatusMessage = $"Error initializing: {ex.Message}";
+                    });
+                }
+            });
         }
 
         /// <summary>
@@ -275,7 +278,7 @@ namespace CSimple.ViewModels
         /// <summary>
         /// Filter models based on search text and selected type
         /// </summary>
-        // Fix CS1998: Ensure this method is not marked async since it runs synchronously
+        // Fix CS1998: Remove async keyword since the method has no await operations
         private void FilterModels()
         {
             // First, reload all models from storage

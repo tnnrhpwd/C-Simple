@@ -5,34 +5,34 @@
              Title="Net">
     <ContentPage.Content>
         <ScrollView>
-            <VerticalStackLayout Padding="15"
-                                 Spacing="20">
+            <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                                 Spacing="{StaticResource SpacingLarge}">
                 <Label Text="Neural Network Hub"
-                       FontSize="Title"
+                       FontSize="{StaticResource FontSizeTitle}"
                        FontAttributes="Bold"
                        HorizontalOptions="Center" />
                 <!-- Mode Toggle Panel -->
                 <Frame BorderColor="{StaticResource Primary}"
-                       CornerRadius="10"
-                       Padding="15">
-                    <VerticalStackLayout Spacing="12">
+                       CornerRadius="{StaticResource CornerRadiusLarge}"
+                       Padding="{StaticResource CardPadding}">
+                    <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
                         <Label Text="AI Model Operation Modes"
-                               FontSize="Medium"
+                               FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold" />
                         <Grid ColumnDefinitions="*,*"
-                              ColumnSpacing="15">
+                              ColumnSpacing="{StaticResource SpacingMedium}">
                             <Frame Grid.Column="0"
-                                   BackgroundColor="{Binding IsGeneralModeActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#E3F2FD|#EEEEEE}"
-                                   Padding="15"
-                                   CornerRadius="8">
+                                   BackgroundColor="{Binding IsGeneralModeActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='PrimaryExtraLight|BackgroundTertiary'}"
+                                   Padding="{StaticResource CardPadding}"
+                                   CornerRadius="{StaticResource CornerRadiusMedium}">
                                 <VerticalStackLayout>
                                     <Label Text="General Assistant Mode"
                                            FontAttributes="Bold"
                                            HorizontalOptions="Center" />
                                     <Label Text="Watches all inputs and responds based on learned patterns"
-                                           FontSize="Micro"
+                                           FontSize="{StaticResource FontSizeSmall}"
                                            HorizontalOptions="Center"
-                                           TextColor="Gray" />
+                                           TextColor="{StaticResource TextSecondary}" />
                                     <Switch IsToggled="{Binding IsGeneralModeActive}"
                                             OnColor="{StaticResource Primary}"
                                             HorizontalOptions="Center"
@@ -40,120 +40,120 @@
                                 </VerticalStackLayout>
                             </Frame>
                             <Frame Grid.Column="1"
-                                   BackgroundColor="{Binding IsSpecificModeActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#F3E5F5|#EEEEEE}"
-                                   Padding="15"
-                                   CornerRadius="8">
+                                   BackgroundColor="{Binding IsSpecificModeActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='SecondaryExtraLight|BackgroundTertiary'}"
+                                   Padding="{StaticResource CardPadding}"
+                                   CornerRadius="{StaticResource CornerRadiusMedium}">
                                 <VerticalStackLayout>
                                     <Label Text="Specific Goal Mode"
                                            FontAttributes="Bold"
                                            HorizontalOptions="Center" />
                                     <Label Text="Execute predefined models for specific tasks"
-                                           FontSize="Micro"
+                                           FontSize="{StaticResource FontSizeSmall}"
                                            HorizontalOptions="Center"
-                                           TextColor="Gray" />
+                                           TextColor="{StaticResource TextSecondary}" />
                                     <Switch IsToggled="{Binding IsSpecificModeActive}"
-                                            OnColor="#9C27B0"
+                                            OnColor="{StaticResource Secondary}"
                                             HorizontalOptions="Center"
                                             Toggled="OnSpecificModeToggled" />
                                 </VerticalStackLayout>
                             </Frame>
                         </Grid>
                         <!-- Status Display -->
-                        <Frame BackgroundColor="#F5F5F5"
-                               CornerRadius="5"
-                               Padding="10">
+                        <Frame BackgroundColor="{StaticResource BackgroundSecondary}"
+                               CornerRadius="{StaticResource CornerRadiusSmall}"
+                               Padding="{StaticResource CardContentPadding}">
                             <VerticalStackLayout>
                                 <Label Text="System Status"
-                                       FontSize="Small"
+                                       FontSize="{StaticResource FontSizeSmall}"
                                        FontAttributes="Bold" />
                                 <Label Text="{Binding CurrentModelStatus}"
-                                       TextColor="#1565C0" />
+                                       TextColor="{StaticResource PrimaryDark}" />
                                 <Label Text="Active Models:"
-                                       FontSize="Small" />
+                                       FontSize="{StaticResource FontSizeSmall}" />
                                 <Label Text="{Binding ActiveModelsCount, StringFormat='{0} models running'}"
-                                       TextColor="{Binding ActiveModelsCount, Converter={StaticResource IntToColorConverter}, ConverterParameter=0|#F44336|#4CAF50}" />
+                                       TextColor="{Binding ActiveModelsCount, Converter={StaticResource IntToColorConverter}, ConverterParameter=0|{StaticResource Error}|{StaticResource Success}}" />
                             </VerticalStackLayout>
                         </Frame>
                     </VerticalStackLayout>
                 </Frame>
                 <!-- Neural Network Activity Dashboard -->
                 <Frame BorderColor="{StaticResource Primary}"
-                       CornerRadius="10"
-                       Padding="15">
-                    <VerticalStackLayout Spacing="15">
+                       CornerRadius="{StaticResource CornerRadiusLarge}"
+                       Padding="{StaticResource CardPadding}">
+                    <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
                         <Label Text="Network Activity"
-                               FontSize="Medium"
+                               FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold" />
                         <!-- Network Stats -->
                         <Grid ColumnDefinitions="*,*,*"
                               RowDefinitions="Auto,Auto">
                             <Frame Grid.Column="0"
-                                   BackgroundColor="#E3F2FD"
-                                   Padding="10"
-                                   Margin="5"
-                                   CornerRadius="5">
+                                   BackgroundColor="{StaticResource PrimaryExtraLight}"
+                                   Padding="{StaticResource CardContentPadding}"
+                                   Margin="{StaticResource SpacingTiny}"
+                                   CornerRadius="{StaticResource CornerRadiusSmall}">
                                 <VerticalStackLayout>
                                     <Label Text="Active Models"
-                                           FontSize="Caption" />
+                                           FontSize="{StaticResource FontSizeCaption}" />
                                     <Label Text="{Binding ActiveModelsCount}"
-                                           FontSize="Large"
+                                           FontSize="{StaticResource FontSizeTitle}"
                                            HorizontalOptions="Center"
-                                           TextColor="#2196F3" />
+                                           TextColor="{StaticResource Primary}" />
                                 </VerticalStackLayout>
                             </Frame>
                             <Frame Grid.Column="1"
-                                   BackgroundColor="#FFEBEE"
-                                   Padding="10"
-                                   Margin="5"
-                                   CornerRadius="5">
+                                   BackgroundColor="{StaticResource ErrorLight}"
+                                   Padding="{StaticResource CardContentPadding}"
+                                   Margin="{StaticResource SpacingTiny}"
+                                   CornerRadius="{StaticResource CornerRadiusSmall}">
                                 <VerticalStackLayout>
                                     <Label Text="Available Models"
-                                           FontSize="Caption" />
+                                           FontSize="{StaticResource FontSizeCaption}" />
                                     <Label Text="{Binding AvailableModels.Count}"
-                                           FontSize="Large"
+                                           FontSize="{StaticResource FontSizeTitle}"
                                            HorizontalOptions="Center"
-                                           TextColor="#F44336" />
+                                           TextColor="{StaticResource Error}" />
                                 </VerticalStackLayout>
                             </Frame>
                             <Frame Grid.Column="2"
-                                   BackgroundColor="#E0F2F1"
-                                   Padding="10"
-                                   Margin="5"
-                                   CornerRadius="5">
+                                   BackgroundColor="{StaticResource TertiaryLight}"
+                                   Padding="{StaticResource CardContentPadding}"
+                                   Margin="{StaticResource SpacingTiny}"
+                                   CornerRadius="{StaticResource CornerRadiusSmall}">
                                 <VerticalStackLayout>
                                     <Label Text="Available Goals"
-                                           FontSize="Caption" />
+                                           FontSize="{StaticResource FontSizeCaption}" />
                                     <Label Text="{Binding AvailableGoals.Count}"
-                                           FontSize="Large"
+                                           FontSize="{StaticResource FontSizeTitle}"
                                            HorizontalOptions="Center"
-                                           TextColor="#009688" />
+                                           TextColor="{StaticResource TertiaryDark}" />
                                 </VerticalStackLayout>
                             </Frame>
                         </Grid>
                         <!-- Active Models List -->
                         <Label Text="Currently Active Models"
-                               FontSize="Subtitle"
+                               FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold"
-                               Margin="0,10,0,0" />
+                               Margin="{StaticResource MarginTopMedium}" />
                         <CollectionView ItemsSource="{Binding ActiveModels}"
                                         EmptyView="No active models. Activate a model below.">
                             <CollectionView.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Padding="5"
+                                    <Grid Padding="{StaticResource SpacingTiny}"
                                           ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Grid.Column="0">
                                             <Label Text="{Binding Name}"
                                                    FontAttributes="Bold" />
                                             <Label Text="{Binding Description}"
-                                                   FontSize="Small" />
+                                                   FontSize="{StaticResource FontSizeSmall}" />
                                             <Label Text="{Binding Type}"
-                                                   FontSize="Micro"
-                                                   TextColor="Gray" />
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   TextColor="{StaticResource TextSecondary}" />
                                         </VerticalStackLayout>
                                         <Button Grid.Column="1"
                                                 Text="Stop"
-                                                BackgroundColor="#F44336"
-                                                TextColor="White"
+                                                BackgroundColor="{StaticResource Error}"
+                                                TextColor="{StaticResource TextOnPrimary}"
                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type local:NetPage}}, Path=DeactivateModelCommand}"
                                                 CommandParameter="{Binding .}"
                                                 VerticalOptions="Center" />
@@ -165,11 +165,11 @@
                 </Frame>
                 <!-- Available Models Section -->
                 <Frame BorderColor="{StaticResource Primary}"
-                       CornerRadius="10"
-                       Padding="15">
-                    <VerticalStackLayout Spacing="10">
+                       CornerRadius="{StaticResource CornerRadiusLarge}"
+                       Padding="{StaticResource CardPadding}">
+                    <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
                         <Label Text="Available Models"
-                               FontSize="Medium"
+                               FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold" />
                         <!-- Filtered by mode -->
                         <Label Text="General Purpose Models"
@@ -180,26 +180,27 @@
                                         EmptyView="No general models available.">
                             <CollectionView.ItemsLayout>
                                 <LinearItemsLayout Orientation="Vertical"
-                                                   ItemSpacing="8" />
+                                                   ItemSpacing="{StaticResource SpacingSmall}" />
                             </CollectionView.ItemsLayout>
                             <CollectionView.ItemTemplate>
                                 <DataTemplate>
                                     <Frame BorderColor="LightGray"
-                                           Padding="10"
-                                           CornerRadius="5">
+                                           Padding="{StaticResource CardContentPadding}"
+                                           Margin="{StaticResource MarginTiny}"
+                                           CornerRadius="{StaticResource CornerRadiusSmall}">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <VerticalStackLayout Grid.Column="0">
                                                 <Label Text="{Binding Name}"
                                                        FontAttributes="Bold" />
                                                 <Label Text="{Binding Description}"
-                                                       FontSize="Small" />
+                                                       FontSize="{StaticResource FontSizeSmall}" />
                                             </VerticalStackLayout>
                                             <Button Grid.Column="1"
                                                     Text="Activate"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ActivateModelCommand}"
                                                     CommandParameter="{Binding .}"
                                                     BackgroundColor="{StaticResource Primary}"
-                                                    TextColor="White" />
+                                                    TextColor="{StaticResource TextOnPrimary}" />
                                         </Grid>
                                     </Frame>
                                 </DataTemplate>
@@ -215,22 +216,22 @@
                             <CollectionView.ItemTemplate>
                                 <DataTemplate>
                                     <Frame BorderColor="LightGray"
-                                           Padding="10"
-                                           Margin="0,4"
-                                           CornerRadius="5">
+                                           Padding="{StaticResource CardContentPadding}"
+                                           Margin="{StaticResource MarginTiny}"
+                                           CornerRadius="{StaticResource CornerRadiusSmall}">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <VerticalStackLayout Grid.Column="0">
                                                 <Label Text="{Binding Name}"
                                                        FontAttributes="Bold" />
                                                 <Label Text="{Binding Description}"
-                                                       FontSize="Small" />
+                                                       FontSize="{StaticResource FontSizeSmall}" />
                                             </VerticalStackLayout>
                                             <Button Grid.Column="1"
                                                     Text="Load Goal"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.LoadSpecificGoalCommand}"
                                                     CommandParameter="{Binding .}"
-                                                    BackgroundColor="#9C27B0"
-                                                    TextColor="White" />
+                                                    BackgroundColor="{StaticResource Secondary}"
+                                                    TextColor="{StaticResource TextOnSecondary}" />
                                         </Grid>
                                     </Frame>
                                 </DataTemplate>
@@ -240,30 +241,30 @@
                 </Frame>
                 <!-- AI Assistant Chat -->
                 <Frame BorderColor="{StaticResource Primary}"
-                       CornerRadius="10"
-                       Padding="15">
-                    <VerticalStackLayout Spacing="10">
+                       CornerRadius="{StaticResource CornerRadiusLarge}"
+                       Padding="{StaticResource CardPadding}">
+                    <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
                         <Label Text="AI Assistant"
-                               FontSize="Medium"
+                               FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold" />
-                        <Frame BackgroundColor="#f5f5f5"
-                               CornerRadius="5"
-                               Padding="10"
-                               HeightRequest="150">
+                        <Frame BackgroundColor="{StaticResource BackgroundSecondary}"
+                               CornerRadius="{StaticResource CornerRadiusSmall}"
+                               Padding="{StaticResource CardContentPadding}"
+                               HeightRequest="{StaticResource CardHeight}">
                             <ScrollView>
-                                <VerticalStackLayout Spacing="10">
-                                    <Frame BackgroundColor="White"
-                                           Padding="10"
-                                           CornerRadius="8"
+                                <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                                    <Frame BackgroundColor="{StaticResource BackgroundPrimary}"
+                                           Padding="{StaticResource CardContentPadding}"
+                                           CornerRadius="{StaticResource CornerRadiusMedium}"
                                            BorderColor="{StaticResource Primary}">
                                         <Label Text="{Binding LastModelOutput}"
-                                               TextColor="#333333" />
+                                               TextColor="{StaticResource TextPrimary}" />
                                     </Frame>
                                 </VerticalStackLayout>
                             </ScrollView>
                         </Frame>
                         <Grid ColumnDefinitions="*,Auto"
-                              ColumnSpacing="10">
+                              ColumnSpacing="{StaticResource SpacingSmall}">
                             <Entry Grid.Column="0"
                                    Placeholder="Type your message here..."
                                    x:Name="MessageInput" />
@@ -272,10 +273,10 @@
                                     Command="{Binding CommunicateWithModelCommand}"
                                     CommandParameter="{Binding Source={x:Reference MessageInput}, Path=Text}"
                                     BackgroundColor="{StaticResource Primary}"
-                                    TextColor="White" />
+                                    TextColor="{StaticResource TextOnPrimary}" />
                         </Grid>
                         <!-- Input Mode Selection -->
-                        <HorizontalStackLayout Spacing="5">
+                        <HorizontalStackLayout Spacing="{StaticResource SpacingTiny}">
                             <Label Text="Input Mode:"
                                    VerticalOptions="Center" />
                             <RadioButton Content="Text"
@@ -287,64 +288,64 @@
                                          GroupName="InputMode" />
                         </HorizontalStackLayout>
                         <!-- Warning if no models active -->
-                        <Frame BackgroundColor="#FFF3CD"
+                        <Frame BackgroundColor="{StaticResource WarningBackground}"
                                IsVisible="{Binding ActiveModelsCount, Converter={StaticResource IntToBoolConverter}, ConverterParameter=0}"
-                               Padding="10"
-                               CornerRadius="5">
+                               Padding="{StaticResource CardContentPadding}"
+                               CornerRadius="{StaticResource CornerRadiusSmall}">
                             <VerticalStackLayout>
                                 <Label Text="No Active Models"
                                        FontAttributes="Bold"
-                                       TextColor="#856404" />
+                                       TextColor="{StaticResource WarningText}" />
                                 <Label Text="Activate a model above to enable the AI assistant"
-                                       TextColor="#856404"
-                                       FontSize="Small" />
+                                       TextColor="{StaticResource WarningText}"
+                                       FontSize="{StaticResource FontSizeSmall}" />
                             </VerticalStackLayout>
                         </Frame>
                     </VerticalStackLayout>
                 </Frame>
                 <!-- Model Sharing Controls -->
                 <Frame BorderColor="{StaticResource Primary}"
-                       CornerRadius="10"
-                       Padding="15">
-                    <VerticalStackLayout Spacing="10">
+                       CornerRadius="{StaticResource CornerRadiusLarge}"
+                       Padding="{StaticResource CardPadding}">
+                    <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
                         <Label Text="Model Sharing"
-                               FontSize="Medium"
+                               FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold" />
                         <Picker Title="Select Model to Share"
                                 ItemDisplayBinding="{Binding Name}"
                                 ItemsSource="{Binding AvailableModels}"
                                 x:Name="ShareModelPicker" />
                         <Grid ColumnDefinitions="*,*"
-                              ColumnSpacing="10">
+                              ColumnSpacing="{StaticResource SpacingSmall}">
                             <Button Grid.Column="0"
                                     Text="Share Model"
                                     Command="{Binding ShareModelCommand}"
                                     CommandParameter="{Binding Source={x:Reference ShareModelPicker}, Path=SelectedItem}"
-                                    BackgroundColor="#4CAF50"
-                                    TextColor="White" />
+                                    BackgroundColor="{StaticResource Tertiary}"
+                                    TextColor="{StaticResource TextOnPrimary}" />
                             <Button Grid.Column="1"
                                     Text="Import Model"
-                                    BackgroundColor="#2196F3"
-                                    TextColor="White" />
+                                    BackgroundColor="{StaticResource Primary}"
+                                    TextColor="{StaticResource TextOnPrimary}" />
                         </Grid>
                         <Entry Placeholder="Enter share code to import model"
-                               Margin="0,10,0,0" />
+                               Margin="{StaticResource MarginTopMedium}" />
                         <Label Text="Share with community to improve collective intelligence"
-                               FontSize="Micro"
-                               TextColor="Gray" />
+                               FontSize="{StaticResource FontSizeSmall}"
+                               TextColor="{StaticResource TextSecondary}" />
                     </VerticalStackLayout>
                 </Frame>
                 <!-- Safety & Security -->
                 <Frame BorderColor="{StaticResource Primary}"
-                       CornerRadius="10"
-                       Padding="15">
-                    <VerticalStackLayout Spacing="10">
+                       CornerRadius="{StaticResource CornerRadiusLarge}"
+                       Padding="{StaticResource CardPadding}">
+                    <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
                         <Label Text="Security Settings"
-                               FontSize="Medium"
+                               FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold" />
                         <Grid ColumnDefinitions="*,Auto"
                               RowDefinitions="Auto,Auto,Auto"
-                              RowSpacing="15">
+                              RowSpacing="{StaticResource SpacingMedium}">
                             <Label Text="Require Confirmation Before Actions"
                                    Grid.Row="0"
                                    Grid.Column="0"
@@ -371,9 +372,9 @@
                                     OnColor="{StaticResource Primary}" />
                         </Grid>
                         <Button Text="Reset Permissions"
-                                BackgroundColor="#FF5252"
-                                TextColor="White"
-                                Margin="0,10,0,0" />
+                                BackgroundColor="{StaticResource Error}"
+                                TextColor="{StaticResource TextOnPrimary}"
+                                Margin="{StaticResource MarginTopMedium}" />
                     </VerticalStackLayout>
                 </Frame>
             </VerticalStackLayout>
