@@ -3,6 +3,7 @@
              xmlns:local="clr-namespace:CSimple"
              xmlns:page="clr-namespace:CSimple.Pages"
              xmlns:converters="clr-namespace:CSimple.Converters"
+             xmlns:controls="clr-namespace:CSimple.Controls"
              x:Class="CSimple.App">
     <Application.Resources>
         <ResourceDictionary>
@@ -52,7 +53,7 @@
             <Color x:Key="BackgroundCard">#FFFFFF</Color>
             <Color x:Key="BackgroundDark">#2E2E2E</Color>
             <Color x:Key="FrameBackground">#F5F5F5</Color>
-            <Color x:Key="CardBackground">#FFFFFF</Color>   
+            <Color x:Key="CardBackground">#FFFFFF</Color>
             <Color x:Key="CardBackgroundLight">#ffffff</Color>
             <Color x:Key="CardBackgroundDark">#1e1e1e</Color>
             <Color x:Key="BorderColor">#DDDDDD</Color>
@@ -180,9 +181,38 @@
         </ResourceDictionary>
     </Application.Resources>
     <Application.MainPage>
-        <Shell FlyoutWidth="200"
+        <Shell x:Name="AppShell"
+               FlyoutWidth="200"
                FlyoutBackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
-               FlyoutBehavior="Flyout">
+               FlyoutBehavior="Flyout"
+               BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource BackgroundDark}}"
+               TitleColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}">
+            <!-- Shell resources to control icon colors -->
+            <Shell.Resources>
+                <Style TargetType="Shell"
+                       ApplyToDerivedTypes="True">
+                    <Setter Property="Shell.ForegroundColor"
+                            Value="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                    <Setter Property="Shell.TitleColor"
+                            Value="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                    <Setter Property="Shell.DisabledColor"
+                            Value="{AppThemeBinding Light=#B4FFFFFF, Dark=#95FFFFFF}" />
+                    <Setter Property="Shell.UnselectedColor"
+                            Value="{AppThemeBinding Light=#757575, Dark=#95FFFFFF}" />
+                    <Setter Property="Shell.TabBarBackgroundColor"
+                            Value="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource BackgroundDark}}" />
+                    <Setter Property="Shell.TabBarForegroundColor"
+                            Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}" />
+                    <Setter Property="Shell.TabBarUnselectedColor"
+                            Value="{AppThemeBinding Light=#757575, Dark=#95FFFFFF}" />
+                    <Setter Property="Shell.TabBarTitleColor"
+                            Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}" />
+                </Style>
+            </Shell.Resources>
+            <!-- Create an empty FlyoutHeader to preserve spacing -->
+            <Shell.FlyoutHeader>
+                <BoxView HeightRequest="0" />
+            </Shell.FlyoutHeader>
             <!-- Desktop/Tablet -->
             <FlyoutItem Title="Home"
                         Route="home"

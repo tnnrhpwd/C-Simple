@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CSimple.Controls.HamburgerMenuIcon">
+    <Grid x:Name="HamburgerMenuGrid"
+          HeightRequest="24"
+          WidthRequest="24"
+          HorizontalOptions="Center"
+          VerticalOptions="Center">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="2" />
+            <RowDefinition Height="4" />
+            <RowDefinition Height="2" />
+            <RowDefinition Height="4" />
+            <RowDefinition Height="2" />
+        </Grid.RowDefinitions>
+        <!-- Three lines of hamburger menu -->
+        <BoxView Grid.Row="0"
+                 Color="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                 HeightRequest="2"
+                 HorizontalOptions="Fill" />
+        <BoxView Grid.Row="2"
+                 Color="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                 HeightRequest="2"
+                 HorizontalOptions="Fill" />
+        <BoxView Grid.Row="4"
+                 Color="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                 HeightRequest="2"
+                 HorizontalOptions="Fill" />
+    </Grid>
+</ContentView>
