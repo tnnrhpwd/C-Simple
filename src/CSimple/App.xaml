@@ -44,7 +44,7 @@
             <!-- Background Colors -->
             <Color x:Key="BackgroundPrimary">#FFFFFF</Color>
             <Color x:Key="BackgroundSecondary">#F5F5F5</Color>
-            <Color x:Key="BackgroundTertiary">#EEEEEE</Color>
+            <Color x:Key="BackgroundTertiary">#303030</Color>
             <Color x:Key="BackgroundCard">#FFFFFF</Color>
             <Color x:Key="FrameBackground">#F5F5F5</Color>
             <Color x:Key="CardBackground">#FFFFFF</Color>
