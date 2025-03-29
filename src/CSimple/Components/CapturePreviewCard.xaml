@@ -22,7 +22,7 @@
                             IsToggled="{Binding Source={x:Reference root}, Path=IsPreviewEnabled}"
                             Toggled="OnPreviewToggled"
                             OnColor="{StaticResource PrimaryColor}"
-                            ThumbColor="White" />
+                            ThumbColor="{StaticResource TextOnPrimary}" />
                 </HorizontalStackLayout>
             </Grid>
             <Grid RowDefinitions="Auto,Auto,Auto"
@@ -47,27 +47,27 @@
                                    HorizontalOptions="FillAndExpand"
                                    VerticalOptions="FillAndExpand" />
                             <!-- Preview disabled message -->
-                            <Grid BackgroundColor="#80000000"
+                            <Grid BackgroundColor="{AppThemeBinding Light=#80000000, Dark=#80000000}"
                                   IsVisible="{Binding Source={x:Reference root}, Path=IsPreviewDisabled}">
                                 <Label Text="Preview disabled"
                                        HorizontalOptions="Center"
                                        VerticalOptions="Center"
-                                       TextColor="White"
+                                       TextColor="{StaticResource TextOnPrimary}"
                                        FontSize="14" />
                             </Grid>
                             <!-- Overlay and loading indicator for screen -->
-                            <Grid BackgroundColor="#80000000"
+                            <Grid BackgroundColor="{AppThemeBinding Light=#80000000, Dark=#80000000}"
                                   IsVisible="{Binding Source={x:Reference root}, Path=IsScreenWaiting}">
                                 <VerticalStackLayout HorizontalOptions="Center"
                                                      VerticalOptions="Center">
                                     <ActivityIndicator IsRunning="{Binding Source={x:Reference root}, Path=IsLoadingScreenPreview}"
-                                                       Color="{StaticResource PrimaryColor}"
+                                                       Color="{StaticResource Primary}"
                                                        HeightRequest="40"
                                                        WidthRequest="40" />
                                     <Label x:Name="ScreenCaptureStatus"
                                            Text="Waiting for screen feed..."
                                            HorizontalOptions="Center"
-                                           TextColor="White"
+                                           TextColor="{StaticResource TextOnPrimary}"
                                            FontSize="12"
                                            MaxLines="2"
                                            LineBreakMode="WordWrap"
@@ -97,27 +97,27 @@
                                    HorizontalOptions="FillAndExpand"
                                    VerticalOptions="FillAndExpand" />
                             <!-- Preview disabled message -->
-                            <Grid BackgroundColor="#80000000"
+                            <Grid BackgroundColor="{AppThemeBinding Light=#80000000, Dark=#80000000}"
                                   IsVisible="{Binding Source={x:Reference root}, Path=IsPreviewDisabled}">
                                 <Label Text="Preview disabled"
                                        HorizontalOptions="Center"
                                        VerticalOptions="Center"
-                                       TextColor="White"
+                                       TextColor="{StaticResource TextOnPrimary}"
                                        FontSize="14" />
                             </Grid>
                             <!-- Overlay and loading indicator for webcam -->
-                            <Grid BackgroundColor="#80000000"
+                            <Grid BackgroundColor="{AppThemeBinding Light=#80000000, Dark=#80000000}"
                                   IsVisible="{Binding Source={x:Reference root}, Path=IsWebcamWaiting}">
                                 <VerticalStackLayout HorizontalOptions="Center"
                                                      VerticalOptions="Center">
                                     <ActivityIndicator IsRunning="{Binding Source={x:Reference root}, Path=IsLoadingWebcamPreview}"
-                                                       Color="{StaticResource PrimaryColor}"
+                                                       Color="{StaticResource Primary}"
                                                        HeightRequest="40"
                                                        WidthRequest="40" />
                                     <Label x:Name="WebcamCaptureStatus"
                                            Text="Waiting for webcam feed..."
                                            HorizontalOptions="Center"
-                                           TextColor="White"
+                                           TextColor="{StaticResource TextOnPrimary}"
                                            FontSize="12"
                                            MaxLines="2"
                                            LineBreakMode="WordWrap"

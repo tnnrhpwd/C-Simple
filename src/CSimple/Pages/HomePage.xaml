@@ -32,7 +32,8 @@
         <!-- AI Assistant Status Bar - Improved Text Visibility -->
         <Frame Grid.Row="0"
                Padding="10"
-               BorderColor="{StaticResource Primary}"
+               BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+               BackgroundColor="{StaticResource BackgroundCard}"
                Margin="15,15,15,0">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <Image Grid.Column="0"
@@ -45,11 +46,11 @@
                                      Margin="10,0">
                     <Label Text="{Binding ActiveAIStatus}"
                            FontAttributes="Bold"
-                           TextColor="#1A1A1A"
+                           TextColor="{StaticResource TextPrimary}"
                            FontSize="16" />
                     <Label Text="{Binding AIStatusDetail}"
                            FontSize="Micro"
-                           TextColor="#333333" />
+                           TextColor="{StaticResource TextSecondary}" />
                 </VerticalStackLayout>
                 <VerticalStackLayout Grid.Column="2"
                                      Spacing="2">
@@ -58,18 +59,22 @@
                             VerticalOptions="Center" />
                     <Label Text="AI Assistant"
                            FontSize="10"
+                           TextColor="{StaticResource TextSecondary}"
                            HorizontalOptions="Center" />
                 </VerticalStackLayout>
             </Grid>
         </Frame>
-        <ScrollView Grid.Row="1">
+        <ScrollView Grid.Row="1"
+                    BackgroundColor="{StaticResource BackgroundPrimary}">
             <VerticalStackLayout Padding="15"
                                  Spacing="20">
                 <Label Text="Welcome to CSimple AI"
                        FontSize="Title"
+                       TextColor="{StaticResource TextPrimary}"
                        HorizontalOptions="Center" />
                 <!-- System Status Dashboard -->
-                <Frame BorderColor="{StaticResource Primary}"
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                       BackgroundColor="{StaticResource BackgroundCard}"
                        CornerRadius="10"
                        Padding="15">
                     <VerticalStackLayout Spacing="10">
@@ -91,7 +96,7 @@
                               RowSpacing="10">
                             <!-- Active Models -->
                             <Frame Grid.Column="0"
-                                   BackgroundColor="#E3F2FD"
+                                   BackgroundColor="{StaticResource PrimaryExtraLight}"
                                    Padding="10"
                                    CornerRadius="5">
                                 <VerticalStackLayout HorizontalOptions="Center">
@@ -100,13 +105,13 @@
                                            HorizontalOptions="Center" />
                                     <Label Text="{Binding ActiveModelsCount}"
                                            FontSize="Title"
-                                           TextColor="#2196F3"
+                                           TextColor="{StaticResource Primary}"
                                            HorizontalOptions="Center" />
                                 </VerticalStackLayout>
                             </Frame>
                             <!-- Today's Actions -->
                             <Frame Grid.Column="1"
-                                   BackgroundColor="#E8F5E9"
+                                   BackgroundColor="{StaticResource TertiaryLight}"
                                    Padding="10"
                                    CornerRadius="5">
                                 <VerticalStackLayout HorizontalOptions="Center">
@@ -115,13 +120,13 @@
                                            HorizontalOptions="Center" />
                                     <Label Text="{Binding TodayActionsCount}"
                                            FontSize="Title"
-                                           TextColor="#4CAF50"
+                                           TextColor="{StaticResource Tertiary}"
                                            HorizontalOptions="Center" />
                                 </VerticalStackLayout>
                             </Frame>
                             <!-- Success Rate -->
                             <Frame Grid.Column="2"
-                                   BackgroundColor="#FFF3E0"
+                                   BackgroundColor="{StaticResource SecondaryExtraLight}"
                                    Padding="10"
                                    CornerRadius="5">
                                 <VerticalStackLayout HorizontalOptions="Center">
@@ -130,7 +135,7 @@
                                            HorizontalOptions="Center" />
                                     <Label Text="{Binding SuccessRate, StringFormat='{0:P0}'}"
                                            FontSize="Title"
-                                           TextColor="#FF9800"
+                                           TextColor="{StaticResource Accent}"
                                            HorizontalOptions="Center" />
                                 </VerticalStackLayout>
                             </Frame>
@@ -138,7 +143,7 @@
                             <Frame Grid.Row="1"
                                    Grid.Column="0"
                                    Grid.ColumnSpan="2"
-                                   BackgroundColor="#F5F5F5"
+                                   BackgroundColor="{StaticResource BackgroundSecondary}"
                                    Padding="10"
                                    CornerRadius="5">
                                 <Grid ColumnDefinitions="*,Auto"
@@ -147,7 +152,7 @@
                                            FontAttributes="Bold" />
                                     <Label Grid.Row="1"
                                            Text="{Binding SystemHealthStatus}"
-                                           TextColor="Gray"
+                                           TextColor="{StaticResource TextSecondary}"
                                            FontSize="Caption" />
                                     <Label Grid.Column="1"
                                            Text="{Binding SystemHealthPercentage, StringFormat='{0:P0}'}"
@@ -159,7 +164,7 @@
                             <!-- AI Accuracy -->
                             <Frame Grid.Row="1"
                                    Grid.Column="2"
-                                   BackgroundColor="#F5F5F5"
+                                   BackgroundColor="{StaticResource BackgroundSecondary}"
                                    Padding="10"
                                    CornerRadius="5">
                                 <VerticalStackLayout>
@@ -177,7 +182,8 @@
                     </VerticalStackLayout>
                 </Frame>
                 <!-- Active Goals Summary Card -->
-                <Frame BorderColor="{StaticResource Primary}"
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                       BackgroundColor="{StaticResource BackgroundCard}"
                        CornerRadius="10"
                        Padding="15">
                     <VerticalStackLayout Spacing="15">
@@ -191,7 +197,7 @@
                                 <DataTemplate>
                                     <Frame Margin="0,5"
                                            Padding="10"
-                                           BorderColor="LightGray"
+                                           BorderColor="{StaticResource BorderColor}"
                                            CornerRadius="5">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <VerticalStackLayout Grid.Column="0">
@@ -201,7 +207,7 @@
                                                              ProgressColor="{StaticResource Primary}" />
                                                 <Label Text="{Binding Status}"
                                                        FontSize="Caption"
-                                                       TextColor="Gray" />
+                                                       TextColor="{StaticResource TextSecondary}" />
                                             </VerticalStackLayout>
                                             <Button Grid.Column="1"
                                                     Text="Continue"
@@ -217,12 +223,13 @@
                         </CollectionView>
                         <Button Text="Quick Start Goal"
                                 Command="{Binding QuickStartGoalCommand}"
-                                BackgroundColor="#4CAF50"
+                                BackgroundColor="{StaticResource Tertiary}"
                                 TextColor="White" />
                     </VerticalStackLayout>
                 </Frame>
                 <!-- Recent Activity Timeline -->
-                <Frame BorderColor="{StaticResource Primary}"
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                       BackgroundColor="{StaticResource BackgroundCard}"
                        CornerRadius="10"
                        Padding="15">
                     <VerticalStackLayout Spacing="10">
@@ -256,12 +263,12 @@
                                                    FontAttributes="Bold" />
                                             <Label Text="{Binding ActivityDescription}"
                                                    FontSize="Caption"
-                                                   TextColor="Gray" />
+                                                   TextColor="{StaticResource TextSecondary}" />
                                         </VerticalStackLayout>
                                         <Label Grid.Column="2"
                                                Text="{Binding ActivityTime}"
                                                FontSize="Micro"
-                                               TextColor="Gray"
+                                               TextColor="{StaticResource TextSecondary}"
                                                VerticalOptions="Start" />
                                         <Line Grid.ColumnSpan="3"
                                               X1="20"
@@ -283,7 +290,8 @@
                     </VerticalStackLayout>
                 </Frame>
                 <!-- AI Suggestions Card -->
-                <Frame BorderColor="{StaticResource Primary}"
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                       BackgroundColor="{StaticResource BackgroundCard}"
                        CornerRadius="10"
                        Padding="15">
                     <VerticalStackLayout Spacing="10">
@@ -300,14 +308,14 @@
                                 <DataTemplate>
                                     <Frame WidthRequest="200"
                                            Padding="10"
-                                           BorderColor="LightGray"
+                                           BorderColor="{StaticResource BorderColor}"
                                            CornerRadius="5">
                                         <VerticalStackLayout>
                                             <Label Text="{Binding Title}"
                                                    FontAttributes="Bold" />
                                             <Label Text="{Binding Description}"
                                                    FontSize="Caption"
-                                                   TextColor="Gray" />
+                                                   TextColor="{StaticResource TextSecondary}" />
                                             <Button Text="Apply"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ApplySuggestionCommand}"
                                                     CommandParameter="{Binding Id}"
@@ -322,7 +330,8 @@
                     </VerticalStackLayout>
                 </Frame>
                 <!-- Scheduled Tasks -->
-                <Frame BorderColor="{StaticResource Primary}"
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                       BackgroundColor="{StaticResource BackgroundCard}"
                        CornerRadius="10"
                        Padding="15">
                     <VerticalStackLayout Spacing="10">
@@ -335,7 +344,7 @@
                                 <DataTemplate>
                                     <Frame Margin="0,5"
                                            Padding="10"
-                                           BorderColor="LightGray"
+                                           BorderColor="{StaticResource BorderColor}"
                                            CornerRadius="5">
                                         <Grid ColumnDefinitions="Auto,*,Auto">
                                             <Label Grid.Column="0"
@@ -349,7 +358,7 @@
                                                        FontAttributes="Bold" />
                                                 <Label Text="{Binding TaskDescription}"
                                                        FontSize="Caption"
-                                                       TextColor="Gray" />
+                                                       TextColor="{StaticResource TextSecondary}" />
                                             </VerticalStackLayout>
                                             <Button Grid.Column="2"
                                                     Text="Options"
@@ -370,7 +379,8 @@
                     </VerticalStackLayout>
                 </Frame>
                 <!-- Quick Actions -->
-                <Frame BorderColor="{StaticResource Primary}"
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                       BackgroundColor="{StaticResource BackgroundCard}"
                        CornerRadius="10"
                        Padding="15">
                     <Grid ColumnDefinitions="*,*"
@@ -381,25 +391,25 @@
                                 Grid.Column="0"
                                 Text="Record New Action"
                                 Command="{Binding NavigateToObserveCommand}"
-                                BackgroundColor="#2196F3"
+                                BackgroundColor="{StaticResource Primary}"
                                 TextColor="White" />
                         <Button Grid.Row="0"
                                 Grid.Column="1"
                                 Text="Create New Goal"
                                 Command="{Binding CreateNewGoalCommand}"
-                                BackgroundColor="#4CAF50"
+                                BackgroundColor="{StaticResource Tertiary}"
                                 TextColor="White" />
                         <Button Grid.Row="1"
                                 Grid.Column="0"
                                 Text="Train Model"
                                 Command="{Binding TrainModelCommand}"
-                                BackgroundColor="#FF9800"
+                                BackgroundColor="{StaticResource Accent}"
                                 TextColor="White" />
                         <Button Grid.Row="1"
                                 Grid.Column="1"
                                 Text="Discover Shared Goals"
                                 Command="{Binding DiscoverSharedGoalsCommand}"
-                                BackgroundColor="#9C27B0"
+                                BackgroundColor="{StaticResource Secondary}"
                                 TextColor="White" />
                     </Grid>
                 </Frame>
@@ -409,7 +419,8 @@
                             AlignItems="Center"
                             JustifyContent="Center">
                     <!-- Activity visualization widget -->
-                    <Frame BorderColor="LightGray"
+                    <Frame BorderColor="{StaticResource BorderColor}"
+                           BackgroundColor="{StaticResource BackgroundCard}"
                            Padding="15"
                            CornerRadius="10"
                            WidthRequest="300">
