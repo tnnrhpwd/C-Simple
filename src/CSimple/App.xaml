@@ -30,6 +30,7 @@
             <Color x:Key="TertiaryDark">#388E3C</Color>
             <Color x:Key="TertiaryLight">#C8E6C9</Color>
             <Color x:Key="Accent">#FF5722</Color>
+            <Color x:Key="AccentLight">#FFD4C6</Color>
             <!-- Status Colors -->
             <Color x:Key="Success">#4CAF50</Color>
             <Color x:Key="Warning">#FFC107</Color>

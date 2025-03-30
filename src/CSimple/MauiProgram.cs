@@ -23,6 +23,32 @@ public static class MauiProgram
             .ConfigureMauiHandlers(handlers =>
             {
                 // Add any handler configuration here
+            })
+            .ConfigureLifecycleEvents(events =>
+            {
+#if WINDOWS
+                // Add Windows-specific customization for title bar
+                events.AddWindows(windowsLifecycleBuilder =>
+                {
+                    windowsLifecycleBuilder.OnWindowCreated(window =>
+                    {
+                        window.ExtendsContentIntoTitleBar = true;
+
+                        // Get the current theme colors
+                        var app = Microsoft.Maui.Controls.Application.Current as App;
+                        if (app != null)
+                        {
+                            // Force an update of the window colors
+                            app.Dispatcher.Dispatch(() =>
+                            {
+                                // This will trigger the update of the title bar colors
+                                Microsoft.Maui.Controls.Application.Current.UserAppTheme =
+                                    Microsoft.Maui.Controls.Application.Current.UserAppTheme;
+                            });
+                        }
+                    });
+                });
+#endif
             });
 
         // No need to register styles here - they are already included in App.xaml

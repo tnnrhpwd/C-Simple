@@ -84,12 +84,13 @@
                             <Label Text="System Dashboard"
                                    FontAttributes="Bold"
                                    FontSize="Medium"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
                                    VerticalOptions="Center" />
                             <Button Grid.Column="1"
                                     Text="Refresh"
                                     FontSize="Caption"
                                     BackgroundColor="Transparent"
-                                    TextColor="{StaticResource Primary}"
+                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
                                     Command="{Binding RefreshDashboardCommand}" />
                         </Grid>
                         <Grid ColumnDefinitions="*,*,*"
@@ -98,46 +99,49 @@
                               RowSpacing="10">
                             <!-- Active Models -->
                             <Frame Grid.Column="0"
-                                   BackgroundColor="{StaticResource PrimaryExtraLight}"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
                                    Padding="10"
                                    CornerRadius="5">
                                 <VerticalStackLayout HorizontalOptions="Center">
                                     <Label Text="Active Models"
                                            FontSize="Caption"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
                                            HorizontalOptions="Center" />
                                     <Label Text="{Binding ActiveModelsCount}"
                                            FontSize="Title"
-                                           TextColor="{StaticResource Primary}"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
                                            HorizontalOptions="Center" />
                                 </VerticalStackLayout>
                             </Frame>
                             <!-- Today's Actions -->
                             <Frame Grid.Column="1"
-                                   BackgroundColor="{StaticResource TertiaryLight}"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource TertiaryLight}, Dark={StaticResource TertiaryDark}}"
                                    Padding="10"
                                    CornerRadius="5">
                                 <VerticalStackLayout HorizontalOptions="Center">
                                     <Label Text="Today's Actions"
                                            FontSize="Caption"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
                                            HorizontalOptions="Center" />
                                     <Label Text="{Binding TodayActionsCount}"
                                            FontSize="Title"
-                                           TextColor="{StaticResource Tertiary}"
+                                           TextColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryLight}}"
                                            HorizontalOptions="Center" />
                                 </VerticalStackLayout>
                             </Frame>
                             <!-- Success Rate -->
                             <Frame Grid.Column="2"
-                                   BackgroundColor="{StaticResource SecondaryExtraLight}"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryExtraLight}, Dark={StaticResource SecondaryDark}}"
                                    Padding="10"
                                    CornerRadius="5">
                                 <VerticalStackLayout HorizontalOptions="Center">
                                     <Label Text="Success Rate"
                                            FontSize="Caption"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
                                            HorizontalOptions="Center" />
                                     <Label Text="{Binding SuccessRate, StringFormat='{0:P0}'}"
                                            FontSize="Title"
-                                           TextColor="{StaticResource Accent}"
+                                           TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource AccentLight}}"
                                            HorizontalOptions="Center" />
                                 </VerticalStackLayout>
                             </Frame>
@@ -145,16 +149,17 @@
                             <Frame Grid.Row="1"
                                    Grid.Column="0"
                                    Grid.ColumnSpan="2"
-                                   BackgroundColor="{StaticResource BackgroundSecondary}"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
                                    Padding="10"
                                    CornerRadius="5">
                                 <Grid ColumnDefinitions="*,Auto"
                                       RowDefinitions="Auto,Auto">
                                     <Label Text="System Health"
-                                           FontAttributes="Bold" />
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                                     <Label Grid.Row="1"
                                            Text="{Binding SystemHealthStatus}"
-                                           TextColor="{StaticResource TextSecondary}"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
                                            FontSize="Caption" />
                                     <Label Grid.Column="1"
                                            Text="{Binding SystemHealthPercentage, StringFormat='{0:P0}'}"
@@ -166,17 +171,19 @@
                             <!-- AI Accuracy -->
                             <Frame Grid.Row="1"
                                    Grid.Column="2"
-                                   BackgroundColor="{StaticResource BackgroundSecondary}"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
                                    Padding="10"
                                    CornerRadius="5">
                                 <VerticalStackLayout>
                                     <Label Text="AI Accuracy"
                                            FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
                                            HorizontalOptions="Center" />
                                     <ProgressBar Progress="{Binding AverageAIAccuracy}"
-                                                 ProgressColor="{StaticResource Primary}" />
+                                                 ProgressColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}" />
                                     <Label Text="{Binding AverageAIAccuracy, StringFormat='{0:P0}'}"
                                            HorizontalOptions="Center"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
                                            FontSize="Caption" />
                                 </VerticalStackLayout>
                             </Frame>
@@ -206,19 +213,20 @@
                                         <Grid ColumnDefinitions="*,Auto">
                                             <VerticalStackLayout Grid.Column="0">
                                                 <Label Text="{Binding Name}"
-                                                       FontAttributes="Bold" />
+                                                       FontAttributes="Bold"
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                                                 <ProgressBar Progress="{Binding Progress}"
-                                                             ProgressColor="{StaticResource Primary}" />
+                                                             ProgressColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}" />
                                                 <Label Text="{Binding Status}"
                                                        FontSize="Caption"
-                                                       TextColor="{StaticResource TextSecondary}" />
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                                             </VerticalStackLayout>
                                             <Button Grid.Column="1"
                                                     Text="Continue"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ContinueGoalCommand}"
                                                     CommandParameter="{Binding Id}"
                                                     VerticalOptions="Center"
-                                                    BackgroundColor="{StaticResource Primary}"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
                                                     TextColor="White" />
                                         </Grid>
                                     </Frame>
@@ -227,7 +235,7 @@
                         </CollectionView>
                         <Button Text="Quick Start Goal"
                                 Command="{Binding QuickStartGoalCommand}"
-                                BackgroundColor="{StaticResource Tertiary}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryLight}}"
                                 TextColor="White" />
                     </VerticalStackLayout>
                 </Frame>
@@ -239,7 +247,8 @@
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Recent Activity"
                                FontAttributes="Bold"
-                               FontSize="Medium" />
+                               FontSize="Medium"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                         <CollectionView ItemsSource="{Binding RecentActivities}"
                                         HeightRequest="200"
                                         EmptyView="No recent activity to display">
@@ -264,15 +273,16 @@
                                         <VerticalStackLayout Grid.Column="1"
                                                              Margin="10,0">
                                             <Label Text="{Binding ActivityTitle}"
-                                                   FontAttributes="Bold" />
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                                             <Label Text="{Binding ActivityDescription}"
                                                    FontSize="Caption"
-                                                   TextColor="{StaticResource TextSecondary}" />
+                                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                                         </VerticalStackLayout>
                                         <Label Grid.Column="2"
                                                Text="{Binding ActivityTime}"
                                                FontSize="Micro"
-                                               TextColor="{StaticResource TextSecondary}"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
                                                VerticalOptions="Start" />
                                         <Line Grid.ColumnSpan="3"
                                               X1="20"
@@ -289,7 +299,7 @@
                         <Button Text="View All Activity"
                                 Command="{Binding ViewAllActivityCommand}"
                                 BackgroundColor="Transparent"
-                                TextColor="{StaticResource Primary}"
+                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
                                 HorizontalOptions="End" />
                     </VerticalStackLayout>
                 </Frame>
@@ -301,7 +311,8 @@
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Suggestions Based on Your Activity"
                                FontAttributes="Bold"
-                               FontSize="Medium" />
+                               FontSize="Medium"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                         <CollectionView ItemsSource="{Binding AISuggestions}"
                                         HeightRequest="180">
                             <CollectionView.ItemsLayout>
@@ -312,18 +323,19 @@
                                 <DataTemplate>
                                     <Frame WidthRequest="200"
                                            Padding="10"
-                                           BorderColor="{StaticResource BorderColor}"
+                                           BorderColor="{AppThemeBinding Light={StaticResource BorderColor}, Dark={StaticResource BorderColorDark}}"
                                            CornerRadius="5">
                                         <VerticalStackLayout>
                                             <Label Text="{Binding Title}"
-                                                   FontAttributes="Bold" />
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                                             <Label Text="{Binding Description}"
                                                    FontSize="Caption"
-                                                   TextColor="{StaticResource TextSecondary}" />
+                                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                                             <Button Text="Apply"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ApplySuggestionCommand}"
                                                     CommandParameter="{Binding Id}"
-                                                    BackgroundColor="{StaticResource Primary}"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
                                                     TextColor="White"
                                                     Margin="0,10,0,0" />
                                         </VerticalStackLayout>
@@ -341,35 +353,38 @@
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Upcoming Scheduled Tasks"
                                FontAttributes="Bold"
-                               FontSize="Medium" />
+                               FontSize="Medium"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                         <CollectionView ItemsSource="{Binding ScheduledTasks}"
                                         EmptyView="No scheduled tasks">
                             <CollectionView.ItemTemplate>
                                 <DataTemplate>
                                     <Frame Margin="0,5"
                                            Padding="10"
-                                           BorderColor="{StaticResource BorderColor}"
+                                           BorderColor="{AppThemeBinding Light={StaticResource BorderColor}, Dark={StaticResource BorderColorDark}}"
                                            CornerRadius="5">
                                         <Grid ColumnDefinitions="Auto,*,Auto">
                                             <Label Grid.Column="0"
                                                    Text="{Binding ScheduledTime}"
                                                    FontAttributes="Bold"
                                                    VerticalOptions="Center"
-                                                   WidthRequest="60" />
+                                                   WidthRequest="60"
+                                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                                             <VerticalStackLayout Grid.Column="1"
                                                                  Margin="10,0">
                                                 <Label Text="{Binding TaskName}"
-                                                       FontAttributes="Bold" />
+                                                       FontAttributes="Bold"
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                                                 <Label Text="{Binding TaskDescription}"
                                                        FontSize="Caption"
-                                                       TextColor="{StaticResource TextSecondary}" />
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                                             </VerticalStackLayout>
                                             <Button Grid.Column="2"
                                                     Text="Options"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.TaskOptionsCommand}"
                                                     CommandParameter="{Binding Id}"
                                                     BackgroundColor="Transparent"
-                                                    TextColor="{StaticResource Primary}"
+                                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
                                                     FontSize="Micro" />
                                         </Grid>
                                     </Frame>
@@ -378,7 +393,7 @@
                         </CollectionView>
                         <Button Text="Schedule New Task"
                                 Command="{Binding ScheduleNewTaskCommand}"
-                                BackgroundColor="{StaticResource Primary}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
                                 TextColor="White" />
                     </VerticalStackLayout>
                 </Frame>
@@ -395,25 +410,25 @@
                                 Grid.Column="0"
                                 Text="Record New Action"
                                 Command="{Binding NavigateToObserveCommand}"
-                                BackgroundColor="{StaticResource Primary}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
                                 TextColor="White" />
                         <Button Grid.Row="0"
                                 Grid.Column="1"
                                 Text="Create New Goal"
                                 Command="{Binding CreateNewGoalCommand}"
-                                BackgroundColor="{StaticResource Tertiary}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryLight}}"
                                 TextColor="White" />
                         <Button Grid.Row="1"
                                 Grid.Column="0"
                                 Text="Train Model"
                                 Command="{Binding TrainModelCommand}"
-                                BackgroundColor="{StaticResource Accent}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource AccentLight}}"
                                 TextColor="White" />
                         <Button Grid.Row="1"
                                 Grid.Column="1"
                                 Text="Discover Shared Goals"
                                 Command="{Binding DiscoverSharedGoalsCommand}"
-                                BackgroundColor="{StaticResource Secondary}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryLight}}"
                                 TextColor="White" />
                     </Grid>
                 </Frame>
