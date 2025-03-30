@@ -195,8 +195,14 @@ namespace CSimple.Pages
         public ICommand ChainSelectedActionsCommand { get; }
         public ICommand AddToTrainingCommand { get; }
 
+        // Add commands for local items
+        public ICommand ViewLocalItemCommand { get; }
+        public ICommand ImportLocalItemCommand { get; }
+
         private bool _isSimulating = false;
         private readonly ActionService _actionService;
+        private readonly DataService _dataService;
+        private readonly UserService _userService;
         private ActionPageViewModel _viewModel;
 
         // Fix: Defining the missing SortPicker as a class field
@@ -250,14 +256,14 @@ namespace CSimple.Pages
 
             // Initialize a view model for additional functionality
             _viewModel = new ActionPageViewModel();
-
             // Initialize fields
             _sortPicker = this.FindByName<Picker>("SortPicker");
             _inputActionPopup = this.FindByName<Microsoft.Maui.Controls.Grid>("InputActionPopup");
-
             var fileService = new FileService();
-            var dataService = new DataService();
-            _actionService = new ActionService(dataService, fileService);
+            _dataService = new DataService();
+            _userService = new UserService(); // Initialize the user service
+            _actionService = new ActionService(_dataService, fileService);
+            _actionService = new ActionService(_dataService, fileService);
 
             // Initialize sort options
             SelectedSortOption = SortOptions[0]; // Default sort by date newest
@@ -278,12 +284,19 @@ namespace CSimple.Pages
             ChainSelectedActionsCommand = new Command(ChainSelectedActions);
             AddToTrainingCommand = new Command(AddSelectedActionsToTraining);
 
+            // Initialize new commands for local items
+            ViewLocalItemCommand = new Command<DataItem>(ViewLocalItem);
+            ImportLocalItemCommand = new Command<DataItem>(ImportLocalItem);
+
             // Load existing action groups from file asynchronously
             _ = LoadDataItemsFromFile();
             DebugOutput("Action Page Initialized");
 
             // Initialize categories
             PopulateCategories();
+
+            // Load local items in addition to other data
+            _ = LoadLocalItemsAsync();
         }
 
         // Category methods
@@ -399,6 +412,7 @@ namespace CSimple.Pages
         private async Task RefreshData()
         {
             await LoadDataItemsFromBackend();
+            await LoadLocalItemsAsync();
         }
 
         private async Task TrainModel()
@@ -1083,6 +1097,143 @@ namespace CSimple.Pages
         {
             // Use MAUI's built-in alert dialog instead of WinUI ContentDialog
             await DisplayAlert(title, content, "OK");
+        }
+
+        // Add these properties for local items
+        private ObservableCollection<DataItem> _localItems = new ObservableCollection<DataItem>();
+        public ObservableCollection<DataItem> LocalItems
+        {
+            get => _localItems;
+            set
+            {
+                if (_localItems != value)
+                {
+                    _localItems = value;
+                    OnPropertyChanged(nameof(LocalItems));
+                    OnPropertyChanged(nameof(HasLocalItems));
+                }
+            }
+        }
+
+        public bool HasLocalItems => LocalItems != null && LocalItems.Count > 0;
+
+        // Add methods to handle local items
+        private async Task LoadLocalItemsAsync()
+        {
+            try
+            {
+                IsLoading = true;
+
+                // Load local items - use available methods from DataService
+                var localItems = await _actionService.LoadDataItemsFromFile();
+                // Filter for local actions or create an empty list
+                if (localItems == null)
+                {
+                    localItems = new List<DataItem>();
+                }
+
+                // Filter items to only include those not already in main collection
+                var filteredItems = localItems.Where(local =>
+                    !DataItems.Any(existing =>
+                        existing.Data?.ActionGroupObject?.Id == local.Data?.ActionGroupObject?.Id ||
+                        (existing.Data?.ActionGroupObject?.ActionName == local.Data?.ActionGroupObject?.ActionName)
+                    )).ToList();
+
+                LocalItems = new ObservableCollection<DataItem>(filteredItems);
+
+                DebugOutput($"Loaded {LocalItems.Count} local items");
+            }
+            catch (Exception ex)
+            {
+                DebugOutput($"Error loading local items: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        private void ViewLocalItem(DataItem item)
+        {
+            if (item?.Data?.ActionGroupObject == null) return;
+
+            try
+            {
+                // Create a safe copy to avoid memory issues
+                var actionGroup = new ActionGroup
+                {
+                    Id = item.Data?.ActionGroupObject?.Id ?? Guid.NewGuid(),
+                    ActionName = item.Data.ActionGroupObject.ActionName,
+                    Description = item.Data.ActionGroupObject.Description,
+                    ActionType = item.Data.ActionGroupObject.ActionType ?? "Local Action",
+                    CreatedAt = item.createdAt
+                };
+
+                // Copy a limited subset of action steps
+                if (item.Data.ActionGroupObject.ActionArray != null)
+                {
+                    actionGroup.ActionArray = new List<ActionItem>();
+                    foreach (var action in item.Data.ActionGroupObject.ActionArray.Take(20))
+                    {
+                        actionGroup.ActionArray.Add(new ActionItem
+                        {
+                            EventType = action.EventType,
+                            KeyCode = action.KeyCode,
+                            Duration = action.Duration,
+                            Coordinates = action.Coordinates
+                        });
+                    }
+                }
+
+                // Show the action details
+                OnRowTapped(actionGroup);
+            }
+            catch (Exception ex)
+            {
+                DebugOutput($"Error viewing local item: {ex.Message}");
+                DisplayAlert("Error", "Could not view action details", "OK");
+            }
+        }
+
+        private async void ImportLocalItem(DataItem item)
+        {
+            if (item == null) return;
+
+            try
+            {
+                bool confirmed = await DisplayAlert("Import Action",
+                    $"Import '{item.Data.ActionGroupObject.ActionName}' to your permanent action library?",
+                    "Import", "Cancel");
+
+                if (!confirmed) return;
+
+                // Add to main collection
+                DataItems.Add(item);
+
+                // Remove from local items
+                LocalItems.Remove(item);
+
+                // Update ActionGroups collection
+                UpdateActionGroupsFromDataItems();
+
+                // Save to backend if option is enabled
+                if (await _userService.IsUserLoggedInAsync())
+                {
+                    // Save the individual item by adding it to the list and saving all
+                    await _actionService.SaveDataItemsToFile(new List<DataItem> { item });
+                    await DisplayAlert("Action Imported", "The action was successfully imported and synced to your account.", "OK");
+                }
+                else
+                {
+                    await _actionService.SaveDataItemsToFile(DataItems.ToList());
+                    await DisplayAlert("Action Imported", "The action was successfully imported to your local library.", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugOutput($"Error importing local item: {ex.Message}");
+                await DisplayAlert("Import Failed", "Could not import the action", "OK");
+            }
         }
     }
 

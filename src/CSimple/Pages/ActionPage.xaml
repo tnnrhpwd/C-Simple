@@ -5,7 +5,7 @@
              xmlns:converters="clr-namespace:CSimple.Converters"
              x:Class="CSimple.Pages.ActionPage"
              Title="Actions">
-    <Grid RowDefinitions="Auto,Auto,*,Auto"
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto"
           Padding="12">
         <!-- Header -->
         <Grid Grid.Row="0"
@@ -205,8 +205,75 @@
                 </CollectionView.ItemTemplate>
             </CollectionView>
         </Grid>
+        <!-- Local Items Section -->
+        <VerticalStackLayout Grid.Row="3"
+                             Margin="0,16,0,8"
+                             IsVisible="{Binding HasLocalItems}">
+            <Label Text="Recently Recorded Actions"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                   Margin="0,0,0,8" />
+            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
+                   BorderColor="{AppThemeBinding Light=#e0e0e0, Dark=#424242}"
+                   CornerRadius="8"
+                   Padding="0"
+                   HasShadow="True">
+                <CollectionView ItemsSource="{Binding LocalItems}"
+                                HeightRequest="180"
+                                EmptyView="No local actions have been recorded recently">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Horizontal"
+                                           ItemSpacing="12" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Frame WidthRequest="220"
+                                   Margin="6"
+                                   Padding="12"
+                                   CornerRadius="6"
+                                   BorderColor="{AppThemeBinding Light=#e0e0e0, Dark=#424242}"
+                                   BackgroundColor="{AppThemeBinding Light=#ffffff, Dark=#2a2a2a}">
+                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                      RowSpacing="4">
+                                    <Label Grid.Row="0"
+                                           Text="{Binding Data.ActionGroupObject.ActionName}"
+                                           FontAttributes="Bold"
+                                           FontSize="16"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                                    <Label Grid.Row="1"
+                                           Text="{Binding createdAt, StringFormat='Created: {0:g}'}"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                    <Label Grid.Row="2"
+                                           Text="{Binding Data.ActionGroupObject.ActionType}"
+                                           FontSize="13"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                    <Label Grid.Row="3"
+                                           Text="{Binding Data.ActionGroupObject.ActionArray.Count, StringFormat='{0} steps'}"
+                                           FontSize="13"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                    <Button Grid.Row="4"
+                                            Text="Import"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type local:ActionPage}}, Path=ImportLocalItemCommand}"
+                                            CommandParameter="{Binding .}"
+                                            BackgroundColor="{StaticResource PrimaryColor}"
+                                            TextColor="White"
+                                            HeightRequest="36"
+                                            Margin="0,6,0,0" />
+                                </Grid>
+                                <Frame.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type local:ActionPage}}, Path=ViewLocalItemCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                </Frame.GestureRecognizers>
+                            </Frame>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Frame>
+        </VerticalStackLayout>
         <!-- Footer -->
-        <Grid Grid.Row="3"
+        <Grid Grid.Row="4"
               Margin="0,10,0,0"
               ColumnDefinitions="*,Auto,*">
             <Button Grid.Column="0"
