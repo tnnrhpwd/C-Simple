@@ -1,6 +1,7 @@
 ﻿using CSimple.ViewModels;
 using System.Diagnostics;
 using System.Windows.Input;
+using Microsoft.Maui.Graphics;
 
 namespace CSimple.Pages;
 
@@ -11,13 +12,40 @@ public partial class HomePage : ContentPage
     public ICommand NavigateCommand { get; set; }
     public ICommand LogoutCommand { get; }
 
+    // New properties to showcase AI capabilities
+    public bool IsAIEnabled { get; set; } = true;
+    public string ActiveAIStatus { get; set; } = "AI Assistant Active";
+    public string AIStatusDetail { get; set; } = "Monitoring inputs and providing assistance";
+    public int ActiveModelsCount { get; set; } = 2;
+    public int TodayActionsCount { get; set; } = 15;
+    public double SuccessRate { get; set; } = 0.92;
+    public double SystemHealthPercentage { get; set; } = 0.87;
+    public string SystemHealthStatus { get; set; } = "Systems nominal, resources optimized";
+    public Color SystemHealthColor => SystemHealthPercentage > 0.7 ? Colors.Green : SystemHealthPercentage > 0.4 ? Colors.Orange : Colors.Red;
+    public double AverageAIAccuracy { get; set; } = 0.89;
+
+    // Commands for AI features
+    public ICommand RefreshDashboardCommand { get; }
+    public ICommand CreateNewGoalCommand { get; }
+    public ICommand NavigateToObserveCommand { get; }
+    public ICommand TrainModelCommand { get; }
+    public ICommand DiscoverSharedGoalsCommand { get; }
+
     // Constructor with AuthService injection
     public HomePage(HomeViewModel vm, DataService dataService)
     {
         InitializeComponent();
         _dataService = dataService;
         LogoutCommand = new Command(ExecuteLogout);
-        BindingContext = vm;
+
+        // Initialize new commands
+        RefreshDashboardCommand = new Command(RefreshDashboard);
+        CreateNewGoalCommand = new Command(async () => await Shell.Current.GoToAsync("///goal"));
+        NavigateToObserveCommand = new Command(async () => await Shell.Current.GoToAsync("///observe"));
+        TrainModelCommand = new Command(async () => await Shell.Current.GoToAsync("///orient"));
+        DiscoverSharedGoalsCommand = new Command(ShowSharedGoalsPopup);
+
+        BindingContext = this;
         if (!isSetup)
         {
             isSetup = true;
@@ -25,6 +53,31 @@ public partial class HomePage : ContentPage
             SetupTrayIcon();
         }
     }
+
+    // New methods for AI features
+    private void RefreshDashboard()
+    {
+        // Simulate refreshing system stats
+        SystemHealthPercentage = new Random().NextDouble() * 0.3 + 0.7; // Between 0.7 and 1.0
+        ActiveModelsCount = new Random().Next(1, 5);
+        TodayActionsCount = new Random().Next(10, 30);
+        SuccessRate = new Random().NextDouble() * 0.2 + 0.8; // Between 0.8 and 1.0
+        AverageAIAccuracy = new Random().NextDouble() * 0.15 + 0.85; // Between 0.85 and 1.0
+
+        // Update bindings
+        OnPropertyChanged(nameof(SystemHealthPercentage));
+        OnPropertyChanged(nameof(ActiveModelsCount));
+        OnPropertyChanged(nameof(TodayActionsCount));
+        OnPropertyChanged(nameof(SuccessRate));
+        OnPropertyChanged(nameof(AverageAIAccuracy));
+        OnPropertyChanged(nameof(SystemHealthColor));
+    }
+
+    private async void ShowSharedGoalsPopup()
+    {
+        await DisplayAlert("Shared Goals", "Discovering goals shared by other users. This feature allows you to download pre-trained models for specific tasks.", "OK");
+    }
+
     private async Task Initialize()
     {
         await Task.Run(() =>
@@ -41,6 +94,9 @@ public partial class HomePage : ContentPage
     {
         base.OnAppearing();
         await Initialize();
+
+        // Refresh dashboard stats on appearing
+        RefreshDashboard();
     }
     async void NavigateLogin()
     {
@@ -97,7 +153,7 @@ public partial class HomePage : ContentPage
                     ?.ShowNotification("Hello from .NET MAUI", "How's your weather? 🌞");
         }
     }
-        private async void OnGetStartedClicked(object sender, EventArgs e)
+    private async void OnGetStartedClicked(object sender, EventArgs e)
     {
         try
         {

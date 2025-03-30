@@ -12,7 +12,7 @@
                        FontAttributes="Bold"
                        HorizontalOptions="Center" />
                 <!-- Mode Toggle Panel -->
-                <Frame BorderColor="{StaticResource Primary}"
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                        CornerRadius="{StaticResource CornerRadiusLarge}"
                        Padding="{StaticResource CardPadding}">
                     <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
@@ -22,7 +22,7 @@
                         <Grid ColumnDefinitions="*,*"
                               ColumnSpacing="{StaticResource SpacingMedium}">
                             <Frame Grid.Column="0"
-                                   BackgroundColor="{Binding IsGeneralModeActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='PrimaryExtraLight|BackgroundTertiary'}"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
                                    Padding="{StaticResource CardPadding}"
                                    CornerRadius="{StaticResource CornerRadiusMedium}">
                                 <VerticalStackLayout>
@@ -32,15 +32,15 @@
                                     <Label Text="Watches all inputs and responds based on learned patterns"
                                            FontSize="{StaticResource FontSizeSmall}"
                                            HorizontalOptions="Center"
-                                           TextColor="{StaticResource TextSecondary}" />
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
                                     <Switch IsToggled="{Binding IsGeneralModeActive}"
-                                            OnColor="{StaticResource Primary}"
+                                            OnColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                             HorizontalOptions="Center"
                                             Toggled="OnGeneralModeToggled" />
                                 </VerticalStackLayout>
                             </Frame>
                             <Frame Grid.Column="1"
-                                   BackgroundColor="{Binding IsSpecificModeActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='SecondaryExtraLight|BackgroundTertiary'}"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryExtraLight}, Dark={StaticResource SecondaryDark}}"
                                    Padding="{StaticResource CardPadding}"
                                    CornerRadius="{StaticResource CornerRadiusMedium}">
                                 <VerticalStackLayout>
@@ -50,16 +50,16 @@
                                     <Label Text="Execute predefined models for specific tasks"
                                            FontSize="{StaticResource FontSizeSmall}"
                                            HorizontalOptions="Center"
-                                           TextColor="{StaticResource TextSecondary}" />
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
                                     <Switch IsToggled="{Binding IsSpecificModeActive}"
-                                            OnColor="{StaticResource Secondary}"
+                                            OnColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
                                             HorizontalOptions="Center"
                                             Toggled="OnSpecificModeToggled" />
                                 </VerticalStackLayout>
                             </Frame>
                         </Grid>
                         <!-- Status Display -->
-                        <Frame BackgroundColor="{StaticResource BackgroundSecondary}"
+                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
                                CornerRadius="{StaticResource CornerRadiusSmall}"
                                Padding="{StaticResource CardContentPadding}">
                             <VerticalStackLayout>
@@ -67,7 +67,7 @@
                                        FontSize="{StaticResource FontSizeSmall}"
                                        FontAttributes="Bold" />
                                 <Label Text="{Binding CurrentModelStatus}"
-                                       TextColor="{StaticResource PrimaryDark}" />
+                                       TextColor="{AppThemeBinding Light={StaticResource PrimaryDark}, Dark={StaticResource Primary}}" />
                                 <Label Text="Active Models:"
                                        FontSize="{StaticResource FontSizeSmall}" />
                                 <Label Text="{Binding ActiveModelsCount, StringFormat='{0} models running'}"
@@ -77,7 +77,7 @@
                     </VerticalStackLayout>
                 </Frame>
                 <!-- Neural Network Activity Dashboard -->
-                <Frame BorderColor="{StaticResource Primary}"
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                        CornerRadius="{StaticResource CornerRadiusLarge}"
                        Padding="{StaticResource CardPadding}">
                     <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
@@ -88,7 +88,7 @@
                         <Grid ColumnDefinitions="*,*,*"
                               RowDefinitions="Auto,Auto">
                             <Frame Grid.Column="0"
-                                   BackgroundColor="{StaticResource PrimaryExtraLight}"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
                                    Padding="{StaticResource CardContentPadding}"
                                    Margin="{StaticResource SpacingTiny}"
                                    CornerRadius="{StaticResource CornerRadiusSmall}">
@@ -98,11 +98,11 @@
                                     <Label Text="{Binding ActiveModelsCount}"
                                            FontSize="{StaticResource FontSizeTitle}"
                                            HorizontalOptions="Center"
-                                           TextColor="{StaticResource Primary}" />
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                                 </VerticalStackLayout>
                             </Frame>
                             <Frame Grid.Column="1"
-                                   BackgroundColor="{StaticResource ErrorLight}"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource ErrorLight}, Dark={StaticResource Error}}"
                                    Padding="{StaticResource CardContentPadding}"
                                    Margin="{StaticResource SpacingTiny}"
                                    CornerRadius="{StaticResource CornerRadiusSmall}">
@@ -112,11 +112,11 @@
                                     <Label Text="{Binding AvailableModels.Count}"
                                            FontSize="{StaticResource FontSizeTitle}"
                                            HorizontalOptions="Center"
-                                           TextColor="{StaticResource Error}" />
+                                           TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorLight}}" />
                                 </VerticalStackLayout>
                             </Frame>
                             <Frame Grid.Column="2"
-                                   BackgroundColor="{StaticResource TertiaryLight}"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource TertiaryLight}, Dark={StaticResource TertiaryDark}}"
                                    Padding="{StaticResource CardContentPadding}"
                                    Margin="{StaticResource SpacingTiny}"
                                    CornerRadius="{StaticResource CornerRadiusSmall}">
@@ -126,7 +126,7 @@
                                     <Label Text="{Binding AvailableGoals.Count}"
                                            FontSize="{StaticResource FontSizeTitle}"
                                            HorizontalOptions="Center"
-                                           TextColor="{StaticResource TertiaryDark}" />
+                                           TextColor="{AppThemeBinding Light={StaticResource TertiaryDark}, Dark={StaticResource Tertiary}}" />
                                 </VerticalStackLayout>
                             </Frame>
                         </Grid>

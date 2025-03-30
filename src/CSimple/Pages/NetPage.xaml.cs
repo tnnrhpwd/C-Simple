@@ -20,6 +20,14 @@ public partial class NetPage : ContentPage
     public string CurrentModelStatus { get; set; } = "Idle";
     public string LastModelOutput { get; set; } = "No recent outputs";
     public int ActiveModelsCount => ActiveModels.Count;
+    public bool IsLoading { get; set; } = false;
+
+    // Enhanced properties for model visualization
+    public string GeneralModeDescription => "General mode monitors all inputs and provides assistance based on learned patterns";
+    public string SpecificModeDescription => "Specific mode executes predefined actions for particular goals";
+    public string ModelStatusColor => ActiveModelsCount > 0 ? "#00aa00" : "#aa0000";
+    public string ModelOutputHistory { get; set; } = "No recent outputs";
+    public bool IsModelCommunicating { get; set; }
 
     // Commands
     public ICommand ToggleGeneralModeCommand { get; private set; }
@@ -29,6 +37,10 @@ public partial class NetPage : ContentPage
     public ICommand LoadSpecificGoalCommand { get; private set; }
     public ICommand ShareModelCommand { get; private set; }
     public ICommand CommunicateWithModelCommand { get; private set; }
+    public ICommand ExportModelCommand { get; private set; }
+    public ICommand ImportModelCommand { get; private set; }
+    public ICommand ManageTrainingCommand { get; private set; }
+    public ICommand ViewModelPerformanceCommand { get; private set; }
 
     public NetPage()
     {
@@ -44,11 +56,18 @@ public partial class NetPage : ContentPage
         LoadSpecificGoalCommand = new Command<SpecificGoal>(LoadSpecificGoal);
         ShareModelCommand = new Command<NeuralNetworkModel>(ShareModel);
         CommunicateWithModelCommand = new Command<string>(CommunicateWithModel);
+        ExportModelCommand = new Command<NeuralNetworkModel>(ExportModel);
+        ImportModelCommand = new Command(ImportModel);
+        ManageTrainingCommand = new Command(ManageTraining);
+        ViewModelPerformanceCommand = new Command(ViewModelPerformance);
 
         CheckUserLoggedIn();
 
         // Load sample models for demo
         LoadSampleModels();
+
+        // Subscribe to global input notifications
+        SubscribeToInputNotifications();
     }
 
     private async void CheckUserLoggedIn()
@@ -104,44 +123,66 @@ public partial class NetPage : ContentPage
 
     private void LoadSampleModels()
     {
-        // Add sample models
+        // Clear existing models
+        AvailableModels.Clear();
+
+        // Add general-purpose models
         AvailableModels.Add(new NeuralNetworkModel
         {
             Id = Guid.NewGuid().ToString(),
             Name = "General Assistant",
-            Description = "Monitors all inputs and suggests actions",
-            Type = ModelType.General
+            Description = "Monitors all inputs and suggests actions based on learned patterns",
+            Type = ModelType.General,
+            AccuracyScore = 0.92,
+            LastTrainedDate = DateTime.Now.AddDays(-5)
         });
 
         AvailableModels.Add(new NeuralNetworkModel
         {
             Id = Guid.NewGuid().ToString(),
             Name = "Text Analyzer",
-            Description = "Specializes in text input analysis",
-            Type = ModelType.InputSpecific
+            Description = "Analyzes text inputs and automates text-related tasks",
+            Type = ModelType.InputSpecific,
+            AccuracyScore = 0.89,
+            LastTrainedDate = DateTime.Now.AddDays(-12)
         });
 
         AvailableModels.Add(new NeuralNetworkModel
         {
             Id = Guid.NewGuid().ToString(),
             Name = "Audio Assistant",
-            Description = "Processes audio inputs for voice commands",
-            Type = ModelType.InputSpecific
+            Description = "Processes audio inputs for voice commands and responses",
+            Type = ModelType.InputSpecific,
+            AccuracyScore = 0.85,
+            LastTrainedDate = DateTime.Now.AddDays(-8)
         });
 
-        // Add sample specific goals
+        // Add specific goal models
         AvailableGoals.Add(new SpecificGoal
         {
             Id = Guid.NewGuid().ToString(),
-            Name = "Create Sales Report",
-            Description = "Automatically generates sales reports from data"
+            Name = "Create Weekly Sales Report",
+            Description = "Automatically generates sales reports from CSV data files",
+            Category = "Business",
+            DownloadCount = 1240
         });
 
         AvailableGoals.Add(new SpecificGoal
         {
             Id = Guid.NewGuid().ToString(),
-            Name = "Email Processing",
-            Description = "Manages and categorizes incoming emails"
+            Name = "Email Processor",
+            Description = "Organizes inbox, drafts responses, and sets follow-up reminders",
+            Category = "Productivity",
+            DownloadCount = 875
+        });
+
+        AvailableGoals.Add(new SpecificGoal
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = "Meeting Scheduler",
+            Description = "Handles meeting scheduling across teams with conflicting calendars",
+            Category = "Collaboration",
+            DownloadCount = 653
         });
     }
 
@@ -595,6 +636,134 @@ public partial class NetPage : ContentPage
         }
     }
 
+    private void ExportModel(NeuralNetworkModel model)
+    {
+        if (model == null) return;
+
+        CurrentModelStatus = $"Exporting model '{model.Name}' for sharing...";
+        OnPropertyChanged(nameof(CurrentModelStatus));
+
+        // Simulate export process
+        Task.Delay(1000).ContinueWith(_ =>
+        {
+            Application.Current.Dispatcher.Dispatch(() =>
+            {
+                CurrentModelStatus = $"Model '{model.Name}' exported successfully";
+                OnPropertyChanged(nameof(CurrentModelStatus));
+                DisplayAlert("Export Successful", $"Model '{model.Name}' has been exported and is ready for sharing.", "OK");
+            });
+        });
+    }
+
+    private async void ImportModel()
+    {
+        CurrentModelStatus = "Importing shared model...";
+        OnPropertyChanged(nameof(CurrentModelStatus));
+
+        // Show import options dialog
+        string importChoice = await DisplayActionSheet(
+            "Import Model Source",
+            "Cancel",
+            null,
+            "From Local File",
+            "From Shared Repository",
+            "From QR Code"
+        );
+
+        if (importChoice == "Cancel" || string.IsNullOrEmpty(importChoice))
+            return;
+
+        // Simulate import
+        IsLoading = true;
+        try
+        {
+            await Task.Delay(1500);
+
+            // Add a new imported model
+            var importedModel = new NeuralNetworkModel
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = "Imported Model - Sales Report Generator",
+                Description = "Creates weekly sales reports from data files",
+                Type = ModelType.GoalSpecific
+            };
+
+            AvailableModels.Add(importedModel);
+            CurrentModelStatus = $"Model '{importedModel.Name}' imported successfully";
+
+            await DisplayAlert("Import Success",
+                $"The model '{importedModel.Name}' has been imported and is ready to use.",
+                "OK");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async void ManageTraining()
+    {
+        await DisplayAlert("Manage Training Data",
+            "This would open an interface to manage the training data used by your models, including adding new data, cleaning existing data, or viewing model training performance.",
+            "OK");
+
+        await Shell.Current.GoToAsync("///orient");
+    }
+
+    private void ViewModelPerformance()
+    {
+        if (ActiveModels.Count == 0)
+        {
+            DisplayAlert("No Active Models", "Please activate a model first to view its performance metrics.", "OK");
+            return;
+        }
+
+        DisplayAlert("Model Performance",
+            "Your active models have processed 724 inputs today with an average accuracy of 92.7%. CPU usage average: 12%, Memory usage: 485MB.",
+            "OK");
+    }
+
+    private void SubscribeToInputNotifications()
+    {
+        // In a real app, you would subscribe to events from your input capture service
+        // This is simulated for the UI demo
+
+        // Simulate occasional model activity using a timer
+        Device.StartTimer(TimeSpan.FromSeconds(15), () =>
+        {
+            if (ActiveModels.Count > 0 && IsGeneralModeActive)
+            {
+                Application.Current.Dispatcher.Dispatch(() =>
+                {
+                    IsModelCommunicating = true;
+                    OnPropertyChanged(nameof(IsModelCommunicating));
+
+                    var outputMessages = new[] {
+                        "Detected user searching for sales data, opening relevant spreadsheets",
+                        "Recognized meeting preparation pattern, loading presentation",
+                        "Identified repeated text entry, suggesting automation",
+                        "Observed file organization pattern, recommending folder structure"
+                    };
+
+                    var randomMessage = outputMessages[new Random().Next(outputMessages.Length)];
+                    LastModelOutput = randomMessage;
+                    OnPropertyChanged(nameof(LastModelOutput));
+
+                    // Turn off communicating status after a delay
+                    Task.Delay(3000).ContinueWith(_ =>
+                    {
+                        Application.Current.Dispatcher.Dispatch(() =>
+                        {
+                            IsModelCommunicating = false;
+                            OnPropertyChanged(nameof(IsModelCommunicating));
+                        });
+                    });
+                });
+            }
+            return true; // Keep the timer running
+        });
+    }
+
     private void StartModelMonitoring(NeuralNetworkModel model)
     {
         // In a real app, start threads or services to monitor inputs
@@ -812,6 +981,10 @@ public class NeuralNetworkModel
     public ModelType Type { get; set; }
     public string AssociatedGoalId { get; set; }
     public bool IsActive { get; set; }
+    public double AccuracyScore { get; set; } = 0.75;
+    public DateTime LastTrainedDate { get; set; } = DateTime.Now.AddDays(-10);
+    public string TrainingStatus => AccuracyScore > 0.9 ? "Excellent" : AccuracyScore > 0.8 ? "Good" : "Needs Training";
+    public string AccuracyDisplay => $"{AccuracyScore:P0}";
 }
 
 public enum ModelType
@@ -826,4 +999,7 @@ public class SpecificGoal
     public string Id { get; set; }
     public string Name { get; set; }
     public string Description { get; set; }
+    public string Category { get; set; } = "General";
+    public int DownloadCount { get; set; } = 0;
+    public string DownloadCountDisplay => DownloadCount > 1000 ? $"{DownloadCount / 1000}K" : DownloadCount.ToString();
 }
