@@ -1,228 +1,413 @@
 ﻿<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:local="clr-namespace:CSimple.Resources.Styles"
-    xmlns:am="clr-namespace:Microsoft.Maui.ApplicationModel;assembly=Microsoft.Maui.Essentials"
-    xmlns:v="clr-namespace:CSimple.Views"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
-    ios:Page.UseSafeArea="True"
-    Title="Settings"
-    Shell.NavBarIsVisible="{OnIdiom True, Desktop=False}"
-    x:Class="CSimple.Pages.SettingsPage">
-
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:CSimple.Resources.Styles"
+             xmlns:am="clr-namespace:Microsoft.Maui.ApplicationModel;assembly=Microsoft.Maui.Essentials"
+             xmlns:v="clr-namespace:CSimple.Views"
+             xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+             ios:Page.UseSafeArea="True"
+             Title="Settings"
+             Shell.NavBarIsVisible="{OnIdiom True, Desktop=False}"
+             x:Class="CSimple.Pages.SettingsPage">
     <ContentPage.Resources>
         <ControlTemplate x:Key="ThemeRadioTemplate">
-            <Frame
-                BorderColor="{StaticResource Background_Mid}"
-                BackgroundColor="Transparent"
-                HasShadow="False"
-                HeightRequest="120"
-                WidthRequest="100"
-                HorizontalOptions="Start"
-                VerticalOptions="Start"
-                Padding="0">
+            <Frame BorderColor="{StaticResource Background_Mid}"
+                   BackgroundColor="Transparent"
+                   HasShadow="False"
+                   HeightRequest="120"
+                   WidthRequest="100"
+                   HorizontalOptions="Start"
+                   VerticalOptions="Start"
+                   Padding="0">
                 <VisualStateManager.VisualStateGroups>
                     <VisualStateGroupList>
-                        <VisualStateGroup
-                            x:Name="CheckedStates">
-                            <VisualState
-                                x:Name="Checked">
+                        <VisualStateGroup x:Name="CheckedStates">
+                            <VisualState x:Name="Checked">
                                 <VisualState.Setters>
-                                    <Setter
-                                        Property="BorderColor"
-                                        Value="{StaticResource Primary}" />
-                                    <Setter
-                                        TargetName="Check"
-                                        Property="Opacity"
-                                        Value="1" />
+                                    <Setter Property="BorderColor"
+                                            Value="{StaticResource Primary}" />
+                                    <Setter TargetName="Check"
+                                            Property="Opacity"
+                                            Value="1" />
                                 </VisualState.Setters>
                             </VisualState>
-
-                            <VisualState
-                                x:Name="Unchecked">
+                            <VisualState x:Name="Unchecked">
                                 <VisualState.Setters>
-                                    <Setter
-                                        Property="BorderColor"
-                                        Value="{StaticResource Background_Mid}" />
-                                    <Setter
-                                        TargetName="Check"
-                                        Property="Opacity"
-                                        Value="0" />
+                                    <Setter Property="BorderColor"
+                                            Value="{StaticResource Background_Mid}" />
+                                    <Setter TargetName="Check"
+                                            Property="Opacity"
+                                            Value="0" />
                                 </VisualState.Setters>
                             </VisualState>
                         </VisualStateGroup>
                     </VisualStateGroupList>
                 </VisualStateManager.VisualStateGroups>
                 <Grid>
-                    <Grid
-                        WidthRequest="18"
-                        HeightRequest="18"
-                        Margin="0,8,8,0"
-                        HorizontalOptions="End"
-                        VerticalOptions="Start">
-                        <Ellipse
-                            Stroke="{StaticResource DarkGray}"
-                            WidthRequest="16"
-                            HeightRequest="16"
-                            StrokeThickness="0.5"
-                            VerticalOptions="Center"
-                            HorizontalOptions="Center"
-                            Fill="White" />
-                        <Ellipse
-                            x:Name="Check"
-                            WidthRequest="8"
-                            HeightRequest="8"
-                            Stroke="{StaticResource Primary}"
-                            Fill="{StaticResource Primary}"
-                            VerticalOptions="Center"
-                            HorizontalOptions="Center" />
+                    <Grid WidthRequest="18"
+                          HeightRequest="18"
+                          Margin="0,8,8,0"
+                          HorizontalOptions="End"
+                          VerticalOptions="Start">
+                        <Ellipse Stroke="{StaticResource DarkGray}"
+                                 WidthRequest="16"
+                                 HeightRequest="16"
+                                 StrokeThickness="0.5"
+                                 VerticalOptions="Center"
+                                 HorizontalOptions="Center"
+                                 Fill="White" />
+                        <Ellipse x:Name="Check"
+                                 WidthRequest="8"
+                                 HeightRequest="8"
+                                 Stroke="{StaticResource Primary}"
+                                 Fill="{StaticResource Primary}"
+                                 VerticalOptions="Center"
+                                 HorizontalOptions="Center" />
                     </Grid>
-                    <ContentPresenter></ContentPresenter>
+                    <ContentPresenter />
                 </Grid>
             </Frame>
         </ControlTemplate>
     </ContentPage.Resources>
-
-    <Grid ColumnDefinitions="*" RowDefinitions="{OnIdiom Phone='100,*', Default='100,*,0'}">
-        <ScrollView Grid.Row="1" Margin="{OnIdiom Phone=15, Default=25}">
+    <Grid ColumnDefinitions="*"
+          RowDefinitions="{OnIdiom Phone='100,*', Default='100,*,0'}">
+        <ScrollView Grid.Row="1"
+                    Margin="{OnIdiom Phone=15, Default=25}">
             <VerticalStackLayout Spacing="8">
-                <Label Text="Account" class="SectionTitle" />
-                <StackLayout x:Name="AccountSection" Padding="10" Style="{StaticResource AccountSectionStyle}">
+                <Label Text="Account"
+                       class="SectionTitle" />
+                <StackLayout x:Name="AccountSection"
+                             Padding="10"
+                             Style="{StaticResource AccountSectionStyle}">
                     <StackLayout Padding="10">
-                        <Label Text="Email" class="Subhead" />
-                        <Label x:Name="UserEmailLabel" Text="user@example.com" class="SubContent" />
-                        <Button Text="Edit Email" Command="{Binding EditEmailCommand}" />
+                        <Label Text="Email"
+                               class="Subhead" />
+                        <Label x:Name="UserEmailLabel"
+                               Text="user@example.com"
+                               class="SubContent" />
+                        <Button Text="Edit Email"
+                                Command="{Binding EditEmailCommand}" />
                     </StackLayout>
                     <BoxView class="HRule" />
                     <StackLayout Padding="10">
-                        <Label Text="Password" class="Subhead" />
-                        <Label Text="********" x:Name="PasswordLabel" class="SubContent" />
-                        <Button Text="Edit Password" Command="{Binding EditPasswordCommand}" />
+                        <Label Text="Password"
+                               class="Subhead" />
+                        <Label Text="********"
+                               x:Name="PasswordLabel"
+                               class="SubContent" />
+                        <Button Text="Edit Password"
+                                Command="{Binding EditPasswordCommand}" />
                     </StackLayout>
                 </StackLayout>
-                <BoxView class="HRule"/>
-                <Label Text="App" class="SectionTitle"/>
+                <BoxView class="HRule" />
+                <!-- Membership Section - New section -->
+                <Label Text="Membership"
+                       class="SectionTitle" />
+                <Frame Padding="10"
+                       BorderColor="{StaticResource Background_Mid}"
+                       BackgroundColor="Transparent">
+                    <VerticalStackLayout Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="Current Plan"
+                                   class="Subhead"
+                                   Grid.Column="0" />
+                            <Label x:Name="MembershipTierLabel"
+                                   Text="Free"
+                                   Grid.Column="1"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource Primary}" />
+                        </Grid>
+                        <BoxView class="HRule"
+                                 Margin="0,5" />
+                        <Label Text="Usage Statistics"
+                               class="Subhead" />
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                              ColumnDefinitions="*,Auto">
+                            <Label Text="Model Processing Time"
+                                   Grid.Row="0"
+                                   Grid.Column="0" />
+                            <Label x:Name="ProcessingTimeLabel"
+                                   Text="0 minutes"
+                                   Grid.Row="0"
+                                   Grid.Column="1" />
+                            <Label Text="API Calls"
+                                   Grid.Row="1"
+                                   Grid.Column="0" />
+                            <Label x:Name="ApiCallsLabel"
+                                   Text="0 / 100"
+                                   Grid.Row="1"
+                                   Grid.Column="1" />
+                            <Label Text="Storage Used"
+                                   Grid.Row="2"
+                                   Grid.Column="0" />
+                            <Label x:Name="StorageLabel"
+                                   Text="0 MB / 500 MB"
+                                   Grid.Row="2"
+                                   Grid.Column="1" />
+                            <Label Text="Billing Cycle"
+                                   Grid.Row="3"
+                                   Grid.Column="0" />
+                            <Label x:Name="BillingCycleLabel"
+                                   Text="N/A"
+                                   Grid.Row="3"
+                                   Grid.Column="1" />
+                        </Grid>
+                        <BoxView class="HRule"
+                                 Margin="0,5" />
+                        <Label Text="Membership Benefits"
+                               class="Subhead" />
+                        <StackLayout>
+                            <Label x:Name="MembershipFeaturesLabel"
+                                   Text="• Limited access to basic features&#xA;• 100 API calls per month&#xA;• 500 MB storage" />
+                        </StackLayout>
+                        <BoxView class="HRule"
+                                 Margin="0,5" />
+                        <Button x:Name="UpgradePlanButton"
+                                Text="Upgrade Plan"
+                                Clicked="UpgradePlan_Clicked"
+                                HorizontalOptions="Start" />
+                        <Button x:Name="ViewBillingButton"
+                                Text="View Billing History"
+                                Clicked="ViewBilling_Clicked"
+                                HorizontalOptions="Start" />
+                    </VerticalStackLayout>
+                </Frame>
+                <BoxView class="HRule" />
+                <!-- AI Features Section - New section -->
+                <Label Text="AI Assistant Features"
+                       class="SectionTitle" />
+                <Frame Padding="10"
+                       BorderColor="{StaticResource Background_Mid}"
+                       BackgroundColor="Transparent">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Active Neural Network Mode"
+                               class="Subhead" />
+                        <Picker x:Name="ModelPicker"
+                                Title="Select Model"
+                                SelectedIndexChanged="ModelPicker_SelectedIndexChanged" />
+                        <BoxView class="HRule"
+                                 Margin="0,5" />
+                        <Label Text="System Access Permissions"
+                               class="Subhead" />
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+                              ColumnDefinitions="*,Auto">
+                            <Label Text="Screen Capture"
+                                   Grid.Row="0"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch x:Name="ScreenCaptureSwitch"
+                                    Grid.Row="0"
+                                    Grid.Column="1"
+                                    Toggled="Permission_Toggled" />
+                            <Label Text="Audio Capture"
+                                   Grid.Row="1"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch x:Name="AudioCaptureSwitch"
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    Toggled="Permission_Toggled" />
+                            <Label Text="Keyboard Simulation"
+                                   Grid.Row="2"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch x:Name="KeyboardSimulationSwitch"
+                                    Grid.Row="2"
+                                    Grid.Column="1"
+                                    Toggled="Permission_Toggled" />
+                            <Label Text="Mouse Simulation"
+                                   Grid.Row="3"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch x:Name="MouseSimulationSwitch"
+                                    Grid.Row="3"
+                                    Grid.Column="1"
+                                    Toggled="Permission_Toggled" />
+                            <Label Text="Voice Output"
+                                   Grid.Row="4"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch x:Name="VoiceOutputSwitch"
+                                    Grid.Row="4"
+                                    Grid.Column="1"
+                                    Toggled="Permission_Toggled" />
+                            <Label Text="System Commands"
+                                   Grid.Row="5"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch x:Name="SystemCommandsSwitch"
+                                    Grid.Row="5"
+                                    Grid.Column="1"
+                                    Toggled="Permission_Toggled" />
+                        </Grid>
+                        <BoxView class="HRule"
+                                 Margin="0,5" />
+                        <Label Text="Feature Modules"
+                               class="Subhead" />
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                              ColumnDefinitions="*,Auto">
+                            <Label Text="Observe Mode"
+                                   Grid.Row="0"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch x:Name="ObserveModeSwitch"
+                                    Grid.Row="0"
+                                    Grid.Column="1"
+                                    Toggled="FeatureMode_Toggled" />
+                            <Label Text="Orient Mode"
+                                   Grid.Row="1"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch x:Name="OrientModeSwitch"
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    Toggled="FeatureMode_Toggled" />
+                            <Label Text="Plan Mode"
+                                   Grid.Row="2"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch x:Name="PlanModeSwitch"
+                                    Grid.Row="2"
+                                    Grid.Column="1"
+                                    Toggled="FeatureMode_Toggled" />
+                            <Label Text="Action Mode"
+                                   Grid.Row="3"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch x:Name="ActionModeSwitch"
+                                    Grid.Row="3"
+                                    Grid.Column="1"
+                                    Toggled="FeatureMode_Toggled" />
+                        </Grid>
+                        <BoxView class="HRule"
+                                 Margin="0,5" />
+                        <Label Text="Model Management"
+                               class="Subhead" />
+                        <HorizontalStackLayout Spacing="10">
+                            <Button Text="Import Model"
+                                    Clicked="ImportModel_Clicked" />
+                            <Button Text="Export Model"
+                                    Clicked="ExportModel_Clicked" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Frame>
+                <BoxView class="HRule" />
+                <Label Text="App"
+                       class="SectionTitle" />
                 <Grid Padding="10">
-                    <Label Text="Theme" class="Subhead"/>
-                    <StackLayout
-                        HorizontalOptions="End"
-                        Spacing="12"
-                        Orientation="Horizontal"
-                        RadioButtonGroup.GroupName="AppTheme"
-                        RadioButtonGroup.SelectedValue="{Binding SelectedTheme}">
+                    <Label Text="Theme"
+                           class="Subhead" />
+                    <StackLayout HorizontalOptions="End"
+                                 Spacing="12"
+                                 Orientation="Horizontal"
+                                 RadioButtonGroup.GroupName="AppTheme"
+                                 RadioButtonGroup.SelectedValue="{Binding SelectedTheme}">
                         <StackLayout.Resources>
                             <Style TargetType="RadioButton">
-                                <Setter Property="ControlTemplate" Value="{StaticResource ThemeRadioTemplate}"/>
+                                <Setter Property="ControlTemplate"
+                                        Value="{StaticResource ThemeRadioTemplate}" />
                             </Style>
                         </StackLayout.Resources>
                         <RadioButton Value="{x:Static am:AppTheme.Unspecified}"
-                            IsChecked="True"
-                            CheckedChanged="RadioButton_CheckedChanged"
-                            >
+                                     IsChecked="True"
+                                     CheckedChanged="RadioButton_CheckedChanged">
                             <RadioButton.Content>
                                 <Grid RowDefinitions="*">
-                                    <Image
-                                        VerticalOptions="Center"
-                                        HorizontalOptions="Center"
-                                        WidthRequest="50"
-                                        HeightRequest="50"
-                                        Margin="0,-8,0,0"
-                                        Source="{FontImage
-                                        FontFamily=FontAwesome,
-                                        Glyph={x:Static local:IconFont.Mobile},
-                                        Color={StaticResource MidGray},
-                                        Size=42}"/>
-                                    <Label
-                                        Text="Default"
-                                        VerticalOptions="End"
-                                        HorizontalOptions="Center"
-                                        FontSize="12"
-                                        Margin="0,0,0,10"/>
+                                    <Image VerticalOptions="Center"
+                                           HorizontalOptions="Center"
+                                           WidthRequest="50"
+                                           HeightRequest="50"
+                                           Margin="0,-8,0,0"
+                                           Source="{FontImage FontFamily=FontAwesome, Glyph={x:Static local:IconFont.Mobile}, Color={StaticResource MidGray}, Size=42}" />
+                                    <Label Text="Default"
+                                           VerticalOptions="End"
+                                           HorizontalOptions="Center"
+                                           FontSize="12"
+                                           Margin="0,0,0,10" />
                                 </Grid>
                             </RadioButton.Content>
                         </RadioButton>
                         <RadioButton Value="{x:Static am:AppTheme.Dark}"
-                            CheckedChanged="RadioButton_CheckedChanged">
+                                     CheckedChanged="RadioButton_CheckedChanged">
                             <RadioButton.Content>
                                 <Grid RowDefinitions="*">
-                                    <Image
-                                        VerticalOptions="Center"
-                                        HorizontalOptions="Center"
-                                        WidthRequest="50"
-                                        HeightRequest="50"
-                                        Margin="0,-8,0,0"
-                                        Source="{FontImage
-                                        FontFamily=FontAwesome,
-                                        Glyph={x:Static local:IconFont.Lightbulb},
-                                        Color=Black,
-                                        Size=42}"/>
-                                    <Label
-                                        Text="Dark"
-                                        VerticalOptions="End"
-                                        Margin="0,0,0,10"
-                                        HorizontalOptions="Center"
-                                        FontSize="12"
-                                        />
+                                    <Image VerticalOptions="Center"
+                                           HorizontalOptions="Center"
+                                           WidthRequest="50"
+                                           HeightRequest="50"
+                                           Margin="0,-8,0,0"
+                                           Source="{FontImage FontFamily=FontAwesome, Glyph={x:Static local:IconFont.Lightbulb}, Color=Black, Size=42}" />
+                                    <Label Text="Dark"
+                                           VerticalOptions="End"
+                                           Margin="0,0,0,10"
+                                           HorizontalOptions="Center"
+                                           FontSize="12" />
                                 </Grid>
                             </RadioButton.Content>
                         </RadioButton>
                         <RadioButton Value="{x:Static am:AppTheme.Light}"
-                            CheckedChanged="RadioButton_CheckedChanged"
-                            >
+                                     CheckedChanged="RadioButton_CheckedChanged">
                             <RadioButton.Content>
                                 <Grid RowDefinitions="*">
-                                    <Image
-                                        VerticalOptions="Center"
-                                        HorizontalOptions="Center"
-                                        WidthRequest="50"
-                                        HeightRequest="50"
-                                        Margin="0,-8,0,0"
-                                        Source="{FontImage
-                                        FontFamily=FontAwesome,
-                                        Glyph={x:Static local:IconFont.Lightbulb},
-                                        Color=White,
-                                        Size=42}"/>
-                                    <Label
-                                        Text="Light"
-                                        FontSize="12"
-                                        VerticalOptions="End"
-                                        HorizontalOptions="Center"
-                                        Margin="0,0,0,10"/>
+                                    <Image VerticalOptions="Center"
+                                           HorizontalOptions="Center"
+                                           WidthRequest="50"
+                                           HeightRequest="50"
+                                           Margin="0,-8,0,0"
+                                           Source="{FontImage FontFamily=FontAwesome, Glyph={x:Static local:IconFont.Lightbulb}, Color=White, Size=42}" />
+                                    <Label Text="Light"
+                                           FontSize="12"
+                                           VerticalOptions="End"
+                                           HorizontalOptions="Center"
+                                           Margin="0,0,0,10" />
                                 </Grid>
                             </RadioButton.Content>
                         </RadioButton>
                     </StackLayout>
                 </Grid>
-                <BoxView class="HRule"/>
+                <BoxView class="HRule" />
                 <Picker x:Name="TimeZonePicker"
-                    Title="Select Time Zone"
-                    SelectedIndexChanged="TimeZonePicker_SelectedIndexChanged" />
-                <BoxView class="HRule"/>
-                <Label Grid.Row="0" Text="Support" class="Subhead">
+                        Title="Select Time Zone"
+                        SelectedIndexChanged="TimeZonePicker_SelectedIndexChanged" />
+                <BoxView class="HRule" />
+                <Label Grid.Row="0"
+                       Text="Support"
+                       class="Subhead">
                     <Label.GestureRecognizers>
-                        <TapGestureRecognizer Tapped="OnSupportTapped"/>
+                        <TapGestureRecognizer Tapped="OnSupportTapped" />
                     </Label.GestureRecognizers>
                 </Label>
             </VerticalStackLayout>
         </ScrollView>
-        <Grid Grid.Row="0" Grid.ColumnDefinitions="16,75,16,*,100,16">
-            <Image  
-                HorizontalOptions="Center"
-                VerticalOptions="Center"
-                Grid.Column="1"
-                WidthRequest="75"
-                HeightRequest="75"
-                Aspect="AspectFill"
-                Source="https://sthopwood.com/static/media/Checkmark512.44b03091d831e2a87a74.png">
-            <Image.Clip>
-                <EllipseGeometry 
-                    Center="36,36"
-                    RadiusX="36"
-                    RadiusY="36"/>
-            </Image.Clip>
-                </Image>
-            <Label x:Name="UserNicknameLabel" Text="No user" Grid.Column="3" LineBreakMode="WordWrap" VerticalOptions="Center" />
-            <Button x:Name="SignOutButton" Text="Sign Out" Clicked="OnSignClick" Grid.Column="4" HorizontalOptions="End" VerticalOptions="Center"/>
-            <BoxView Grid.ColumnSpan="6" Color="{StaticResource NeutralDarker}" HeightRequest="1" VerticalOptions="End"/>
+        <Grid Grid.Row="0"
+              Grid.ColumnDefinitions="16,75,16,*,100,16">
+            <Image HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   Grid.Column="1"
+                   WidthRequest="75"
+                   HeightRequest="75"
+                   Aspect="AspectFill"
+                   Source="https://sthopwood.com/static/media/Checkmark512.44b03091d831e2a87a74.png">
+                <Image.Clip>
+                    <EllipseGeometry Center="36,36"
+                                     RadiusX="36"
+                                     RadiusY="36" />
+                </Image.Clip>
+            </Image>
+            <Label x:Name="UserNicknameLabel"
+                   Text="No user"
+                   Grid.Column="3"
+                   LineBreakMode="WordWrap"
+                   VerticalOptions="Center" />
+            <Button x:Name="SignOutButton"
+                    Text="Sign Out"
+                    Clicked="OnSignClick"
+                    Grid.Column="4"
+                    HorizontalOptions="End"
+                    VerticalOptions="Center" />
+            <BoxView Grid.ColumnSpan="6"
+                     Color="{StaticResource NeutralDarker}"
+                     HeightRequest="1"
+                     VerticalOptions="End" />
         </Grid>
     </Grid>
 </ContentPage>
