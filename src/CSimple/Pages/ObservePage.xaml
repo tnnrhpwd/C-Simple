@@ -37,7 +37,7 @@
                 <!-- AI Analysis Status Bar -->
                 <Frame Grid.Row="1"
                        Grid.ColumnSpan="2"
-                       BackgroundColor="#E3F2FD"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDarkColor}}"
                        CornerRadius="5"
                        Padding="10"
                        Margin="0,10,0,0">
@@ -51,9 +51,11 @@
                                              Margin="10,0">
                             <Label Text="{Binding AIAnalysisStatus}"
                                    FontAttributes="Bold"
-                                   FontSize="Small" />
+                                   FontSize="Small"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                             <ProgressBar Progress="{Binding AIAnalysisProgress}"
-                                         IsVisible="{Binding IsAnalyzing}" />
+                                         IsVisible="{Binding IsAnalyzing}"
+                                         ProgressColor="{StaticResource PrimaryColor}" />
                         </VerticalStackLayout>
                         <VerticalStackLayout Grid.Column="2"
                                              Spacing="5">
@@ -61,17 +63,21 @@
                                 <Label Text="Auto-Classify"
                                        VerticalOptions="Center"
                                        Margin="0,0,5,0"
-                                       FontSize="Micro" />
+                                       FontSize="Micro"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                                 <Switch IsToggled="{Binding AutoClassifyEnabled}"
-                                        Scale="0.8" />
+                                        Scale="0.8"
+                                        OnColor="{StaticResource PrimaryColor}" />
                             </HorizontalStackLayout>
                             <HorizontalStackLayout>
                                 <Label Text="Auto-Apply"
                                        VerticalOptions="Center"
                                        Margin="0,0,5,0"
-                                       FontSize="Micro" />
+                                       FontSize="Micro"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                                 <Switch IsToggled="{Binding AutoApplyEnabled}"
-                                        Scale="0.8" />
+                                        Scale="0.8"
+                                        OnColor="{StaticResource PrimaryColor}" />
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
                     </Grid>
@@ -84,8 +90,8 @@
             <Grid RowDefinitions="Auto,*">
                 <!-- AI Insight Panel -->
                 <Frame Grid.Row="0"
-                       BorderColor="#4CAF50"
-                       BackgroundColor="#E8F5E9"
+                       BorderColor="{StaticResource TertiaryColor}"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource TertiaryLight}, Dark={StaticResource TertiaryDarkColor}}"
                        Padding="12"
                        Margin="0,0,0,15"
                        IsVisible="{Binding HasAIInsights}"
@@ -94,17 +100,19 @@
                         <VerticalStackLayout Grid.Column="0"
                                              Spacing="4">
                             <Label Text="AI Action Insights"
-                                   FontAttributes="Bold" />
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                             <Label Text="{Binding CurrentAIInsight}"
-                                   FontSize="Small" />
+                                   FontSize="Small"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                             <Label Text="{Binding InsightConfidence, StringFormat='Confidence: {0:P0}'}"
                                    FontSize="Micro"
-                                   TextColor="Gray" />
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                         </VerticalStackLayout>
                         <Button Grid.Column="1"
                                 Text="Apply"
                                 Command="{Binding ApplyAIInsightCommand}"
-                                BackgroundColor="#4CAF50"
+                                BackgroundColor="{StaticResource TertiaryColor}"
                                 TextColor="White"
                                 VerticalOptions="Center" />
                     </Grid>
@@ -139,7 +147,8 @@
         </ScrollView>
         <!-- Quick Response Panel - Shows AI-suggested next actions -->
         <Frame Grid.Row="2"
-               BorderColor="{StaticResource Primary}"
+               BorderColor="{StaticResource PrimaryColor}"
+               BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
                CornerRadius="8"
                Padding="12"
                Margin="0,10,0,0">
@@ -147,14 +156,16 @@
                 <VerticalStackLayout Grid.Column="0">
                     <Label Text="AI Suggested Next Action"
                            FontAttributes="Bold"
-                           FontSize="Small" />
+                           FontSize="Small"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                     <Label Text="{Binding SuggestedNextAction}"
-                           FontSize="Small" />
+                           FontSize="Small"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                 </VerticalStackLayout>
                 <Button Grid.Column="1"
                         Text="Execute"
                         Command="{Binding ExecuteSuggestedActionCommand}"
-                        BackgroundColor="{StaticResource Primary}"
+                        Style="{StaticResource PrimaryButtonStyle}"
                         TextColor="White"
                         VerticalOptions="Center" />
             </Grid>
