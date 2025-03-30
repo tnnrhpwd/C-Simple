@@ -725,11 +725,8 @@ public partial class NetPage : ContentPage
 
     private void SubscribeToInputNotifications()
     {
-        // In a real app, you would subscribe to events from your input capture service
-        // This is simulated for the UI demo
-
         // Simulate occasional model activity using a timer
-        Device.StartTimer(TimeSpan.FromSeconds(15), () =>
+        var timer = new System.Threading.Timer(_ =>
         {
             if (ActiveModels.Count > 0 && IsGeneralModeActive)
             {
@@ -760,8 +757,7 @@ public partial class NetPage : ContentPage
                     });
                 });
             }
-            return true; // Keep the timer running
-        });
+        }, null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
     }
 
     private void StartModelMonitoring(NeuralNetworkModel model)
