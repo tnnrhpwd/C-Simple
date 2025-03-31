@@ -85,6 +85,9 @@ namespace CSimple.Services
                 GetCursorPos(out _lastMousePos);
                 _isActive = true;
                 LogDebug("Input capture started");
+
+                // Start a high-frequency mouse movement tracker
+                Task.Run(() => TrackMouseMovements());
             }
 #endif
         }
@@ -145,94 +148,72 @@ namespace CSimple.Services
         {
             if (nCode >= 0)
             {
-                var currentTime = DateTime.UtcNow.ToString("o");
                 var actionItem = new ActionItem
                 {
-                    Timestamp = DateTime.Parse(currentTime)
+                    Timestamp = DateTime.UtcNow
                 };
 
                 if (wParam == (IntPtr)WM_MOUSEMOVE)
                 {
-                    var currentMouseEventTime = DateTime.UtcNow;
-                    if ((currentMouseEventTime - _lastMouseEventTime).TotalMilliseconds < 500)
-                    {
-                        return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
-                    }
-                    _lastMouseEventTime = currentMouseEventTime;
-
                     GetCursorPos(out POINT currentMousePos);
                     actionItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
                     actionItem.EventType = WM_MOUSEMOVE;
+
+                    NotifyInputUpdate(actionItem);
                 }
                 else if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN)
                 {
                     GetCursorPos(out POINT currentMousePos);
-                    var buttonCode = (wParam == (IntPtr)WM_LBUTTONDOWN) ? (ushort)WM_LBUTTONDOWN : (ushort)WM_RBUTTONDOWN;
-                    _mouseLeftButtonDownTimestamp = DateTime.UtcNow;
                     actionItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
                     actionItem.EventType = (ushort)wParam;
-                    actionItem.Duration = 0;
-
-                    if (!_activeKeyPresses.ContainsKey(buttonCode))
-                    {
-                        _activeKeyPresses[buttonCode] = actionItem;
-                    }
 
                     NotifyInputUpdate(actionItem);
                 }
                 else if (wParam == (IntPtr)WM_LBUTTONUP || wParam == (IntPtr)WM_RBUTTONUP)
                 {
                     GetCursorPos(out POINT currentMousePos);
-                    var duration = (DateTime.UtcNow - _mouseLeftButtonDownTimestamp).TotalMilliseconds;
-                    actionItem.Duration = duration > 0 ? (int)duration : 1;
                     actionItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
                     actionItem.EventType = (ushort)wParam;
 
-                    var buttonCode = (wParam == (IntPtr)WM_LBUTTONUP) ? (ushort)WM_LBUTTONDOWN : (ushort)WM_RBUTTONDOWN;
-                    _activeKeyPresses.Remove(buttonCode);
-
                     NotifyInputUpdate(actionItem);
-                }
-                else if (wParam == (IntPtr)WM_KEYDOWN)
-                {
-                    int vkCode = Marshal.ReadInt32(lParam);
-                    actionItem.KeyCode = (ushort)vkCode;
-
-                    if (!_activeKeyPresses.ContainsKey((ushort)actionItem.KeyCode))
-                    {
-                        _keyPressDownTimestamps[(ushort)vkCode] = DateTime.UtcNow;
-                        actionItem.EventType = WM_KEYDOWN;
-                        actionItem.Duration = 0;
-
-                        _activeKeyPresses[(ushort)actionItem.KeyCode] = actionItem;
-
-                        NotifyInputUpdate(actionItem);
-                    }
-                    else
-                    {
-                        return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
-                    }
-                }
-                else if (wParam == (IntPtr)WM_KEYUP)
-                {
-                    int vkCode = Marshal.ReadInt32(lParam);
-                    actionItem.KeyCode = (ushort)vkCode;
-
-                    if (_keyPressDownTimestamps.TryGetValue((ushort)vkCode, out DateTime keyDownTimestamp))
-                    {
-                        var duration = (DateTime.UtcNow - keyDownTimestamp).TotalMilliseconds;
-                        actionItem.Duration = duration > 0 ? (int)duration : 1;
-                        actionItem.EventType = WM_KEYUP;
-
-                        _activeKeyPresses.Remove((ushort)actionItem.KeyCode);
-                        _keyPressDownTimestamps.Remove((ushort)vkCode);
-
-                        NotifyInputUpdate(actionItem);
-                    }
                 }
             }
 
             return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+        }
+
+        private async Task TrackMouseMovements()
+        {
+            while (_isActive)
+            {
+                try
+                {
+                    GetCursorPos(out POINT currentMousePos);
+
+                    // Record mouse movement only if the position has changed
+                    if (currentMousePos.X != _lastMousePos.X || currentMousePos.Y != _lastMousePos.Y)
+                    {
+                        var actionItem = new ActionItem
+                        {
+                            EventType = WM_MOUSEMOVE,
+                            Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y },
+                            Timestamp = DateTime.UtcNow
+                        };
+
+                        _lastMousePos = currentMousePos;
+
+                        // Notify listeners about the mouse movement
+                        NotifyInputUpdate(actionItem);
+                    }
+
+                    // Adjust the delay for high-frequency tracking
+                    await Task.Delay(10); // 10ms delay for high precision
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"Error tracking mouse movements: {ex.Message}");
+                }
+            }
         }
 #endif
 
