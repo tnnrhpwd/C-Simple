@@ -152,11 +152,12 @@ namespace CSimple.ViewModels
             // Default selected type
             SelectedModelType = ModelTypes[0];
 
-            // Await the initialization to avoid CS4014
-            Task.Run(async () => await InitializeViewModel());
+            // Fix CS4014 warning by using proper async pattern
+            _ = InitializeViewModelAsync();
         }
 
-        private async Task InitializeViewModel()
+        // Changed method name to indicate it's async and returns a Task
+        private async Task InitializeViewModelAsync()
         {
             try
             {

@@ -790,6 +790,10 @@ namespace CSimple.Pages
                 try
                 {
                     IsSimulating = actionGroup.IsSimulating;
+
+                    // Ensure settings are properly configured before execution
+                    UpdateGameSettings();
+
                     await _actionService.ToggleSimulateActionGroupAsync(actionGroup);
                     IsSimulating = false;
 
@@ -1307,6 +1311,66 @@ namespace CSimple.Pages
             {
                 DebugOutput($"Error importing local item: {ex.Message}");
                 await DisplayAlert("Import Failed", "Could not import the action", "OK");
+            }
+        }
+
+        // Add these properties to ActionPage class
+        private bool _gameOptimizedMode = false;
+        public bool GameOptimizedMode
+        {
+            get => _gameOptimizedMode;
+            set
+            {
+                if (_gameOptimizedMode != value)
+                {
+                    _gameOptimizedMode = value;
+                    OnPropertyChanged();
+                    UpdateGameSettings();
+                }
+            }
+        }
+
+        private int _mouseSensitivity = 100; // 1-200%
+        public int MouseSensitivity
+        {
+            get => _mouseSensitivity;
+            set
+            {
+                if (_mouseSensitivity != value)
+                {
+                    _mouseSensitivity = Math.Clamp(value, 1, 200);
+                    OnPropertyChanged();
+                    UpdateGameSettings();
+                }
+            }
+        }
+
+        private bool _useSmoothing = true;
+        public bool UseSmoothing
+        {
+            get => _useSmoothing;
+            set
+            {
+                if (_useSmoothing != value)
+                {
+                    _useSmoothing = value;
+                    OnPropertyChanged();
+                    UpdateGameSettings();
+                }
+            }
+        }
+
+        private void UpdateGameSettings()
+        {
+            InputSimulator.SetGameEnhancedMode(_gameOptimizedMode, _mouseSensitivity);
+
+            // Update the action service settings (if already created)
+            if (_actionService != null)
+            {
+                // Store these settings in the ActionService
+                _actionService.UseInterpolation = _useSmoothing;
+                _actionService.MovementSteps = _gameOptimizedMode ? 20 : 10; // More steps in game mode
+                _actionService.MovementDelayMs = _gameOptimizedMode ? 1 : 2; // Faster in game mode
             }
         }
     }

@@ -30,6 +30,16 @@ namespace CSimple.Services
         [DllImport("user32.dll")]
         private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
 
+        // Additional P/Invoke declarations for low-level input
+        [DllImport("user32.dll")]
+        private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetCursorPos(out POINT lpPoint);
+
+        [DllImport("user32.dll")]
+        private static extern int GetSystemMetrics(int nIndex);
+
         private const byte VK_VOLUME_MUTE = 0xAD;
         private const byte VK_VOLUME_DOWN = 0xAE;
         private const byte VK_VOLUME_UP = 0xAF;
@@ -40,6 +50,51 @@ namespace CSimple.Services
         private const int WM_RBUTTONDOWN = 0x0204;
         private const int WM_MOUSEMOVE = 0x0200;
         private const uint KEYEVENTF_KEYUP = 0x0002;
+
+        // Constants for SendInput
+        private const int INPUT_MOUSE = 0;
+        private const int MOUSEEVENTF_ABSOLUTE = 0x8000;
+        private const int MOUSEEVENTF_LEFTDOWN = 0x0002;
+        private const int MOUSEEVENTF_LEFTUP = 0x0004;
+        private const int MOUSEEVENTF_RIGHTDOWN = 0x0008;
+        private const int MOUSEEVENTF_RIGHTUP = 0x0010;
+        private const int MOUSEEVENTF_MIDDLEDOWN = 0x0020;
+        private const int MOUSEEVENTF_MIDDLEUP = 0x0040;
+        private const int MOUSEEVENTF_WHEEL = 0x0800;
+        private const int SM_CXSCREEN = 0;
+        private const int SM_CYSCREEN = 1;
+
+        // Struct definitions for SendInput
+        [StructLayout(LayoutKind.Sequential)]
+        private struct INPUT
+        {
+            public int type;
+            public MOUSEINPUT mi;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MOUSEINPUT
+        {
+            public int dx;
+            public int dy;
+            public uint mouseData;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int X;
+            public int Y;
+        }
+
+        // Options for mouse movement - adjusted for slower game movement
+        public bool UseInterpolation { get; set; } = true;
+        public int MovementSteps { get; set; } = 40; // Increased from 20 to 40 for smoother motion
+        public int MovementDelayMs { get; set; } = 5; // Increased from 1 to 5ms for slower movement
+        public float GameSensitivityMultiplier { get; set; } = 0.5f; // New property to slow down game camera movements
 
         public ActionService(DataService dataService, FileService fileService)
         {
@@ -252,6 +307,11 @@ namespace CSimple.Services
                     DateTime? previousActionTime = null;
                     List<Task> actionTasks = new List<Task>();
 
+                    // Get current cursor position
+                    GetCursorPos(out POINT startPoint);
+                    int currentX = startPoint.X;
+                    int currentY = startPoint.Y;
+
                     // Schedule all actions first
                     foreach (var action in actionGroup.ActionArray)
                     {
@@ -293,11 +353,39 @@ namespace CSimple.Services
                                 case 512: // Mouse Move
                                     if (action.Coordinates != null)
                                     {
-                                        int x = action.Coordinates?.X ?? 0;
-                                        int y = action.Coordinates?.Y ?? 0;
+                                        int targetX = action.Coordinates?.X ?? 0;
+                                        int targetY = action.Coordinates?.Y ?? 0;
 
-                                        Debug.WriteLine($"Simulating Mouse Move at {action.Timestamp} to X: {x}, Y: {y}");
-                                        InputSimulator.MoveMouse(x, y);
+                                        Debug.WriteLine($"Simulating Mouse Move at {action.Timestamp} to X: {targetX}, Y: {targetY}");
+
+                                        if (UseInterpolation)
+                                        {
+                                            // For game optimization - use more steps and delay for smoother movement
+                                            int gameSteps = MovementSteps;
+                                            int gameDelay = MovementDelayMs;
+
+                                            // If this appears to be a large movement (likely a game camera move), use more steps
+                                            int deltaX = Math.Abs(targetX - currentX);
+                                            int deltaY = Math.Abs(targetY - currentY);
+
+                                            if (deltaX > 50 || deltaY > 50)
+                                            {
+                                                gameSteps = 60; // More steps for large movements
+                                                gameDelay = 8;  // Larger delay for smoother game camera
+                                            }
+
+                                            // Move mouse smoothly (for games)
+                                            await SmoothMouseMove(currentX, currentY, targetX, targetY, gameSteps, gameDelay);
+                                        }
+                                        else
+                                        {
+                                            // Direct move (traditional)
+                                            SendLowLevelMouseMove(targetX, targetY);
+                                        }
+
+                                        // Update current position
+                                        currentX = targetX;
+                                        currentY = targetY;
                                     }
                                     else
                                     {
@@ -328,16 +416,23 @@ namespace CSimple.Services
                                     break;
 
                                 case (int)WM_LBUTTONDOWN: // Left Mouse Button Down
+                                    Debug.WriteLine($"Simulating Left Mouse Down at {action.Timestamp}");
+                                    SendLowLevelMouseClick(MouseButton.Left, false, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
+                                    break;
+
+                                case 0x0202: // Left Mouse Button Up
+                                    Debug.WriteLine($"Simulating Left Mouse Up at {action.Timestamp}");
+                                    SendLowLevelMouseClick(MouseButton.Left, true, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
+                                    break;
+
                                 case (int)WM_RBUTTONDOWN: // Right Mouse Button Down
-                                    Debug.WriteLine($"Simulating Mouse Click at {action.Timestamp} with EventType: {action.EventType}");
-                                    if (action.EventType == (int)WM_LBUTTONDOWN)
-                                    {
-                                        InputSimulator.SimulateMouseClick(MouseButton.Left, action.Coordinates.X, action.Coordinates.Y);
-                                    }
-                                    else if (action.EventType == (int)WM_RBUTTONDOWN)
-                                    {
-                                        InputSimulator.SimulateMouseClick(MouseButton.Right, action.Coordinates.X, action.Coordinates.Y);
-                                    }
+                                    Debug.WriteLine($"Simulating Right Mouse Down at {action.Timestamp}");
+                                    SendLowLevelMouseClick(MouseButton.Right, false, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
+                                    break;
+
+                                case 0x0205: // Right Mouse Button Up
+                                    Debug.WriteLine($"Simulating Right Mouse Up at {action.Timestamp}");
+                                    SendLowLevelMouseClick(MouseButton.Right, true, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
                                     break;
 
                                 case 257: // Key Release
@@ -347,7 +442,6 @@ namespace CSimple.Services
                                     if (Enum.IsDefined(typeof(VirtualKey), releaseKeyCodeInt))
                                     {
                                         VirtualKey virtualKey = (VirtualKey)releaseKeyCodeInt;
-
                                         InputSimulator.SimulateKeyUp(virtualKey);
                                     }
                                     else
@@ -386,6 +480,117 @@ namespace CSimple.Services
             }
 
             return true;
+        }
+
+        // Smooth mouse movement for game crosshairs - uses interpolation between points
+        private async Task SmoothMouseMove(int startX, int startY, int endX, int endY, int steps, int delayMs)
+        {
+            // For game movements, we might want to adjust the end points based on sensitivity
+            if (GameSensitivityMultiplier != 1.0f && UseInterpolation)
+            {
+                // Calculate how far we're moving
+                int deltaX = endX - startX;
+                int deltaY = endY - startY;
+
+                // Apply the sensitivity multiplier for games
+                deltaX = (int)(deltaX * GameSensitivityMultiplier);
+                deltaY = (int)(deltaY * GameSensitivityMultiplier);
+
+                // Recalculate end position with adjusted delta
+                endX = startX + deltaX;
+                endY = startY + deltaY;
+            }
+
+            for (int i = 1; i <= steps; i++)
+            {
+                if (cancel_simulation) break;
+
+                // Calculate intermediate position with easing for smoother movement
+                float t = (float)i / steps;
+
+                // Apply easing function (ease-out) for smoother deceleration
+                t = 1 - (1 - t) * (1 - t);
+
+                int x = (int)(startX + (endX - startX) * t);
+                int y = (int)(startY + (endY - startY) * t);
+
+                // Send raw mouse move
+                SendLowLevelMouseMove(x, y);
+
+                // Small delay between moves for smoothness
+                if (delayMs > 0)
+                    await Task.Delay(delayMs);
+            }
+
+            // Ensure final position
+            if (!cancel_simulation)
+                SendLowLevelMouseMove(endX, endY);
+        }
+
+        // Direct low-level mouse move using SendInput API for games
+        private void SendLowLevelMouseMove(int x, int y)
+        {
+            // Get screen dimensions
+            int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+            int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+            // Calculate absolute coordinates (0-65536)
+            int absoluteX = x * 65536 / screenWidth;
+            int absoluteY = y * 65536 / screenHeight;
+
+            // Create INPUT structure for mouse move
+            INPUT[] inputs = new INPUT[1];
+            inputs[0].type = INPUT_MOUSE;
+            inputs[0].mi.dx = absoluteX;
+            inputs[0].mi.dy = absoluteY;
+            inputs[0].mi.mouseData = 0;
+            inputs[0].mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
+            inputs[0].mi.time = 0;
+            inputs[0].mi.dwExtraInfo = IntPtr.Zero;
+
+            // Send input
+            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+        }
+
+        // Define MouseButton enum if it doesn't exist elsewhere in the code
+        private enum MouseButton
+        {
+            Left,
+            Right,
+            Middle
+        }
+
+        // Low-level mouse click (down or up) using SendInput API
+        private void SendLowLevelMouseClick(MouseButton button, bool isUp, int x, int y)
+        {
+            // First move to position
+            SendLowLevelMouseMove(x, y);
+
+            // Create INPUT structure for mouse click
+            INPUT[] inputs = new INPUT[1];
+            inputs[0].type = INPUT_MOUSE;
+            inputs[0].mi.dx = 0;
+            inputs[0].mi.dy = 0;
+            inputs[0].mi.mouseData = 0;
+            inputs[0].mi.time = 0;
+            inputs[0].mi.dwExtraInfo = IntPtr.Zero;
+
+            // Set appropriate flags based on button and action
+            switch (button)
+            {
+                case MouseButton.Left:
+                    inputs[0].mi.dwFlags = isUp ? (uint)MOUSEEVENTF_LEFTUP : (uint)MOUSEEVENTF_LEFTDOWN;
+                    break;
+                case MouseButton.Right:
+                    inputs[0].mi.dwFlags = isUp ? (uint)MOUSEEVENTF_RIGHTUP : (uint)MOUSEEVENTF_RIGHTDOWN;
+                    break;
+                case MouseButton.Middle:
+                    inputs[0].mi.dwFlags = isUp ? (uint)MOUSEEVENTF_MIDDLEUP : (uint)MOUSEEVENTF_MIDDLEDOWN;
+                    break;
+            }
+
+            // Send input
+            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
         }
 
         public void CancelSimulation()
