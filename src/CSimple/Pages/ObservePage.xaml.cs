@@ -737,6 +737,9 @@ namespace CSimple.Pages
                 if (!existingGroup.Data.ActionGroupObject.ActionModifiers.Any(am => am.ModifierName == actionModifier.ModifierName))
                     existingGroup.Data.ActionGroupObject.ActionModifiers.Add(actionModifier);
 
+                // Make sure it's marked as local
+                existingGroup.Data.ActionGroupObject.IsLocal = true;
+
                 Debug.WriteLine($"Updated Action Group: {UserTouchInputText}");
             }
             else
@@ -749,13 +752,13 @@ namespace CSimple.Pages
                     ActionArray = new List<ActionItem> { actionItem },
                     ActionModifiers = new List<ActionModifier> { actionModifier },
                     CreatedAt = DateTime.Now,
-                    IsLocal = true  // Mark as local action
+                    IsLocal = true  // Explicitly mark as local
                 };
 
                 var newItem = new DataItem
                 {
                     Data = new DataObject { ActionGroupObject = newActionGroup },
-                    createdAt = DateTime.Now
+                    createdAt = DateTime.Now  // Set the timestamp on the DataItem
                 };
 
                 Data.Add(newItem);

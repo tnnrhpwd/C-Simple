@@ -101,8 +101,25 @@ namespace CSimple.Services
         {
             try
             {
-                Debug.WriteLine("3. Actionpage.SaveDataItemsToFile Length of DataModel:" + JsonSerializer.Serialize(data).Length.ToString());
-                Debug.WriteLine("Type of Data:" + data.GetType().ToString());
+                // Ensure all items have proper dates and local flags before saving
+                foreach (var item in data)
+                {
+                    // Make sure createdAt is set if it's not already
+                    if (item.createdAt == default(DateTime))
+                    {
+                        item.createdAt = DateTime.Now;
+                    }
+
+                    // Make sure ActionGroup.CreatedAt is consistent with item.createdAt
+                    if (item?.Data?.ActionGroupObject != null)
+                    {
+                        if (item.Data.ActionGroupObject.CreatedAt == null ||
+                            item.Data.ActionGroupObject.CreatedAt == default(DateTime))
+                        {
+                            item.Data.ActionGroupObject.CreatedAt = item.createdAt;
+                        }
+                    }
+                }
 
                 await _fileService.SaveDataItemsAsync(data);
                 Debug.WriteLine("Action Groups and Actions Saved to File");
@@ -121,6 +138,9 @@ namespace CSimple.Services
                 var loadedDataItems = await _fileService.LoadDataItemsAsync();
                 if (loadedDataItems != null && loadedDataItems.Count > 0)
                 {
+                    // Use a dictionary to ensure we only add unique items
+                    var uniqueItems = new Dictionary<string, DataItem>();
+
                     foreach (var dataItem in loadedDataItems)
                     {
                         ParseDataItemText(dataItem);
@@ -129,10 +149,20 @@ namespace CSimple.Services
                         if (dataItem?.Data?.ActionGroupObject != null)
                         {
                             dataItem.Data.ActionGroupObject.IsLocal = false;
-                        }
 
-                        result.Add(dataItem);
+                            // Use ID as key if available, otherwise use action name
+                            string key = !string.IsNullOrEmpty(dataItem._id)
+                                ? dataItem._id
+                                : dataItem.Data.ActionGroupObject.ActionName;
+
+                            if (!string.IsNullOrEmpty(key) && !uniqueItems.ContainsKey(key))
+                            {
+                                uniqueItems[key] = dataItem;
+                            }
+                        }
                     }
+
+                    result = uniqueItems.Values.ToList();
                     Debug.WriteLine($"Data Items Loaded from SecureStorage. Data length: {result.Count}");
                 }
                 else
@@ -140,26 +170,7 @@ namespace CSimple.Services
                     Debug.WriteLine("No data items found in SecureStorage.");
                 }
 
-                // Additionally load items from the local data store
-                var localItems = await LoadLocalDataItemsAsync();
-                if (localItems != null && localItems.Count > 0)
-                {
-                    foreach (var localItem in localItems)
-                    {
-                        // Ensure local items are marked as local
-                        if (localItem?.Data?.ActionGroupObject != null)
-                        {
-                            localItem.Data.ActionGroupObject.IsLocal = true;
-
-                            // Only add if not already in the result list (improved duplicate detection)
-                            if (!result.Any(item =>
-                                IsSameActionItem(item, localItem)))
-                            {
-                                result.Add(localItem);
-                            }
-                        }
-                    }
-                }
+                // We don't merge with local items here - that should be done by the caller
             }
             catch (Exception ex)
             {
@@ -510,16 +521,37 @@ namespace CSimple.Services
         {
             var localItems = await _fileService.LoadLocalDataItemsAsync() ?? new List<DataItem>();
 
-            // Mark all items from local storage as local
+            // Filter out any duplicate items by ID
+            var uniqueLocalItems = new Dictionary<string, DataItem>();
+
             foreach (var item in localItems)
             {
                 if (item?.Data?.ActionGroupObject != null)
                 {
+                    // Always mark local items as local
                     item.Data.ActionGroupObject.IsLocal = true;
+
+                    // Ensure CreatedAt is set properly
+                    if (item.Data.ActionGroupObject.CreatedAt == null ||
+                        item.Data.ActionGroupObject.CreatedAt == default(DateTime))
+                    {
+                        item.Data.ActionGroupObject.CreatedAt = item.createdAt != default(DateTime) ?
+                            item.createdAt : DateTime.Now;
+                    }
+
+                    // Use ID as key if available, otherwise use action name
+                    string key = !string.IsNullOrEmpty(item._id)
+                        ? item._id
+                        : item.Data.ActionGroupObject.ActionName;
+
+                    if (!string.IsNullOrEmpty(key) && !uniqueLocalItems.ContainsKey(key))
+                    {
+                        uniqueLocalItems[key] = item;
+                    }
                 }
             }
 
-            return localItems;
+            return uniqueLocalItems.Values.ToList();
         }
     }
 }

@@ -605,25 +605,59 @@ namespace CSimple.Pages
 
             try
             {
-                // First load regular items (should be marked as non-local)
+                // First load regular items (non-local items from file)
                 var regularItems = await _actionService.LoadDataItemsFromFile();
 
-                // Create a unique collection of items
-                var uniqueItems = new Dictionary<string, DataItem>();
+                // Then load local items separately to ensure they're included and properly marked
+                var localItems = await _actionService.LoadLocalDataItemsAsync();
 
+                // Use a dictionary to prevent duplicates by ID or name
+                var uniqueItemsDict = new Dictionary<string, DataItem>();
+
+                // Process regular items first 
                 foreach (var item in regularItems)
                 {
-                    var key = GetUniqueKey(item);
-                    if (!uniqueItems.ContainsKey(key))
+                    if (item?.Data?.ActionGroupObject != null)
                     {
-                        uniqueItems[key] = item;
+                        // Ensure non-local items have IsLocal set to false
+                        item.Data.ActionGroupObject.IsLocal = false;
+
+                        // Use ID as key if available, otherwise use action name
+                        string key = !string.IsNullOrEmpty(item._id)
+                            ? item._id
+                            : item.Data.ActionGroupObject.ActionName;
+
+                        if (!string.IsNullOrEmpty(key) && !uniqueItemsDict.ContainsKey(key))
+                        {
+                            uniqueItemsDict[key] = item;
+                        }
                     }
                 }
 
-                // Update DataItems with the unique collection
-                DataItems = new ObservableCollection<DataItem>(uniqueItems.Values);
+                // Then add local items, allowing them to override non-local versions
+                foreach (var item in localItems)
+                {
+                    if (item?.Data?.ActionGroupObject != null)
+                    {
+                        // Ensure local items have IsLocal set to true
+                        item.Data.ActionGroupObject.IsLocal = true;
 
-                // Update ActionGroups from DataItems
+                        string key = !string.IsNullOrEmpty(item._id)
+                            ? item._id
+                            : item.Data.ActionGroupObject.ActionName;
+
+                        if (!string.IsNullOrEmpty(key))
+                        {
+                            // Replace or add the item
+                            uniqueItemsDict[key] = item;
+                        }
+                    }
+                }
+
+                // Update DataItems with the deduplicated collection
+                DataItems = new ObservableCollection<DataItem>(uniqueItemsDict.Values);
+
+                // Update ActionGroups from DataItems (preserving IsLocal flag)
                 UpdateActionGroupsFromDataItems();
 
                 // Reset any selection
@@ -871,6 +905,9 @@ namespace CSimple.Pages
                         actionGroup.ActionName = "Unnamed Action";
                     }
 
+                    // Preserve the IsLocal flag - don't override it
+                    // actionGroup.IsLocal = actionGroup.IsLocal; 
+
                     // Set default values for new properties if they don't exist
                     actionGroup.Category = DetermineCategory(actionGroup);
                     actionGroup.UsageCount = actionGroup.UsageCount > 0 ? actionGroup.UsageCount : new Random().Next(1, 20);
@@ -881,7 +918,7 @@ namespace CSimple.Pages
                     actionGroup.Description = actionGroup.Description ?? $"Action for {actionGroup.ActionName}";
 
                     // Fix DateTime null check warning
-                    if (actionGroup.CreatedAt == default(DateTime))
+                    if (actionGroup.CreatedAt == null || actionGroup.CreatedAt == default(DateTime))
                     {
                         if (item.createdAt != default(DateTime))
                         {
@@ -901,8 +938,13 @@ namespace CSimple.Pages
                         actionGroup.ActionType = DetermineActionTypeFromSteps(actionGroup);
                     }
 
-                    // Add to the collection
-                    ActionGroups.Add(actionGroup);
+                    // Add to the collection - only add if not already present to prevent duplicates
+                    if (!ActionGroups.Any(ag =>
+                        (!string.IsNullOrEmpty(actionGroup.Id.ToString()) && actionGroup.Id.ToString() == ag.Id.ToString()) ||
+                        (!string.IsNullOrEmpty(actionGroup.ActionName) && actionGroup.ActionName == ag.ActionName)))
+                    {
+                        ActionGroups.Add(actionGroup);
+                    }
                 }
             }
 
