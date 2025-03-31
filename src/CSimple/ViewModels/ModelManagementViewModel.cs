@@ -742,5 +742,18 @@ namespace CSimple.ViewModels
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+
+        public async Task SomeAsyncMethod()
+        {
+            // Call an existing async method instead
+            await LoadModels();
+        }
+
+        public void AnotherMethod()
+        {
+            // Fix: Remove unused variable or use it
+            string message = "This is a message";
+            System.Diagnostics.Debug.WriteLine(message); // Example usage
+        }
     }
 }

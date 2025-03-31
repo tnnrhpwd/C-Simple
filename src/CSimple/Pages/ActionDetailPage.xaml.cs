@@ -24,8 +24,13 @@ namespace CSimple.Pages
             try
             {
                 InitializeComponent();
-                ViewModel = new ActionDetailViewModel(actionGroup, Navigation);
+                ViewModel = new ActionDetailViewModel(actionGroup, Navigation); // Pass Navigation here
                 BindingContext = ViewModel;
+
+                // Ensure the hamburger menu is accessible
+                Shell.SetNavBarIsVisible(this, true);
+                Shell.SetFlyoutBehavior(this, FlyoutBehavior.Flyout);
+
                 Debug.WriteLine("ActionDetailPage initialized successfully");
             }
             catch (Exception ex)
@@ -102,7 +107,7 @@ namespace CSimple.Pages
                 {
                     try
                     {
-                        await _navigation.PopModalAsync();
+                        await Shell.Current.GoToAsync(".."); // Navigate back to the previous page
                     }
                     catch (Exception ex)
                     {
@@ -128,7 +133,7 @@ namespace CSimple.Pages
                 Description = "Error loading action details";
 
                 // Create a fallback command
-                BackCommand = new Command(async () => await _navigation.PopModalAsync());
+                BackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
                 DeleteCommand = new Command(() => { });
                 ExecuteCommand = new Command(() => { });
                 AssignToModelCommand = new Command(() => { });
