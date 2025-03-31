@@ -177,6 +177,15 @@
                                         <Label Text="{Binding ActionType}"
                                                TextColor="Gray"
                                                VerticalOptions="Center" />
+                                        <Label Text="|"
+                                               TextColor="Gray"
+                                               Margin="5,0"
+                                               VerticalOptions="Center" />
+                                        <!-- Fix date format to be more readable and accurate -->
+                                        <Label Text="{Binding CreatedAt, StringFormat='Created: {0:MMM d, yyyy h:mm tt}'}"
+                                               TextColor="Gray"
+                                               VerticalOptions="Center"
+                                               FontSize="12" />
                                     </StackLayout>
                                     <!-- Performance Metrics -->
                                     <StackLayout Orientation="Horizontal"

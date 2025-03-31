@@ -379,10 +379,10 @@ namespace CSimple.Pages
             switch (SelectedSortOption)
             {
                 case "Date (Newest First)":
-                    sortedGroups = ActionGroups.OrderBy(a => a.CreatedAt ?? DateTime.MinValue).ToList(); // Reverse order
+                    sortedGroups = ActionGroups.OrderByDescending(a => a.CreatedAt ?? DateTime.MinValue).ToList(); // Fix order
                     break;
                 case "Date (Oldest First)":
-                    sortedGroups = ActionGroups.OrderByDescending(a => a.CreatedAt ?? DateTime.MinValue).ToList(); // Reverse order
+                    sortedGroups = ActionGroups.OrderBy(a => a.CreatedAt ?? DateTime.MinValue).ToList(); // Fix order
                     break;
                 case "Name (A-Z)":
                     sortedGroups = ActionGroups.OrderByDescending(a => a.ActionName).ToList(); // Reverse order
@@ -605,63 +605,60 @@ namespace CSimple.Pages
 
             try
             {
-                // First load regular items (non-local items from file)
-                var regularItems = await _actionService.LoadDataItemsFromFile();
+                // Clear existing collections to prevent duplicates
+                DataItems.Clear();
+                ActionGroups.Clear();
 
-                // Then load local items separately to ensure they're included and properly marked
-                var localItems = await _actionService.LoadLocalDataItemsAsync();
-
-                // Use a dictionary to prevent duplicates by ID or name
+                // Use a dictionary to track unique items by ID or name
                 var uniqueItemsDict = new Dictionary<string, DataItem>();
 
-                // Process regular items first 
+                // First load backend/regular items (these should NEVER be marked as local)
+                var regularItems = await _actionService.LoadDataItemsFromFile();
                 foreach (var item in regularItems)
                 {
                     if (item?.Data?.ActionGroupObject != null)
                     {
-                        // Ensure non-local items have IsLocal set to false
+                        // Ensure regular items are NEVER marked as local
                         item.Data.ActionGroupObject.IsLocal = false;
 
-                        // Use ID as key if available, otherwise use action name
-                        string key = !string.IsNullOrEmpty(item._id)
-                            ? item._id
-                            : item.Data.ActionGroupObject.ActionName;
-
-                        if (!string.IsNullOrEmpty(key) && !uniqueItemsDict.ContainsKey(key))
+                        string key = GetUniqueKey(item);
+                        if (!string.IsNullOrEmpty(key))
                         {
                             uniqueItemsDict[key] = item;
                         }
                     }
                 }
 
-                // Then add local items, allowing them to override non-local versions
+                // Then load local items (these should ALWAYS be marked as local)
+                var localItems = await _actionService.LoadLocalDataItemsAsync();
                 foreach (var item in localItems)
                 {
                     if (item?.Data?.ActionGroupObject != null)
                     {
-                        // Ensure local items have IsLocal set to true
+                        // Ensure local items are ALWAYS marked as local
                         item.Data.ActionGroupObject.IsLocal = true;
 
-                        string key = !string.IsNullOrEmpty(item._id)
-                            ? item._id
-                            : item.Data.ActionGroupObject.ActionName;
-
+                        string key = GetUniqueKey(item);
                         if (!string.IsNullOrEmpty(key))
                         {
-                            // Replace or add the item
                             uniqueItemsDict[key] = item;
                         }
                     }
                 }
 
-                // Update DataItems with the deduplicated collection
-                DataItems = new ObservableCollection<DataItem>(uniqueItemsDict.Values);
+                // Update DataItems with the unique collection
+                foreach (var item in uniqueItemsDict.Values)
+                {
+                    DataItems.Add(item);
+                }
 
-                // Update ActionGroups from DataItems (preserving IsLocal flag)
+                // Update ActionGroups (maintain IsLocal flag from source)
                 UpdateActionGroupsFromDataItems();
 
                 // Reset any selection
                 SelectedActionGroup = null;
+
+                Debug.WriteLine($"Loaded {uniqueItemsDict.Count} unique items. Regular: {regularItems.Count}, Local: {localItems.Count}");
             }
             catch (Exception ex)
             {
@@ -676,14 +673,20 @@ namespace CSimple.Pages
         // Helper method to create a unique key for a data item
         private string GetUniqueKey(DataItem item)
         {
-            // Use ID if available
+            // For backend items, prefer _id
             if (!string.IsNullOrEmpty(item._id))
             {
-                return item._id;
+                return "backend_" + item._id;
             }
 
-            // Otherwise use action name
-            return item.Data?.ActionGroupObject?.ActionName ?? Guid.NewGuid().ToString();
+            // For local items, use action name with prefix
+            if (item?.Data?.ActionGroupObject?.ActionName != null)
+            {
+                return "local_" + item.Data.ActionGroupObject.ActionName;
+            }
+
+            // Fallback to a unique identifier
+            return "item_" + Guid.NewGuid().ToString();
         }
 
         private async Task NavigateToObservePage()
@@ -905,6 +908,14 @@ namespace CSimple.Pages
                         actionGroup.ActionName = "Unnamed Action";
                     }
 
+                    // CRITICAL FIX: Always use original database timestamp, never generate random dates
+                    // or override with defaults. This ensures we show the actual creation date.
+                    if (actionGroup.CreatedAt == null || actionGroup.CreatedAt == default(DateTime))
+                    {
+                        // Use the database timestamp directly
+                        actionGroup.CreatedAt = item.createdAt;
+                    }
+
                     // Preserve the IsLocal flag - don't override it
                     // actionGroup.IsLocal = actionGroup.IsLocal; 
 
@@ -917,18 +928,16 @@ namespace CSimple.Pages
                     actionGroup.HasMetrics = true; // Show metrics by default
                     actionGroup.Description = actionGroup.Description ?? $"Action for {actionGroup.ActionName}";
 
-                    // Fix DateTime null check warning
+                    // FIX: Always use the database timestamp instead of generating random dates
                     if (actionGroup.CreatedAt == null || actionGroup.CreatedAt == default(DateTime))
                     {
-                        if (item.createdAt != default(DateTime))
+                        // Always use the item's creation date from the database
+                        actionGroup.CreatedAt = item.createdAt;
+
+                        // If item.createdAt is also default, it's truly a new item, so use current time
+                        if (actionGroup.CreatedAt == default(DateTime))
                         {
-                            actionGroup.CreatedAt = item.createdAt;
-                        }
-                        else
-                        {
-                            // Random date within last 30 days
-                            int daysAgo = new Random().Next(0, 30);
-                            actionGroup.CreatedAt = DateTime.Now.AddDays(-daysAgo);
+                            actionGroup.CreatedAt = DateTime.Now;
                         }
                     }
 
@@ -1099,7 +1108,7 @@ namespace CSimple.Pages
                     ActionName = source.ActionName,
                     Description = source.Description,
                     Category = source.Category,
-                    ActionType = source.ActionType,
+                    ActionType = source.ActionType ?? "Local Action",
                     IsSelected = false, // Reset selection state for detail page
                     IsSimulating = false // Ensure simulation is off
                 };

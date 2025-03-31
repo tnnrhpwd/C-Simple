@@ -145,12 +145,17 @@ namespace CSimple.Services
                     {
                         ParseDataItemText(dataItem);
 
-                        // Don't mark regular items as local
+                        // IMPORTANT: Don't override original creation dates
                         if (dataItem?.Data?.ActionGroupObject != null)
                         {
+                            // Ensure non-local status for backend items
                             dataItem.Data.ActionGroupObject.IsLocal = false;
 
-                            // Use ID as key if available, otherwise use action name
+                            // Set CreatedAt explicitly to the original createdAt value from the database
+                            // This preserves the actual creation time rather than using current time
+                            dataItem.Data.ActionGroupObject.CreatedAt = dataItem.createdAt;
+
+                            // Create unique key using ID or name
                             string key = !string.IsNullOrEmpty(dataItem._id)
                                 ? dataItem._id
                                 : dataItem.Data.ActionGroupObject.ActionName;
@@ -163,18 +168,16 @@ namespace CSimple.Services
                     }
 
                     result = uniqueItems.Values.ToList();
-                    Debug.WriteLine($"Data Items Loaded from SecureStorage. Data length: {result.Count}");
+                    Debug.WriteLine($"LoadDataItemsFromFile: Loaded {result.Count} unique regular items");
                 }
                 else
                 {
-                    Debug.WriteLine("No data items found in SecureStorage.");
+                    Debug.WriteLine("No items found in regular storage");
                 }
-
-                // We don't merge with local items here - that should be done by the caller
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading data items from SecureStorage: {ex.Message}");
+                Debug.WriteLine($"Error loading regular data items: {ex.Message}");
             }
             return result;
         }
@@ -519,39 +522,46 @@ namespace CSimple.Services
 
         public async Task<List<DataItem>> LoadLocalDataItemsAsync()
         {
-            var localItems = await _fileService.LoadLocalDataItemsAsync() ?? new List<DataItem>();
-
-            // Filter out any duplicate items by ID
-            var uniqueLocalItems = new Dictionary<string, DataItem>();
-
-            foreach (var item in localItems)
+            try
             {
-                if (item?.Data?.ActionGroupObject != null)
+                var localItems = await _fileService.LoadLocalDataItemsAsync() ?? new List<DataItem>();
+
+                // Filter out any duplicate items by ID or name
+                var uniqueLocalItems = new Dictionary<string, DataItem>();
+
+                foreach (var item in localItems)
                 {
-                    // Always mark local items as local
-                    item.Data.ActionGroupObject.IsLocal = true;
-
-                    // Ensure CreatedAt is set properly
-                    if (item.Data.ActionGroupObject.CreatedAt == null ||
-                        item.Data.ActionGroupObject.CreatedAt == default(DateTime))
+                    if (item?.Data?.ActionGroupObject != null)
                     {
-                        item.Data.ActionGroupObject.CreatedAt = item.createdAt != default(DateTime) ?
-                            item.createdAt : DateTime.Now;
-                    }
+                        // Always mark local items as local
+                        item.Data.ActionGroupObject.IsLocal = true;
 
-                    // Use ID as key if available, otherwise use action name
-                    string key = !string.IsNullOrEmpty(item._id)
-                        ? item._id
-                        : item.Data.ActionGroupObject.ActionName;
+                        // Always use the original timestamp from the database/file
+                        if (item.Data.ActionGroupObject.CreatedAt == null ||
+                            item.Data.ActionGroupObject.CreatedAt == default(DateTime))
+                        {
+                            // Use item.createdAt directly without fallback to current time
+                            item.Data.ActionGroupObject.CreatedAt = item.createdAt;
+                        }
 
-                    if (!string.IsNullOrEmpty(key) && !uniqueLocalItems.ContainsKey(key))
-                    {
-                        uniqueLocalItems[key] = item;
+                        // Use actionName as the key for local items
+                        string key = item.Data.ActionGroupObject.ActionName;
+
+                        if (!string.IsNullOrEmpty(key) && !uniqueLocalItems.ContainsKey(key))
+                        {
+                            uniqueLocalItems[key] = item;
+                        }
                     }
                 }
-            }
 
-            return uniqueLocalItems.Values.ToList();
+                Debug.WriteLine($"LoadLocalDataItemsAsync: Loaded {uniqueLocalItems.Count} unique local items");
+                return uniqueLocalItems.Values.ToList();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading local items: {ex.Message}");
+                return new List<DataItem>();
+            }
         }
     }
 }
