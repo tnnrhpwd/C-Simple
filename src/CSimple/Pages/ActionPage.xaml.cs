@@ -640,52 +640,12 @@ namespace CSimple.Pages
             {
                 try
                 {
-                    // Create a simple copy to avoid memory issues
-                    var simpleCopy = new ActionGroup
-                    {
-                        Id = actionGroup.Id,
-                        ActionName = actionGroup.ActionName,
-                        ActionType = actionGroup.ActionType,
-                        Description = actionGroup.Description,
-                        CreatedAt = actionGroup.CreatedAt
-                    };
-
-                    // Copy a limited subset of action steps to avoid memory issues
-                    if (actionGroup.ActionArray != null && actionGroup.ActionArray.Count > 0)
-                    {
-                        simpleCopy.ActionArray = new List<ActionItem>();
-                        // Only copy up to 20 actions to avoid memory issues
-                        foreach (var item in actionGroup.ActionArray.Take(20))
-                        {
-                            simpleCopy.ActionArray.Add(new ActionItem
-                            {
-                                EventType = item.EventType,
-                                KeyCode = item.KeyCode,
-                                Duration = item.Duration
-                            });
-                        }
-                    }
-
-                    // Avoid using the extension methods for files - this might be causing the crash
-
-                    // Use a try/catch specifically for navigation
-                    try
-                    {
-                        var detailPage = new ActionDetailPage(simpleCopy);
-                        await Navigation.PushModalAsync(detailPage);
-
-                        Debug.WriteLine("Navigation to ActionDetailPage succeeded");
-                    }
-                    catch (Exception navEx)
-                    {
-                        Debug.WriteLine($"Navigation exception: {navEx.Message}");
-                        await DisplayAlert("Navigation Error", "Could not open action details.", "OK");
-                    }
+                    // Pass the ActionGroup with its files to the detail page
+                    await Navigation.PushModalAsync(new ActionDetailPage(actionGroup));
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error preparing action: {ex.Message}");
-                    Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                    Debug.WriteLine($"Error navigating to ActionDetailPage: {ex.Message}");
                     await DisplayAlert("Error", "Could not load action details", "OK");
                 }
             }
@@ -789,6 +749,11 @@ namespace CSimple.Pages
                 DataItems.Clear();
                 foreach (var item in items)
                 {
+                    // Mark actions as local
+                    if (item?.Data?.ActionGroupObject != null)
+                    {
+                        item.Data.ActionGroupObject.IsLocal = true;
+                    }
                     DataItems.Add(item);
                 }
 
@@ -812,20 +777,30 @@ namespace CSimple.Pages
         {
             try
             {
-                var items = await _actionService.LoadDataItemsFromBackend();
+                var backendItems = await _actionService.LoadDataItemsFromBackend();
+
+                // Load local items from file
+                var localItems = await _actionService.LoadDataItemsFromFile() ?? new List<DataItem>();
+
+                // Mark local items
+                foreach (var localItem in localItems)
+                {
+                    if (localItem?.Data?.ActionGroupObject != null)
+                    {
+                        localItem.Data.ActionGroupObject.IsLocal = true;
+                    }
+                }
+
+                // Merge backend and local items
+                var mergedItems = backendItems
+                    .Union(localItems, new DataItemComparer()) // Use a custom comparer to avoid duplicates
+                    .ToList();
 
                 // Update the DataItems collection
                 DataItems.Clear();
-                foreach (var item in items)
+                foreach (var item in mergedItems)
                 {
                     DataItems.Add(item);
-                }
-
-                // Sort data directly using the default index
-                if (DataItems?.Count > 0)
-                {
-                    var sortedList = ActionService.SortDataItems(DataItems.ToList(), 1); // Use default index 1
-                    DataItems = new ObservableCollection<DataItem>(sortedList);
                 }
 
                 // Update the ActionGroups collection for direct binding
@@ -834,9 +809,7 @@ namespace CSimple.Pages
                 // Keep a master copy of all action groups for filtering
                 _allActionGroups = new ObservableCollection<ActionGroup>(ActionGroups);
 
-                // Debug output for validation
-                DebugOutput($"Loaded {items.Count} items from backend");
-                DebugOutput($"Extracted {ActionGroups.Count} action groups");
+                DebugOutput($"Loaded {backendItems.Count} items from backend and merged with {localItems.Count} local items.");
             }
             catch (Exception ex)
             {

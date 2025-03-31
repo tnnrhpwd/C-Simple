@@ -45,6 +45,20 @@ public class DataItem : INotifyPropertyChanged
     public bool IsPublic { get; set; }
 }
 
+public class DataItemComparer : IEqualityComparer<DataItem>
+{
+    public bool Equals(DataItem x, DataItem y)
+    {
+        if (x == null || y == null) return false;
+        return x._id == y._id; // Compare by unique ID
+    }
+
+    public int GetHashCode(DataItem obj)
+    {
+        return obj._id?.GetHashCode() ?? 0;
+    }
+}
+
 public class DataObject
 {
     public string Text { get; set; }

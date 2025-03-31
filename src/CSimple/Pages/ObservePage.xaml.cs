@@ -654,7 +654,15 @@ namespace CSimple.Pages
             {
                 if (Data.Any())
                 {
-                    _dataService.AddFileToDataItem(Data.Last(), filePath);
+                    var lastActionGroup = Data.Last().Data.ActionGroupObject;
+
+                    // Add the captured file to the ActionGroup's Files property
+                    lastActionGroup.Files.Add(new ActionFile
+                    {
+                        Filename = System.IO.Path.GetFileName(filePath),
+                        ContentType = GetFileContentType(filePath),
+                        Data = filePath // Store the file path as the data
+                    });
 
                     // Update preview image with animation if it's an image file
                     if (filePath.EndsWith(".jpg") || filePath.EndsWith(".png"))
@@ -664,6 +672,17 @@ namespace CSimple.Pages
                     }
                 }
             });
+        }
+
+        private string GetFileContentType(string filePath)
+        {
+            if (filePath.EndsWith(".mp3") || filePath.EndsWith(".wav"))
+                return "Audio";
+            if (filePath.EndsWith(".png") || filePath.EndsWith(".jpg"))
+                return "Image";
+            if (filePath.EndsWith(".txt"))
+                return "Text";
+            return "Unknown";
         }
 
         private async void AnimateImageChange(ImageSource newImage)
@@ -696,10 +715,14 @@ namespace CSimple.Pages
                 Priority = priority
             };
 
+            // Ensure unique identifier for the action group
+            var newActionGroupId = Guid.NewGuid();
+
             var existingGroup = Data.FirstOrDefault(ag => ag.Data.ActionGroupObject.ActionName == actionName);
 
             if (existingGroup != null)
             {
+                // Update the existing action group
                 existingGroup.Data.ActionGroupObject.ActionArray.Add(actionItem);
 
                 if (!existingGroup.Data.ActionGroupObject.ActionModifiers.Any(am => am.ModifierName == actionModifier.ModifierName))
@@ -709,11 +732,24 @@ namespace CSimple.Pages
             }
             else
             {
-                var newItem = _dataService.CreateOrUpdateActionItem(
-                    actionName, actionItem, ActionConfigCard?.ModifierName, InputModifierPopupControl?.Description, priority);
+                // Create a new action group with a unique ID
+                var newActionGroup = new ActionGroup
+                {
+                    Id = newActionGroupId,
+                    ActionName = actionName,
+                    ActionArray = new List<ActionItem> { actionItem },
+                    ActionModifiers = new List<ActionModifier> { actionModifier },
+                    CreatedAt = DateTime.Now
+                };
+
+                var newItem = new DataItem
+                {
+                    Data = new DataObject { ActionGroupObject = newActionGroup },
+                    createdAt = DateTime.Now
+                };
 
                 Data.Add(newItem);
-                Debug.WriteLine($"Saved Action Group: {actionName}");
+                Debug.WriteLine($"Saved New Action Group: {actionName}");
             }
         }
 

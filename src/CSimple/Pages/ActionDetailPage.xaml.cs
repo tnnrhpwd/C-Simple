@@ -207,7 +207,7 @@ namespace CSimple.Pages
         {
             try
             {
-                if (_actionGroup?.Files != null)
+                if (_actionGroup?.Files != null && _actionGroup.Files.Any())
                 {
                     foreach (var file in _actionGroup.Files)
                     {
@@ -219,9 +219,13 @@ namespace CSimple.Pages
                             Filename = file.Filename,
                             FileType = fileType,
                             FileTypeIcon = fileTypeIcon,
-                            Data = file.Data
+                            Data = file.Data // File path or content
                         });
                     }
+                }
+                else
+                {
+                    Debug.WriteLine("No files attached to this action group.");
                 }
             }
             catch (Exception ex)
