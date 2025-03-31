@@ -152,29 +152,23 @@ namespace CSimple.ViewModels
             // Default selected type
             SelectedModelType = ModelTypes[0];
 
-            // Fix CS4014: Use a method that doesn't return Task to avoid the warning
-            InitializeViewModel();
+            // Await the initialization to avoid CS4014
+            Task.Run(async () => await InitializeViewModel());
         }
 
-        // Remove the Task return type to avoid awaiting
-        private void InitializeViewModel()
+        private async Task InitializeViewModel()
         {
-            // We can still use Task.Run for background operation
-            Task.Run(async () =>
+            try
             {
-                try
+                await LoadModels();
+            }
+            catch (Exception ex)
+            {
+                Application.Current.Dispatcher.Dispatch(() =>
                 {
-                    await LoadModels();
-                }
-                catch (Exception ex)
-                {
-                    // Use dispatcher to update UI properties from background thread
-                    Application.Current.Dispatcher.Dispatch(() =>
-                    {
-                        StatusMessage = $"Error initializing: {ex.Message}";
-                    });
-                }
-            });
+                    StatusMessage = $"Error initializing: {ex.Message}";
+                });
+            }
         }
 
         /// <summary>

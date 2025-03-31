@@ -379,25 +379,25 @@ namespace CSimple.Pages
             switch (SelectedSortOption)
             {
                 case "Date (Newest First)":
-                    sortedGroups = ActionGroups.OrderByDescending(a => a.CreatedAt ?? DateTime.MinValue).ToList();
+                    sortedGroups = ActionGroups.OrderBy(a => a.CreatedAt ?? DateTime.MinValue).ToList(); // Reverse order
                     break;
                 case "Date (Oldest First)":
-                    sortedGroups = ActionGroups.OrderBy(a => a.CreatedAt ?? DateTime.MinValue).ToList();
+                    sortedGroups = ActionGroups.OrderByDescending(a => a.CreatedAt ?? DateTime.MinValue).ToList(); // Reverse order
                     break;
                 case "Name (A-Z)":
-                    sortedGroups = ActionGroups.OrderBy(a => a.ActionName).ToList();
+                    sortedGroups = ActionGroups.OrderByDescending(a => a.ActionName).ToList(); // Reverse order
                     break;
                 case "Name (Z-A)":
-                    sortedGroups = ActionGroups.OrderByDescending(a => a.ActionName).ToList();
+                    sortedGroups = ActionGroups.OrderBy(a => a.ActionName).ToList(); // Reverse order
                     break;
                 case "Type":
                     sortedGroups = ActionGroups.OrderBy(a => a.ActionType).ToList();
                     break;
                 case "Steps Count":
-                    sortedGroups = ActionGroups.OrderByDescending(a => a.ActionArray?.Count ?? 0).ToList();
+                    sortedGroups = ActionGroups.OrderBy(a => a.ActionArray?.Count ?? 0).ToList(); // Reverse order
                     break;
                 case "Usage Count":
-                    sortedGroups = ActionGroups.OrderByDescending(a => a.UsageCount).ToList();
+                    sortedGroups = ActionGroups.OrderBy(a => a.UsageCount).ToList(); // Reverse order
                     break;
                 default:
                     return;
@@ -605,16 +605,51 @@ namespace CSimple.Pages
 
             try
             {
-                // Load data from backend
-                await LoadDataItemsFromBackend();
+                // First load regular items (should be marked as non-local)
+                var regularItems = await _actionService.LoadDataItemsFromFile();
+
+                // Create a unique collection of items
+                var uniqueItems = new Dictionary<string, DataItem>();
+
+                foreach (var item in regularItems)
+                {
+                    var key = GetUniqueKey(item);
+                    if (!uniqueItems.ContainsKey(key))
+                    {
+                        uniqueItems[key] = item;
+                    }
+                }
+
+                // Update DataItems with the unique collection
+                DataItems = new ObservableCollection<DataItem>(uniqueItems.Values);
+
+                // Update ActionGroups from DataItems
+                UpdateActionGroupsFromDataItems();
+
+                // Reset any selection
+                SelectedActionGroup = null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading ActionPage: {ex.Message}");
             }
             finally
             {
                 IsLoading = false;
             }
+        }
 
-            // Reset any selection
-            SelectedActionGroup = null;
+        // Helper method to create a unique key for a data item
+        private string GetUniqueKey(DataItem item)
+        {
+            // Use ID if available
+            if (!string.IsNullOrEmpty(item._id))
+            {
+                return item._id;
+            }
+
+            // Otherwise use action name
+            return item.Data?.ActionGroupObject?.ActionName ?? Guid.NewGuid().ToString();
         }
 
         private async Task NavigateToObservePage()

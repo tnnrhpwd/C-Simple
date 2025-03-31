@@ -19,7 +19,6 @@ namespace CSimple.Services
         #region Properties
         private Dictionary<ushort, ActionItem> _activeKeyPresses = new Dictionary<ushort, ActionItem>();
         private Dictionary<ushort, DateTime> _keyPressDownTimestamps = new Dictionary<ushort, DateTime>();
-        private DateTime _mouseLeftButtonDownTimestamp;
         private DateTime _lastMouseEventTime = DateTime.MinValue;
         private bool _isActive = false;
         private bool _previewModeActive = false;

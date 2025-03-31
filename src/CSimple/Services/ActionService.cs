@@ -124,6 +124,13 @@ namespace CSimple.Services
                     foreach (var dataItem in loadedDataItems)
                     {
                         ParseDataItemText(dataItem);
+
+                        // Don't mark regular items as local
+                        if (dataItem?.Data?.ActionGroupObject != null)
+                        {
+                            dataItem.Data.ActionGroupObject.IsLocal = false;
+                        }
+
                         result.Add(dataItem);
                     }
                     Debug.WriteLine($"Data Items Loaded from SecureStorage. Data length: {result.Count}");
@@ -132,12 +139,54 @@ namespace CSimple.Services
                 {
                     Debug.WriteLine("No data items found in SecureStorage.");
                 }
+
+                // Additionally load items from the local data store
+                var localItems = await LoadLocalDataItemsAsync();
+                if (localItems != null && localItems.Count > 0)
+                {
+                    foreach (var localItem in localItems)
+                    {
+                        // Ensure local items are marked as local
+                        if (localItem?.Data?.ActionGroupObject != null)
+                        {
+                            localItem.Data.ActionGroupObject.IsLocal = true;
+
+                            // Only add if not already in the result list (improved duplicate detection)
+                            if (!result.Any(item =>
+                                IsSameActionItem(item, localItem)))
+                            {
+                                result.Add(localItem);
+                            }
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error loading data items from SecureStorage: {ex.Message}");
             }
             return result;
+        }
+
+        // Helper method to check if two action items are the same
+        private bool IsSameActionItem(DataItem item1, DataItem item2)
+        {
+            // First check IDs if they exist
+            if (!string.IsNullOrEmpty(item1._id) && !string.IsNullOrEmpty(item2._id))
+            {
+                return item1._id == item2._id;
+            }
+
+            // Then check names
+            var name1 = item1.Data?.ActionGroupObject?.ActionName;
+            var name2 = item2.Data?.ActionGroupObject?.ActionName;
+
+            if (!string.IsNullOrEmpty(name1) && !string.IsNullOrEmpty(name2))
+            {
+                return name1 == name2;
+            }
+
+            return false;
         }
 
         public async Task<bool> DeleteDataItemAsync(DataItem dataItem)
@@ -455,6 +504,22 @@ namespace CSimple.Services
                 Debug.WriteLine($"Error getting action files: {ex.Message}");
                 return new List<ActionFile>();
             }
+        }
+
+        public async Task<List<DataItem>> LoadLocalDataItemsAsync()
+        {
+            var localItems = await _fileService.LoadLocalDataItemsAsync() ?? new List<DataItem>();
+
+            // Mark all items from local storage as local
+            foreach (var item in localItems)
+            {
+                if (item?.Data?.ActionGroupObject != null)
+                {
+                    item.Data.ActionGroupObject.IsLocal = true;
+                }
+            }
+
+            return localItems;
         }
     }
 }

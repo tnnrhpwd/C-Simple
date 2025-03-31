@@ -82,6 +82,7 @@ namespace CSimple.Services
         {
             try
             {
+                // Use the updated SaveLocalDataItemsAsync method to append data
                 await _fileService.SaveLocalDataItemsAsync(dataItems.ToList());
                 LogDebug("Local rich data saved");
             }

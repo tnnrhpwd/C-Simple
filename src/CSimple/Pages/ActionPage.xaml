@@ -148,12 +148,21 @@
                                             <Frame IsVisible="{Binding IsLocal}"
                                                    BackgroundColor="#FF9800"
                                                    Padding="5,2"
-                                                   CornerRadius="4"
+                                                   CornerRadius="8"
                                                    Margin="4,0,0,0"
-                                                   HasShadow="False">
-                                                <Label Text="Local"
-                                                       TextColor="White"
-                                                       FontSize="11" />
+                                                   HasShadow="True"
+                                                   BorderColor="#E65100">
+                                                <StackLayout Orientation="Horizontal"
+                                                             Spacing="3">
+                                                    <Image Source="local_icon.png"
+                                                           HeightRequest="12"
+                                                           WidthRequest="12"
+                                                           VerticalOptions="Center" />
+                                                    <Label Text="LOCAL"
+                                                           TextColor="White"
+                                                           FontSize="11"
+                                                           FontAttributes="Bold" />
+                                                </StackLayout>
                                             </Frame>
                                         </StackLayout>
                                     </Grid>

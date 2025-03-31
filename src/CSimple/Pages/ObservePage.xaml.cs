@@ -281,39 +281,48 @@ namespace CSimple.Pages
         protected override async void OnAppearing()
         {
             base.OnAppearing();
-            await LoadDataItemsFromFile();
 
-            // Add welcome animation
-            await this.FadeTo(0, 0);
-            await this.FadeTo(1, 400, Easing.CubicOut);
-
-            // Register for preview toggle events
-            if (CapturePreviewCard != null)
+            try
             {
-                CapturePreviewCard.PreviewEnabledChanged += OnPreviewEnabledChanged;
+                // Load data items from file to ensure local actions are available
+                await LoadDataItemsFromFile();
 
-                // Ensure preview is disabled by default
-                CapturePreviewCard.IsPreviewEnabled = false;
-                CapturePreviewCard.IsUserToggledOff = true;
+                // Add welcome animation
+                await this.FadeTo(0, 0);
+                await this.FadeTo(1, 400, Easing.CubicOut);
+
+                // Register for preview toggle events
+                if (CapturePreviewCard != null)
+                {
+                    CapturePreviewCard.PreviewEnabledChanged += OnPreviewEnabledChanged;
+
+                    // Ensure preview is disabled by default
+                    CapturePreviewCard.IsPreviewEnabled = false;
+                    CapturePreviewCard.IsUserToggledOff = true;
+                }
+
+                // Start preview sources with a slight delay to ensure UI is ready
+                await Task.Delay(500);
+                UpdatePreviewSources(true);
             }
-
-            // Start preview sources with a slight delay to ensure UI is ready
-            // But leave the preview display disabled
-            await Task.Delay(500);
-            UpdatePreviewSources(true);
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading ObservePage: {ex.Message}");
+            }
         }
 
-        protected override void OnDisappearing()
+        protected override async void OnDisappearing()
         {
-            // Unregister from events
-            if (CapturePreviewCard != null)
+            // Save local actions before navigating away
+            if (SaveLocally)
             {
-                CapturePreviewCard.PreviewEnabledChanged -= OnPreviewEnabledChanged;
+                await SaveDataItemsToFile();
             }
 
             // Stop all captures and previews when navigating away
             StopAllCaptures();
             UpdatePreviewSources(false);
+
             base.OnDisappearing();
         }
 
@@ -739,7 +748,8 @@ namespace CSimple.Pages
                     ActionName = actionName,
                     ActionArray = new List<ActionItem> { actionItem },
                     ActionModifiers = new List<ActionModifier> { actionModifier },
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now,
+                    IsLocal = true  // Mark as local action
                 };
 
                 var newItem = new DataItem
@@ -750,6 +760,34 @@ namespace CSimple.Pages
 
                 Data.Add(newItem);
                 Debug.WriteLine($"Saved New Action Group: {actionName}");
+
+                // Save the new action to dataitems.json
+                SaveNewActionToFile(newItem);
+            }
+        }
+
+        private async void SaveNewActionToFile(DataItem newItem)
+        {
+            try
+            {
+                // Load existing items first
+                var existingItems = await _dataService.LoadDataItemsFromFile();
+
+                // Add the new item if it doesn't exist yet
+                if (!existingItems.Any(item =>
+                    item.Data?.ActionGroupObject?.ActionName == newItem.Data?.ActionGroupObject?.ActionName))
+                {
+                    existingItems.Add(newItem);
+                }
+
+                // Save to both regular file and local data store
+                await _dataService.SaveDataItemsToFile(existingItems);
+                await _dataService.SaveLocalRichDataAsync(new List<DataItem> { newItem });
+                Debug.WriteLine("New action saved to both dataitems.json and local data store");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving new action to file: {ex.Message}");
             }
         }
 
@@ -774,7 +812,7 @@ namespace CSimple.Pages
         {
             if (SaveLocally)
             {
-                await _dataService.SaveDataItemsToFile(Data);
+                // Save new data while preserving existing local data
                 await _dataService.SaveLocalRichDataAsync(Data);
                 Debug.WriteLine("Saved action group to local storage");
             }

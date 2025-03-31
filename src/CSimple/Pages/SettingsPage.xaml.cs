@@ -275,7 +275,6 @@ public partial class SettingsPage : ContentPage
     {
         // Show upgrade options based on current tier
         string title = "Upgrade Plan";
-        string message = "Choose your new membership tier:";
         string cancel = "Cancel";
 
         string option1 = _currentTier == MembershipTier.Free ? "Flex ($9.99/month)" : "Premium ($19.99/month)";
