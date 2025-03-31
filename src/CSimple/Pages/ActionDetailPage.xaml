@@ -224,6 +224,85 @@
                                 Margin="0,8,0,0" />
                     </VerticalStackLayout>
                 </Frame>
+                <!-- Files Section -->
+                <Frame Padding="16"
+                       CornerRadius="8"
+                       BorderColor="{AppThemeBinding Light=#e0e0e0, Dark=#333333}"
+                       BackgroundColor="{AppThemeBinding Light=White, Dark=#1e1e1e}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Attached Files"
+                               FontAttributes="Bold"
+                               FontSize="18" />
+                        <CollectionView ItemsSource="{Binding AttachedFiles}"
+                                        HeightRequest="200">
+                            <CollectionView.EmptyView>
+                                <Label Text="No files attached"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"
+                                       TextColor="Gray" />
+                            </CollectionView.EmptyView>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="8"
+                                          ColumnDefinitions="Auto,*"
+                                          ColumnSpacing="12">
+                                        <Image Source="{Binding FileTypeIcon}"
+                                               WidthRequest="40"
+                                               HeightRequest="40"
+                                               VerticalOptions="Center" />
+                                        <StackLayout Grid.Column="1">
+                                            <Label Text="{Binding Filename}"
+                                                   FontAttributes="Bold"
+                                                   FontSize="14" />
+                                            <Label Text="{Binding FileType}"
+                                                   FontSize="12"
+                                                   TextColor="Gray" />
+                                            <!-- Conditional UI for file types -->
+                                            <ContentView>
+                                                <ContentView.Triggers>
+                                                    <DataTrigger TargetType="ContentView"
+                                                                 Binding="{Binding FileType}"
+                                                                 Value="Audio">
+                                                        <Setter Property="Content">
+                                                            <Setter.Value>
+                                                                <Button Text="Play Audio"
+                                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type local:ActionDetailPage}}, Path=BindingContext.PlayAudioCommand}"
+                                                                        CommandParameter="{Binding Data}" />
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="ContentView"
+                                                                 Binding="{Binding FileType}"
+                                                                 Value="Image">
+                                                        <Setter Property="Content">
+                                                            <Setter.Value>
+                                                                <Image Source="{Binding Data}"
+                                                                       HeightRequest="100"
+                                                                       Aspect="AspectFit" />
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="ContentView"
+                                                                 Binding="{Binding FileType}"
+                                                                 Value="Text">
+                                                        <Setter Property="Content">
+                                                            <Setter.Value>
+                                                                <Label Text="{Binding Data}"
+                                                                       FontSize="12"
+                                                                       TextColor="Gray"
+                                                                       LineBreakMode="WordWrap" />
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                </ContentView.Triggers>
+                                            </ContentView>
+                                        </StackLayout>
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </Frame>
             </VerticalStackLayout>
         </ScrollView>
         <!-- Footer with buttons -->

@@ -95,6 +95,7 @@ public class ActionGroup : INotifyPropertyChanged
     public bool IsSelected { get; set; } = false;
     public string ChainName { get; set; } = string.Empty;
     public bool IsLocal { get; set; } = false; // Indicates if the action is locally stored
+    public List<ActionFile> Files { get; set; } = new List<ActionFile>(); // Add this property to store attached files
 
     public ObservableCollection<ActionStep> RecentSteps
     {

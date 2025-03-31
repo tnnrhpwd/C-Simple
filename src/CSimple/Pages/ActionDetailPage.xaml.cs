@@ -71,12 +71,14 @@ namespace CSimple.Pages
         // Collections
         public ObservableCollection<StepViewModel> ActionSteps { get; } = new ObservableCollection<StepViewModel>();
         public ObservableCollection<ModelAssignment> AssignedModels { get; } = new ObservableCollection<ModelAssignment>();
+        public ObservableCollection<FileViewModel> AttachedFiles { get; } = new ObservableCollection<FileViewModel>();
 
         // Commands
         public ICommand BackCommand { get; }
         public ICommand DeleteCommand { get; }
         public ICommand ExecuteCommand { get; }
         public ICommand AssignToModelCommand { get; }
+        public ICommand PlayAudioCommand { get; }
 
         public ActionDetailViewModel(ActionGroup actionGroup, INavigation navigation)
         {
@@ -102,6 +104,9 @@ namespace CSimple.Pages
                 // Initialize models (demo data)
                 InitializeModels();
 
+                // Initialize attached files
+                InitializeAttachedFiles();
+
                 // Setup commands
                 BackCommand = new Command(async () =>
                 {
@@ -118,6 +123,7 @@ namespace CSimple.Pages
                 DeleteCommand = new Command(DeleteAction);
                 ExecuteCommand = new Command(ExecuteAction);
                 AssignToModelCommand = new Command(AssignToModel);
+                PlayAudioCommand = new Command<string>(PlayAudio);
 
                 Debug.WriteLine("ActionDetailViewModel initialized successfully");
             }
@@ -195,6 +201,55 @@ namespace CSimple.Pages
                     AssignedDate = DateTime.Now.AddDays(-2)
                 });
             }
+        }
+
+        private void InitializeAttachedFiles()
+        {
+            try
+            {
+                if (_actionGroup?.Files != null)
+                {
+                    foreach (var file in _actionGroup.Files)
+                    {
+                        string fileType = GetFileType(file.Filename);
+                        string fileTypeIcon = GetFileTypeIcon(fileType);
+
+                        AttachedFiles.Add(new FileViewModel
+                        {
+                            Filename = file.Filename,
+                            FileType = fileType,
+                            FileTypeIcon = fileTypeIcon,
+                            Data = file.Data
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error initializing attached files: {ex.Message}");
+            }
+        }
+
+        private string GetFileType(string filename)
+        {
+            if (filename.EndsWith(".mp3") || filename.EndsWith(".wav"))
+                return "Audio";
+            if (filename.EndsWith(".png") || filename.EndsWith(".jpg"))
+                return "Image";
+            if (filename.EndsWith(".txt"))
+                return "Text";
+            return "Unknown";
+        }
+
+        private string GetFileTypeIcon(string fileType)
+        {
+            return fileType switch
+            {
+                "Audio" => "audio_icon.png",
+                "Image" => "image_icon.png",
+                "Text" => "text_icon.png",
+                _ => "unknown_icon.png"
+            };
         }
 
         private string FormatActionArray()
@@ -308,6 +363,19 @@ namespace CSimple.Pages
             }
         }
 
+        private async void PlayAudio(string audioData)
+        {
+            try
+            {
+                // Simulate playing audio (replace with actual audio playback logic)
+                await Application.Current.MainPage.DisplayAlert("Play Audio", "Playing audio...", "OK");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error playing audio: {ex.Message}");
+            }
+        }
+
         // INotifyPropertyChanged implementation
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -315,6 +383,14 @@ namespace CSimple.Pages
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+    }
+
+    public class FileViewModel
+    {
+        public string Filename { get; set; }
+        public string FileType { get; set; }
+        public string FileTypeIcon { get; set; }
+        public string Data { get; set; }
     }
 
     // Model classes for media files
