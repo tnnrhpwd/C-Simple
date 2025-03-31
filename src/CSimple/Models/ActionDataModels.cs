@@ -97,6 +97,7 @@ namespace CSimple.Models
         public bool IsSelected { get; set; } = false;
         public string ChainName { get; set; } = string.Empty;
         public List<ActionFile> Files { get; set; } = new List<ActionFile>();
+        public bool IsLocal { get; set; } = false; // Indicates if the action is locally stored
 
         public ObservableCollection<ActionStep> RecentSteps
         {

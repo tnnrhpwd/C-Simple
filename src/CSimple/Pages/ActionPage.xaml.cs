@@ -898,6 +898,9 @@ namespace CSimple.Pages
                 }
             }
 
+            // Load local items and merge them
+            _ = LoadLocalItemsAsync();
+
             // Notify UI to refresh
             OnPropertyChanged(nameof(ActionGroups));
             OnPropertyChanged(nameof(ShowEmptyMessage));
@@ -1124,24 +1127,36 @@ namespace CSimple.Pages
             {
                 IsLoading = true;
 
-                // Load local items - use available methods from DataService
+                // Load local items
                 var localItems = await _actionService.LoadDataItemsFromFile();
-                // Filter for local actions or create an empty list
                 if (localItems == null)
                 {
                     localItems = new List<DataItem>();
                 }
 
-                // Filter items to only include those not already in main collection
-                var filteredItems = localItems.Where(local =>
-                    !DataItems.Any(existing =>
-                        existing.Data?.ActionGroupObject?.Id == local.Data?.ActionGroupObject?.Id ||
-                        (existing.Data?.ActionGroupObject?.ActionName == local.Data?.ActionGroupObject?.ActionName)
-                    )).ToList();
+                // Convert local items to ActionGroups and mark them as local
+                var localActionGroups = localItems
+                    .Select(item => item.Data?.ActionGroupObject)
+                    .Where(actionGroup => actionGroup != null)
+                    .Select(actionGroup =>
+                    {
+                        actionGroup.IsLocal = true; // Mark as locally stored
+                        return actionGroup;
+                    })
+                    .ToList();
 
-                LocalItems = new ObservableCollection<DataItem>(filteredItems);
+                // Merge local actions into the main ActionGroups collection
+                foreach (var localAction in localActionGroups)
+                {
+                    if (!ActionGroups.Any(a => a.Id == localAction.Id))
+                    {
+                        ActionGroups.Add(localAction);
+                    }
+                }
 
-                DebugOutput($"Loaded {LocalItems.Count} local items");
+                // Refresh UI
+                OnPropertyChanged(nameof(ActionGroups));
+                OnPropertyChanged(nameof(ShowEmptyMessage));
             }
             catch (Exception ex)
             {

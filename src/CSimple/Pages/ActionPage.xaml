@@ -122,7 +122,7 @@
                                                Text="{Binding ActionName}"
                                                FontSize="18"
                                                FontAttributes="Bold" />
-                                        <!-- Badges for Training Status -->
+                                        <!-- Badges for Training Status and Local Storage -->
                                         <StackLayout Grid.Column="1"
                                                      Orientation="Horizontal"
                                                      HorizontalOptions="End">
@@ -142,6 +142,16 @@
                                                    Margin="4,0,0,0"
                                                    HasShadow="False">
                                                 <Label Text="Chained"
+                                                       TextColor="White"
+                                                       FontSize="11" />
+                                            </Frame>
+                                            <Frame IsVisible="{Binding IsLocal}"
+                                                   BackgroundColor="#FF9800"
+                                                   Padding="5,2"
+                                                   CornerRadius="4"
+                                                   Margin="4,0,0,0"
+                                                   HasShadow="False">
+                                                <Label Text="Local"
                                                        TextColor="White"
                                                        FontSize="11" />
                                             </Frame>
