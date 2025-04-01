@@ -34,7 +34,6 @@ namespace CSimple.Services
         private DateTime _lastMouseMoveSent = DateTime.MinValue;
         private POINT _lastProcessedMousePos;
 
-        private readonly MouseInputManager _mouseInputManager;
         private readonly object _inputQueueLock = new object();
 
         #endregion

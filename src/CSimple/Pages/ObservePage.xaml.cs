@@ -197,6 +197,10 @@ namespace CSimple.Pages
         // Scaled version of PC audio level to prevent always showing max
         public float PCAudioScaledLevel => Math.Min(PCAudioLevel * 0.5f, 1.0f);
 
+        // Debouncing timer
+        private Timer _debounceTimer;
+        private const int DebounceInterval = 200; // milliseconds
+
         public ObservePage()
         {
             InitializeComponent();
@@ -608,14 +612,20 @@ namespace CSimple.Pages
             });
         }
 
-        // Updated OnInputCaptured method to visualize keyboard/mouse
         private void OnInputCaptured(string inputJson)
         {
+            // Reset the debounce timer on each input
+            _debounceTimer?.Dispose();
+            _debounceTimer = new Timer(DebouncedInputCaptured, inputJson, DebounceInterval, Timeout.Infinite);
+        }
+
+        private async void DebouncedInputCaptured(object state)
+        {
+            string inputJson = (string)state;
             Dispatcher.Dispatch(async () =>
             {
                 UserTouchInputText = inputJson;
                 Debug.WriteLine(inputJson);
-                SaveAction();
 
                 try
                 {
@@ -650,6 +660,9 @@ namespace CSimple.Pages
                 {
                     Debug.WriteLine($"Error updating input visualization: {ex.Message}");
                 }
+
+                // Call SaveAction asynchronously
+                await Task.Run(() => SaveAction());
             });
         }
 
@@ -768,11 +781,11 @@ namespace CSimple.Pages
                 Debug.WriteLine($"Saved New Action Group: {actionName}");
 
                 // Save the new action to dataitems.json
-                SaveNewActionToFile(newItem);
+                Task.Run(() => SaveNewActionToFile(newItem));
             }
         }
 
-        private async void SaveNewActionToFile(DataItem newItem)
+        private async Task SaveNewActionToFile(DataItem newItem)
         {
             try
             {
