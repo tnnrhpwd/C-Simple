@@ -12,6 +12,7 @@
             <converters:IntToColorConverter x:Key="IntToColorConverter" />
             <converters:IntToBoolConverter x:Key="IntToBoolConverter" />
             <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
+            <converters:NotNullOrEmptyConverter x:Key="NotNullOrEmptyConverter" />
             <!-- Color Resources -->
             <ResourceDictionary.MergedDictionaries>
                 <!-- Default Theme -->

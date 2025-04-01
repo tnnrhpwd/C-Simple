@@ -49,6 +49,9 @@ namespace CSimple.Pages
         public string Index { get; set; }
         public string Description { get; set; }
         public string Duration { get; set; }
+        public string KeyName { get; set; } // New property for key name
+        public int KeyCode { get; set; } // New property for key code
+        public DateTime Timestamp { get; set; } // New property for timestamp
     }
 
     public class ActionDetailViewModel : INotifyPropertyChanged
@@ -152,25 +155,62 @@ namespace CSimple.Pages
             {
                 if (_actionGroup?.ActionArray != null)
                 {
+                    DateTime startTime = DateTime.MaxValue;
+                    DateTime endTime = DateTime.MinValue;
+
                     for (int i = 0; i < _actionGroup.ActionArray.Count; i++)
                     {
                         var step = _actionGroup.ActionArray[i];
+                        string description = step.ToString();
+                        string keyName = "";
+                        int keyCode = 0;
+                        string keyAction = ""; // "Key Up" or "Key Down"
+                        DateTime timestamp = DateTime.MinValue;
+
+                        // Extract key name and code if it's a key press/release event
+                        if (step.EventType == 256 || step.EventType == 257)
+                        {
+                            keyCode = (int)step.KeyCode;
+                            keyName = GetKeyName((ushort)keyCode); // Use GetKeyName method
+                            keyAction = step.EventType == 256 ? "Down" : "Up"; // Set "Up" or "Down"
+                            description = $"Key {keyName} {keyAction} (Code: {keyCode})";
+                        }
+
+                        // Get timestamp
+                        if (step.Timestamp != null && DateTime.TryParse(step.Timestamp.ToString(), out timestamp))
+                        {
+                            // Update start and end times
+                            startTime = timestamp < startTime ? timestamp : startTime;
+                            endTime = timestamp > endTime ? timestamp : endTime;
+                        }
+
                         ActionSteps.Add(new StepViewModel
                         {
                             Index = (i + 1).ToString(),
-                            Description = step.ToString(),
-                            Duration = $"{(new Random().NextDouble() * 0.3).ToString("0.00")}s"
+                            Description = description,
+                            Duration = $"{(new Random().NextDouble() * 0.3).ToString("0.00")}s",
+                            KeyName = keyName,
+                            KeyCode = keyCode,
+                            Timestamp = timestamp
                         });
+                    }
+
+                    // Calculate and set the duration
+                    if (startTime != DateTime.MaxValue && endTime != DateTime.MinValue)
+                    {
+                        TimeSpan duration = endTime - startTime;
+                        Duration = $"{duration.TotalSeconds:0.00} seconds";
+                        OnPropertyChanged(nameof(Duration));
                     }
                 }
 
                 // Add demo steps if we don't have any
                 if (ActionSteps.Count == 0)
                 {
-                    ActionSteps.Add(new StepViewModel { Index = "1", Description = "Mouse Move to X:500, Y:300", Duration = "0.12s" });
-                    ActionSteps.Add(new StepViewModel { Index = "2", Description = "Left Click", Duration = "0.05s" });
-                    ActionSteps.Add(new StepViewModel { Index = "3", Description = "Key 65 Down (A)", Duration = "0.08s" });
-                    ActionSteps.Add(new StepViewModel { Index = "4", Description = "Key 65 Up (A)", Duration = "0.04s" });
+                    ActionSteps.Add(new StepViewModel { Index = "1", Description = "Mouse Move to X:500, Y:300", Duration = "0.12s", Timestamp = DateTime.Now });
+                    ActionSteps.Add(new StepViewModel { Index = "2", Description = "Left Click", Duration = "0.05s", Timestamp = DateTime.Now.AddSeconds(0.12) });
+                    ActionSteps.Add(new StepViewModel { Index = "3", Description = "Key A Down (65)", Duration = "0.08s", KeyName = "A", KeyCode = 65, Timestamp = DateTime.Now.AddSeconds(0.17) });
+                    ActionSteps.Add(new StepViewModel { Index = "4", Description = "Key A Up (65)", Duration = "0.04s", KeyName = "A", KeyCode = 65, Timestamp = DateTime.Now.AddSeconds(0.25) });
                 }
             }
             catch (Exception ex)
@@ -178,6 +218,45 @@ namespace CSimple.Pages
                 Debug.WriteLine($"Error initializing steps: {ex.Message}");
                 ActionSteps.Add(new StepViewModel { Index = "!", Description = "Error loading steps", Duration = "N/A" });
             }
+        }
+
+        private string GetKeyName(ushort keyCode)
+        {
+            // Common key mappings
+            Dictionary<ushort, string> keyNames = new Dictionary<ushort, string>
+            {
+                { 8, "Backspace" }, { 9, "Tab" }, { 13, "Enter" }, { 16, "Shift" },
+                { 17, "Ctrl" }, { 18, "Alt" }, { 19, "Pause" }, { 20, "Caps Lock" },
+                { 27, "Esc" }, { 32, "Space" }, { 33, "Page Up" }, { 34, "Page Down" },
+                { 35, "End" }, { 36, "Home" }, { 37, "Left Arrow" }, { 38, "Up Arrow" },
+                { 39, "Right Arrow" }, { 40, "Down Arrow" }, { 45, "Insert" }, { 46, "Delete" },
+                { 91, "Windows" }, { 93, "Menu" }, { 144, "Num Lock" }, { 186, ";" },
+                { 187, "=" }, { 188, "," }, { 189, "-" }, { 190, "." }, { 191, "/" },
+                { 192, "`" }, { 219, "[" }, { 220, "\\" }, { 221, "]" }, { 222, "'" },
+                { 513, "Left Mouse" }, { 516, "Right Mouse" }, { 519, "Middle Mouse" },
+                { 0x0200, "Mouse Move" }
+            };
+
+            // Add F1-F12
+            for (ushort i = 112; i <= 123; i++)
+            {
+                keyNames[i] = $"F{i - 111}";
+            }
+
+            // Add numbers
+            for (ushort i = 48; i <= 57; i++)
+            {
+                keyNames[i] = $"{i - 48}";
+            }
+
+            // Add letters
+            for (ushort i = 65; i <= 90; i++)
+            {
+                keyNames[i] = $"{(char)i}";
+            }
+
+            // Return the key name if it exists, otherwise return the key code
+            return keyNames.ContainsKey(keyCode) ? keyNames[keyCode] : $"Key {keyCode}";
         }
 
         private void InitializeModels()

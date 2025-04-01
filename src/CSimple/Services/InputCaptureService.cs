@@ -33,8 +33,10 @@ namespace CSimple.Services
         private const int MOUSE_MOVEMENT_THROTTLE_MS = 10; // More efficient throttling
         private DateTime _lastMouseMoveSent = DateTime.MinValue;
         private POINT _lastProcessedMousePos;
-        private int _mouseMovementThreshold = 1; // Lower threshold for more accuracy
-        private int _mouseQueueProcessingBatchSize = 15; // Process more items per batch
+
+        private readonly MouseInputManager _mouseInputManager;
+        private readonly object _inputQueueLock = new object();
+
         #endregion
 
         #region Constants
@@ -83,6 +85,13 @@ namespace CSimple.Services
         }
 #endif
         #endregion
+
+        // Add missing class definitions
+        public class InputEvent { }
+
+        public class MouseInputManager { }
+
+        public class KeyboardInputManager { }
 
         public InputCaptureService()
         {

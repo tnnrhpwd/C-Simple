@@ -127,7 +127,7 @@
                                  Color="{AppThemeBinding Light=#e0e0e0, Dark=#333333}"
                                  Margin="0,4,0,8" />
                         <CollectionView ItemsSource="{Binding ActionSteps}"
-                                        HeightRequest="200">
+                                        HeightRequest="300">
                             <CollectionView.EmptyView>
                                 <Label Text="No steps available"
                                        HorizontalOptions="Center"
@@ -151,10 +151,34 @@
                                                    VerticalOptions="Center"
                                                    TextColor="{AppThemeBinding Light=#0d47a1, Dark=White}" />
                                         </Frame>
-                                        <Label Text="{Binding Description}"
-                                               Grid.Column="1"
-                                               VerticalOptions="Center"
-                                               TextColor="{AppThemeBinding Light=#212121, Dark=#e0e0e0}" />
+                                        <VerticalStackLayout Grid.Column="1">
+                                            <Label Text="{Binding Description}"
+                                                   VerticalOptions="Center"
+                                                   TextColor="{AppThemeBinding Light=#212121, Dark=#e0e0e0}" />
+                                            <!-- Add KeyName and KeyCode labels -->
+                                            <HorizontalStackLayout IsVisible="{Binding KeyName, Converter={StaticResource NotNullOrEmptyConverter}}"
+                                                                   Spacing="4">
+                                                <Label Text="Key:"
+                                                       FontSize="Small"
+                                                       TextColor="Gray" />
+                                                <Label Text="{Binding KeyName}"
+                                                       FontSize="Small"
+                                                       TextColor="Gray" />
+                                                <Label Text="("
+                                                       FontSize="Small"
+                                                       TextColor="Gray" />
+                                                <Label Text="{Binding KeyCode}"
+                                                       FontSize="Small"
+                                                       TextColor="Gray" />
+                                                <Label Text=")"
+                                                       FontSize="Small"
+                                                       TextColor="Gray" />
+                                            </HorizontalStackLayout>
+                                            <!-- Add Timestamp label -->
+                                            <Label Text="{Binding Timestamp, StringFormat='{}{0:MM/dd/yyyy HH:mm:ss.fff}'}"
+                                                   FontSize="Small"
+                                                   TextColor="Gray" />
+                                        </VerticalStackLayout>
                                         <Label Text="{Binding Duration}"
                                                Grid.Column="2"
                                                VerticalOptions="Center"

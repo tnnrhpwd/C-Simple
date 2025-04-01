@@ -1036,5 +1036,152 @@ namespace CSimple.Services
                 return new List<DataItem>();
             }
         }
+
+        // New method to reliably load and combine both local and backend items
+        public async Task<List<DataItem>> LoadAllDataItemsAsync()
+        {
+            var result = new Dictionary<string, DataItem>();
+            var debugInfo = new Dictionary<string, int> { { "backend", 0 }, { "local", 0 }, { "duplicates", 0 } };
+
+            try
+            {
+                // STEP 1: Load backend items first (with proper token validation)
+                Debug.WriteLine("Loading backend items...");
+                var token = await SecureStorage.GetAsync("userToken");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    try
+                    {
+                        var backendItems = await LoadDataItemsFromBackend();
+                        debugInfo["backend"] = backendItems.Count;
+
+                        // Add backend items to result with proper marking
+                        foreach (var item in backendItems)
+                        {
+                            if (item?.Data?.ActionGroupObject != null)
+                            {
+                                // Ensure backend items are NEVER marked as local
+                                item.Data.ActionGroupObject.IsLocal = false;
+
+                                // Use ID as key for backend items
+                                string key = !string.IsNullOrEmpty(item._id)
+                                    ? "backend_" + item._id
+                                    : "backend_" + item.Data.ActionGroupObject.ActionName;
+
+                                result[key] = item;
+                            }
+                        }
+                        Debug.WriteLine($"Loaded {backendItems.Count} backend items");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error loading backend items: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("User not logged in - skipping backend items");
+                }
+
+                // STEP 2: Load local items
+                Debug.WriteLine("Loading local items...");
+                var localItems = await LoadDataItemsFromFile();
+                debugInfo["local"] = localItems.Count;
+
+                // Followed by local file items
+                foreach (var item in localItems)
+                {
+                    if (item?.Data?.ActionGroupObject != null)
+                    {
+                        // Always mark local file items as local
+                        item.Data.ActionGroupObject.IsLocal = true;
+
+                        // First try by ID if it exists
+                        string key = !string.IsNullOrEmpty(item._id)
+                            ? "local_" + item._id
+                            : "local_" + item.Data.ActionGroupObject.ActionName;
+
+                        // If this item exists in the backend, don't override
+                        string backendKey = "backend_" + (
+                            !string.IsNullOrEmpty(item._id)
+                                ? item._id
+                                : item.Data.ActionGroupObject.ActionName
+                        );
+
+                        if (result.ContainsKey(backendKey))
+                        {
+                            debugInfo["duplicates"]++;
+                            Debug.WriteLine($"Skipping local duplicate of backend item: {item.Data.ActionGroupObject.ActionName}");
+                            continue;
+                        }
+
+                        // Otherwise add as local
+                        result[key] = item;
+                    }
+                }
+                Debug.WriteLine($"Loaded {localItems.Count} local items");
+
+                // STEP 3: Handle truly local items that were created on device
+                Debug.WriteLine("Loading device-local items...");
+                var deviceLocalItems = await LoadLocalDataItemsAsync();
+                foreach (var item in deviceLocalItems)
+                {
+                    if (item?.Data?.ActionGroupObject != null)
+                    {
+                        // ALWAYS mark device-created items as local
+                        item.Data.ActionGroupObject.IsLocal = true;
+
+                        // Create a unique key based on name
+                        string key = "device_" + item.Data.ActionGroupObject.ActionName;
+
+                        // Check if item already exists from backend or file
+                        bool isDuplicate = result.Values.Any(existingItem =>
+                            IsSameActionItem(existingItem, item));
+
+                        if (!isDuplicate)
+                        {
+                            result[key] = item;
+                        }
+                        else
+                        {
+                            debugInfo["duplicates"]++;
+                        }
+                    }
+                }
+
+                // Final check for timestamps
+                foreach (var item in result.Values)
+                {
+                    if (item?.Data?.ActionGroupObject != null)
+                    {
+                        // Ensure timestamps are consistent
+                        if (item.Data.ActionGroupObject.CreatedAt == null ||
+                            item.Data.ActionGroupObject.CreatedAt == default(DateTime))
+                        {
+                            // Use the original database timestamp
+                            item.Data.ActionGroupObject.CreatedAt = item.createdAt;
+
+                            // If that's still not valid, use current time as last resort
+                            if (item.Data.ActionGroupObject.CreatedAt == default(DateTime))
+                            {
+                                item.Data.ActionGroupObject.CreatedAt = DateTime.Now;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in LoadAllDataItemsAsync: {ex.Message}");
+                Debug.WriteLine(ex.StackTrace);
+            }
+
+            // Log summary of what we found
+            Debug.WriteLine($"Combined data summary: {debugInfo["backend"]} backend items, " +
+                            $"{debugInfo["local"]} local items, {debugInfo["duplicates"]} duplicates detected, " +
+                            $"returning {result.Count} unique items");
+
+            return result.Values.ToList();
+        }
     }
 }

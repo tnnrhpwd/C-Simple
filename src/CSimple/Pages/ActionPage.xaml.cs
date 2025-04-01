@@ -411,8 +411,73 @@ namespace CSimple.Pages
 
         private async Task RefreshData()
         {
-            await LoadDataItemsFromBackend();
-            await LoadLocalItemsAsync();
+            IsLoading = true;
+            try
+            {
+                Debug.WriteLine("Refreshing all action data...");
+
+                // Clear existing collections
+                DataItems.Clear();
+                ActionGroups.Clear();
+
+                // Load all data using our new unified method
+                var allItems = await _actionService.LoadAllDataItemsAsync();
+                Debug.WriteLine($"Loaded {allItems.Count} total unique items");
+
+                // Update DataItems collection
+                foreach (var item in allItems)
+                {
+                    DataItems.Add(item);
+                }
+
+                // Update ActionGroups collection
+                UpdateActionGroupsFromDataItems();
+
+                // Update master list for filtering
+                _allActionGroups = new ObservableCollection<ActionGroup>(ActionGroups);
+
+                // Apply filtering or sorting if needed
+                if (!string.IsNullOrEmpty(SearchText))
+                {
+                    FilterActionsBySearch();
+                }
+                else if (SelectedCategory != "All Categories")
+                {
+                    FilterActionsByCategory();
+                }
+                else
+                {
+                    // Apply current sort method
+                    SortActionGroups();
+                }
+
+                // Reset selection
+                SelectedActionGroup = null;
+
+                // Update UI indicators
+                OnPropertyChanged(nameof(ShowEmptyMessage));
+                OnPropertyChanged(nameof(HasSelectedActions));
+
+                Debug.WriteLine($"Data refresh complete. Displaying {ActionGroups.Count} action groups");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error refreshing data: {ex.Message}");
+                Debug.WriteLine(ex.StackTrace);
+                await DisplayAlert("Error", "Failed to refresh actions. Please try again.", "OK");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        protected override async void OnAppearing()
+        {
+            base.OnAppearing();
+
+            // Simply call our unified refresh method
+            await RefreshData();
         }
 
         private async Task TrainModel()
@@ -597,112 +662,38 @@ namespace CSimple.Pages
             }
         }
 
-        protected override async void OnAppearing()
+        private async Task SaveDataItemsToFile()
         {
-            base.OnAppearing();
+            await _actionService.SaveDataItemsToFile(DataItems.ToList());
+        }
 
-            IsLoading = true;
+        private async Task LoadDataItemsFromFile()
+        {
+            await RefreshData();
+        }
 
+        private async Task LoadDataItemsFromBackend()
+        {
+            await RefreshData();
+        }
+
+        // Keep only this implementation of LoadLocalItemsAsync
+        private async Task LoadLocalItemsAsync()
+        {
             try
             {
-                // Clear existing collections to prevent duplicates
-                DataItems.Clear();
-                ActionGroups.Clear();
-
-                // Use a dictionary to track unique items by ID or name
-                var uniqueItemsDict = new Dictionary<string, DataItem>();
-
-                // First load backend/regular items (these should NEVER be marked as local)
-                var regularItems = await _actionService.LoadDataItemsFromFile();
-                foreach (var item in regularItems)
-                {
-                    if (item?.Data?.ActionGroupObject != null)
-                    {
-                        // Ensure regular items are NEVER marked as local
-                        item.Data.ActionGroupObject.IsLocal = false;
-
-                        string key = GetUniqueKey(item);
-                        if (!string.IsNullOrEmpty(key))
-                        {
-                            uniqueItemsDict[key] = item;
-                        }
-                    }
-                }
-
-                // Then load local items (these should ALWAYS be marked as local)
-                var localItems = await _actionService.LoadLocalDataItemsAsync();
-                foreach (var item in localItems)
-                {
-                    if (item?.Data?.ActionGroupObject != null)
-                    {
-                        // Ensure local items are ALWAYS marked as local
-                        item.Data.ActionGroupObject.IsLocal = true;
-
-                        string key = GetUniqueKey(item);
-                        if (!string.IsNullOrEmpty(key))
-                        {
-                            uniqueItemsDict[key] = item;
-                        }
-                    }
-                }
-
-                // Update DataItems with the unique collection
-                foreach (var item in uniqueItemsDict.Values)
-                {
-                    DataItems.Add(item);
-                }
-
-                // Update ActionGroups (maintain IsLocal flag from source)
-                UpdateActionGroupsFromDataItems();
-
-                // Reset any selection
-                SelectedActionGroup = null;
-
-                Debug.WriteLine($"Loaded {uniqueItemsDict.Count} unique items. Regular: {regularItems.Count}, Local: {localItems.Count}");
+                // This method now just calls RefreshData for unified loading
+                await RefreshData();
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading ActionPage: {ex.Message}");
-            }
-            finally
-            {
-                IsLoading = false;
+                DebugOutput($"Error loading local items: {ex.Message}");
             }
         }
 
-        // Helper method to create a unique key for a data item
-        private string GetUniqueKey(DataItem item)
+        private async void OnRefreshDataClicked(object sender, EventArgs e)
         {
-            // For backend items, prefer _id
-            if (!string.IsNullOrEmpty(item._id))
-            {
-                return "backend_" + item._id;
-            }
-
-            // For local items, use action name with prefix
-            if (item?.Data?.ActionGroupObject?.ActionName != null)
-            {
-                return "local_" + item.Data.ActionGroupObject.ActionName;
-            }
-
-            // Fallback to a unique identifier
-            return "item_" + Guid.NewGuid().ToString();
-        }
-
-        private async Task NavigateToObservePage()
-        {
-            DebugOutput("Navigating to ObservePage");
-            await Shell.Current.GoToAsync("///observe");
-        }
-
-        private void OnInputActionClicked(object sender, EventArgs e)
-        {
-            _inputActionPopup.IsVisible = true;
-        }
-
-        private void OnOkayClick(object sender, EventArgs e)
-        {
-            _inputActionPopup.IsVisible = false;
+            await RefreshData();
         }
 
         // Enhanced OnRowTapped method to show detailed action information
@@ -808,92 +799,6 @@ namespace CSimple.Pages
             }
         }
 
-        private async Task SaveDataItemsToFile()
-        {
-            await _actionService.SaveDataItemsToFile(DataItems.ToList());
-        }
-
-        private async Task LoadDataItemsFromFile()
-        {
-            IsLoading = true;
-
-            try
-            {
-                var items = await _actionService.LoadDataItemsFromFile();
-
-                // Update the DataItems collection
-                DataItems.Clear();
-                foreach (var item in items)
-                {
-                    // Mark actions as local
-                    if (item?.Data?.ActionGroupObject != null)
-                    {
-                        item.Data.ActionGroupObject.IsLocal = true;
-                    }
-                    DataItems.Add(item);
-                }
-
-                // Also update the ActionGroups collection for direct binding
-                UpdateActionGroupsFromDataItems();
-
-                // Keep a master copy of all action groups for filtering
-                _allActionGroups = new ObservableCollection<ActionGroup>(ActionGroups);
-            }
-            catch (Exception ex)
-            {
-                DebugOutput($"Error loading data from file: {ex.Message}");
-            }
-            finally
-            {
-                IsLoading = false;
-            }
-        }
-
-        private async Task LoadDataItemsFromBackend()
-        {
-            try
-            {
-                var backendItems = await _actionService.LoadDataItemsFromBackend();
-
-                // Load local items from file
-                var localItems = await _actionService.LoadDataItemsFromFile() ?? new List<DataItem>();
-
-                // Mark local items
-                foreach (var localItem in localItems)
-                {
-                    if (localItem?.Data?.ActionGroupObject != null)
-                    {
-                        localItem.Data.ActionGroupObject.IsLocal = true;
-                    }
-                }
-
-                // Merge backend and local items
-                var mergedItems = backendItems
-                    .Union(localItems, new DataItemComparer()) // Use a custom comparer to avoid duplicates
-                    .ToList();
-
-                // Update the DataItems collection
-                DataItems.Clear();
-                foreach (var item in mergedItems)
-                {
-                    DataItems.Add(item);
-                }
-
-                // Update the ActionGroups collection for direct binding
-                UpdateActionGroupsFromDataItems();
-
-                // Keep a master copy of all action groups for filtering
-                _allActionGroups = new ObservableCollection<ActionGroup>(ActionGroups);
-
-                DebugOutput($"Loaded {backendItems.Count} items from backend and merged with {localItems.Count} local items.");
-            }
-            catch (Exception ex)
-            {
-                DebugOutput($"Error loading data from backend: {ex.Message}");
-                await DisplayAlert("Error", "Failed to load actions. Please try again later.", "OK");
-            }
-        }
-
         // Enhanced method to extract ActionGroup objects from DataItems with additional properties
         private void UpdateActionGroupsFromDataItems()
         {
@@ -960,9 +865,6 @@ namespace CSimple.Pages
                     }
                 }
             }
-
-            // Load local items and merge them
-            _ = LoadLocalItemsAsync();
 
             // Notify UI to refresh
             OnPropertyChanged(nameof(ActionGroups));
@@ -1053,19 +955,6 @@ namespace CSimple.Pages
         public new void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-
-        private async void OnRefreshDataClicked(object sender, EventArgs e)
-        {
-            IsLoading = true;
-            try
-            {
-                await LoadDataItemsFromBackend();
-            }
-            finally
-            {
-                IsLoading = false;
-            }
         }
 
         private async void OnActionItemClicked(object sender, RoutedEventArgs e)
@@ -1182,54 +1071,6 @@ namespace CSimple.Pages
         }
 
         public bool HasLocalItems => LocalItems != null && LocalItems.Count > 0;
-
-        // Add methods to handle local items
-        private async Task LoadLocalItemsAsync()
-        {
-            try
-            {
-                IsLoading = true;
-
-                // Load local items
-                var localItems = await _actionService.LoadDataItemsFromFile();
-                if (localItems == null)
-                {
-                    localItems = new List<DataItem>();
-                }
-
-                // Convert local items to ActionGroups and mark them as local
-                var localActionGroups = localItems
-                    .Select(item => item.Data?.ActionGroupObject)
-                    .Where(actionGroup => actionGroup != null)
-                    .Select(actionGroup =>
-                    {
-                        actionGroup.IsLocal = true; // Mark as locally stored
-                        return actionGroup;
-                    })
-                    .ToList();
-
-                // Merge local actions into the main ActionGroups collection
-                foreach (var localAction in localActionGroups)
-                {
-                    if (!ActionGroups.Any(a => a.Id == localAction.Id))
-                    {
-                        ActionGroups.Add(localAction);
-                    }
-                }
-
-                // Refresh UI
-                OnPropertyChanged(nameof(ActionGroups));
-                OnPropertyChanged(nameof(ShowEmptyMessage));
-            }
-            catch (Exception ex)
-            {
-                DebugOutput($"Error loading local items: {ex.Message}");
-            }
-            finally
-            {
-                IsLoading = false;
-            }
-        }
 
         private void ViewLocalItem(DataItem item)
         {
@@ -1372,6 +1213,22 @@ namespace CSimple.Pages
                 _actionService.MovementSteps = _gameOptimizedMode ? 20 : 10; // More steps in game mode
                 _actionService.MovementDelayMs = _gameOptimizedMode ? 1 : 2; // Faster in game mode
             }
+        }
+
+        private async Task NavigateToObservePage()
+        {
+            DebugOutput("Navigating to ObservePage");
+            await Shell.Current.GoToAsync("///observe");
+        }
+
+        private void OnInputActionClicked(object sender, EventArgs e)
+        {
+            _inputActionPopup.IsVisible = true;
+        }
+
+        private void OnOkayClick(object sender, EventArgs e)
+        {
+            _inputActionPopup.IsVisible = false;
         }
     }
 
