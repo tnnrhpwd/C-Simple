@@ -27,6 +27,9 @@ namespace CSimple.Services
         private string _webcamImagesDirectory;
         private bool _previewModeActive = false;
         private CancellationTokenSource _previewCts;
+
+        // Reduced capture interval to reduce overhead
+        private const int CaptureIntervalMs = 250; // Capture every 250ms (4 times per second)
         #endregion
 
         #region Windows API
@@ -103,11 +106,13 @@ namespace CSimple.Services
                 foreach (var screen in Screen.AllScreens)
                 {
                     var bounds = screen.Bounds;
-                    using (var bitmap = new Bitmap(bounds.Width, bounds.Height))
+                    // Use a single bitmap and graphics object to reduce allocations
+                    using (var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb))
                     {
                         using (var g = Graphics.FromImage(bitmap))
                         {
-                            g.CopyFromScreen(bounds.Location, System.Drawing.Point.Empty, bounds.Size);
+                            // Optimize: Use CopyFromScreen with handle
+                            g.CopyFromScreen(bounds.Location, System.Drawing.Point.Empty, bounds.Size, CopyPixelOperation.SourceCopy);
                         }
 
                         string filePath = Path.Combine(_screenshotsDirectory, $"ScreenCapture_{captureTime:yyyyMMdd_HHmmss_fff}_{screen.DeviceName.Replace("\\", "").Replace(":", "")}.png");
@@ -132,7 +137,7 @@ namespace CSimple.Services
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     CaptureScreens(actionName, userTouchInputText);
-                    Thread.Sleep(1000); // Capture every second
+                    Thread.Sleep(CaptureIntervalMs); // Capture at the reduced interval
 
                     if (_previewModeActive && ScreenPreviewFrameReady != null)
                     {
@@ -172,7 +177,7 @@ namespace CSimple.Services
                         FileCaptured?.Invoke(filePath);
                         LogDebug($"Webcam image saved to: {filePath}");
                     }
-                    Thread.Sleep(1000);
+                    Thread.Sleep(CaptureIntervalMs);
 
                     if (_previewModeActive && WebcamPreviewFrameReady != null)
                     {
@@ -277,11 +282,12 @@ namespace CSimple.Services
             {
                 // Get the primary screen
                 var bounds = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
-                using (var bitmap = new Bitmap(bounds.Width, bounds.Height))
+                using (var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb))
                 {
                     using (var g = Graphics.FromImage(bitmap))
                     {
-                        g.CopyFromScreen(bounds.Location, System.Drawing.Point.Empty, bounds.Size);
+                        // Optimize: Use CopyFromScreen with handle
+                        g.CopyFromScreen(bounds.Location, System.Drawing.Point.Empty, bounds.Size, CopyPixelOperation.SourceCopy);
 
                         // Calculate aspect ratio and determine target size
                         double aspectRatio = (double)bounds.Width / bounds.Height;

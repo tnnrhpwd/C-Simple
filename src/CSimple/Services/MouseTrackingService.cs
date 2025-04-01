@@ -1,5 +1,7 @@
 using Microsoft.Maui.Graphics;
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 #if WINDOWS
 #endif
@@ -14,6 +16,10 @@ namespace CSimple.Services
         private const uint RIM_TYPETOUCH = 0x0003;  // Example value, consider touch events as a special HID type
         private const uint RIM_TYPEPEN = 0x0004;  // Example value, consider pen events as another HID type
 
+        // Use a concurrent queue to avoid locking during high-frequency mouse events
+        private readonly ConcurrentQueue<Point> _mouseMovementQueue = new ConcurrentQueue<Point>();
+        private readonly int _queueMaxSize = 200; // Increased from 100 to 200
+        private const int MAX_QUEUE_PROCESS_BATCH = 20; // Process more items per batch
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool RegisterRawInputDevices([MarshalAs(UnmanagedType.LPArray, SizeConst = 1)] RAWINPUTDEVICE[] pRawInputDevices, uint uiNumDevices, uint cbSize);
@@ -66,14 +72,20 @@ namespace CSimple.Services
 
         private bool _isTracking;
         private Point _lastPosition;
+        private readonly Stopwatch _frameTimer = new Stopwatch();
+        private int _skippedFrames = 0;
+        private const int PROCESS_EVERY_N_FRAMES = 1; // Changed from 2 to 1 for better responsiveness
+        private const int MIN_MOVEMENT_THRESHOLD = 0; // Changed from 1 to 0 for higher precision
 
-        public List<Point> MouseMovements { get; private set; } = new List<Point>();
+        public List<Point> MouseMovements { get; } = new List<Point>(1000); // Pre-allocated capacity
 
         public event Action<Point> MouseMoved;
 
         public MouseTrackingService()
         {
             _lastPosition = new Point(0, 0);
+            // Start a background task to process the queue at a controlled rate
+            Task.Run(ProcessQueuedMovementsAsync);
         }
 
         public void StartTracking(IntPtr hwnd)
@@ -119,6 +131,15 @@ namespace CSimple.Services
             uint size = 0;
             GetRawInputData(lParam, RID_INPUT, IntPtr.Zero, ref size, (uint)Marshal.SizeOf(typeof(RAWINPUTHEADER)));
 
+            // Skip processing if we're getting too many events - but only apply throttling for
+            // very high frequency situations to keep responsiveness
+            if (_mouseMovementQueue.Count > 100 && _skippedFrames < PROCESS_EVERY_N_FRAMES)
+            {
+                _skippedFrames++;
+                return;
+            }
+            _skippedFrames = 0;
+
             IntPtr rawData = Marshal.AllocHGlobal((int)size);
             try
             {
@@ -127,14 +148,15 @@ namespace CSimple.Services
                     RAWINPUT rawInput = Marshal.PtrToStructure<RAWINPUT>(rawData);
                     if (rawInput.HeaderSize == RIM_TYPEMOUSE)
                     {
-                        // Handle mouse as before
                         int deltaX = rawInput.LastX;
                         int deltaY = rawInput.LastY;
 
-                        var delta = new Point(deltaX, deltaY);
-                        MouseMovements.Add(delta);
-                        MouseMoved?.Invoke(delta);
-                        Console.WriteLine($"Mousetrackservice Mouse moved: X = {deltaX}, Y = {deltaY}");
+                        // Capture all movement, even small ones, but still skip the real zero movements
+                        if (deltaX != 0 || deltaY != 0)
+                        {
+                            // Add to queue instead of processing immediately
+                            EnqueueMouseMovement(new Point(deltaX, deltaY));
+                        }
                     }
                     else if (rawInput.HeaderSize == RIM_TYPETOUCH) // RIM_TYPETOUCH for touch input
                     {
@@ -156,13 +178,90 @@ namespace CSimple.Services
             }
         }
 
-        // This would be your main loop to track mouse inputs in case no raw input message is received
+        // Add mouse movement to the queue
+        private void EnqueueMouseMovement(Point delta)
+        {
+            // Limit queue size by trimming if needed
+            if (_mouseMovementQueue.Count >= _queueMaxSize)
+            {
+                // Try to dequeue an item to make room
+                _mouseMovementQueue.TryDequeue(out _);
+            }
+
+            _mouseMovementQueue.Enqueue(delta);
+        }
+
+        // Process queued movements at a controlled rate
+        private async Task ProcessQueuedMovementsAsync()
+        {
+            // Use Stopwatch for adaptive timing
+            Stopwatch processingTimer = new Stopwatch();
+
+            while (true)
+            {
+                try
+                {
+                    processingTimer.Restart();
+
+                    if (_isTracking && _mouseMovementQueue.Count > 0)
+                    {
+                        // Process more items at once for efficiency
+                        int processCount = Math.Min(_mouseMovementQueue.Count, MAX_QUEUE_PROCESS_BATCH);
+
+                        // Pre-fetch items from queue for faster processing
+                        Point[] pointsToProcess = new Point[processCount];
+                        int actualCount = 0;
+
+                        for (int i = 0; i < processCount; i++)
+                        {
+                            if (_mouseMovementQueue.TryDequeue(out Point delta))
+                            {
+                                pointsToProcess[actualCount++] = delta;
+                            }
+                        }
+
+                        // Process all fetched items
+                        for (int i = 0; i < actualCount; i++)
+                        {
+                            Point delta = pointsToProcess[i];
+
+                            // Add to the movements list
+                            MouseMovements.Add(delta);
+
+                            // Invoke the event without blocking
+                            MouseMoved?.Invoke(delta);
+                        }
+                    }
+
+                    // Adaptive delay based on processing time
+                    long processingTime = processingTimer.ElapsedMilliseconds;
+                    int targetFrameTime = 16; // Target ~60fps
+
+                    // Calculate remaining time in the frame
+                    int delayTime = Math.Max(1, targetFrameTime - (int)processingTime);
+
+                    // More efficient short delay for better responsiveness
+                    await Task.Delay(delayTime);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error processing mouse movements: {ex.Message}");
+                    await Task.Delay(50); // Moderate delay on error
+                }
+            }
+        }
+
         private async Task TrackMouseMovementAsync()
         {
+            _frameTimer.Start();
+
             while (_isTracking)
             {
-                await Task.Delay(16); // approximately 60 frames per second
+                // Shorter fixed delay for better responsiveness
+                await Task.Delay(5);
             }
+
+            _frameTimer.Stop();
         }
     }
 

@@ -449,7 +449,10 @@ namespace CSimple.Pages
         private void StartUserTouch()
         {
             _inputService.StartCapturing();
-            _mouseService.StartTracking(IntPtr.Zero);
+            // Start mouse tracking with the window handle
+            Microsoft.UI.Xaml.Window window = (Microsoft.UI.Xaml.Window)App.Current.Windows.First().Handler.PlatformView;
+            IntPtr hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+            _mouseService.StartTracking(hwnd);
             UserTouchLevel = 0.0f; // Reset to zero when starting
         }
 

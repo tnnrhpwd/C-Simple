@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -9,7 +10,7 @@ using Newtonsoft.Json;
 
 namespace CSimple.Services
 {
-    public class InputCaptureService
+    public class InputCaptureService : IDisposable
     {
         #region Events
         public event Action<string> InputCaptured;
@@ -23,6 +24,17 @@ namespace CSimple.Services
         private bool _isActive = false;
         private bool _previewModeActive = false;
         private CancellationTokenSource _previewCts;
+        private CancellationTokenSource _queueProcessingCts;
+
+        // Concurrent queue for processing input events
+        private BlockingCollection<ActionItem> _inputQueue;
+
+        // Better mouse movement handling
+        private const int MOUSE_MOVEMENT_THROTTLE_MS = 10; // More efficient throttling
+        private DateTime _lastMouseMoveSent = DateTime.MinValue;
+        private POINT _lastProcessedMousePos;
+        private int _mouseMovementThreshold = 1; // Lower threshold for more accuracy
+        private int _mouseQueueProcessingBatchSize = 15; // Process more items per batch
         #endregion
 
         #region Constants
@@ -72,11 +84,32 @@ namespace CSimple.Services
 #endif
         #endregion
 
+        public InputCaptureService()
+        {
+            // Initialize the queue
+            ResetInputQueue();
+        }
+
+        // Create a method to reset the input queue
+        private void ResetInputQueue()
+        {
+            _inputQueue?.Dispose();
+            _inputQueue = new BlockingCollection<ActionItem>();
+            _queueProcessingCts?.Cancel();
+            _queueProcessingCts = new CancellationTokenSource();
+
+            // Start a consumer task to process input events
+            Task.Run(() => ProcessInputQueue(_queueProcessingCts.Token));
+        }
+
         public void StartCapturing()
         {
 #if WINDOWS
             if (!_isActive)
             {
+                // Reset the input queue when starting a new capture session
+                ResetInputQueue();
+
                 _keyboardProc = HookCallback;
                 _mouseProc = HookCallback;
                 _keyboardHookID = SetHook(_keyboardProc, WH_KEYBOARD_LL);
@@ -96,6 +129,8 @@ namespace CSimple.Services
 #if WINDOWS
             if (_isActive)
             {
+                _isActive = false; // Set _isActive to false first
+
                 if (_keyboardHookID != IntPtr.Zero)
                 {
                     UnhookWindowsHookEx(_keyboardHookID);
@@ -106,10 +141,20 @@ namespace CSimple.Services
                     UnhookWindowsHookEx(_mouseHookID);
                     _mouseHookID = IntPtr.Zero;
                 }
-                _isActive = false;
+
                 _activeKeyPresses.Clear();
                 _keyPressDownTimestamps.Clear();
                 LogDebug("Input capture stopped");
+
+                // Complete the input queue to signal the consumer to stop
+                try
+                {
+                    _inputQueue?.CompleteAdding();
+                }
+                catch (ObjectDisposedException)
+                {
+                    LogDebug("Input queue was already disposed.");
+                }
             }
 #endif
         }
@@ -157,24 +202,38 @@ namespace CSimple.Services
                     GetCursorPos(out POINT currentMousePos);
                     actionItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
                     actionItem.EventType = WM_MOUSEMOVE;
-
-                    NotifyInputUpdate(actionItem);
                 }
                 else if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN)
                 {
                     GetCursorPos(out POINT currentMousePos);
                     actionItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
                     actionItem.EventType = (ushort)wParam;
-
-                    NotifyInputUpdate(actionItem);
                 }
                 else if (wParam == (IntPtr)WM_LBUTTONUP || wParam == (IntPtr)WM_RBUTTONUP)
                 {
                     GetCursorPos(out POINT currentMousePos);
                     actionItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
                     actionItem.EventType = (ushort)wParam;
+                }
+                else if (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_KEYUP)
+                {
+                    int vkCode = Marshal.ReadInt32(lParam);
+                    actionItem.KeyCode = vkCode;
+                    actionItem.EventType = (ushort)wParam;
+                }
 
-                    NotifyInputUpdate(actionItem);
+                // Add the action item to the queue for processing
+                if (_inputQueue != null && !_inputQueue.IsAddingCompleted)
+                {
+                    try
+                    {
+                        _inputQueue.Add(actionItem);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // The collection has been marked as complete
+                        LogDebug("Queue is marked complete in HookCallback and cannot accept new items.");
+                    }
                 }
             }
 
@@ -183,14 +242,22 @@ namespace CSimple.Services
 
         private async Task TrackMouseMovements()
         {
+            Stopwatch frameTimer = new Stopwatch();
+            frameTimer.Start();
+
             while (_isActive)
             {
                 try
                 {
                     GetCursorPos(out POINT currentMousePos);
 
-                    // Record mouse movement only if the position has changed
-                    if (currentMousePos.X != _lastMousePos.X || currentMousePos.Y != _lastMousePos.Y)
+                    // More efficient throttling logic for mouse movements
+                    TimeSpan timeSinceLastMove = DateTime.UtcNow - _lastMouseMoveSent;
+                    bool positionChanged = currentMousePos.X != _lastMousePos.X || currentMousePos.Y != _lastMousePos.Y;
+
+                    // Either throttle by time or by distance
+                    if (positionChanged &&
+                        (timeSinceLastMove.TotalMilliseconds >= MOUSE_MOVEMENT_THROTTLE_MS))
                     {
                         var actionItem = new ActionItem
                         {
@@ -200,26 +267,113 @@ namespace CSimple.Services
                         };
 
                         _lastMousePos = currentMousePos;
+                        _lastMouseMoveSent = DateTime.UtcNow;
+                        _lastProcessedMousePos = currentMousePos;
 
-                        // Notify listeners about the mouse movement
-                        NotifyInputUpdate(actionItem);
+                        // Add the action item to the queue for processing
+                        if (_inputQueue != null && !_inputQueue.IsAddingCompleted)
+                        {
+                            try
+                            {
+                                _inputQueue.Add(actionItem);
+                            }
+                            catch (InvalidOperationException)
+                            {
+                                // The collection has been marked as complete
+                                LogDebug("Queue is marked complete and cannot accept new items.");
+                            }
+                        }
                     }
 
-                    // Adjust the delay for high-frequency tracking
-                    await Task.Delay(10); // 10ms delay for high precision
+                    // More efficient adaptive delay
+                    int elapsedMs = (int)frameTimer.ElapsedMilliseconds;
+                    int delayMs = 1; // Minimum delay for responsiveness
+                    frameTimer.Restart();
+
+                    await Task.Delay(delayMs);
                 }
                 catch (Exception ex)
                 {
                     LogDebug($"Error tracking mouse movements: {ex.Message}");
+                    await Task.Delay(20); // Short delay on error
                 }
             }
+
+            frameTimer.Stop();
         }
 #endif
 
-        private void NotifyInputUpdate(ActionItem actionItem)
+        private void ProcessInputQueue(CancellationToken cancellationToken)
         {
-            string inputJson = JsonConvert.SerializeObject(actionItem);
-            InputCaptured?.Invoke(inputJson);
+            try
+            {
+                // Use more efficient batch processing
+                const int batchSize = 15; // Increased from 10 to 15
+                List<ActionItem> batch = new List<ActionItem>(batchSize);
+
+                // Continue processing until cancellation is requested or queue is completed
+                while (!cancellationToken.IsCancellationRequested && (_inputQueue != null && !_inputQueue.IsCompleted))
+                {
+                    try
+                    {
+                        batch.Clear();
+                        int count = 0;
+
+                        // Try to take multiple items at once with shorter timeout
+                        while (count < batchSize && _inputQueue.TryTake(out ActionItem item, 20))
+                        {
+                            if (item != null)
+                            {
+                                batch.Add(item);
+                                count++;
+                            }
+                        }
+
+                        // Process the batch efficiently
+                        if (count > 0)
+                        {
+                            // Use direct invocation for efficiency - avoid foreach
+                            for (int i = 0; i < batch.Count; i++)
+                            {
+                                string inputJson = JsonConvert.SerializeObject(batch[i]);
+                                InputCaptured?.Invoke(inputJson);
+                            }
+                        }
+                        else
+                        {
+                            // Shorter sleep if no items - don't block too long
+                            Thread.Sleep(5);
+                        }
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // This exception is expected when CompleteAdding is called
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        LogDebug($"Error processing input item: {ex.Message}");
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancellation is requested
+                LogDebug("Input queue processing cancelled.");
+            }
+            catch (ObjectDisposedException)
+            {
+                // Expected when the queue is disposed during shutdown
+                LogDebug("Input queue processing stopped due to object disposed exception.");
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"Error processing input queue: {ex.Message}");
+            }
+            finally
+            {
+                LogDebug("Input queue processing completed.");
+            }
         }
 
         private void LogDebug(string message)
@@ -268,6 +422,18 @@ namespace CSimple.Services
             {
                 DebugMessageLogged?.Invoke($"Error in input preview monitoring: {ex.Message}");
             }
+        }
+
+        public void Dispose()
+        {
+            StopCapturing();
+            _queueProcessingCts?.Cancel();
+            _inputQueue?.Dispose();
+            _inputQueue = null;
+            _queueProcessingCts?.Dispose();
+            _queueProcessingCts = null;
+            _previewCts?.Dispose();
+            _previewCts = null;
         }
     }
 }
