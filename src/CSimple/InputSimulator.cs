@@ -210,7 +210,7 @@ namespace CSimple
         }
 
         /// <summary>
-        /// Smooth mouse movement with interpolation (best for games)
+        /// Smooth mouse movement with human-like interpolation
         /// </summary>
         public static async Task SmoothMouseMove(int startX, int startY, int endX, int endY, int steps = 20, int delayMs = 2)
         {
@@ -222,23 +222,112 @@ namespace CSimple
                 startY = currentPos.Y;
             }
 
-            for (int i = 1; i <= steps; i++)
+            // Calculate distance to determine step count and curve intensity
+            double distance = Math.Sqrt(Math.Pow(endX - startX, 2) + Math.Pow(endY - startY, 2));
+
+            // Adjust steps based on distance (more steps for longer distance)
+            int adaptiveSteps = distance < 100 ? steps : (int)(steps * Math.Sqrt(distance / 100.0));
+            adaptiveSteps = Math.Min(adaptiveSteps, 100); // Cap at 100 steps
+
+            // Add randomness to make it look more human
+            Random random = new Random();
+            int randomOffsetX = random.Next(-10, 10);
+            int randomOffsetY = random.Next(-10, 10);
+
+            // Human cursor paths usually aren't perfectly straight, they have slight curves
+            // Add a control point for a simple quadratic bezier
+            int controlX = (startX + endX) / 2 + randomOffsetX;
+            int controlY = (startY + endY) / 2 + randomOffsetY;
+
+            // Previous position for calculating speed
+            int prevX = startX;
+            int prevY = startY;
+
+            for (int i = 1; i <= adaptiveSteps; i++)
             {
-                // Calculate intermediate position
-                float t = (float)i / steps;
-                int x = (int)(startX + (endX - startX) * t);
-                int y = (int)(startY + (endY - startY) * t);
+                // Progress as a fraction (0.0 to 1.0)
+                float t = (float)i / adaptiveSteps;
+
+                // Apply easing function - humans move with acceleration/deceleration
+                // This is a custom easing function that mimics human movement
+                float easedT = EaseHumanMove(t);
+
+                // Apply bezier curve calculation for a more natural arc
+                float u = 1.0f - easedT;
+                float tt = easedT * easedT;
+                float uu = u * u;
+
+                // Quadratic bezier formula
+                int x = (int)(uu * startX + 2 * u * easedT * controlX + tt * endX);
+                int y = (int)(uu * startY + 2 * u * easedT * controlY + tt * endY);
+
+                // Add subtle "shake" to simulate hand movement
+                // More prominent in the middle of movement, less at start/end
+                float shakeFactor = 4.0f * easedT * (1.0f - easedT); // peaks at t=0.5
+                if (distance > 20) // Only add shake for larger movements
+                {
+                    x += (int)(random.Next(-2, 3) * shakeFactor);
+                    y += (int)(random.Next(-2, 3) * shakeFactor);
+                }
 
                 // Move to the intermediate position
                 MoveMouse(x, y);
 
-                // Small delay for smoothness
-                if (delayMs > 0)
-                    await Task.Delay(delayMs);
+                // Calculate actual distance moved for this step
+                double segmentDistance = Math.Sqrt(Math.Pow(x - prevX, 2) + Math.Pow(y - prevY, 2));
+                prevX = x;
+                prevY = y;
+
+                // Adaptive delay - human mouse movement isn't uniform in speed
+                int actualDelay = delayMs;
+                if (i < adaptiveSteps * 0.2 || i > adaptiveSteps * 0.8)
+                {
+                    // Slower at start and end
+                    actualDelay = (int)(delayMs * 1.5);
+                }
+                else if (segmentDistance > 10)
+                {
+                    // Slower for large jumps
+                    actualDelay = (int)(delayMs * 1.3);
+                }
+
+                // Apply the delay
+                if (actualDelay > 0)
+                    await Task.Delay(actualDelay);
             }
 
-            // Ensure final position
+            // Ensure we end at exactly the target position
             MoveMouse(endX, endY);
+        }
+
+        /// <summary>
+        /// Human-like easing function for mouse movement
+        /// </summary>
+        private static float EaseHumanMove(float t)
+        {
+            // Custom easing function that mimics human movement patterns
+            // Slow start, faster middle, slow end with slight overshooting
+
+            // Parameters can be tweaked to adjust movement character
+            const float power = 2.5f;
+            const float overshoot = 0.03f; // Slight overshoot for realism
+
+            if (t < 0.5f)
+            {
+                // First half: accelerate (ease-in)
+                return 0.5f * (float)Math.Pow(t * 2, power);
+            }
+            else
+            {
+                // Second half: decelerate with slight overshoot (modified ease-out)
+                float decel = 0.5f + 0.5f * (1 - (float)Math.Pow(2 - t * 2, power));
+
+                // Add slight overshoot and correction
+                if (t > 0.8f && t < 0.95f)
+                    decel += overshoot * (t - 0.8f) * (0.95f - t) * 10; // Parabolic overshoot
+
+                return decel;
+            }
         }
 
         /// <summary>
@@ -419,17 +508,35 @@ namespace CSimple
         /// </summary>
         private static async Task SmoothGameMouseMove(int startX, int startY, int endX, int endY, int steps = 40, int delayMs = 8)
         {
+            // Calculate distance for adaptive steps
+            double distance = Math.Sqrt(Math.Pow(endX - startX, 2) + Math.Pow(endY - startY, 2));
+
+            // Random value for natural movement variation
+            Random random = new Random();
+
+            // For game cameras, path is less important than smoothness and consistency
+            // We'll use a simpler approach with subtle randomization
+
             for (int i = 1; i <= steps; i++)
             {
-                // Calculate intermediate position with custom easing for games
+                // Basic progress
                 float t = (float)i / steps;
 
-                // Apply ease-out cubic function for deceleration (better for cameras)
+                // Apply ease-out cubic function for game camera feel
                 // Fix: Explicitly cast Math.Pow result to float
-                t = 1 - (float)Math.Pow(1 - t, 3);
+                float easedT = 1 - (float)Math.Pow(1 - t, 3);
 
-                int x = (int)(startX + (endX - startX) * t);
-                int y = (int)(startY + (endY - startY) * t);
+                // Linear interpolation with subtle variation
+                int x = (int)(startX + (endX - startX) * easedT);
+                int y = (int)(startY + (endY - startY) * easedT);
+
+                // Add minimal jitter for more natural game camera feel
+                // Games usually have their own smoothing, so we keep this minimal
+                if (i > 1 && i < steps - 1 && distance > 50)
+                {
+                    x += random.Next(-1, 2);
+                    y += random.Next(-1, 2);
+                }
 
                 // Move to the intermediate position (use direct Windows API for games)
                 SetCursorPos(x, y);
@@ -438,6 +545,9 @@ namespace CSimple
                 if (delayMs > 0)
                     await Task.Delay(delayMs);
             }
+
+            // Ensure we end exactly at target
+            SetCursorPos(endX, endY);
         }
 
         // Add this P/Invoke for direct cursor positioning (better for games)

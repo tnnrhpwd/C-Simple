@@ -312,6 +312,21 @@ namespace CSimple.Services
                     int currentX = startPoint.X;
                     int currentY = startPoint.Y;
 
+                    // First, analyze the timestamps to calculate total duration
+                    TimeSpan totalDuration = TimeSpan.Zero;
+                    if (actionGroup.ActionArray.Count >= 2)
+                    {
+                        DateTime startTime = DateTime.MinValue;
+                        DateTime endTime = DateTime.MinValue;
+
+                        if (DateTime.TryParse(actionGroup.ActionArray.First().Timestamp?.ToString(), out startTime) &&
+                            DateTime.TryParse(actionGroup.ActionArray.Last().Timestamp?.ToString(), out endTime))
+                        {
+                            totalDuration = endTime - startTime;
+                            Debug.WriteLine($"Total action duration: {totalDuration.TotalMilliseconds}ms");
+                        }
+                    }
+
                     // Schedule all actions first
                     foreach (var action in actionGroup.ActionArray)
                     {
@@ -360,22 +375,43 @@ namespace CSimple.Services
 
                                         if (UseInterpolation)
                                         {
-                                            // For game optimization - use more steps and delay for smoother movement
-                                            int gameSteps = MovementSteps;
-                                            int gameDelay = MovementDelayMs;
+                                            // Calculate duration based on the next action's timestamp if available
+                                            TimeSpan movementDuration = TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps); // Default
 
-                                            // If this appears to be a large movement (likely a game camera move), use more steps
-                                            int deltaX = Math.Abs(targetX - currentX);
-                                            int deltaY = Math.Abs(targetY - currentY);
-
-                                            if (deltaX > 50 || deltaY > 50)
+                                            // Try to find the next mouse move action to get exact duration
+                                            int currentIndex = actionGroup.ActionArray.IndexOf(action);
+                                            if (currentIndex >= 0 && currentIndex < actionGroup.ActionArray.Count - 1)
                                             {
-                                                gameSteps = 60; // More steps for large movements
-                                                gameDelay = 8;  // Larger delay for smoother game camera
+                                                // Find next action with a valid timestamp
+                                                for (int i = currentIndex + 1; i < actionGroup.ActionArray.Count; i++)
+                                                {
+                                                    var nextAction = actionGroup.ActionArray[i];
+                                                    if (DateTime.TryParse(action.Timestamp.ToString(), out DateTime thisTime) &&
+                                                        DateTime.TryParse(nextAction.Timestamp.ToString(), out DateTime nextTime))
+                                                    {
+                                                        movementDuration = nextTime - thisTime;
+                                                        // Reduce slightly to account for processing time
+                                                        movementDuration = TimeSpan.FromMilliseconds(movementDuration.TotalMilliseconds * 0.95);
+                                                        break;
+                                                    }
+                                                }
                                             }
 
-                                            // Move mouse smoothly (for games)
-                                            await SmoothMouseMove(currentX, currentY, targetX, targetY, gameSteps, gameDelay);
+                                            // Use interpolation with accurate timing
+                                            int actualSteps = MovementSteps;
+                                            int actualDelayMs = (int)(movementDuration.TotalMilliseconds / actualSteps);
+
+                                            // Make sure delay isn't too small
+                                            if (actualDelayMs < 1)
+                                            {
+                                                actualDelayMs = 1;
+                                                actualSteps = (int)movementDuration.TotalMilliseconds;
+                                            }
+
+                                            Debug.WriteLine($"Mouse movement with {actualSteps} steps and {actualDelayMs}ms delay (total: {movementDuration.TotalMilliseconds}ms)");
+
+                                            // Execute time-accurate smooth movement
+                                            await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, actualSteps, actualDelayMs, movementDuration);
                                         }
                                         else
                                         {
@@ -485,7 +521,7 @@ namespace CSimple.Services
         // Smooth mouse movement for game crosshairs - uses interpolation between points
         private async Task SmoothMouseMove(int startX, int startY, int endX, int endY, int steps, int delayMs)
         {
-            // For game movements, we might want to adjust the end points based on sensitivity
+            // For game movements, adjust the end points based on sensitivity
             if (GameSensitivityMultiplier != 1.0f && UseInterpolation)
             {
                 // Calculate how far we're moving
@@ -501,30 +537,262 @@ namespace CSimple.Services
                 endY = startY + deltaY;
             }
 
+            // Calculate total distance for adaptive step sizing
+            double distance = Math.Sqrt(Math.Pow(endX - startX, 2) + Math.Pow(endY - startY, 2));
+
+            // Dynamically adjust step count for very short or very long distances
+            if (distance < 10)
+                steps = Math.Max(5, steps / 3); // Fewer steps for tiny movements
+            else if (distance > 500)
+                steps = steps * 2; // More steps for large movements
+
+            Random random = new Random();
+
+            // Control points for natural arc (slight bezier curve effect)
+            // For human movement, we often don't move in perfect straight lines
+            int controlX = (startX + endX) / 2 + random.Next(-10, 10);
+            int controlY = (startY + endY) / 2 + random.Next(-10, 10);
+
+            // Previous point for calculating realistic speed
+            int prevX = startX;
+            int prevY = startY;
+
+            // Human movements have variable speed - start slower, middle faster, end slower (ease in-out)
             for (int i = 1; i <= steps; i++)
             {
                 if (cancel_simulation) break;
 
-                // Calculate intermediate position with easing for smoother movement
+                // Calculate progress with custom easing
                 float t = (float)i / steps;
 
-                // Apply easing function (ease-out) for smoother deceleration
-                t = 1 - (1 - t) * (1 - t);
+                // Human-like movement: slow start, faster middle, slow end (ease in-out)
+                float easedT = t < 0.5f
+                    ? 2.0f * t * t
+                    : 1.0f - (float)Math.Pow(-2.0f * t + 2.0f, 2) / 2.0f;
 
-                int x = (int)(startX + (endX - startX) * t);
-                int y = (int)(startY + (endY - startY) * t);
+                // Apply slight bezier curve for more natural movement path
+                float u = 1.0f - easedT;
+                float tt = easedT * easedT;
+                float uu = u * u;
+
+                // Quadratic bezier curve with single control point
+                int x = (int)(uu * startX + 2 * u * easedT * controlX + tt * endX);
+                int y = (int)(uu * startY + 2 * u * easedT * controlY + tt * endY);
+
+                // Add subtle human jitter (more prominent in middle, less at start/end)
+                float jitterFactor = 4.0f * easedT * (1.0f - easedT); // Most jitter in middle
+                if (distance > 20) // Only add jitter for larger movements
+                {
+                    x += (int)(random.Next(-2, 3) * jitterFactor);
+                    y += (int)(random.Next(-2, 3) * jitterFactor);
+                }
+
+                // Calculate actual speed based on distance moved
+                double segmentDistance = Math.Sqrt(Math.Pow(x - prevX, 2) + Math.Pow(y - prevY, 2));
+
+                // Adaptive delay - slower for precise movements, faster for big sweeps
+                int adaptiveDelay = delayMs;
+                if (segmentDistance < 2 && distance > 100)
+                    adaptiveDelay = delayMs / 2; // Move faster when small segments in large movement
+                else if (segmentDistance > 10)
+                    adaptiveDelay = delayMs * 2; // Slow down for large jumps
 
                 // Send raw mouse move
                 SendLowLevelMouseMove(x, y);
 
-                // Small delay between moves for smoothness
-                if (delayMs > 0)
-                    await Task.Delay(delayMs);
+                // Store current position as previous for next iteration
+                prevX = x;
+                prevY = y;
+
+                // Variable delay between moves for natural speed
+                if (adaptiveDelay > 0)
+                    await Task.Delay(adaptiveDelay);
             }
 
-            // Ensure final position
+            // Always ensure we reach exact final position
             if (!cancel_simulation)
                 SendLowLevelMouseMove(endX, endY);
+        }
+
+        // New method for time-accurate mouse movement
+        private async Task TimedSmoothMouseMove(int startX, int startY, int endX, int endY, int steps, int delayMs, TimeSpan targetDuration)
+        {
+            // Start timing so we can adjust to hit the target duration
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+            // For game movements, adjust the end points based on sensitivity
+            if (GameSensitivityMultiplier != 1.0f && UseInterpolation)
+            {
+                // Calculate how far we're moving
+                int deltaX = endX - startX;
+                int deltaY = endY - startY;
+
+                // Apply the sensitivity multiplier for games
+                deltaX = (int)(deltaX * GameSensitivityMultiplier);
+                deltaY = (int)(deltaY * GameSensitivityMultiplier);
+
+                // Recalculate end position with adjusted delta
+                endX = startX + deltaX;
+                endY = startY + deltaY;
+            }
+
+            // Calculate total distance for adaptive step sizing
+            double distance = Math.Sqrt(Math.Pow(endX - startX, 2) + Math.Pow(endY - startY, 2));
+
+            // Adaptively increase steps for more smoothness
+            int adaptiveSteps = distance < 50 ? steps : (int)(steps * Math.Sqrt(distance / 100.0));
+            adaptiveSteps = Math.Max(adaptiveSteps, 60); // Minimum 60 steps for ultra-smooth movement
+            adaptiveSteps = Math.Min(adaptiveSteps, 200); // Cap at 200 steps to avoid excessive processing
+            steps = adaptiveSteps;
+
+            Random random = new Random();
+
+            // Multiple control points for more natural arc using cubic bezier
+            // This creates more natural curved paths that humans naturally make
+            int control1X = startX + (endX - startX) / 3 + random.Next(-5, 6);
+            int control1Y = startY + (endY - startY) / 3 + random.Next(-5, 6);
+            int control2X = startX + 2 * (endX - startX) / 3 + random.Next(-5, 6);
+            int control2Y = startY + 2 * (endY - startY) / 3 + random.Next(-5, 6);
+
+            // Previous point for calculating realistic speed
+            int prevX = startX;
+            int prevY = startY;
+
+            // Calculate average delay needed to meet total duration
+            double totalDelayNeeded = targetDuration.TotalMilliseconds - (5 * steps); // Subtract estimated processing time
+            int avgDelayMs = (int)Math.Max(1, totalDelayNeeded / steps);
+
+            // Time correction variable to ensure we stay on schedule
+            double cumulativeDelayError = 0;
+
+            // Human movements have variable speed - start slower, middle faster, end slower
+            for (int i = 1; i <= steps; i++)
+            {
+                if (cancel_simulation) break;
+
+                // Calculate progress with custom easing
+                float t = (float)i / steps;
+
+                // Apply sophisticated easing function for ultra-realistic movement
+                float easedT = ApplyAdvancedEasing(t);
+
+                // Apply cubic bezier curve for more sophisticated natural movement path
+                // Cubic bezier (P₀(1-t)³ + 3P₁t(1-t)² + 3P₂t²(1-t) + P₃t³)
+                float u = 1.0f - easedT;
+                float u2 = u * u;
+                float u3 = u2 * u;
+                float t2 = easedT * easedT;
+                float t3 = t2 * easedT;
+
+                // Calculate position with cubic bezier curve
+                int x = (int)(u3 * startX +
+                              3 * u2 * easedT * control1X +
+                              3 * u * t2 * control2X +
+                              t3 * endX);
+
+                int y = (int)(u3 * startY +
+                              3 * u2 * easedT * control1Y +
+                              3 * u * t2 * control2Y +
+                              t3 * endY);
+
+                // Add realistic human micro-tremors (hand isn't perfectly steady)
+                // More evident in the middle, minimal at start/end
+                float trembleFactor = 4.0f * easedT * (1.0f - easedT);
+
+                // Make trembles proportional to distance but subtle 
+                float trembleIntensity = Math.Min((float)(distance / 500), 1.0f);
+
+                if (distance > 10) // Only add micro-tremors for non-tiny movements
+                {
+                    // Randomize tremor direction and intensity
+                    if (random.NextDouble() < 0.7) // 70% chance of tremor
+                    {
+                        float microTremor = trembleIntensity * trembleFactor * (float)random.NextDouble();
+                        int trembleX = random.Next(-1, 2);
+                        int trembleY = random.Next(-1, 2);
+
+                        // Apply very subtle movement
+                        x += (int)(trembleX * microTremor);
+                        y += (int)(trembleY * microTremor);
+                    }
+                }
+
+                // Calculate current elapsed time
+                double elapsedMs = stopwatch.ElapsedMilliseconds;
+                double targetElapsedMs = (targetDuration.TotalMilliseconds * i) / steps;
+
+                // Calculate ideal time vs. actual time
+                double timeDiscrepancy = targetElapsedMs - elapsedMs;
+
+                // Send raw mouse move
+                SendLowLevelMouseMove(x, y);
+
+                // Store current position as previous for next iteration
+                prevX = x;
+                prevY = y;
+
+                // Dynamically adjust delay to match target duration with high precision
+                if (i < steps) // Skip delay on last iteration
+                {
+                    // Adjust delay based on:
+                    // 1. How far behind/ahead we are from target time
+                    // 2. Accumulated error over time
+                    double idealDelay = targetElapsedMs - elapsedMs;
+                    cumulativeDelayError += (idealDelay - Math.Floor(idealDelay));
+
+                    // Apply correction when accumulated error exceeds 1ms
+                    int correctionMs = (int)cumulativeDelayError;
+                    if (Math.Abs(correctionMs) >= 1)
+                    {
+                        idealDelay += correctionMs;
+                        cumulativeDelayError -= correctionMs;
+                    }
+
+                    // Ensure we never wait less than 1ms
+                    int adaptiveDelay = Math.Max(1, (int)idealDelay);
+                    await Task.Delay(adaptiveDelay);
+                }
+            }
+
+            // Always ensure we reach exact final position
+            if (!cancel_simulation)
+                SendLowLevelMouseMove(endX, endY);
+
+            // If we completed early, wait for any remaining time to ensure accurate timing
+            if (stopwatch.ElapsedMilliseconds < targetDuration.TotalMilliseconds)
+            {
+                int finalDelay = (int)(targetDuration.TotalMilliseconds - stopwatch.ElapsedMilliseconds);
+                if (finalDelay > 0)
+                    await Task.Delay(finalDelay);
+            }
+
+            stopwatch.Stop();
+            Debug.WriteLine($"Mouse movement completed in {stopwatch.ElapsedMilliseconds}ms (target: {targetDuration.TotalMilliseconds}ms)");
+        }
+
+        // Advanced easing function for ultra-realistic movement patterns
+        private float ApplyAdvancedEasing(float t)
+        {
+            // Enhanced multi-phase easing that better represents human motion
+            if (t < 0.2f) // Initial acceleration phase
+            {
+                // Slow start with gradually increasing acceleration
+                return 0.5f * (float)Math.Pow(t / 0.2f, 2.3) * 0.2f;
+            }
+            else if (t < 0.8f) // Middle phase (more consistent speed)
+            {
+                // Map t from [0.2, 0.8] to [0.1, 0.9]
+                float normalized = 0.1f + (t - 0.2f) * 0.8f / 0.6f;
+
+                // Apply slight ease-in-out in the middle section
+                return 0.2f + (normalized - 0.1f) * 0.6f;
+            }
+            else // Final deceleration phase
+            {
+                // Gradual deceleration with slight settling at the end
+                float phase = (t - 0.8f) / 0.2f;
+                return 0.8f + (float)(0.2f * (1 - Math.Pow(1 - phase, 2.5)));
+            }
         }
 
         // Direct low-level mouse move using SendInput API for games
