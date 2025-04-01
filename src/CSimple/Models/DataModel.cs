@@ -43,6 +43,7 @@ public class DataItem : INotifyPropertyChanged
     public int __v { get; set; }
     public string Creator { get; set; }
     public bool IsPublic { get; set; }
+    public bool deleted { get; set; } // Add the missing deleted property
 }
 
 public class DataItemComparer : IEqualityComparer<DataItem>

@@ -45,6 +45,7 @@ namespace CSimple.Models
         public int __v { get; set; }
         public string Creator { get; set; }
         public bool IsPublic { get; set; }
+        public bool deleted { get; set; }
     }
 
     public class DataObject

@@ -424,8 +424,12 @@ namespace CSimple.Pages
                 var allItems = await _actionService.LoadAllDataItemsAsync();
                 Debug.WriteLine($"Loaded {allItems.Count} total unique items");
 
+                // Filter out any items that were marked as deleted
+                var filteredItems = allItems.Where(item => item.deleted != true).ToList();
+                Debug.WriteLine($"After filtering deleted items: {filteredItems.Count} items remain");
+
                 // Update DataItems collection
-                foreach (var item in allItems)
+                foreach (var item in filteredItems)
                 {
                     DataItems.Add(item);
                 }
@@ -476,8 +480,13 @@ namespace CSimple.Pages
         {
             base.OnAppearing();
 
-            // Simply call our unified refresh method
-            await RefreshData();
+            // Always refresh data when page appears
+            LoadActionsData();
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
         }
 
         private async Task TrainModel()
@@ -624,7 +633,7 @@ namespace CSimple.Pages
                 "OK");
         }
 
-        // Modified delete method to update both collections
+        // Completely revised delete method to ensure local actions are properly deleted 
         private async Task DeleteDataItemAsync(DataItem dataItem)
         {
             if (dataItem == null)
@@ -632,33 +641,128 @@ namespace CSimple.Pages
 
             try
             {
-                bool confirmDelete = await DisplayAlert("Confirm Delete", $"Are you sure you want to delete the action group '{dataItem.ToString()}'?", "Yes", "No");
-                if (confirmDelete)
+                // Check if this is a local action
+                bool isLocal = dataItem.Data?.ActionGroupObject?.IsLocal == true;
+                string actionName = dataItem.Data?.ActionGroupObject?.ActionName ?? "Unknown Action";
+
+                bool confirmDelete = await DisplayAlert("Confirm Delete",
+                    $"Are you sure you want to delete {(isLocal ? "the local action" : "the action")} '{actionName}'?",
+                    "Yes", "No");
+
+                if (!confirmDelete)
+                    return;
+
+                IsLoading = true;
+                Debug.WriteLine($"Deleting {(isLocal ? "local" : "regular")} action: {actionName}");
+
+                // First delete from the service
+                bool deleteSuccessful = await _actionService.DeleteDataItemAsync(dataItem);
+
+                if (deleteSuccessful)
                 {
-                    if (await _actionService.DeleteDataItemAsync(dataItem))
+                    // 1. Remove from DataItems
+                    if (DataItems.Contains(dataItem))
                     {
-                        // Remove the item from both collections
                         DataItems.Remove(dataItem);
-
-                        // Also remove from ActionGroups if it exists there
-                        var actionGroupToRemove = ActionGroups.FirstOrDefault(ag =>
-                            ag.ActionName == dataItem.Data?.ActionGroupObject?.ActionName);
-
-                        if (actionGroupToRemove != null)
-                        {
-                            ActionGroups.Remove(actionGroupToRemove);
-                        }
-
-                        DebugOutput($"Action Group {dataItem.ToString()} deleted.");
-
-                        // Update empty message visibility
-                        OnPropertyChanged(nameof(ShowEmptyMessage));
+                        Debug.WriteLine("Removed from DataItems");
                     }
+
+                    // 2. Remove from ActionGroups
+                    var actionGroupToRemove = ActionGroups.FirstOrDefault(ag =>
+                        ag.ActionName == actionName);
+
+                    if (actionGroupToRemove != null)
+                    {
+                        ActionGroups.Remove(actionGroupToRemove);
+                        Debug.WriteLine("Removed from ActionGroups");
+                    }
+
+                    // 3. Remove from _allActionGroups
+                    var allGroupToRemove = _allActionGroups.FirstOrDefault(ag =>
+                        ag.ActionName == actionName);
+
+                    if (allGroupToRemove != null)
+                    {
+                        _allActionGroups.Remove(allGroupToRemove);
+                        Debug.WriteLine("Removed from _allActionGroups");
+                    }
+
+                    // 4. If it's a local action, also remove from LocalItems
+                    if (isLocal)
+                    {
+                        var localItemToRemove = LocalItems.FirstOrDefault(item =>
+                            item.Data?.ActionGroupObject?.ActionName == actionName);
+
+                        if (localItemToRemove != null)
+                        {
+                            LocalItems.Remove(localItemToRemove);
+                            Debug.WriteLine("Removed from LocalItems");
+                        }
+                    }
+
+                    // 5. Save changes to persist deletion
+                    await SaveDataItemsToFile();
+                    Debug.WriteLine("Changes saved to storage");
+
+                    // 6. For local actions, make sure the local storage is also updated
+                    if (isLocal)
+                    {
+                        // Call a specific method to clean up local storage
+                        // If such a method doesn't exist, we would need to add it to ActionService
+                        await CleanupLocalActionStorage(actionName);
+                    }
+
+                    // Update UI indicators
+                    OnPropertyChanged(nameof(ShowEmptyMessage));
+                    OnPropertyChanged(nameof(HasSelectedActions));
+                    OnPropertyChanged(nameof(HasLocalItems));
+
+                    DebugOutput($"Action '{actionName}' successfully deleted.");
+                }
+                else
+                {
+                    await DisplayAlert("Error", "Failed to delete action. Please try again.", "OK");
+                    Debug.WriteLine("Delete operation failed");
                 }
             }
             catch (Exception ex)
             {
-                DebugOutput($"Error deleting action group: {ex.Message}");
+                DebugOutput($"Error deleting action: {ex.Message}");
+                Debug.WriteLine(ex.StackTrace);
+                await DisplayAlert("Error", "An error occurred while deleting the action.", "OK");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        // New helper method to ensure local action storage is cleaned up
+        private async Task CleanupLocalActionStorage(string actionName)
+        {
+            try
+            {
+                // This would call a method in ActionService to clean up specific local storage
+                // If such method doesn't exist, you would need to add it to ActionService
+
+                // For now, we'll call a general refresh of local items
+                await LoadLocalItemsAsync();
+                Debug.WriteLine($"Local storage cleanup performed for action: {actionName}");
+
+                // Ensure this action is not in the LocalItems collection anymore
+                var itemStillPresent = LocalItems.FirstOrDefault(item =>
+                    item.Data?.ActionGroupObject?.ActionName == actionName);
+
+                if (itemStillPresent != null)
+                {
+                    // If somehow it's still there, remove it forcefully
+                    LocalItems.Remove(itemStillPresent);
+                    Debug.WriteLine("Forcefully removed persistent local item");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error cleaning up local storage: {ex.Message}");
             }
         }
 
@@ -677,13 +781,40 @@ namespace CSimple.Pages
             await RefreshData();
         }
 
-        // Keep only this implementation of LoadLocalItemsAsync
+        // Fixed LoadLocalItemsAsync to avoid circular references
         private async Task LoadLocalItemsAsync()
         {
             try
             {
-                // This method now just calls RefreshData for unified loading
-                await RefreshData();
+                Debug.WriteLine("Loading local items only");
+
+                // Get all local items
+                var allItems = await _actionService.LoadAllDataItemsAsync();
+
+                // Filter for local items, but check DataItems to avoid loading deleted ones
+                var localItems = allItems?.Where(item =>
+                    item?.Data?.ActionGroupObject?.IsLocal == true &&
+                    // Don't include items that have been deleted (not in DataItems)
+                    !DataItems.Any(di =>
+                        di.Data?.ActionGroupObject?.Id.ToString() == item.Data?.ActionGroupObject?.Id.ToString() &&
+                        di.deleted == true)
+                ).ToList();
+
+                if (localItems != null)
+                {
+                    LocalItems.Clear();
+                    foreach (var item in localItems)
+                    {
+                        // Double check this item hasn't been flagged for deletion
+                        if (item.deleted != true)
+                        {
+                            LocalItems.Add(item);
+                        }
+                    }
+                }
+
+                OnPropertyChanged(nameof(HasLocalItems));
+                Debug.WriteLine($"Loaded {LocalItems.Count} local items");
             }
             catch (Exception ex)
             {
@@ -1229,6 +1360,30 @@ namespace CSimple.Pages
         private void OnOkayClick(object sender, EventArgs e)
         {
             _inputActionPopup.IsVisible = false;
+        }
+
+        // Fixed LoadActionsData to properly manage data loading
+        private async void LoadActionsData()
+        {
+            Debug.WriteLine("Reloading actions data");
+            IsLoading = true;
+
+            try
+            {
+                // Just call RefreshData directly for all items
+                await RefreshData();
+
+                // Then load local items separately
+                await LoadLocalItemsAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in LoadActionsData: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
     }
 

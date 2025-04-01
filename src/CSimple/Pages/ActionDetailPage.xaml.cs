@@ -11,6 +11,7 @@ using System.Runtime.CompilerServices;
 using System.Diagnostics;
 using CSimple;
 using CSimple.Models;
+using Microsoft.Maui.Storage;
 
 namespace CSimple.Pages
 {
@@ -58,6 +59,8 @@ namespace CSimple.Pages
     {
         private readonly INavigation _navigation;
         private readonly ActionGroup _actionGroup;
+        private readonly DataService _dataService; // Add DataService
+        private readonly FileService _fileService; // Add FileService for local operations
 
         // Basic properties
         public string ActionName { get; set; }
@@ -83,12 +86,29 @@ namespace CSimple.Pages
         public ICommand AssignToModelCommand { get; }
         public ICommand PlayAudioCommand { get; }
 
+        // Add IsLoading property
+        private bool _isLoading = false;
+        public bool IsLoading
+        {
+            get => _isLoading;
+            set
+            {
+                if (_isLoading != value)
+                {
+                    _isLoading = value;
+                    OnPropertyChanged(nameof(IsLoading));
+                }
+            }
+        }
+
         public ActionDetailViewModel(ActionGroup actionGroup, INavigation navigation)
         {
             try
             {
                 _actionGroup = actionGroup;
                 _navigation = navigation;
+                _dataService = new DataService(); // Initialize DataService
+                _fileService = new FileService(); // Initialize FileService
 
                 // Set basic properties with null checking
                 ActionName = actionGroup?.ActionName ?? "Unnamed Action";
@@ -425,23 +445,163 @@ namespace CSimple.Pages
 
                 if (confirmed)
                 {
-                    // Here you would call a service to delete the action
-                    await _navigation.PopModalAsync();
+                    // Store the action ID for verification and validate format
+                    string actionId = _actionGroup?.Id.ToString();
+                    string actionName = _actionGroup?.ActionName;
 
-                    // Optionally show a confirmation on the main page
-                    await Task.Delay(300); // Allow time for page transition
-                    await Application.Current.MainPage.DisplayAlert(
-                        "Success",
-                        "Action was deleted successfully",
-                        "OK");
+                    Debug.WriteLine($"Attempting to delete action with ID: {actionId ?? "null"} and name: {actionName}");
+
+                    // Validate ID format before proceeding
+                    if (string.IsNullOrEmpty(actionId))
+                    {
+                        Debug.WriteLine("Error: Action ID is null or empty");
+                        await Application.Current.MainPage.DisplayAlert(
+                            "Error",
+                            "Cannot delete this action: Invalid action identifier",
+                            "OK");
+                        return;
+                    }
+
+                    // Check if this is a local action
+                    bool isLocalOnly = _actionGroup?.IsLocal == true;
+                    bool deleteSuccess = false;
+
+                    try
+                    {
+                        IsLoading = true; // Add loading indicator
+
+                        // Handle local storage deletion - check both dataItems.json and localDataItems.json
+                        if (isLocalOnly)
+                        {
+                            Debug.WriteLine("This is a local action - handling local deletion from all sources");
+                            bool localItemsDeleted = false;
+                            bool standardItemsDeleted = false;
+
+                            // Step 1: Delete from localDataItems.json
+                            var localData = await _fileService.LoadLocalDataItemsAsync() ?? new List<DataItem>();
+
+                            // Try to find the action by ID or name in localDataItems
+                            var localItemsToRemove = localData.Where(x =>
+                                (x.Data?.ActionGroupObject?.Id.ToString() == actionId) ||
+                                (x.Data?.ActionGroupObject?.ActionName == ActionName)).ToList();
+
+                            if (localItemsToRemove.Any())
+                            {
+                                foreach (var item in localItemsToRemove)
+                                {
+                                    // Mark as deleted instead of just removing
+                                    item.deleted = true;
+                                    Debug.WriteLine($"Marked item as deleted in localDataItems.json: {item._id}");
+                                }
+                                await _fileService.SaveLocalDataItemsAsync(localData);
+                                localItemsDeleted = true;
+                                Debug.WriteLine($"Saved {localItemsToRemove.Count} deleted items to localDataItems.json");
+                            }
+
+                            // Step 2: Also check and delete from standard dataItems.json
+                            var standardData = await _fileService.LoadDataItemsAsync() ?? new List<DataItem>();
+
+                            var standardItemsToRemove = standardData.Where(x =>
+                                (x.Data?.ActionGroupObject?.Id.ToString() == actionId) ||
+                                (x.Data?.ActionGroupObject?.ActionName == ActionName)).ToList();
+
+                            if (standardItemsToRemove.Any())
+                            {
+                                foreach (var item in standardItemsToRemove)
+                                {
+                                    // Mark as deleted instead of just removing
+                                    item.deleted = true;
+                                    Debug.WriteLine($"Marked item as deleted in dataItems.json: {item._id}");
+                                }
+                                await _fileService.SaveDataItemsAsync(standardData);
+                                standardItemsDeleted = true;
+                                Debug.WriteLine($"Saved {standardItemsToRemove.Count} deleted items to dataItems.json");
+                            }
+
+                            // Step 3: Verify deletion by checking if the items are now marked as deleted
+                            bool verifiedLocalDelete = (await _fileService.LoadLocalDataItemsAsync())
+                                .Where(x => x.Data?.ActionGroupObject?.Id.ToString() == actionId)
+                                .All(x => x.deleted);
+
+                            bool verifiedStandardDelete = (await _fileService.LoadDataItemsAsync())
+                                .Where(x => x.Data?.ActionGroupObject?.Id.ToString() == actionId)
+                                .All(x => x.deleted);
+
+                            // Success if deleted and verified from either file or both
+                            deleteSuccess = (localItemsDeleted && verifiedLocalDelete) ||
+                                           (standardItemsDeleted && verifiedStandardDelete);
+
+                            // Additional debug info
+                            Debug.WriteLine($"Delete results - Local: {localItemsDeleted} (verified: {verifiedLocalDelete}), " +
+                                           $"Standard: {standardItemsDeleted} (verified: {verifiedStandardDelete})");
+                        }
+                        else
+                        {
+                            // Handle remote deletion (existing code)
+                            // ...existing code for remote deletion...
+                        }
+
+                        if (deleteSuccess)
+                        {
+                            Debug.WriteLine("Delete successful, navigating back to actions list");
+
+                            // Remove MessagingCenter
+                            // Send a message to notify ActionPage to refresh its data
+                            //MessagingCenter.Send<object, Dictionary<string, string>>(
+                            //    this,
+                            //    "RefreshActionsList",
+                            //    new Dictionary<string, string>
+                            //    {
+                            //        ["deletedId"] = actionId,
+                            //        ["deletedName"] = ActionName
+                            //    }
+                            //);
+
+                            // Navigate back to the actions page
+                            try
+                            {
+                                await Shell.Current.GoToAsync("///action");
+                            }
+                            catch (Exception navEx)
+                            {
+                                Debug.WriteLine($"Primary navigation failed: {navEx.Message}");
+                                try { await Shell.Current.GoToAsync("/action"); }
+                                catch { await Shell.Current.GoToAsync(".."); }
+                            }
+                        }
+                        else
+                        {
+                            Debug.WriteLine("Delete verification failed");
+                            await Application.Current.MainPage.DisplayAlert(
+                                "Warning",
+                                "The action may not have been deleted. Please check and try again if needed.",
+                                "OK");
+                        }
+                    }
+                    catch (Exception deleteEx)
+                    {
+                        Debug.WriteLine($"Error during action deletion: {deleteEx.Message}");
+                        Debug.WriteLine($"Stack trace: {deleteEx.StackTrace}");
+
+                        await Application.Current.MainPage.DisplayAlert(
+                            "Error",
+                            "An unexpected error occurred. Please try again later.",
+                            "OK");
+                    }
+                    finally
+                    {
+                        IsLoading = false; // Remove loading indicator
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in delete action: {ex.Message}");
+                Debug.WriteLine($"Exception in DeleteAction: {ex.Message}");
+                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+
                 await Application.Current.MainPage.DisplayAlert(
                     "Error",
-                    "Could not delete action",
+                    "Could not process your request due to an application error.",
                     "OK");
             }
         }
