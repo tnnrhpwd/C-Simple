@@ -66,6 +66,11 @@ namespace CSimple.Services
         private const int SM_CXSCREEN = 0;
         private const int SM_CYSCREEN = 1;
 
+        // Add these constants near the top of the class
+        private const uint MOUSEEVENTF_MOVE_NOCOALESCING = 0x2000; // More precise movement
+        private const int REALIGN_EVERY_N_MOVEMENTS = 10; // Only realign every 10 raw movements
+        private bool _useRawMovement = true; // Whether to prioritize raw movement data
+
         // Struct definitions for SendInput
         [StructLayout(LayoutKind.Sequential)]
         private struct INPUT
@@ -331,6 +336,9 @@ namespace CSimple.Services
                     int currentX = startPoint.X;
                     int currentY = startPoint.Y;
 
+                    // Track movement counters for periodic realignment
+                    int movementCounter = 0;
+
                     // First, analyze the timestamps to calculate total duration
                     TimeSpan totalDuration = TimeSpan.Zero;
                     if (actionGroup.ActionArray.Count >= 2)
@@ -367,6 +375,10 @@ namespace CSimple.Services
                         if (previousActionTime.HasValue)
                         {
                             TimeSpan delay = currentActionTime - previousActionTime.Value;
+                            // Avoid overly long delays
+                            if (delay.TotalMilliseconds > 1000)
+                                delay = TimeSpan.FromMilliseconds(1000);
+
                             Debug.WriteLine($"Scheduling delay for {delay.TotalMilliseconds} ms before next action.");
                             await Task.Delay(delay);
                         }
@@ -385,12 +397,48 @@ namespace CSimple.Services
                             switch (action.EventType)
                             {
                                 case 512: // Mouse Move
-                                    if (action.Coordinates != null)
+                                    // Determine if we should use raw movement data or coordinate-based movement
+                                    bool useRawData = _useRawMovement &&
+                                                     (action.DeltaX != 0 || action.DeltaY != 0);
+
+                                    if (useRawData)
+                                    {
+                                        movementCounter++;
+
+                                        // If first movement or periodic realignment, set cursor to exact position
+                                        if (movementCounter == 1 || movementCounter % REALIGN_EVERY_N_MOVEMENTS == 0)
+                                        {
+                                            // Use the actual coordinates for alignment
+                                            int targetX = action.Coordinates?.X ?? currentX;
+                                            int targetY = action.Coordinates?.Y ?? currentX;
+                                            Debug.WriteLine($"[ALIGN] Moving cursor to precise position: {targetX},{targetY}");
+                                            SendLowLevelMouseMove(targetX, targetY);
+                                            currentX = targetX;
+                                            currentY = targetY;
+                                        }
+
+                                        // Then apply the raw delta movement
+                                        Debug.WriteLine($"[RAW] Delta movement: {action.DeltaX},{action.DeltaY} (Velocity: {action.VelocityX},{action.VelocityY})");
+
+                                        // Apply raw movement using the delta values
+                                        await SimulateRawMouseMovement(
+                                            action.DeltaX,
+                                            action.DeltaY,
+                                            action.TimeSinceLastMoveMs,
+                                            action.VelocityX,
+                                            action.VelocityY
+                                        );
+
+                                        // Update current position tracking based on delta
+                                        currentX += action.DeltaX;
+                                        currentY += action.DeltaY;
+                                    }
+                                    else if (action.Coordinates != null)
                                     {
                                         int targetX = action.Coordinates?.X ?? 0;
                                         int targetY = action.Coordinates?.Y ?? 0;
 
-                                        Debug.WriteLine($"Simulating Mouse Move at {action.Timestamp} to X: {targetX}, Y: {targetY}");
+                                        Debug.WriteLine($"[COORD] Moving cursor to: {targetX},{targetY}");
 
                                         if (UseInterpolation)
                                         {
@@ -416,21 +464,8 @@ namespace CSimple.Services
                                                 }
                                             }
 
-                                            // Use interpolation with accurate timing
-                                            int actualSteps = MovementSteps;
-                                            int actualDelayMs = (int)(movementDuration.TotalMilliseconds / actualSteps);
-
-                                            // Make sure delay isn't too small
-                                            if (actualDelayMs < 1)
-                                            {
-                                                actualDelayMs = 1;
-                                                actualSteps = (int)movementDuration.TotalMilliseconds;
-                                            }
-
-                                            Debug.WriteLine($"Mouse movement with {actualSteps} steps and {actualDelayMs}ms delay (total: {movementDuration.TotalMilliseconds}ms)");
-
-                                            // Execute time-accurate smooth movement
-                                            await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, actualSteps, actualDelayMs, movementDuration);
+                                            // Use coordinate-based movement
+                                            await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, MovementSteps, MovementDelayMs, movementDuration);
                                         }
                                         else
                                         {
@@ -444,7 +479,7 @@ namespace CSimple.Services
                                     }
                                     else
                                     {
-                                        Debug.WriteLine($"Mouse move action at {action.Timestamp} missing coordinates.");
+                                        Debug.WriteLine($"Mouse move action at {action.Timestamp} missing both coordinates and delta data.");
                                     }
                                     break;
 
@@ -877,6 +912,102 @@ namespace CSimple.Services
             }
 
             // Send input
+            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+        }
+
+        // New method to simulate raw mouse movement using deltas instead of absolute coordinates
+        private async Task SimulateRawMouseMovement(int deltaX, int deltaY, long timeSinceLastMoveMs, float velocityX, float velocityY)
+        {
+            // If this is a very small movement, send it directly
+            if (Math.Abs(deltaX) <= 2 && Math.Abs(deltaY) <= 2)
+            {
+                SendRawMouseInput(deltaX, deltaY);
+                // Use a minimal delay for micro movements
+                await Task.Delay(1);
+                return;
+            }
+
+            // For larger movements, determine how to split it based on velocity and timing
+            int movementSteps = 1;
+
+            // If we have velocity data, use it to determine movement steps
+            if (velocityX != 0 || velocityY != 0)
+            {
+                // Calculate movement magnitude
+                double magnitude = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
+
+                // Higher velocity = fewer steps to simulate fast movement
+                double velocityMagnitude = Math.Sqrt(velocityX * velocityX + velocityY * velocityY);
+
+                if (velocityMagnitude > 1000)
+                    movementSteps = 1; // Very fast movement, send in one go
+                else if (velocityMagnitude > 500)
+                    movementSteps = 2;
+                else if (velocityMagnitude > 200)
+                    movementSteps = 3;
+                else
+                    movementSteps = (int)(magnitude / 10) + 1; // Split larger slower movements
+
+                // Cap the steps for performance
+                movementSteps = Math.Min(movementSteps, 5);
+            }
+            else
+            {
+                // Without velocity data, use magnitude-based steps
+                double magnitude = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
+                movementSteps = (int)(magnitude / 20) + 1;
+            }
+
+            // Calculate step sizes
+            float stepX = (float)deltaX / movementSteps;
+            float stepY = (float)deltaY / movementSteps;
+
+            // Calculate delay between steps
+            int stepDelayMs = 1;
+            if (timeSinceLastMoveMs > 0)
+            {
+                // Distribute the original time across the steps
+                stepDelayMs = (int)(timeSinceLastMoveMs / movementSteps);
+
+                // Ensure reasonable timing
+                stepDelayMs = Math.Min(stepDelayMs, 20); // Cap at 20ms per step
+                stepDelayMs = Math.Max(stepDelayMs, 1);  // At least 1ms
+            }
+
+            // Execute the movement steps
+            for (int i = 0; i < movementSteps; i++)
+            {
+                // For last step, ensure we send the exact remaining delta to avoid rounding errors
+                int stepDeltaX = (i == movementSteps - 1) ?
+                    deltaX - (int)(stepX * i) :
+                    (int)Math.Round(stepX);
+
+                int stepDeltaY = (i == movementSteps - 1) ?
+                    deltaY - (int)(stepY * i) :
+                    (int)Math.Round(stepY);
+
+                // Send the actual input
+                SendRawMouseInput(stepDeltaX, stepDeltaY);
+
+                // Wait the calculated delay between steps
+                if (i < movementSteps - 1 && stepDelayMs > 0)
+                    await Task.Delay(stepDelayMs);
+            }
+        }
+
+        // Add this new method to send raw mouse movement using INPUT structure
+        private void SendRawMouseInput(int deltaX, int deltaY)
+        {
+            INPUT[] inputs = new INPUT[1];
+            inputs[0].type = INPUT_MOUSE;
+            inputs[0].mi.dx = deltaX;
+            inputs[0].mi.dy = deltaY;
+            inputs[0].mi.mouseData = 0;
+            inputs[0].mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCING; // Use more precise movement
+            inputs[0].mi.time = 0;
+            inputs[0].mi.dwExtraInfo = IntPtr.Zero;
+
+            // Send the raw input
             SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
         }
 
