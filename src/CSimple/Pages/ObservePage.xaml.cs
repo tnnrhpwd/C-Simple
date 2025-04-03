@@ -475,7 +475,8 @@ namespace CSimple.Pages
             UserTouchLevel = 0.0f; // Reset to zero when starting
 
             // Reset recording buffer
-            _currentRecordingBuffer = new List<ActionItem>();
+            _currentRecordingBuffer = new List<ActionItem>(10000); // Pre-allocate larger capacity
+            Debug.WriteLine("Started input recording with high-frequency mouse tracking");
         }
 
         private async void StopUserTouch()
@@ -703,62 +704,105 @@ namespace CSimple.Pages
 
         private void OnInputCaptured(string inputJson)
         {
-            // Reset the debounce timer on each input
-            _debounceTimer?.Dispose();
-            _debounceTimer = new Timer(DebouncedInputCaptured, inputJson, DebounceInterval, Timeout.Infinite);
+            try
+            {
+                // Process immediately instead of debouncing
+                var actionItem = JsonConvert.DeserializeObject<ActionItem>(inputJson);
+
+                // Check if it's a mouse movement event
+                bool isMouseMovement = actionItem.EventType == 512 || // Mouse move
+                                      actionItem.EventType == 0x0200; // WM_MOUSEMOVE
+
+                if (isMouseMovement)
+                {
+                    // Process mouse movements directly without debounce
+                    ProcessMouseMovement(actionItem);
+                }
+                else
+                {
+                    // Only debounce non-mouse movement inputs
+                    _debounceTimer?.Dispose();
+                    _debounceTimer = new Timer(DebouncedInputCaptured, inputJson, DebounceInterval, Timeout.Infinite);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error processing input: {ex.Message}");
+            }
+        }
+
+        // New method to immediately process mouse movements
+        private void ProcessMouseMovement(ActionItem actionItem)
+        {
+            if (_isRecording)
+            {
+                // Directly add to recording buffer without UI updates for better performance
+                _currentRecordingBuffer.Add(actionItem);
+
+                // Periodically update UI to show activity without slowing down recording
+                if (_currentRecordingBuffer.Count % 50 == 0)
+                {
+                    Dispatcher.Dispatch(() =>
+                    {
+                        // Update touch level for visual feedback only
+                        UserTouchLevel = 0.6f; // Show activity
+
+                        // Update capture preview if available (minimal UI update)
+                        if (CapturePreviewCard != null && CapturePreviewCard.IsPreviewEnabled)
+                        {
+                            CapturePreviewCard.UpdateMouseMovement(new Point(
+                                actionItem.DeltaX,
+                                actionItem.DeltaY
+                            ));
+                        }
+                    });
+                }
+            }
         }
 
         private async void DebouncedInputCaptured(object state)
         {
+            // Only process non-mouse movement inputs (keyboard, buttons, etc.)
             string inputJson = (string)state;
             Dispatcher.Dispatch(async () =>
             {
                 UserTouchInputText = inputJson;
-                Debug.WriteLine(inputJson);
 
                 try
                 {
                     // Deserialize action item
                     var actionItem = JsonConvert.DeserializeObject<ActionItem>(inputJson);
 
-                    // Update touch level based on active key count
-                    int activeKeyCount = _inputService.GetActiveKeyCount();
-                    UserTouchLevel = Math.Min(activeKeyCount / 5.0f, 1.0f); // Scale: 5 keys = 100%
-
-                    // Always update the visualization, regardless of preview state
-                    if (CapturePreviewCard != null)
+                    // Process non-mouse events normally
+                    if (actionItem.EventType != 512 && actionItem.EventType != 0x0200)
                     {
-                        // Clear existing data
-                        Debug.WriteLine($"Updating key: {actionItem.KeyCode}, EventType: {actionItem.EventType}");
+                        // Update touch level based on active key count
+                        int activeKeyCount = _inputService.GetActiveKeyCount();
+                        UserTouchLevel = Math.Min(activeKeyCount / 5.0f, 1.0f); // Scale: 5 keys = 100%
 
-                        // Determine if key is being pressed or released
-                        var isPressed = actionItem.EventType == 0x0100 || // Key down (WM_KEYDOWN)
-                                       actionItem.EventType == 0x0201 || // Left mouse down
-                                       actionItem.EventType == 0x0204;   // Right mouse down
+                        // Update visualization for keyboard events
+                        if (CapturePreviewCard != null)
+                        {
+                            // Determine if key is being pressed or released
+                            var isPressed = actionItem.EventType == 0x0100 || // Key down (WM_KEYDOWN)
+                                           actionItem.EventType == 0x0201 || // Left mouse down
+                                           actionItem.EventType == 0x0204;   // Right mouse down
 
-                        // Update the key display with keycode and press state
-                        CapturePreviewCard.UpdateInputActivity((ushort)actionItem.KeyCode, isPressed);
+                            // Update the key display with keycode and press state
+                            CapturePreviewCard.UpdateInputActivity((ushort)actionItem.KeyCode, isPressed);
+                        }
 
-                        // Animate button to show there's activity
-                        var originalColor = Colors.Transparent;
-                        await ButtonColorAnimation(Colors.LightGreen);
-                        await ButtonColorAnimation(originalColor);
-                    }
-
-                    // Add item to buffer instead of immediately saving to file
-                    if (_isRecording)
-                    {
-                        // Buffer the action for batch processing later
-                        _currentRecordingBuffer.Add(actionItem);
+                        // Add to recording buffer if recording
+                        if (_isRecording)
+                        {
+                            _currentRecordingBuffer.Add(actionItem);
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Error updating input visualization: {ex.Message}");
                 }
-
-                // Remove direct call to SaveAction() - we'll do this in batch on stop
-                // This prevents the immediate file saving and reloading
             });
         }
 

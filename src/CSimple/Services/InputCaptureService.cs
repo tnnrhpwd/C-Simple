@@ -30,7 +30,7 @@ namespace CSimple.Services
         private BlockingCollection<ActionItem> _inputQueue;
 
         // Enhanced mouse movement handling for gaming
-        private const int MOUSE_MOVEMENT_THROTTLE_MS = 4; // Reduced for gaming scenarios
+        private const int MOUSE_MOVEMENT_THROTTLE_MS = 1; // Reduced to 1ms (was 4ms)
         private DateTime _lastMouseMoveSent = DateTime.MinValue;
         private POINT _lastProcessedMousePos;
         private POINT _startMousePos; // Track start position for relative movements
@@ -424,11 +424,10 @@ namespace CSimple.Services
                     // Detect movement with higher precision for gaming
                     bool positionChanged = currentMousePos.X != lastReportedPos.X ||
                                            currentMousePos.Y != lastReportedPos.Y;
-                    TimeSpan timeSinceLastMove = DateTime.UtcNow - _lastMouseMoveSent;
 
-                    // For gaming, we want more frequent updates on mouse movement
-                    if (positionChanged &&
-                        (timeSinceLastMove.TotalMilliseconds >= MOUSE_MOVEMENT_THROTTLE_MS))
+                    // For tracking every movement, we don't use the time threshold
+                    // This ensures we capture all movements regardless of timing
+                    if (positionChanged) // Removed time threshold check
                     {
                         // Calculate delta movement
                         int deltaX = currentMousePos.X - lastReportedPos.X;
@@ -459,7 +458,7 @@ namespace CSimple.Services
                             IsLeftButtonDown = _leftMouseDown,
                             IsRightButtonDown = _rightMouseDown,
                             IsMiddleButtonDown = _middleMouseDown,
-                            TimeSinceLastMove = timeSinceLastMove,
+                            TimeSinceLastMove = DateTime.UtcNow - _lastMouseMoveSent,
                             VelocityX = velocityX,
                             VelocityY = velocityY
                         };
@@ -471,14 +470,14 @@ namespace CSimple.Services
                         AddToInputQueue(actionItem);
                     }
 
-                    // Adaptive frame rate for gaming responsiveness
-                    int delayMs = positionChanged ? 1 : 5;
-                    await Task.Delay(delayMs);
+                    // Use fixed minimal delay to maximize sampling rate
+                    // Minimal delay of 1ms to prevent CPU overuse but still capture at ~1000Hz
+                    await Task.Delay(1);
                 }
                 catch (Exception ex)
                 {
                     LogDebug($"Error tracking mouse movements: {ex.Message}");
-                    await Task.Delay(10); // Short delay on error
+                    await Task.Delay(5); // Short delay on error
                 }
             }
 
@@ -601,9 +600,10 @@ namespace CSimple.Services
         {
             try
             {
-                // Use more efficient batch processing
-                const int batchSize = 15; // Increased from 10 to 15
+                // Increase batch size for mouse movements
+                const int batchSize = 30; // Increased from 15 to 30
                 List<ActionItem> batch = new List<ActionItem>(batchSize);
+                Stopwatch batchTimer = new Stopwatch();
 
                 // Continue processing until cancellation is requested or queue is completed
                 while (!cancellationToken.IsCancellationRequested && (_inputQueue != null && !_inputQueue.IsCompleted))
@@ -612,9 +612,10 @@ namespace CSimple.Services
                     {
                         batch.Clear();
                         int count = 0;
+                        batchTimer.Restart();
 
                         // Try to take multiple items at once with shorter timeout
-                        while (count < batchSize && _inputQueue.TryTake(out ActionItem item, 20))
+                        while (count < batchSize && _inputQueue.TryTake(out ActionItem item, 10))
                         {
                             if (item != null)
                             {
@@ -632,11 +633,18 @@ namespace CSimple.Services
                                 string inputJson = JsonConvert.SerializeObject(batch[i]);
                                 InputCaptured?.Invoke(inputJson);
                             }
+
+                            // Add adaptive throttling for very high-frequency events to prevent CPU overload
+                            if (batchTimer.ElapsedMilliseconds < 1 && batch.Count == batchSize)
+                            {
+                                // If we're processing batches extremely quickly, add a tiny delay
+                                Thread.Sleep(1);
+                            }
                         }
                         else
                         {
                             // Shorter sleep if no items - don't block too long
-                            Thread.Sleep(5);
+                            Thread.Sleep(1);
                         }
                     }
                     catch (InvalidOperationException)
