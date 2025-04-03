@@ -1,4 +1,5 @@
 ﻿using CSimple.Services;
+using CSimple.Services.AppModeService;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows.Input;
@@ -18,6 +19,7 @@ namespace CSimple.Pages
         public ICommand ToggleMyGoalsCommand { get; }
         public ICommand SubmitGoalCommand { get; }
         private readonly GoalService _goalService;
+        private readonly CSimple.Services.AppModeService.AppModeService _appModeService;
 
         public GoalPage()
         {
@@ -29,16 +31,25 @@ namespace CSimple.Pages
 
             // Initialize services
             _goalService = ServiceProvider.GetService<GoalService>();
+            _appModeService = ServiceProvider.GetService<CSimple.Services.AppModeService.AppModeService>();
 
             // Bind the context
             BindingContext = this;
             CheckUserLoggedIn();
+
             // Load goals from file
             _ = LoadGoalsFromFile();
         }
 
         private async void CheckUserLoggedIn()
         {
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                Debug.WriteLine("App is in offline mode. Using local goals only.");
+                await LoadGoalsFromFile();
+                return;
+            }
+
             if (!await _goalService.IsUserLoggedInAsync())
             {
                 Debug.WriteLine("User is not logged in, navigating to login...");
@@ -92,10 +103,26 @@ namespace CSimple.Pages
         protected override void OnAppearing()
         {
             base.OnAppearing();
+
+            // Refresh goals based on current app mode
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                _ = _goalService.GetLocalGoalsAsync(MyGoals);
+            }
+            else
+            {
+                _ = LoadGoalsFromBackend();
+            }
         }
 
         private async Task LoadGoalsFromBackend()
         {
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                Debug.WriteLine("App is in offline mode. Skipping backend goal loading.");
+                return;
+            }
+
             await _goalService.LoadGoalsFromBackend(MyGoals, AllDataItems);
         }
 

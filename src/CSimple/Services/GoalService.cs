@@ -1,6 +1,7 @@
 using Microsoft.Maui.Storage;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using CSimple.Services.AppModeService;
 
 namespace CSimple.Services
 {
@@ -8,11 +9,13 @@ namespace CSimple.Services
     {
         private readonly DataService _dataService;
         private readonly FileService _fileService;
+        private readonly CSimple.Services.AppModeService.AppModeService _appModeService;
 
-        public GoalService(DataService dataService, FileService fileService)
+        public GoalService(DataService dataService, FileService fileService, CSimple.Services.AppModeService.AppModeService appModeService)
         {
             _dataService = dataService;
             _fileService = fileService;
+            _appModeService = appModeService;
         }
 
         public async Task<bool> IsUserLoggedInAsync()
@@ -43,6 +46,13 @@ namespace CSimple.Services
 
         public async Task LoadGoalsFromBackend(ObservableCollection<string> myGoals, ObservableCollection<DataItem> allDataItems)
         {
+            // Skip backend loading if in offline mode
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                Debug.WriteLine("App is in offline mode. Skipping backend goal loading.");
+                return;
+            }
+
             try
             {
                 var token = await SecureStorage.GetAsync("userToken");
@@ -80,6 +90,19 @@ namespace CSimple.Services
             }
         }
 
+        public async Task GetLocalGoalsAsync(ObservableCollection<string> myGoals)
+        {
+            try
+            {
+                Debug.WriteLine("Loading goals from local storage only");
+                await LoadGoalsFromFile(myGoals);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading local goals: {ex.Message}");
+            }
+        }
+
         private ObservableCollection<string> FormatGoalsFromBackend(IEnumerable<DataItem> goalItems)
         {
             var formattedGoals = new ObservableCollection<string>();
@@ -97,6 +120,13 @@ namespace CSimple.Services
 
         public async Task SaveGoalToBackend(string goal)
         {
+            // Skip if in offline mode
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                Debug.WriteLine("App is in offline mode. Goal saved locally only.");
+                return;
+            }
+
             try
             {
                 var token = await SecureStorage.GetAsync("userToken");
