@@ -10,7 +10,7 @@ public enum AppMode
 
 public class AppModeService : INotifyPropertyChanged
 {
-    private AppMode _currentMode = AppMode.Online;
+    private AppMode _currentMode = AppMode.Offline;
 
     public AppMode CurrentMode
     {
