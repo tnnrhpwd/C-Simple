@@ -201,6 +201,10 @@ namespace CSimple.Pages
         private Timer _debounceTimer;
         private const int DebounceInterval = 200; // milliseconds
 
+        // Add flag to track if we're currently in recording mode
+        private bool _isRecording = false;
+        private List<ActionItem> _currentRecordingBuffer = new List<ActionItem>();
+
         public ObservePage()
         {
             InitializeComponent();
@@ -374,6 +378,12 @@ namespace CSimple.Pages
                     // Enable previews when starting webcam capture
                     EnablePreviewIfNeeded();
                 }
+                else if (startAction == StartUserTouch)
+                {
+                    // Set recording flag when starting touch capture
+                    _isRecording = true;
+                    _currentRecordingBuffer.Clear(); // Clear previous recording buffer
+                }
             }
             else
             {
@@ -392,6 +402,11 @@ namespace CSimple.Pages
                     PCVisualLevel = 0.0f;
                     // Check if we should disable previews
                     CheckAndDisablePreviewIfNeeded();
+                }
+                else if (stopAction == StopUserTouch)
+                {
+                    // Reset recording flag when stopping touch capture
+                    _isRecording = false;
                 }
             }
             return buttonText;
@@ -449,7 +464,7 @@ namespace CSimple.Pages
 
         private void StopUserVisual() => _userVisualCts?.Cancel();
 
-        // Updated StartUserTouch method to reset touch level
+        // Updated StartUserTouch method to reset touch level and recording state
         private void StartUserTouch()
         {
             _inputService.StartCapturing();
@@ -458,22 +473,96 @@ namespace CSimple.Pages
             IntPtr hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
             _mouseService.StartTracking(hwnd);
             UserTouchLevel = 0.0f; // Reset to zero when starting
+
+            // Reset recording buffer
+            _currentRecordingBuffer = new List<ActionItem>();
         }
 
         private async void StopUserTouch()
         {
             _inputService.StopCapturing();
             _mouseService.StopTracking();
+            _isRecording = false; // Ensure recording flag is set to false
 
             // Only save if we're saving records
             if (SaveRecord)
             {
-                await SaveNewActionGroup();
+                // Process all buffered actions at once now that we're done recording
+                await SaveAllBufferedActions();
 
                 // Only save to file if that option is enabled
                 if (SaveLocally)
                     await SaveDataItemsToFile();
             }
+        }
+
+        // New method to save all buffered actions at once
+        private async Task SaveAllBufferedActions()
+        {
+            string actionName = ActionConfigCard?.ActionName;
+            if (string.IsNullOrEmpty(actionName) || _currentRecordingBuffer.Count == 0)
+                return;
+
+            // Create priority and modifier configuration
+            int priority = 0;
+            if (!string.IsNullOrEmpty(ActionConfigCard?.Priority))
+            {
+                int.TryParse(ActionConfigCard.Priority, out priority);
+            }
+
+            var actionModifier = new ActionModifier
+            {
+                ModifierName = ActionConfigCard?.ModifierName ?? string.Empty,
+                Description = InputModifierPopupControl?.Description ?? string.Empty,
+                Priority = priority
+            };
+
+            // Ensure unique identifier for the action group
+            var newActionGroupId = Guid.NewGuid();
+
+            var existingGroup = Data.FirstOrDefault(ag => ag.Data.ActionGroupObject.ActionName == actionName);
+
+            if (existingGroup != null)
+            {
+                // Update the existing action group with all buffered items
+                existingGroup.Data.ActionGroupObject.ActionArray.AddRange(_currentRecordingBuffer);
+
+                if (!existingGroup.Data.ActionGroupObject.ActionModifiers.Any(am => am.ModifierName == actionModifier.ModifierName))
+                    existingGroup.Data.ActionGroupObject.ActionModifiers.Add(actionModifier);
+
+                // Make sure it's marked as local
+                existingGroup.Data.ActionGroupObject.IsLocal = true;
+
+                Debug.WriteLine($"Updated Action Group with {_currentRecordingBuffer.Count} items");
+            }
+            else
+            {
+                // Create a new action group with a unique ID and all buffered items
+                var newActionGroup = new ActionGroup
+                {
+                    Id = newActionGroupId,
+                    ActionName = actionName,
+                    ActionArray = new List<ActionItem>(_currentRecordingBuffer), // Copy all buffered items
+                    ActionModifiers = new List<ActionModifier> { actionModifier },
+                    CreatedAt = DateTime.Now,
+                    IsLocal = true  // Explicitly mark as local
+                };
+
+                var newItem = new DataItem
+                {
+                    Data = new DataObject { ActionGroupObject = newActionGroup },
+                    createdAt = DateTime.Now  // Set the timestamp on the DataItem
+                };
+
+                Data.Add(newItem);
+                Debug.WriteLine($"Saved New Action Group: {actionName} with {_currentRecordingBuffer.Count} items");
+
+                // Save the new action to dataitems.json - only when explicitly stopping
+                await SaveNewActionToFile(newItem);
+            }
+
+            // Clear buffer after saving
+            _currentRecordingBuffer.Clear();
         }
 
         // Update StopAllCaptures method
@@ -655,22 +744,35 @@ namespace CSimple.Pages
                         await ButtonColorAnimation(Colors.LightGreen);
                         await ButtonColorAnimation(originalColor);
                     }
+
+                    // Add item to buffer instead of immediately saving to file
+                    if (_isRecording)
+                    {
+                        // Buffer the action for batch processing later
+                        _currentRecordingBuffer.Add(actionItem);
+                    }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Error updating input visualization: {ex.Message}");
                 }
 
-                // Call SaveAction asynchronously
-                await Task.Run(() => SaveAction());
+                // Remove direct call to SaveAction() - we'll do this in batch on stop
+                // This prevents the immediate file saving and reloading
             });
         }
 
-        private async Task ButtonColorAnimation(Color color, int duration = 200)
+        private void SaveAction()
         {
-            // This is a placeholder for button color animation
-            // Since we can't directly access ButtonLabel anymore
-            await Task.Delay(duration);
+            // This method is kept for backward compatibility
+            // but should not be called during active recording
+            if (!SaveRecord || _isRecording) return;
+
+            // Process any buffered inputs
+            if (_currentRecordingBuffer.Count > 0)
+            {
+                _ = SaveAllBufferedActions();
+            }
         }
 
         private void OnFileCaptured(string filePath)
@@ -716,98 +818,6 @@ namespace CSimple.Pages
             CapturedImageSource = newImage;
             OnPropertyChanged(nameof(CapturedImageSource));
             await this.ScaleTo(1, 150, Easing.CubicInOut);
-        }
-
-        private void SaveAction()
-        {
-            // If not saving records, don't proceed
-            if (!SaveRecord) return;
-
-            string actionName = ActionConfigCard?.ActionName;
-            if (string.IsNullOrEmpty(actionName) || string.IsNullOrEmpty(UserTouchInputText)) return;
-
-            var actionItem = JsonConvert.DeserializeObject<ActionItem>(UserTouchInputText);
-            int priority = 0;
-            if (!string.IsNullOrEmpty(ActionConfigCard?.Priority))
-            {
-                int.TryParse(ActionConfigCard.Priority, out priority);
-            }
-
-            var actionModifier = new ActionModifier
-            {
-                ModifierName = ActionConfigCard?.ModifierName ?? string.Empty,
-                Description = InputModifierPopupControl?.Description ?? string.Empty,
-                Priority = priority
-            };
-
-            // Ensure unique identifier for the action group
-            var newActionGroupId = Guid.NewGuid();
-
-            var existingGroup = Data.FirstOrDefault(ag => ag.Data.ActionGroupObject.ActionName == actionName);
-
-            if (existingGroup != null)
-            {
-                // Update the existing action group
-                existingGroup.Data.ActionGroupObject.ActionArray.Add(actionItem);
-
-                if (!existingGroup.Data.ActionGroupObject.ActionModifiers.Any(am => am.ModifierName == actionModifier.ModifierName))
-                    existingGroup.Data.ActionGroupObject.ActionModifiers.Add(actionModifier);
-
-                // Make sure it's marked as local
-                existingGroup.Data.ActionGroupObject.IsLocal = true;
-
-                Debug.WriteLine($"Updated Action Group: {UserTouchInputText}");
-            }
-            else
-            {
-                // Create a new action group with a unique ID
-                var newActionGroup = new ActionGroup
-                {
-                    Id = newActionGroupId,
-                    ActionName = actionName,
-                    ActionArray = new List<ActionItem> { actionItem },
-                    ActionModifiers = new List<ActionModifier> { actionModifier },
-                    CreatedAt = DateTime.Now,
-                    IsLocal = true  // Explicitly mark as local
-                };
-
-                var newItem = new DataItem
-                {
-                    Data = new DataObject { ActionGroupObject = newActionGroup },
-                    createdAt = DateTime.Now  // Set the timestamp on the DataItem
-                };
-
-                Data.Add(newItem);
-                Debug.WriteLine($"Saved New Action Group: {actionName}");
-
-                // Save the new action to dataitems.json
-                Task.Run(() => SaveNewActionToFile(newItem));
-            }
-        }
-
-        private async Task SaveNewActionToFile(DataItem newItem)
-        {
-            try
-            {
-                // Load existing items first
-                var existingItems = await _dataService.LoadDataItemsFromFile();
-
-                // Add the new item if it doesn't exist yet
-                if (!existingItems.Any(item =>
-                    item.Data?.ActionGroupObject?.ActionName == newItem.Data?.ActionGroupObject?.ActionName))
-                {
-                    existingItems.Add(newItem);
-                }
-
-                // Save to both regular file and local data store
-                await _dataService.SaveDataItemsToFile(existingItems);
-                await _dataService.SaveLocalRichDataAsync(new List<DataItem> { newItem });
-                Debug.WriteLine("New action saved to both dataitems.json and local data store");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error saving new action to file: {ex.Message}");
-            }
         }
 
         private async Task SaveNewActionGroup()
@@ -898,6 +908,38 @@ namespace CSimple.Pages
                     CapturePreviewCard.UpdateScreenCapture(screenImage);
                 }
             }
+        }
+
+        private async Task SaveNewActionToFile(DataItem newItem)
+        {
+            try
+            {
+                // Load existing items first
+                var existingItems = await _dataService.LoadDataItemsFromFile();
+
+                // Add the new item if it doesn't exist yet
+                if (!existingItems.Any(item =>
+                    item.Data?.ActionGroupObject?.ActionName == newItem.Data?.ActionGroupObject?.ActionName))
+                {
+                    existingItems.Add(newItem);
+                }
+
+                // Save to both regular file and local data store
+                await _dataService.SaveDataItemsToFile(existingItems);
+                await _dataService.SaveLocalRichDataAsync(new List<DataItem> { newItem });
+                Debug.WriteLine("New action saved to both dataitems.json and local data store");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving new action to file: {ex.Message}");
+            }
+        }
+
+        private async Task ButtonColorAnimation(Color color, int duration = 200)
+        {
+            // This is a placeholder for button color animation
+            // Since we can't directly access ButtonLabel anymore
+            await Task.Delay(duration);
         }
     }
 
