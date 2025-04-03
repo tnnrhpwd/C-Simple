@@ -218,14 +218,26 @@ namespace CSimple.Models
         public int EventType { get; set; }
         public int KeyCode { get; set; }
         public int Duration { get; set; }
+
+        // Enhanced mouse movement properties
         public Coordinates Coordinates { get; set; }
+        public int DeltaX { get; set; }
+        public int DeltaY { get; set; }
+        public uint MouseData { get; set; }
+        public uint Flags { get; set; }
+        public bool IsLeftButtonDown { get; set; }
+        public bool IsRightButtonDown { get; set; }
+        public bool IsMiddleButtonDown { get; set; }
+        public long TimeSinceLastMoveMs { get; set; }
+        public float VelocityX { get; set; }
+        public float VelocityY { get; set; }
 
         public override string ToString()
         {
             if (EventType == 256 || EventType == 257) // Keyboard events
                 return $"Key {KeyCode} {(EventType == 256 ? "Down" : "Up")}";
             else if (EventType == 512) // Mouse move
-                return $"Mouse Move to X:{Coordinates?.X ?? 0}, Y:{Coordinates?.Y ?? 0}";
+                return $"Mouse Move to X:{Coordinates?.X ?? 0}, Y:{Coordinates?.Y ?? 0} (Delta:{DeltaX},{DeltaY})";
             else if (EventType == 0x0201) // Left mouse button down
                 return $"Left Click at X:{Coordinates?.X ?? 0}, Y:{Coordinates?.Y ?? 0}";
             else if (EventType == 0x0204) // Right mouse button down
@@ -239,6 +251,10 @@ namespace CSimple.Models
     {
         public int X { get; set; }
         public int Y { get; set; }
+        public int AbsoluteX { get; set; }
+        public int AbsoluteY { get; set; }
+        public int RelativeX { get; set; }
+        public int RelativeY { get; set; }
     }
 
     public class ModelAssignment

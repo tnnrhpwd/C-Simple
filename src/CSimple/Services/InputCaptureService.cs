@@ -29,11 +29,19 @@ namespace CSimple.Services
         // Concurrent queue for processing input events
         private BlockingCollection<ActionItem> _inputQueue;
 
-        // Better mouse movement handling
-        private const int MOUSE_MOVEMENT_THROTTLE_MS = 10; // More efficient throttling
+        // Enhanced mouse movement handling for gaming
+        private const int MOUSE_MOVEMENT_THROTTLE_MS = 4; // Reduced for gaming scenarios
         private DateTime _lastMouseMoveSent = DateTime.MinValue;
         private POINT _lastProcessedMousePos;
+        private POINT _startMousePos; // Track start position for relative movements
+        private bool _leftMouseDown = false;
+        private bool _rightMouseDown = false;
+        private bool _middleMouseDown = false;
 
+        // Track raw mouse movement for more accurate replay
+        private int _accumulatedDeltaX = 0;
+        private int _accumulatedDeltaY = 0;
+        private Stopwatch _mouseMoveTimer = new Stopwatch();
         private readonly object _inputQueueLock = new object();
 
         #endregion
@@ -43,9 +51,12 @@ namespace CSimple.Services
         private const int WH_MOUSE_LL = 14;
         private const int WM_LBUTTONDOWN = 0x0201;
         private const int WM_RBUTTONDOWN = 0x0204;
+        private const int WM_MBUTTONDOWN = 0x0207; // Middle button down
         private const int WM_MOUSEMOVE = 0x0200;
         private const int WM_LBUTTONUP = 0x0202;
         private const int WM_RBUTTONUP = 0x0205;
+        private const int WM_MBUTTONUP = 0x0208; // Middle button up
+        private const int WM_MOUSEWHEEL = 0x020A; // Mouse wheel
         private const int WM_KEYDOWN = 0x0100;
         private const int WM_KEYUP = 0x0101;
         #endregion
@@ -76,6 +87,17 @@ namespace CSimple.Services
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool GetCursorPos(out POINT lpPoint);
 
+        // Required to get raw mouse data
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MSLLHOOKSTRUCT
+        {
+            public POINT pt;
+            public uint mouseData;
+            public uint flags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
         [StructLayout(LayoutKind.Sequential)]
         private struct POINT
         {
@@ -84,6 +106,35 @@ namespace CSimple.Services
         }
 #endif
         #endregion
+
+        // Enhanced ActionItem to store richer mouse data
+        public class ActionItem
+        {
+            public ushort EventType { get; set; }
+            public int KeyCode { get; set; }
+            public DateTime Timestamp { get; set; }
+            public Coordinates Coordinates { get; set; }
+            public int DeltaX { get; set; } // For raw mouse movement
+            public int DeltaY { get; set; } // For raw mouse movement
+            public uint MouseData { get; set; } // For wheel and other mouse data
+            public uint Flags { get; set; } // Special flags from raw input
+            public bool IsLeftButtonDown { get; set; }
+            public bool IsRightButtonDown { get; set; }
+            public bool IsMiddleButtonDown { get; set; }
+            public TimeSpan TimeSinceLastMove { get; set; } // For timing-accurate replay
+            public float VelocityX { get; set; } // Mouse movement velocity
+            public float VelocityY { get; set; } // Mouse movement velocity
+        }
+
+        public class Coordinates
+        {
+            public int X { get; set; }
+            public int Y { get; set; }
+            public int AbsoluteX { get; set; } // Absolute screen position
+            public int AbsoluteY { get; set; } // Absolute screen position
+            public int RelativeX { get; set; } // Position relative to starting point
+            public int RelativeY { get; set; } // Position relative to starting point
+        }
 
         // Add missing class definitions
         public class InputEvent { }
@@ -96,6 +147,7 @@ namespace CSimple.Services
         {
             // Initialize the queue
             ResetInputQueue();
+            _mouseMoveTimer.Start();
         }
 
         // Create a method to reset the input queue
@@ -118,11 +170,20 @@ namespace CSimple.Services
                 // Reset the input queue when starting a new capture session
                 ResetInputQueue();
 
+                // Reset mouse state tracking
+                _leftMouseDown = false;
+                _rightMouseDown = false;
+                _middleMouseDown = false;
+                _accumulatedDeltaX = 0;
+                _accumulatedDeltaY = 0;
+                _mouseMoveTimer.Restart();
+
                 _keyboardProc = HookCallback;
                 _mouseProc = HookCallback;
                 _keyboardHookID = SetHook(_keyboardProc, WH_KEYBOARD_LL);
                 _mouseHookID = SetHook(_mouseProc, WH_MOUSE_LL);
                 GetCursorPos(out _lastMousePos);
+                _startMousePos = _lastMousePos; // Save start position for relative tracking
                 _isActive = true;
                 LogDebug("Input capture started");
 
@@ -138,6 +199,13 @@ namespace CSimple.Services
             if (_isActive)
             {
                 _isActive = false; // Set _isActive to false first
+
+                // Store final mouse state before stopping
+                if (_leftMouseDown || _rightMouseDown || _middleMouseDown)
+                {
+                    // Create final mouse up events if mouse buttons were down at stop
+                    RecordFinalMouseState();
+                }
 
                 if (_keyboardHookID != IntPtr.Zero)
                 {
@@ -167,26 +235,68 @@ namespace CSimple.Services
 #endif
         }
 
-        public string GetActiveInputsDisplay()
+#if WINDOWS
+        private void RecordFinalMouseState()
         {
-            var activeInputsDisplay = new StringBuilder();
-            activeInputsDisplay.AppendLine("Active Key/Mouse Presses:");
+            GetCursorPos(out POINT currentPos);
 
-            foreach (var kvp in _activeKeyPresses)
+            // Create proper mouse up events for any buttons still pressed
+            if (_leftMouseDown)
             {
-                activeInputsDisplay.AppendLine($"KeyCode/MouseCode: {kvp.Key}");
+                var actionItem = new ActionItem
+                {
+                    EventType = WM_LBUTTONUP,
+                    Coordinates = CreateCoordinates(currentPos),
+                    Timestamp = DateTime.UtcNow,
+                    IsLeftButtonDown = false,
+                    IsRightButtonDown = _rightMouseDown,
+                    IsMiddleButtonDown = _middleMouseDown
+                };
+                AddToInputQueue(actionItem);
             }
 
-            return activeInputsDisplay.ToString();
+            if (_rightMouseDown)
+            {
+                var actionItem = new ActionItem
+                {
+                    EventType = WM_RBUTTONUP,
+                    Coordinates = CreateCoordinates(currentPos),
+                    Timestamp = DateTime.UtcNow,
+                    IsLeftButtonDown = false,
+                    IsRightButtonDown = false,
+                    IsMiddleButtonDown = _middleMouseDown
+                };
+                AddToInputQueue(actionItem);
+            }
+
+            if (_middleMouseDown)
+            {
+                var actionItem = new ActionItem
+                {
+                    EventType = WM_MBUTTONUP,
+                    Coordinates = CreateCoordinates(currentPos),
+                    Timestamp = DateTime.UtcNow,
+                    IsLeftButtonDown = false,
+                    IsRightButtonDown = false,
+                    IsMiddleButtonDown = false
+                };
+                AddToInputQueue(actionItem);
+            }
         }
 
-        // Add a method to get the count of active keys for the progress bar
-        public int GetActiveKeyCount()
+        private Coordinates CreateCoordinates(POINT currentPos)
         {
-            return _activeKeyPresses.Count;
+            return new Coordinates
+            {
+                X = currentPos.X,
+                Y = currentPos.Y,
+                AbsoluteX = currentPos.X,
+                AbsoluteY = currentPos.Y,
+                RelativeX = currentPos.X - _startMousePos.X,
+                RelativeY = currentPos.Y - _startMousePos.Y
+            };
         }
 
-#if WINDOWS
         private IntPtr SetHook(LowLevelKeyboardProc proc, int hookType)
         {
             using (var curProcess = Process.GetCurrentProcess())
@@ -202,27 +312,72 @@ namespace CSimple.Services
             {
                 var actionItem = new ActionItem
                 {
-                    Timestamp = DateTime.UtcNow
+                    Timestamp = DateTime.UtcNow,
+                    IsLeftButtonDown = _leftMouseDown,
+                    IsRightButtonDown = _rightMouseDown,
+                    IsMiddleButtonDown = _middleMouseDown
                 };
 
-                if (wParam == (IntPtr)WM_MOUSEMOVE)
+                // Handle mouse events
+                if (wParam == (IntPtr)WM_MOUSEMOVE ||
+                    wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_LBUTTONUP ||
+                    wParam == (IntPtr)WM_RBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONUP ||
+                    wParam == (IntPtr)WM_MBUTTONDOWN || wParam == (IntPtr)WM_MBUTTONUP ||
+                    wParam == (IntPtr)WM_MOUSEWHEEL)
                 {
+                    MSLLHOOKSTRUCT mouseHookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
+
                     GetCursorPos(out POINT currentMousePos);
-                    actionItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
-                    actionItem.EventType = WM_MOUSEMOVE;
-                }
-                else if (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN)
-                {
-                    GetCursorPos(out POINT currentMousePos);
-                    actionItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
+                    int deltaX = currentMousePos.X - _lastMousePos.X;
+                    int deltaY = currentMousePos.Y - _lastMousePos.Y;
+
+                    // Track accumulated deltas for raw movement
+                    _accumulatedDeltaX += deltaX;
+                    _accumulatedDeltaY += deltaY;
+
+                    TimeSpan timeDelta = _mouseMoveTimer.Elapsed;
+                    _mouseMoveTimer.Restart();
+
+                    // Calculate velocity for more accurate replay
+                    float velocityX = timeDelta.TotalSeconds > 0 ? (float)(deltaX / timeDelta.TotalSeconds) : 0;
+                    float velocityY = timeDelta.TotalSeconds > 0 ? (float)(deltaY / timeDelta.TotalSeconds) : 0;
+
+                    actionItem.Coordinates = new Coordinates
+                    {
+                        X = currentMousePos.X,
+                        Y = currentMousePos.Y,
+                        AbsoluteX = currentMousePos.X,
+                        AbsoluteY = currentMousePos.Y,
+                        RelativeX = currentMousePos.X - _startMousePos.X,
+                        RelativeY = currentMousePos.Y - _startMousePos.Y
+                    };
+                    actionItem.DeltaX = deltaX;
+                    actionItem.DeltaY = deltaY;
+                    actionItem.MouseData = mouseHookStruct.mouseData;
+                    actionItem.Flags = mouseHookStruct.flags;
                     actionItem.EventType = (ushort)wParam;
+                    actionItem.TimeSinceLastMove = DateTime.UtcNow - _lastMouseEventTime;
+                    actionItem.VelocityX = velocityX;
+                    actionItem.VelocityY = velocityY;
+
+                    // Update mouse button states
+                    if (wParam == (IntPtr)WM_LBUTTONDOWN) _leftMouseDown = true;
+                    else if (wParam == (IntPtr)WM_LBUTTONUP) _leftMouseDown = false;
+                    else if (wParam == (IntPtr)WM_RBUTTONDOWN) _rightMouseDown = true;
+                    else if (wParam == (IntPtr)WM_RBUTTONUP) _rightMouseDown = false;
+                    else if (wParam == (IntPtr)WM_MBUTTONDOWN) _middleMouseDown = true;
+                    else if (wParam == (IntPtr)WM_MBUTTONUP) _middleMouseDown = false;
+
+                    // Update action item with current button states
+                    actionItem.IsLeftButtonDown = _leftMouseDown;
+                    actionItem.IsRightButtonDown = _rightMouseDown;
+                    actionItem.IsMiddleButtonDown = _middleMouseDown;
+
+                    // Remember current position for next delta calculation
+                    _lastMousePos = currentMousePos;
+                    _lastMouseEventTime = DateTime.UtcNow;
                 }
-                else if (wParam == (IntPtr)WM_LBUTTONUP || wParam == (IntPtr)WM_RBUTTONUP)
-                {
-                    GetCursorPos(out POINT currentMousePos);
-                    actionItem.Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y };
-                    actionItem.EventType = (ushort)wParam;
-                }
+                // Handle keyboard events
                 else if (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_KEYUP)
                 {
                     int vkCode = Marshal.ReadInt32(lParam);
@@ -231,27 +386,34 @@ namespace CSimple.Services
                 }
 
                 // Add the action item to the queue for processing
-                if (_inputQueue != null && !_inputQueue.IsAddingCompleted)
-                {
-                    try
-                    {
-                        _inputQueue.Add(actionItem);
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        // The collection has been marked as complete
-                        LogDebug("Queue is marked complete in HookCallback and cannot accept new items.");
-                    }
-                }
+                AddToInputQueue(actionItem);
             }
 
             return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+        }
+
+        private void AddToInputQueue(ActionItem actionItem)
+        {
+            if (_inputQueue != null && !_inputQueue.IsAddingCompleted)
+            {
+                try
+                {
+                    _inputQueue.Add(actionItem);
+                }
+                catch (InvalidOperationException)
+                {
+                    // The collection has been marked as complete
+                    LogDebug("Queue is marked complete and cannot accept new items.");
+                }
+            }
         }
 
         private async Task TrackMouseMovements()
         {
             Stopwatch frameTimer = new Stopwatch();
             frameTimer.Start();
+            POINT lastReportedPos = new POINT();
+            GetCursorPos(out lastReportedPos);
 
             while (_isActive)
             {
@@ -259,57 +421,181 @@ namespace CSimple.Services
                 {
                     GetCursorPos(out POINT currentMousePos);
 
-                    // More efficient throttling logic for mouse movements
+                    // Detect movement with higher precision for gaming
+                    bool positionChanged = currentMousePos.X != lastReportedPos.X ||
+                                           currentMousePos.Y != lastReportedPos.Y;
                     TimeSpan timeSinceLastMove = DateTime.UtcNow - _lastMouseMoveSent;
-                    bool positionChanged = currentMousePos.X != _lastMousePos.X || currentMousePos.Y != _lastMousePos.Y;
 
-                    // Either throttle by time or by distance
+                    // For gaming, we want more frequent updates on mouse movement
                     if (positionChanged &&
                         (timeSinceLastMove.TotalMilliseconds >= MOUSE_MOVEMENT_THROTTLE_MS))
                     {
+                        // Calculate delta movement
+                        int deltaX = currentMousePos.X - lastReportedPos.X;
+                        int deltaY = currentMousePos.Y - lastReportedPos.Y;
+
+                        TimeSpan timeDelta = _mouseMoveTimer.Elapsed;
+                        _mouseMoveTimer.Restart();
+
+                        // Calculate velocity for more accurate replay
+                        float velocityX = timeDelta.TotalSeconds > 0 ? (float)(deltaX / timeDelta.TotalSeconds) : 0;
+                        float velocityY = timeDelta.TotalSeconds > 0 ? (float)(deltaY / timeDelta.TotalSeconds) : 0;
+
                         var actionItem = new ActionItem
                         {
                             EventType = WM_MOUSEMOVE,
-                            Coordinates = new Coordinates { X = currentMousePos.X, Y = currentMousePos.Y },
-                            Timestamp = DateTime.UtcNow
+                            Coordinates = new Coordinates
+                            {
+                                X = currentMousePos.X,
+                                Y = currentMousePos.Y,
+                                AbsoluteX = currentMousePos.X,
+                                AbsoluteY = currentMousePos.Y,
+                                RelativeX = currentMousePos.X - _startMousePos.X,
+                                RelativeY = currentMousePos.Y - _startMousePos.Y
+                            },
+                            DeltaX = deltaX,
+                            DeltaY = deltaY,
+                            Timestamp = DateTime.UtcNow,
+                            IsLeftButtonDown = _leftMouseDown,
+                            IsRightButtonDown = _rightMouseDown,
+                            IsMiddleButtonDown = _middleMouseDown,
+                            TimeSinceLastMove = timeSinceLastMove,
+                            VelocityX = velocityX,
+                            VelocityY = velocityY
                         };
 
-                        _lastMousePos = currentMousePos;
+                        lastReportedPos = currentMousePos;
                         _lastMouseMoveSent = DateTime.UtcNow;
                         _lastProcessedMousePos = currentMousePos;
 
-                        // Add the action item to the queue for processing
-                        if (_inputQueue != null && !_inputQueue.IsAddingCompleted)
-                        {
-                            try
-                            {
-                                _inputQueue.Add(actionItem);
-                            }
-                            catch (InvalidOperationException)
-                            {
-                                // The collection has been marked as complete
-                                LogDebug("Queue is marked complete and cannot accept new items.");
-                            }
-                        }
+                        AddToInputQueue(actionItem);
                     }
 
-                    // More efficient adaptive delay
-                    int elapsedMs = (int)frameTimer.ElapsedMilliseconds;
-                    int delayMs = 1; // Minimum delay for responsiveness
-                    frameTimer.Restart();
-
+                    // Adaptive frame rate for gaming responsiveness
+                    int delayMs = positionChanged ? 1 : 5;
                     await Task.Delay(delayMs);
                 }
                 catch (Exception ex)
                 {
                     LogDebug($"Error tracking mouse movements: {ex.Message}");
-                    await Task.Delay(20); // Short delay on error
+                    await Task.Delay(10); // Short delay on error
                 }
             }
 
             frameTimer.Stop();
         }
 #endif
+
+        #region Model Conversion Methods
+
+        /// <summary>
+        /// Converts an internal ActionItem to a CSimple.ActionItem for storage
+        /// </summary>
+        public CSimple.ActionItem ConvertToModelActionItem(ActionItem item)
+        {
+            if (item == null) return null;
+
+            var modelItem = new CSimple.ActionItem
+            {
+                Timestamp = item.Timestamp,
+                EventType = item.EventType,
+                KeyCode = item.KeyCode,
+
+                // Copy enhanced mouse data
+                DeltaX = item.DeltaX,
+                DeltaY = item.DeltaY,
+                MouseData = item.MouseData,
+                Flags = item.Flags,
+                IsLeftButtonDown = item.IsLeftButtonDown,
+                IsRightButtonDown = item.IsRightButtonDown,
+                IsMiddleButtonDown = item.IsMiddleButtonDown,
+                TimeSinceLastMoveMs = (long)item.TimeSinceLastMove.TotalMilliseconds,
+                VelocityX = item.VelocityX,
+                VelocityY = item.VelocityY
+            };
+
+            // Handle coordinates conversion
+            if (item.Coordinates != null)
+            {
+                modelItem.Coordinates = new CSimple.Coordinates
+                {
+                    X = item.Coordinates.X,
+                    Y = item.Coordinates.Y,
+                    AbsoluteX = item.Coordinates.AbsoluteX,
+                    AbsoluteY = item.Coordinates.AbsoluteY,
+                    RelativeX = item.Coordinates.RelativeX,
+                    RelativeY = item.Coordinates.RelativeY
+                };
+            }
+
+            return modelItem;
+        }
+
+        /// <summary>
+        /// Bulk converts a collection of ActionItems for storage in ActionGroup
+        /// </summary>
+        public List<CSimple.ActionItem> ConvertToModelActionItems(IEnumerable<ActionItem> items)
+        {
+            var result = new List<CSimple.ActionItem>();
+
+            if (items == null)
+                return result;
+
+            foreach (var item in items)
+            {
+                var converted = ConvertToModelActionItem(item);
+                if (converted != null)
+                {
+                    result.Add(converted);
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Processes captured input data and adds it to an ActionGroup
+        /// </summary>
+        public void ProcessInputDataToActionGroup(CSimple.Models.ActionGroup actionGroup, ActionItem[] capturedInputs)
+        {
+            if (actionGroup == null || capturedInputs == null || capturedInputs.Length == 0)
+                return;
+
+            // Convert the captured inputs to model items
+            var modelItems = ConvertToModelActionItems(capturedInputs);
+
+            // Add to the action group
+            if (actionGroup.ActionArray == null)
+                actionGroup.ActionArray = new List<CSimple.Models.ActionItem>();
+
+            actionGroup.ActionArray.AddRange(modelItems.Select(item => new CSimple.Models.ActionItem
+            {
+                Timestamp = item.Timestamp,
+                EventType = item.EventType,
+                KeyCode = item.KeyCode,
+                DeltaX = item.DeltaX,
+                DeltaY = item.DeltaY,
+                MouseData = item.MouseData,
+                Flags = item.Flags,
+                IsLeftButtonDown = item.IsLeftButtonDown,
+                IsRightButtonDown = item.IsRightButtonDown,
+                IsMiddleButtonDown = item.IsMiddleButtonDown,
+                TimeSinceLastMoveMs = item.TimeSinceLastMoveMs,
+                VelocityX = item.VelocityX,
+                VelocityY = item.VelocityY,
+                Coordinates = item.Coordinates != null ? new CSimple.Models.Coordinates
+                {
+                    X = item.Coordinates.X,
+                    Y = item.Coordinates.Y,
+                    AbsoluteX = item.Coordinates.AbsoluteX,
+                    AbsoluteY = item.Coordinates.AbsoluteY,
+                    RelativeX = item.Coordinates.RelativeX,
+                    RelativeY = item.Coordinates.RelativeY
+                } : null
+            }));
+        }
+
+        #endregion
 
         private void ProcessInputQueue(CancellationToken cancellationToken)
         {
@@ -442,6 +728,25 @@ namespace CSimple.Services
             _queueProcessingCts = null;
             _previewCts?.Dispose();
             _previewCts = null;
+        }
+
+        public string GetActiveInputsDisplay()
+        {
+            var activeInputsDisplay = new StringBuilder();
+            activeInputsDisplay.AppendLine("Active Key/Mouse Presses:");
+
+            foreach (var kvp in _activeKeyPresses)
+            {
+                activeInputsDisplay.AppendLine($"KeyCode/MouseCode: {kvp.Key}");
+            }
+
+            return activeInputsDisplay.ToString();
+        }
+
+        // Implementation of the missing GetActiveKeyCount method
+        public int GetActiveKeyCount()
+        {
+            return _activeKeyPresses.Count;
         }
     }
 }
