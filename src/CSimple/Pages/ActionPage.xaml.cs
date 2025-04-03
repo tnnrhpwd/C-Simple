@@ -421,49 +421,73 @@ namespace CSimple.Pages
             IsLoading = true;
             try
             {
-                Debug.WriteLine("Refreshing all action data...");
+                Debug.WriteLine("Refreshing action data based on current app mode...");
 
                 // Clear existing collections
                 DataItems.Clear();
                 ActionGroups.Clear();
 
-                // Check if offline mode is enabled
-                if (_appModeService.CurrentMode == AppMode.Offline)
+                // Check current app mode
+                bool isOnlineMode = _appModeService?.CurrentMode == AppMode.Online;
+                Debug.WriteLine($"Current app mode: {(isOnlineMode ? "Online" : "Offline")}");
+
+                // STEP 1: Always load local data
+                Debug.WriteLine("Loading local action data...");
+                var localDataItems = await _actionService.LoadLocalDataItemsAsync();
+                Debug.WriteLine($"Loaded {localDataItems.Count} local-only items");
+
+                // Add non-deleted local items to the DataItems collection
+                foreach (var item in localDataItems.Where(item => item.deleted != true))
                 {
-                    Debug.WriteLine("App is in offline mode. Loading only local action data.");
-                    // Load local data only
-                    var localItems = await _actionService.LoadLocalDataItemsAsync();
-                    Debug.WriteLine($"Loaded {localItems.Count} local items");
-
-                    foreach (var item in localItems.Where(item => item.deleted != true))
-                    {
-                        DataItems.Add(item);
-                    }
-                }
-                else
-                {
-                    // Load all data using our new unified method
-                    var allItems = await _actionService.LoadAllDataItemsAsync();
-                    Debug.WriteLine($"Loaded {allItems.Count} total unique items");
-
-                    // Filter out any items that were marked as deleted
-                    var filteredItems = allItems.Where(item => item.deleted != true).ToList();
-                    Debug.WriteLine($"After filtering deleted items: {filteredItems.Count} items remain");
-
-                    // Update DataItems collection
-                    foreach (var item in filteredItems)
-                    {
-                        DataItems.Add(item);
-                    }
+                    DataItems.Add(item);
                 }
 
-                // Update ActionGroups collection
+                // STEP 2: Load backend data only if in online mode
+                if (isOnlineMode)
+                {
+                    Debug.WriteLine("Online mode detected - loading backend data...");
+                    var token = await SecureStorage.GetAsync("userToken");
+
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        try
+                        {
+                            // Load all items (including backend) using the unified method
+                            var allItems = await _actionService.LoadAllDataItemsAsync();
+                            Debug.WriteLine($"Loaded {allItems.Count} total items from all sources");
+
+                            // Filter out deleted items and add to DataItems collection
+                            var filteredItems = allItems.Where(item => item.deleted != true &&
+                                // Avoid duplicates with already added local items
+                                !DataItems.Any(di =>
+                                    di.Data?.ActionGroupObject?.ActionName == item.Data?.ActionGroupObject?.ActionName)
+                            ).ToList();
+
+                            Debug.WriteLine($"Adding {filteredItems.Count} non-duplicate backend items");
+                            foreach (var item in filteredItems)
+                            {
+                                DataItems.Add(item);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error loading backend data: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        Debug.WriteLine("User token not found - skipping backend data");
+                    }
+                }
+
+                // STEP 3: Update ActionGroups collection
                 UpdateActionGroupsFromDataItems();
-
-                // Update master list for filtering
                 _allActionGroups = new ObservableCollection<ActionGroup>(ActionGroups);
 
-                // Apply filtering or sorting if needed
+                // STEP 4: Also refresh the LocalItems collection
+                await LoadLocalItemsAsync();
+
+                // Apply filtering or sorting
                 if (!string.IsNullOrEmpty(SearchText))
                 {
                     FilterActionsBySearch();
@@ -474,7 +498,6 @@ namespace CSimple.Pages
                 }
                 else
                 {
-                    // Apply current sort method
                     SortActionGroups();
                 }
 
@@ -483,9 +506,10 @@ namespace CSimple.Pages
 
                 // Update UI indicators
                 OnPropertyChanged(nameof(ShowEmptyMessage));
+                OnPropertyChanged(nameof(HasLocalItems));
                 OnPropertyChanged(nameof(HasSelectedActions));
 
-                Debug.WriteLine($"Data refresh complete. Displaying {ActionGroups.Count} action groups");
+                Debug.WriteLine($"Data refresh complete. Displaying {ActionGroups.Count} action groups and {LocalItems.Count} local items");
             }
             catch (Exception ex)
             {
@@ -855,7 +879,31 @@ namespace CSimple.Pages
 
         private async void OnRefreshDataClicked(object sender, EventArgs e)
         {
-            await RefreshData();
+            try
+            {
+                // Show loading indicator
+                IsLoading = true;
+
+                // Refresh all data according to current app mode
+                Debug.WriteLine("Manual refresh requested from UI");
+                await RefreshData();
+
+                // Provide user feedback
+                string modeMessage = _appModeService?.CurrentMode == AppMode.Online ?
+                    "Actions refreshed from local and backend storage" :
+                    "Actions refreshed from local storage";
+
+                await DisplayAlert("Refresh Complete", modeMessage, "OK");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in manual refresh: {ex.Message}");
+                await DisplayAlert("Refresh Error", "There was a problem refreshing actions.", "OK");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
         // Enhanced OnRowTapped method to show detailed action information
