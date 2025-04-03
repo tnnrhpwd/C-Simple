@@ -81,6 +81,7 @@ public static class MauiProgram
         services.AddSingleton<GoalService>();  // GoalService depends on FileService
         services.AddSingleton<GlobalInputCapture>();
         services.AddSingleton<IOnTrainModelClickedService, OnTrainModelClickedService>();
+        services.AddSingleton<AppModeService>();
 
 #if WINDOWS
         services.AddSingleton<ITrayService, WinUI.TrayService>();

@@ -8,6 +8,7 @@ namespace CSimple.Pages;
 public partial class HomePage : ContentPage
 {
     private readonly DataService _dataService; // AuthService instance for login/logout
+    private readonly AppModeService _appModeService;
     static bool isSetup = false;
     public ICommand NavigateCommand { get; set; }
     public ICommand LogoutCommand { get; }
@@ -24,6 +25,14 @@ public partial class HomePage : ContentPage
     public Color SystemHealthColor => SystemHealthPercentage > 0.7 ? Colors.Green : SystemHealthPercentage > 0.4 ? Colors.Orange : Colors.Red;
     public double AverageAIAccuracy { get; set; } = 0.89;
 
+    public bool IsOnlineMode
+    {
+        get => _appModeService.CurrentMode == AppMode.Online;
+        set => _appModeService.CurrentMode = value ? AppMode.Online : AppMode.Offline;
+    }
+
+    public string AppModeLabel => IsOnlineMode ? "Online Mode" : "Offline Mode";
+
     // Commands for AI features
     public ICommand RefreshDashboardCommand { get; }
     public ICommand CreateNewGoalCommand { get; }
@@ -32,11 +41,22 @@ public partial class HomePage : ContentPage
     public ICommand DiscoverSharedGoalsCommand { get; }
 
     // Constructor with AuthService injection
-    public HomePage(HomeViewModel vm, DataService dataService)
+    public HomePage(HomeViewModel vm, DataService dataService, AppModeService appModeService)
     {
         InitializeComponent();
         _dataService = dataService;
+        _appModeService = appModeService;
         LogoutCommand = new Command(ExecuteLogout);
+
+        // Bind to AppModeService changes
+        _appModeService.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(AppModeService.CurrentMode))
+            {
+                OnPropertyChanged(nameof(IsOnlineMode));
+                OnPropertyChanged(nameof(AppModeLabel));
+            }
+        };
 
         // Initialize new commands
         RefreshDashboardCommand = new Command(RefreshDashboard);

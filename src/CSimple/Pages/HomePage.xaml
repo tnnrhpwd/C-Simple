@@ -63,6 +63,14 @@
                            FontSize="10"
                            TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
                            HorizontalOptions="Center" />
+                    <Switch IsToggled="{Binding IsOnlineMode}"
+                            OnColor="{StaticResource Primary}"
+                            ThumbColor="{AppThemeBinding Light=White, Dark=White}"
+                            VerticalOptions="Center" />
+                    <Label Text="{Binding AppModeLabel}"
+                           FontSize="10"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                           HorizontalOptions="Center" />
                 </VerticalStackLayout>
             </Grid>
         </Frame>
