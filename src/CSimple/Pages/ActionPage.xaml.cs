@@ -200,6 +200,9 @@ namespace CSimple.Pages
         public ICommand ViewLocalItemCommand { get; }
         public ICommand ImportLocalItemCommand { get; }
 
+        // Add a new command to handle deletion by ActionGroup
+        public ICommand DeleteActionCommand { get; }
+
         private bool _isSimulating = false;
         private readonly ActionService _actionService;
         private readonly DataService _dataService;
@@ -277,6 +280,7 @@ namespace CSimple.Pages
             LoadFromFileCommand = new Command(async () => await LoadDataItemsFromFile());
             NavigateToObservePageCommand = new Command(async () => await NavigateToObservePage());
             DeleteActionGroupCommand = new Command<DataItem>(async (dataItem) => await DeleteDataItemAsync(dataItem));
+            DeleteActionCommand = new Command<ActionGroup>(async (actionGroup) => await DeleteActionByGroupAsync(actionGroup));
             RowTappedCommand = new Command<ActionGroup>(OnRowTapped);
 
             // New commands
@@ -1417,6 +1421,57 @@ namespace CSimple.Pages
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error in LoadActionsData: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        // Add method to delete actions by ActionGroup
+        private async Task DeleteActionByGroupAsync(ActionGroup actionGroup)
+        {
+            if (actionGroup == null)
+                return;
+
+            try
+            {
+                bool confirmDelete = await DisplayAlert("Confirm Delete",
+                    $"Are you sure you want to delete the action '{actionGroup.ActionName}'?",
+                    "Yes", "No");
+
+                if (!confirmDelete)
+                    return;
+
+                IsLoading = true;
+
+                // Find corresponding DataItem for this ActionGroup
+                var dataItem = DataItems.FirstOrDefault(item =>
+                    item?.Data?.ActionGroupObject?.ActionName == actionGroup.ActionName);
+
+                if (dataItem != null)
+                {
+                    // Use existing delete method
+                    await DeleteDataItemAsync(dataItem);
+                }
+                else
+                {
+                    // Handle case where DataItem isn't found
+                    ActionGroups.Remove(actionGroup);
+                    _allActionGroups.Remove(actionGroup);
+
+                    // Update UI
+                    OnPropertyChanged(nameof(ShowEmptyMessage));
+                    OnPropertyChanged(nameof(HasSelectedActions));
+
+                    await DisplayAlert("Action Deleted",
+                        "The action was successfully deleted.", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error deleting action: {ex.Message}");
+                await DisplayAlert("Error", "An error occurred while deleting the action.", "OK");
             }
             finally
             {
