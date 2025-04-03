@@ -17,6 +17,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System.Collections.Generic;
 using CSimple.Models;
+using CSimple.Services.AppModeService;
 
 namespace CSimple.Pages
 {
@@ -247,6 +248,8 @@ namespace CSimple.Pages
             Debug.WriteLine(message);
         }
 
+        private readonly CSimple.Services.AppModeService.AppModeService _appModeService;
+
         public ActionPage()
         {
             InitializeComponent();
@@ -263,7 +266,7 @@ namespace CSimple.Pages
             _dataService = new DataService();
             _userService = new UserService(); // Initialize the user service
             _actionService = new ActionService(_dataService, fileService);
-            _actionService = new ActionService(_dataService, fileService);
+            _appModeService = ServiceProvider.GetService<CSimple.Services.AppModeService.AppModeService>();
 
             // Initialize sort options
             SelectedSortOption = SortOptions[0]; // Default sort by date newest
@@ -420,18 +423,34 @@ namespace CSimple.Pages
                 DataItems.Clear();
                 ActionGroups.Clear();
 
-                // Load all data using our new unified method
-                var allItems = await _actionService.LoadAllDataItemsAsync();
-                Debug.WriteLine($"Loaded {allItems.Count} total unique items");
-
-                // Filter out any items that were marked as deleted
-                var filteredItems = allItems.Where(item => item.deleted != true).ToList();
-                Debug.WriteLine($"After filtering deleted items: {filteredItems.Count} items remain");
-
-                // Update DataItems collection
-                foreach (var item in filteredItems)
+                // Check if offline mode is enabled
+                if (_appModeService.CurrentMode == AppMode.Offline)
                 {
-                    DataItems.Add(item);
+                    Debug.WriteLine("App is in offline mode. Loading only local action data.");
+                    // Load local data only
+                    var localItems = await _actionService.LoadLocalDataItemsAsync();
+                    Debug.WriteLine($"Loaded {localItems.Count} local items");
+
+                    foreach (var item in localItems.Where(item => item.deleted != true))
+                    {
+                        DataItems.Add(item);
+                    }
+                }
+                else
+                {
+                    // Load all data using our new unified method
+                    var allItems = await _actionService.LoadAllDataItemsAsync();
+                    Debug.WriteLine($"Loaded {allItems.Count} total unique items");
+
+                    // Filter out any items that were marked as deleted
+                    var filteredItems = allItems.Where(item => item.deleted != true).ToList();
+                    Debug.WriteLine($"After filtering deleted items: {filteredItems.Count} items remain");
+
+                    // Update DataItems collection
+                    foreach (var item in filteredItems)
+                    {
+                        DataItems.Add(item);
+                    }
                 }
 
                 // Update ActionGroups collection
@@ -480,7 +499,7 @@ namespace CSimple.Pages
         {
             base.OnAppearing();
 
-            // Always refresh data when page appears
+            // Always refresh data when page appears based on current app mode
             LoadActionsData();
         }
 
@@ -778,6 +797,13 @@ namespace CSimple.Pages
 
         private async Task LoadDataItemsFromBackend()
         {
+            // Skip backend loading if in offline mode
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                Debug.WriteLine("App is in offline mode. Skipping backend action loading.");
+                return;
+            }
+
             await RefreshData();
         }
 
@@ -1362,7 +1388,7 @@ namespace CSimple.Pages
             _inputActionPopup.IsVisible = false;
         }
 
-        // Fixed LoadActionsData to properly manage data loading
+        // Fixed LoadActionsData to properly manage data loading based on app mode
         private async void LoadActionsData()
         {
             Debug.WriteLine("Reloading actions data");
@@ -1370,11 +1396,23 @@ namespace CSimple.Pages
 
             try
             {
-                // Just call RefreshData directly for all items
-                await RefreshData();
+                if (_appModeService.CurrentMode == AppMode.Online)
+                {
+                    Debug.WriteLine("App is in online mode. Loading backend and local actions.");
+                    // Load all items from backend and local storage
+                    await RefreshData();
 
-                // Then load local items separately
-                await LoadLocalItemsAsync();
+                    // Also ensure local items are loaded
+                    await LoadLocalItemsAsync();
+                }
+                else
+                {
+                    Debug.WriteLine("App is not in online mode. Loading local actions only.");
+                    await LoadLocalItemsAsync();
+
+                    // Update ActionGroups from locally loaded items
+                    UpdateActionGroupsFromDataItems();
+                }
             }
             catch (Exception ex)
             {

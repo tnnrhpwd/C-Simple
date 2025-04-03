@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Windows.Input;
+using CSimple.Services.AppModeService;
 
 namespace CSimple.Pages
 {
@@ -21,6 +22,7 @@ namespace CSimple.Pages
         public ICommand SubmitPlanCommand { get; }
         private readonly DataService _dataService;
         private readonly FileService _fileService;
+        private readonly CSimple.Services.AppModeService.AppModeService _appModeService;
 
         public PlanPage()
         {
@@ -29,20 +31,32 @@ namespace CSimple.Pages
             ToggleCreatePlanCommand = new Command(OnToggleCreatePlan);
             ToggleMyPlansCommand = new Command(OnToggleMyPlans);
             SubmitPlanCommand = new Command(OnSubmitPlan);
+
             // Initialize services
             _dataService = new DataService();
             _fileService = new FileService();
+            _appModeService = ServiceProvider.GetService<CSimple.Services.AppModeService.AppModeService>();
+
             // Bind the context
             BindingContext = this;
             CheckUserLoggedIn();
+
             // Load plans from file
             _ = LoadPlansFromFile();
+
             // Populate calendar
             PopulateCalendar(DateTime.Now);
         }
 
         private async void CheckUserLoggedIn()
         {
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                Debug.WriteLine("App is in offline mode. Using local plans only.");
+                await LoadPlansFromFile();
+                return;
+            }
+
             if (!await IsUserLoggedInAsync())
             {
                 Debug.WriteLine("User is not logged in, navigating to login...");
@@ -122,10 +136,27 @@ namespace CSimple.Pages
         protected override void OnAppearing()
         {
             base.OnAppearing();
+
+            // Refresh plans based on current app mode
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                _ = GetLocalPlansAsync();
+            }
+            else
+            {
+                _ = LoadPlansFromBackend();
+            }
         }
 
         private async Task LoadPlansFromBackend()
         {
+            // Skip backend loading if in offline mode
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                Debug.WriteLine("App is in offline mode. Skipping backend plan loading.");
+                return;
+            }
+
             try
             {
                 var token = await SecureStorage.GetAsync("userToken");
@@ -173,8 +204,28 @@ namespace CSimple.Pages
             return formattedPlans;
         }
 
+        private async Task GetLocalPlansAsync()
+        {
+            try
+            {
+                Debug.WriteLine("Loading plans from local storage only");
+                await LoadPlansFromFile();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading local plans: {ex.Message}");
+            }
+        }
+
         private async Task SavePlanToBackend(string plan)
         {
+            // Skip if in offline mode
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                Debug.WriteLine("App is in offline mode. Plan saved locally only.");
+                return;
+            }
+
             try
             {
                 var token = await SecureStorage.GetAsync("userToken");

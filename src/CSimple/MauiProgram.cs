@@ -79,6 +79,7 @@ public static class MauiProgram
         services.AddSingleton<SettingsService>();
         services.AddSingleton<FileService>();  // Register FileService
         services.AddSingleton<GoalService>();  // GoalService depends on FileService
+        services.AddSingleton<ActionService>();  // Register ActionService with DI
         services.AddSingleton<GlobalInputCapture>();
         services.AddSingleton<IOnTrainModelClickedService, OnTrainModelClickedService>();
         services.AddSingleton<AppModeService>();

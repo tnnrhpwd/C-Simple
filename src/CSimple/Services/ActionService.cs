@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using CSimple.Services.AppModeService;
 
 namespace CSimple.Services
 {
@@ -10,6 +11,7 @@ namespace CSimple.Services
     {
         private readonly DataService _dataService;
         private readonly FileService _fileService;
+        private readonly CSimple.Services.AppModeService.AppModeService _appModeService;
         private bool cancel_simulation = false;
 
         // P/Invoke for various system functions
@@ -96,18 +98,27 @@ namespace CSimple.Services
         public int MovementDelayMs { get; set; } = 5; // Increased from 1 to 5ms for slower movement
         public float GameSensitivityMultiplier { get; set; } = 0.5f; // New property to slow down game camera movements
 
-        public ActionService(DataService dataService, FileService fileService)
+        public ActionService(DataService dataService, FileService fileService, CSimple.Services.AppModeService.AppModeService appModeService = null)
         {
             _dataService = dataService;
             _fileService = fileService;
+            _appModeService = appModeService;
         }
 
         public async Task<ObservableCollection<DataItem>> LoadDataItemsFromBackend()
         {
             var result = new ObservableCollection<DataItem>();
+
+            // Check if online mode is active
+            if (_appModeService?.CurrentMode != AppMode.Online)
+            {
+                Debug.WriteLine("App is not in online mode. Skipping backend action loading.");
+                return result;
+            }
+
             try
             {
-                Debug.WriteLine("Starting Action Groups Load Task");
+                Debug.WriteLine("ONLINE MODE: Starting Action Groups Load Task");
                 var token = await SecureStorage.GetAsync("userToken");
                 if (string.IsNullOrEmpty(token))
                 {
@@ -268,20 +279,28 @@ namespace CSimple.Services
                 // Save the updated collection to file
                 await SaveDataItemsToFile(await LoadDataItemsFromFile());
 
-                // Delete from backend
-                var token = await SecureStorage.GetAsync("userToken");
-                if (!string.IsNullOrEmpty(token))
+                // Delete from backend only if in online mode
+                if (_appModeService?.CurrentMode == AppMode.Online)
                 {
-                    var response = await _dataService.DeleteDataAsync(dataItem._id, token);
-                    if (response.DataIsSuccess)
+                    var token = await SecureStorage.GetAsync("userToken");
+                    if (!string.IsNullOrEmpty(token))
                     {
-                        Debug.WriteLine($"Action Group {dataItem.ToString()} deleted from backend.");
-                        return true;
+                        var response = await _dataService.DeleteDataAsync(dataItem._id, token);
+                        if (response.DataIsSuccess)
+                        {
+                            Debug.WriteLine($"Action Group {dataItem.ToString()} deleted from backend.");
+                            return true;
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"Failed to delete Action Group {dataItem.ToString()} from backend.");
+                        }
                     }
-                    else
-                    {
-                        Debug.WriteLine($"Failed to delete Action Group {dataItem.ToString()} from backend.");
-                    }
+                }
+                else
+                {
+                    Debug.WriteLine("App is not in online mode. Item deleted from local storage only.");
+                    return true; // Return success even though we only deleted locally
                 }
             }
             catch (Exception ex)
@@ -1037,7 +1056,7 @@ namespace CSimple.Services
             }
         }
 
-        // New method to reliably load and combine both local and backend items
+        // Fully revised method to ensure NO backend loading in offline mode
         public async Task<List<DataItem>> LoadAllDataItemsAsync()
         {
             var result = new Dictionary<string, DataItem>();
@@ -1045,96 +1064,99 @@ namespace CSimple.Services
 
             try
             {
-                // STEP 1: Load backend items first (with proper token validation)
-                Debug.WriteLine("Loading backend items...");
-                var token = await SecureStorage.GetAsync("userToken");
-                if (!string.IsNullOrEmpty(token))
+                // Get app mode with explicit null check
+                bool isOnlineMode = false;
+                if (_appModeService != null)
                 {
-                    try
-                    {
-                        var backendItems = await LoadDataItemsFromBackend();
-                        debugInfo["backend"] = backendItems.Count;
+                    isOnlineMode = _appModeService.CurrentMode == AppMode.Online;
+                    Debug.WriteLine($"AppModeService found. Current mode: {_appModeService.CurrentMode} (Online: {isOnlineMode})");
+                }
+                else
+                {
+                    Debug.WriteLine("WARNING: _appModeService is null, defaulting to offline mode");
+                }
 
-                        // Add backend items to result with proper marking
-                        foreach (var item in backendItems)
+                // STEP 1: Load backend items ONLY if explicitly in online mode
+                if (isOnlineMode)
+                {
+                    Debug.WriteLine("ONLINE MODE: Loading backend items...");
+                    var token = await SecureStorage.GetAsync("userToken");
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        try
                         {
-                            if (item?.Data?.ActionGroupObject != null)
+                            var backendItems = await LoadDataItemsFromBackend();
+                            debugInfo["backend"] = backendItems.Count;
+
+                            foreach (var item in backendItems)
                             {
-                                // Ensure backend items are NEVER marked as local
-                                item.Data.ActionGroupObject.IsLocal = false;
-
-                                // Use ID as key for backend items
-                                string key = !string.IsNullOrEmpty(item._id)
-                                    ? "backend_" + item._id
-                                    : "backend_" + item.Data.ActionGroupObject.ActionName;
-
-                                result[key] = item;
+                                if (item?.Data?.ActionGroupObject != null)
+                                {
+                                    item.Data.ActionGroupObject.IsLocal = false;
+                                    string key = !string.IsNullOrEmpty(item._id)
+                                        ? "backend_" + item._id
+                                        : "backend_" + item.Data.ActionGroupObject.ActionName;
+                                    result[key] = item;
+                                }
                             }
+                            Debug.WriteLine($"ONLINE MODE: Loaded {backendItems.Count} backend items");
                         }
-                        Debug.WriteLine($"Loaded {backendItems.Count} backend items");
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error loading backend items: {ex.Message}");
+                        }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        Debug.WriteLine($"Error loading backend items: {ex.Message}");
+                        Debug.WriteLine("User not logged in - skipping backend items");
                     }
                 }
                 else
                 {
-                    Debug.WriteLine("User not logged in - skipping backend items");
+                    Debug.WriteLine("NOT IN ONLINE MODE: Skipping ALL backend operations");
                 }
 
-                // STEP 2: Load local items
-                Debug.WriteLine("Loading local items...");
+                // STEP 2: Always load local items, regardless of mode
+                Debug.WriteLine($"{(isOnlineMode ? "ONLINE" : "OFFLINE")} MODE: Loading local items...");
                 var localItems = await LoadDataItemsFromFile();
                 debugInfo["local"] = localItems.Count;
 
-                // Followed by local file items
+                // Process local items
                 foreach (var item in localItems)
                 {
                     if (item?.Data?.ActionGroupObject != null)
                     {
-                        // Always mark local file items as local
                         item.Data.ActionGroupObject.IsLocal = true;
-
-                        // First try by ID if it exists
                         string key = !string.IsNullOrEmpty(item._id)
                             ? "local_" + item._id
                             : "local_" + item.Data.ActionGroupObject.ActionName;
 
-                        // If this item exists in the backend, don't override
-                        string backendKey = "backend_" + (
+                        // In offline mode, we don't need to check for duplicates with backend items
+                        if (isOnlineMode || !result.ContainsKey("backend_" + (
                             !string.IsNullOrEmpty(item._id)
                                 ? item._id
-                                : item.Data.ActionGroupObject.ActionName
-                        );
-
-                        if (result.ContainsKey(backendKey))
+                                : item.Data.ActionGroupObject.ActionName)))
+                        {
+                            result[key] = item;
+                        }
+                        else
                         {
                             debugInfo["duplicates"]++;
-                            Debug.WriteLine($"Skipping local duplicate of backend item: {item.Data.ActionGroupObject.ActionName}");
-                            continue;
                         }
-
-                        // Otherwise add as local
-                        result[key] = item;
                     }
                 }
-                Debug.WriteLine($"Loaded {localItems.Count} local items");
+                Debug.WriteLine($"Loaded {localItems.Count} local file items");
 
-                // STEP 3: Handle truly local items that were created on device
+                // STEP 3: Load device-local items
                 Debug.WriteLine("Loading device-local items...");
                 var deviceLocalItems = await LoadLocalDataItemsAsync();
                 foreach (var item in deviceLocalItems)
                 {
                     if (item?.Data?.ActionGroupObject != null)
                     {
-                        // ALWAYS mark device-created items as local
                         item.Data.ActionGroupObject.IsLocal = true;
-
-                        // Create a unique key based on name
                         string key = "device_" + item.Data.ActionGroupObject.ActionName;
 
-                        // Check if item already exists from backend or file
                         bool isDuplicate = result.Values.Any(existingItem =>
                             IsSameActionItem(existingItem, item));
 
@@ -1149,24 +1171,15 @@ namespace CSimple.Services
                     }
                 }
 
-                // Final check for timestamps
+                // Fix timestamps
                 foreach (var item in result.Values)
                 {
-                    if (item?.Data?.ActionGroupObject != null)
+                    if (item?.Data?.ActionGroupObject != null &&
+                        (item.Data.ActionGroupObject.CreatedAt == null ||
+                         item.Data.ActionGroupObject.CreatedAt == default(DateTime)))
                     {
-                        // Ensure timestamps are consistent
-                        if (item.Data.ActionGroupObject.CreatedAt == null ||
-                            item.Data.ActionGroupObject.CreatedAt == default(DateTime))
-                        {
-                            // Use the original database timestamp
-                            item.Data.ActionGroupObject.CreatedAt = item.createdAt;
-
-                            // If that's still not valid, use current time as last resort
-                            if (item.Data.ActionGroupObject.CreatedAt == default(DateTime))
-                            {
-                                item.Data.ActionGroupObject.CreatedAt = DateTime.Now;
-                            }
-                        }
+                        item.Data.ActionGroupObject.CreatedAt = item.createdAt != default(DateTime) ?
+                            item.createdAt : DateTime.Now;
                     }
                 }
             }
@@ -1176,12 +1189,42 @@ namespace CSimple.Services
                 Debug.WriteLine(ex.StackTrace);
             }
 
-            // Log summary of what we found
-            Debug.WriteLine($"Combined data summary: {debugInfo["backend"]} backend items, " +
-                            $"{debugInfo["local"]} local items, {debugInfo["duplicates"]} duplicates detected, " +
-                            $"returning {result.Count} unique items");
+            // Log summary of what we found - with clear offline/online indicator
+            string modeInfo = (_appModeService?.CurrentMode == AppMode.Online) ? "[ONLINE MODE]" : "[OFFLINE MODE]";
+            Debug.WriteLine($"{modeInfo} Data summary: {debugInfo["backend"]} backend, " +
+                            $"{debugInfo["local"]} local, {debugInfo["duplicates"]} duplicates, " +
+                            $"returning {result.Count} items");
 
             return result.Values.ToList();
+        }
+
+        // Helper method to save item to backend with online check
+        public async Task<bool> SaveDataItemToBackendAsync(DataItem dataItem, string token)
+        {
+            // Only save to backend if in online mode
+            if (_appModeService?.CurrentMode != AppMode.Online)
+            {
+                Debug.WriteLine("App is not in online mode. Item saved locally only.");
+                return true;
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Debug.WriteLine("No token provided for backend save");
+                return false;
+            }
+
+            try
+            {
+                Debug.WriteLine("ONLINE MODE: Saving item to backend");
+                var response = await _dataService.CreateDataAsync(dataItem, token);
+                return response.DataIsSuccess;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving data item to backend: {ex.Message}");
+                return false;
+            }
         }
     }
 }
