@@ -657,7 +657,7 @@ namespace CSimple.Pages
         }
 
         // Completely revised delete method to ensure local actions are properly deleted 
-        private async Task DeleteDataItemAsync(DataItem dataItem)
+        private async Task DeleteDataItemAsync(DataItem dataItem, bool skipConfirmation = false)
         {
             if (dataItem == null)
                 return;
@@ -668,7 +668,8 @@ namespace CSimple.Pages
                 bool isLocal = dataItem.Data?.ActionGroupObject?.IsLocal == true;
                 string actionName = dataItem.Data?.ActionGroupObject?.ActionName ?? "Unknown Action";
 
-                bool confirmDelete = await DisplayAlert("Confirm Delete",
+                // Only ask for confirmation if not skipped
+                bool confirmDelete = skipConfirmation ? true : await DisplayAlert("Confirm Delete",
                     $"Are you sure you want to delete {(isLocal ? "the local action" : "the action")} '{actionName}'?",
                     "Yes", "No");
 
@@ -1451,8 +1452,8 @@ namespace CSimple.Pages
 
                 if (dataItem != null)
                 {
-                    // Use existing delete method
-                    await DeleteDataItemAsync(dataItem);
+                    // Use existing delete method but skip confirmation since we already confirmed
+                    await DeleteDataItemAsync(dataItem, skipConfirmation: true);
                 }
                 else
                 {
