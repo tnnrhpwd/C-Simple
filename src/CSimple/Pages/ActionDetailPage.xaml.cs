@@ -53,6 +53,8 @@ namespace CSimple.Pages
         public string KeyName { get; set; } // New property for key name
         public int KeyCode { get; set; } // New property for key code
         public DateTime Timestamp { get; set; } // New property for timestamp
+        public bool IsMouseMove { get; set; } // New property to indicate mouse move
+        public ActionItem RawData { get; set; } // New property to hold raw data
     }
 
     public class ActionDetailViewModel : INotifyPropertyChanged
@@ -195,6 +197,10 @@ namespace CSimple.Pages
                             keyAction = step.EventType == 256 ? "Down" : "Up"; // Set "Up" or "Down"
                             description = $"Key {keyName} {keyAction} (Code: {keyCode})";
                         }
+                        else if (step.EventType == 512) // Mouse move event
+                        {
+                            description = $"Mouse Move to X:{step.Coordinates?.X ?? 0}, Y:{step.Coordinates?.Y ?? 0}";
+                        }
 
                         // Get timestamp
                         if (step.Timestamp != null && DateTime.TryParse(step.Timestamp.ToString(), out timestamp))
@@ -211,7 +217,9 @@ namespace CSimple.Pages
                             Duration = $"{(new Random().NextDouble() * 0.3).ToString("0.00")}s",
                             KeyName = keyName,
                             KeyCode = keyCode,
-                            Timestamp = timestamp
+                            Timestamp = timestamp,
+                            IsMouseMove = step.EventType == 512, // Check if it's a mouse move
+                            RawData = step // Include raw data
                         });
                     }
 

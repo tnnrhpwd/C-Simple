@@ -174,6 +174,29 @@
                                                        FontSize="Small"
                                                        TextColor="Gray" />
                                             </HorizontalStackLayout>
+                                            <!-- Add detailed mouse move data -->
+                                            <VerticalStackLayout IsVisible="{Binding IsMouseMove}"
+                                                                 Spacing="4">
+                                                <Label Text="Mouse Move Details:"
+                                                       FontSize="Small"
+                                                       FontAttributes="Bold"
+                                                       TextColor="Gray" />
+                                                <Label Text="{Binding RawData.Coordinates, StringFormat='Coordinates: X={0.X}, Y={0.Y}'}"
+                                                       FontSize="Small"
+                                                       TextColor="Gray" />
+                                                <Label Text="{Binding RawData.DeltaX, StringFormat='DeltaX: {0}'}"
+                                                       FontSize="Small"
+                                                       TextColor="Gray" />
+                                                <Label Text="{Binding RawData.DeltaY, StringFormat='DeltaY: {0}'}"
+                                                       FontSize="Small"
+                                                       TextColor="Gray" />
+                                                <Label Text="{Binding RawData.VelocityX, StringFormat='VelocityX: {0:F2}'}"
+                                                       FontSize="Small"
+                                                       TextColor="Gray" />
+                                                <Label Text="{Binding RawData.VelocityY, StringFormat='VelocityY: {0:F2}'}"
+                                                       FontSize="Small"
+                                                       TextColor="Gray" />
+                                            </VerticalStackLayout>
                                             <!-- Add Timestamp label -->
                                             <Label Text="{Binding Timestamp, StringFormat='{}{0:MM/dd/yyyy HH:mm:ss.fff}'}"
                                                    FontSize="Small"
