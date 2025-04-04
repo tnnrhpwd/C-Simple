@@ -378,6 +378,14 @@ namespace CSimple.Services
                         if (previousActionTime.HasValue)
                         {
                             TimeSpan delay = currentActionTime - previousActionTime.Value;
+
+                            // Skip actions with negative delays
+                            if (delay.TotalMilliseconds < 0)
+                            {
+                                Debug.WriteLine($"Warning: Skipping action due to negative delay: {delay.TotalMilliseconds} ms");
+                                continue;
+                            }
+
                             Debug.WriteLine($"Scheduling delay for {delay.TotalMilliseconds} ms before next action.");
                             await Task.Delay(delay);
                         }
