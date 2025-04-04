@@ -97,12 +97,17 @@ namespace CSimple.Services
             public int Y;
         }
 
-        // Options for mouse movement - adjusted for smoother/faster motion
+        // Options for mouse movement
         public bool UseInterpolation { get; set; } = true;
-        public int MovementSteps { get; set; } = 25; // Reduced from 40 to 25 for faster motion
-        public int MovementDelayMs { get; set; } = 1; // Reduced from 5ms to 1ms for faster movement
-        public float GameSensitivityMultiplier { get; set; } = 1.0f; // Changed from 0.5f to 1.0f for full speed
-        public bool UltraSmoothMode { get; set; } = true; // Enable ultra-smooth movement by default
+        public int MovementSteps { get; set; } = 25; // Default steps for movements
+        public int MovementDelayMs { get; set; } = 1; // Default minimum delay
+        public float GameSensitivityMultiplier { get; set; } = 1.0f; // 1.0 for original speed
+        public bool UltraSmoothMode { get; set; } = true; // Use ultra-smooth movement
+
+        // Add position tracking to prevent backward jumps
+        private POINT _lastMousePosition;
+        private DateTime _lastMoveTime = DateTime.MinValue;
+        private readonly object _movementLock = new object();
 
         public ActionService(DataService dataService, FileService fileService, CSimple.Services.AppModeService.AppModeService appModeService = null)
         {
@@ -543,62 +548,84 @@ namespace CSimple.Services
             return true;
         }
 
-        // New method for time-accurate mouse movement
+        // Fixed version of TimedSmoothMouseMove to prevent jumping and reduce jitter
         private async Task TimedSmoothMouseMove(int startX, int startY, int endX, int endY, int steps, int delayMs, TimeSpan targetDuration)
         {
-            // Start timing so we can adjust to hit the target duration
+            // Synchronize movements to prevent conflicts and backward jumps
+            lock (_movementLock)
+            {
+                // Check if this movement might be out of sequence
+                if (_lastMoveTime != DateTime.MinValue)
+                {
+                    // Make sure we're not moving to an outdated position
+                    if (DateTime.Now - _lastMoveTime > TimeSpan.FromSeconds(1))
+                    {
+                        // Get current mouse position to use as the real starting point
+                        GetCursorPos(out POINT currentPos);
+                        startX = currentPos.X;
+                        startY = currentPos.Y;
+                    }
+                }
+                _lastMoveTime = DateTime.Now;
+            }
+
+            // Start timing for accurate duration tracking
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-            // For game movements, don't adjust sensitivity unless explicitly requested
+            // Apply sensitivity multiplier if needed
             if (GameSensitivityMultiplier != 1.0f && UseInterpolation)
             {
-                // Calculate how far we're moving
                 int deltaX = endX - startX;
                 int deltaY = endY - startY;
 
-                // Apply the sensitivity multiplier only when it's not default
                 deltaX = (int)(deltaX * GameSensitivityMultiplier);
                 deltaY = (int)(deltaY * GameSensitivityMultiplier);
 
-                // Recalculate end position with adjusted delta
                 endX = startX + deltaX;
                 endY = startY + deltaY;
             }
 
-            // Calculate total distance
+            // Calculate distance for optimized steps
             double distance = Math.Sqrt(Math.Pow(endX - startX, 2) + Math.Pow(endY - startY, 2));
 
-            // Optimize step count based on distance - use fewer steps for shorter movements
+            // Optimize steps based on distance
             int adaptiveSteps;
-            if (UltraSmoothMode)
+            if (distance < 10)
             {
-                // Calculate steps based on distance (longer distance = more steps)
-                adaptiveSteps = Math.Max((int)(distance / 5), 10);
-                adaptiveSteps = Math.Min(adaptiveSteps, 50); // Cap at 50 steps
+                // For tiny movements, use fewer steps to prevent jitter
+                adaptiveSteps = 3;
+            }
+            else if (distance < 100)
+            {
+                // For short movements, use moderate steps
+                adaptiveSteps = Math.Max(5, (int)(distance / 10));
             }
             else
             {
-                // Use specified steps directly
-                adaptiveSteps = steps;
+                // For longer movements, use more steps for smoothness
+                adaptiveSteps = Math.Min(80, (int)(distance / 5));
             }
 
-            // Control points for cubic bezier curve - use minimal deviation for straighter paths
+            // Ensure steps aren't too low or too high
+            adaptiveSteps = Math.Clamp(adaptiveSteps, 3, 100);
+
+            // Calculate actual delay to meet target duration
+            double targetMs = targetDuration.TotalMilliseconds;
+            if (targetMs <= 0) targetMs = distance * 2; // Fallback timing
+
+            int avgDelayMs = Math.Max(1, (int)(targetMs / adaptiveSteps));
+
+            // Use perfect control points for smoothest movement
             int control1X = startX + (endX - startX) / 3;
             int control1Y = startY + (endY - startY) / 3;
             int control2X = startX + 2 * (endX - startX) / 3;
             int control2Y = startY + 2 * (endY - startY) / 3;
 
-            // Calculate average delay needed (subtract processing overhead)
-            double targetDurationMs = targetDuration.TotalMilliseconds;
-            int avgDelayMs = Math.Max(1, (int)(targetDurationMs / adaptiveSteps) - 1);
-            
-            // Use fixed constant delay if timing issues detected
-            if (targetDurationMs <= 0 || avgDelayMs <= 0 || adaptiveSteps <= 0)
-            {
-                avgDelayMs = 1;
-            }
+            // Track the last position to avoid duplicate movements
+            int lastX = startX;
+            int lastY = startY;
 
-            // Ultra-smooth movements with precise timing
+            // Execute the movement with optimized steps and timing
             for (int i = 1; i <= adaptiveSteps; i++)
             {
                 if (cancel_simulation) break;
@@ -606,62 +633,50 @@ namespace CSimple.Services
                 // Calculate progress
                 float t = (float)i / adaptiveSteps;
 
-                // Use simple smooth easing for more predictable movement
-                float easedT = UltraSmoothMode ? 
-                    // Sine-based ultra-smooth easing for perfect curve
-                    (float)(Math.Sin(Math.PI * (t - 0.5)) / 2 + 0.5) :
-                    // Simple ease-in-out for normal mode
-                    (t < 0.5f ? 2.0f * t * t : 1.0f - (float)Math.Pow(-2.0f * t + 2.0f, 2) / 2.0f);
+                // Use super smooth easing - sine-based curve for perfect smoothness
+                float easedT = (float)(Math.Sin(Math.PI * (t - 0.5)) / 2 + 0.5);
 
-                // Apply cubic bezier curve for natural path
+                // Calculate position using cubic bezier
                 float u = 1.0f - easedT;
                 float u2 = u * u;
                 float u3 = u2 * u;
                 float t2 = easedT * easedT;
                 float t3 = t2 * easedT;
 
-                // Calculate position with cubic bezier curve
-                int x = (int)(u3 * startX +
-                            3 * u2 * easedT * control1X +
-                            3 * u * t2 * control2X +
-                            t3 * endX);
+                int x = (int)Math.Round(u3 * startX +
+                               3 * u2 * easedT * control1X +
+                               3 * u * t2 * control2X +
+                               t3 * endX);
 
-                int y = (int)(u3 * startY +
-                            3 * u2 * easedT * control1Y +
-                            3 * u * t2 * control2Y +
-                            t3 * endY);
+                int y = (int)Math.Round(u3 * startY +
+                               3 * u2 * easedT * control1Y +
+                               3 * u * t2 * control2Y +
+                               t3 * endY);
 
-                // Send raw mouse move - absolutely NO jitter for smooth movement
-                SendLowLevelMouseMove(x, y);
+                // Skip duplicate positions to avoid unnecessary system calls
+                if (x != lastX || y != lastY)
+                {
+                    // Send the mouse movement with no coalescing for more precision
+                    SendLowLevelMouseMove(x, y);
+                    lastX = x;
+                    lastY = y;
+                }
 
                 if (i < adaptiveSteps)
                 {
+                    // Use a consistent delay between points
                     await Task.Delay(avgDelayMs);
                 }
             }
 
-            // Always ensure we reach exact final position
-            if (!cancel_simulation)
-                SendLowLevelMouseMove(endX, endY);
+            // Always move to the exact endpoint
+            SendLowLevelMouseMove(endX, endY);
+
+            // Update the last mouse position for synchronization
+            _lastMousePosition.X = endX;
+            _lastMousePosition.Y = endY;
 
             stopwatch.Stop();
-            Debug.WriteLine($"Mouse movement completed in {stopwatch.ElapsedMilliseconds}ms (target: {targetDuration.TotalMilliseconds}ms)");
-        }
-
-        // Simplified easing function for ultra-smooth movement patterns
-        private float ApplyAdvancedEasing(float t)
-        {
-            if (UltraSmoothMode)
-            {
-                // Simple sine-based easing creates perfectly smooth motion
-                // sin(π * (t - 0.5)) / 2 + 0.5 produces a perfect ease-in-out curve
-                return (float)(Math.Sin(Math.PI * (t - 0.5)) / 2 + 0.5);
-            }
-            else
-            {
-                // Simple ease-in-out curve with no complex calculations
-                return t < 0.5f ? 2.0f * t * t : 1.0f - (float)Math.Pow(-2.0f * t + 2.0f, 2) / 2.0f;
-            }
         }
 
         // Direct low-level mouse move using SendInput API
@@ -672,8 +687,8 @@ namespace CSimple.Services
             int screenHeight = GetSystemMetrics(SM_CYSCREEN);
 
             // Calculate absolute coordinates (0-65536)
-            int absoluteX = x * 65536 / screenWidth;
-            int absoluteY = y * 65536 / screenHeight;
+            int absoluteX = (x * 65536) / screenWidth;
+            int absoluteY = (y * 65536) / screenHeight;
 
             // Create INPUT structure for mouse move
             INPUT[] inputs = new INPUT[1];

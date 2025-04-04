@@ -22,6 +22,10 @@ namespace CSimple.Services
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetCursorPos(out POINT lpPoint);
+
         private const int INPUT_MOUSE = 0;
         private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
         private const uint MOUSEEVENTF_LEFTUP = 0x0004;
@@ -31,6 +35,11 @@ namespace CSimple.Services
         // New static properties for game-enhanced mode
         private static bool _gameEnhancedMode = false;
         private static int _mouseSensitivity = 100; // 1-200%
+
+        // Static properties for state tracking to prevent conflicts
+        private static DateTime _lastMoveTime = DateTime.MinValue;
+        private static POINT _lastPosition;
+        private static readonly object _moveLock = new object();
 
         public static void SetGameEnhancedMode(bool enabled, int sensitivity)
         {
@@ -136,9 +145,27 @@ namespace CSimple.Services
             SetCursorPos(x, y);
         }
 
-        // Ultra-smooth mouse movement method with bezier curve interpolation
-        public static async Task MoveSmoothlyAsync(int startX, int startY, int endX, int endY, int steps = 100, int delayMs = 1)
+        // Enhanced smooth movement that prevents jumping
+        public static async Task MoveSmoothlyAsync(int startX, int startY, int endX, int endY, int steps = 40, int delayMs = 1)
         {
+            // Synchronize movements to prevent conflicts
+            lock (_moveLock)
+            {
+                // If there was a very recent move, ensure we're using the correct start position
+                if ((DateTime.Now - _lastMoveTime).TotalMilliseconds < 100)
+                {
+                    startX = _lastPosition.X;
+                    startY = _lastPosition.Y;
+                }
+                else
+                {
+                    // Get current mouse position to ensure we start from the right spot
+                    GetCursorPos(out _lastPosition);
+                    startX = _lastPosition.X;
+                    startY = _lastPosition.Y;
+                }
+            }
+
             // Apply sensitivity adjustment if needed
             if (_gameEnhancedMode)
             {
@@ -146,93 +173,159 @@ namespace CSimple.Services
                 int deltaX = endX - startX;
                 int deltaY = endY - startY;
 
-                // Adjust the delta by sensitivity factor
                 deltaX = (int)(deltaX * factor);
                 deltaY = (int)(deltaY * factor);
 
-                // Recalculate destination with adjusted delta
                 endX = startX + deltaX;
                 endY = startY + deltaY;
             }
 
-            // Calculate distance for adaptive stepping
+            // Calculate distance for proper step count
             double distance = Math.Sqrt(Math.Pow(endX - startX, 2) + Math.Pow(endY - startY, 2));
 
-            // For short distances, reduce steps
-            if (distance < 50)
-                steps = Math.Max(10, steps / 3);
+            // Optimize steps based on distance
+            if (distance < 10) steps = 3;  // Very few steps for tiny movements
+            else if (distance < 50) steps = Math.Max(5, steps / 4);
+            else if (distance > 500) steps = Math.Min(100, steps * 2);
 
-            // Control points at 1/3 and 2/3 for perfect cubic bezier
+            // Define control points for perfect cubic bezier curve
             int control1X = startX + (endX - startX) / 3;
             int control1Y = startY + (endY - startY) / 3;
             int control2X = startX + 2 * (endX - startX) / 3;
             int control2Y = startY + 2 * (endY - startY) / 3;
 
-            // Move through each interpolated point
+            // Track last position to avoid duplicates
+            int lastX = startX;
+            int lastY = startY;
+
             for (int i = 1; i <= steps; i++)
             {
-                // Calculate progress (0.0 to 1.0)
+                // Calculate progress
                 float t = (float)i / steps;
 
-                // Apply sine-based easing for ultra-smooth transitions
+                // Sine-based easing - perfect smoothness
                 float easedT = (float)(Math.Sin(Math.PI * (t - 0.5)) / 2 + 0.5);
 
-                // Calculate position using cubic bezier formula
+                // Calculate bezier curve position
                 float u = 1.0f - easedT;
                 float u2 = u * u;
                 float u3 = u2 * u;
                 float t2 = easedT * easedT;
                 float t3 = t2 * easedT;
 
-                int x = (int)(u3 * startX +
-                             3 * u2 * easedT * control1X +
-                             3 * u * t2 * control2X +
-                             t3 * endX);
+                int x = (int)Math.Round(u3 * startX +
+                                  3 * u2 * easedT * control1X +
+                                  3 * u * t2 * control2X +
+                                  t3 * endX);
 
-                int y = (int)(u3 * startY +
-                             3 * u2 * easedT * control1Y +
-                             3 * u * t2 * control2Y +
-                             t3 * endY);
+                int y = (int)Math.Round(u3 * startY +
+                                  3 * u2 * easedT * control1Y +
+                                  3 * u * t2 * control2Y +
+                                  t3 * endY);
 
-                // Move cursor to calculated position
-                SetCursorPos(x, y);
+                // Only move if position changed
+                if (x != lastX || y != lastY)
+                {
+                    SetCursorPos(x, y);
+                    lastX = x;
+                    lastY = y;
 
-                // Short delay between movements
-                if (delayMs > 0 && i < steps)
+                    // Update last position for synchronization
+                    lock (_moveLock)
+                    {
+                        _lastPosition.X = x;
+                        _lastPosition.Y = y;
+                        _lastMoveTime = DateTime.Now;
+                    }
+                }
+
+                // Use minimal delay for smoother motion
+                if (i < steps && delayMs > 0)
                     await Task.Delay(delayMs);
             }
 
-            // Ensure final position is exact
+            // Always ensure final position is exact
             SetCursorPos(endX, endY);
+
+            // Update last position for synchronization
+            lock (_moveLock)
+            {
+                _lastPosition.X = endX;
+                _lastPosition.Y = endY;
+                _lastMoveTime = DateTime.Now;
+            }
         }
 
-        // Direct point-to-point movement (no curve) for straight lines
-        public static async Task MoveDirectlyAsync(int startX, int startY, int endX, int endY, int steps = 40)
+        // Direct movement with no curves - useful for straight line movements
+        public static async Task MoveDirectlyAsync(int startX, int startY, int endX, int endY, int steps = 20)
         {
-            // For very short distances, use fewer steps
+            // Synchronize with other movement methods
+            lock (_moveLock)
+            {
+                if ((DateTime.Now - _lastMoveTime).TotalMilliseconds < 100)
+                {
+                    startX = _lastPosition.X;
+                    startY = _lastPosition.Y;
+                }
+                else
+                {
+                    // Get current position to ensure accuracy
+                    GetCursorPos(out _lastPosition);
+                    startX = _lastPosition.X;
+                    startY = _lastPosition.Y;
+                }
+            }
+
+            // Calculate distance and optimize steps
             double distance = Math.Sqrt(Math.Pow(endX - startX, 2) + Math.Pow(endY - startY, 2));
 
-            if (distance < 20) steps = Math.Max(5, steps / 4);
-            else if (distance < 100) steps = Math.Max(10, steps / 2);
+            // For very short movements, use fewer steps
+            if (distance < 10) steps = 2;
+            else if (distance < 50) steps = 5;
+            else if (distance < 100) steps = 10;
+
+            int lastX = startX;
+            int lastY = startY;
 
             for (int i = 1; i <= steps; i++)
             {
                 // Linear interpolation (no easing)
                 float t = (float)i / steps;
 
-                int x = (int)(startX + (endX - startX) * t);
-                int y = (int)(startY + (endY - startY) * t);
+                // Calculate position with linear interpolation
+                int x = (int)Math.Round(startX + (endX - startX) * t);
+                int y = (int)Math.Round(startY + (endY - startY) * t);
 
-                // Move cursor
-                SetCursorPos(x, y);
+                // Only move if position changed
+                if (x != lastX || y != lastY)
+                {
+                    SetCursorPos(x, y);
+                    lastX = x;
+                    lastY = y;
 
-                // Use a 1ms delay between steps for smoothness
+                    // Update tracking info
+                    lock (_moveLock)
+                    {
+                        _lastPosition.X = x;
+                        _lastPosition.Y = y;
+                        _lastMoveTime = DateTime.Now;
+                    }
+                }
+
+                // Minimal delay for smoothness
                 if (i < steps)
                     await Task.Delay(1);
             }
 
-            // Make sure we reach the exact destination
+            // Ensure final position is reached
             SetCursorPos(endX, endY);
+
+            lock (_moveLock)
+            {
+                _lastPosition.X = endX;
+                _lastPosition.Y = endY;
+                _lastMoveTime = DateTime.Now;
+            }
         }
 
         public static bool BringWindowToForeground(IntPtr hWnd)
