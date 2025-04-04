@@ -611,9 +611,30 @@ namespace CSimple.Services
 
             // Calculate actual delay to meet target duration
             double targetMs = targetDuration.TotalMilliseconds;
-            if (targetMs <= 0) targetMs = distance * 2; // Fallback timing
 
-            int avgDelayMs = Math.Max(1, (int)(targetMs / adaptiveSteps));
+            // Ensure targetMs is positive
+            if (targetMs <= 0)
+            {
+                targetMs = distance * 2; // Fallback timing based on distance
+                Debug.WriteLine("Warning: Target duration was zero or negative. Using fallback timing.");
+            }
+
+            // Calculate average delay needed, accounting for processing time
+            int avgDelayMs = Math.Max(1, (int)Math.Round((targetMs - adaptiveSteps) / adaptiveSteps));
+
+            // Ensure avgDelayMs is not negative
+            if (avgDelayMs < 1)
+            {
+                avgDelayMs = 1; // Minimum delay of 1ms
+                Debug.WriteLine("Warning: Calculated delay was negative. Using minimum delay of 1ms.");
+            }
+
+            // Use fixed constant delay if timing issues detected
+            if (targetMs <= 0 || adaptiveSteps <= 0)
+            {
+                avgDelayMs = 1;
+                Debug.WriteLine("Warning: Timing issues detected. Using fixed delay of 1ms.");
+            }
 
             // Use perfect control points for smoothest movement
             int control1X = startX + (endX - startX) / 3;
