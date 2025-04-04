@@ -131,15 +131,6 @@ namespace CSimple.Services
             uint size = 0;
             GetRawInputData(lParam, RID_INPUT, IntPtr.Zero, ref size, (uint)Marshal.SizeOf(typeof(RAWINPUTHEADER)));
 
-            // Skip processing if we're getting too many events - but only apply throttling for
-            // very high frequency situations to keep responsiveness
-            if (_mouseMovementQueue.Count > 100 && _skippedFrames < PROCESS_EVERY_N_FRAMES)
-            {
-                _skippedFrames++;
-                return;
-            }
-            _skippedFrames = 0;
-
             IntPtr rawData = Marshal.AllocHGlobal((int)size);
             try
             {
@@ -148,13 +139,12 @@ namespace CSimple.Services
                     RAWINPUT rawInput = Marshal.PtrToStructure<RAWINPUT>(rawData);
                     if (rawInput.HeaderSize == RIM_TYPEMOUSE)
                     {
+                        // Use raw deltas directly
                         int deltaX = rawInput.LastX;
                         int deltaY = rawInput.LastY;
 
-                        // Capture all movement, even small ones, but still skip the real zero movements
                         if (deltaX != 0 || deltaY != 0)
                         {
-                            // Add to queue instead of processing immediately
                             EnqueueMouseMovement(new Point(deltaX, deltaY));
                         }
                     }

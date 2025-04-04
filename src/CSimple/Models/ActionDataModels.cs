@@ -221,8 +221,8 @@ namespace CSimple.Models
 
         // Enhanced mouse movement properties
         public Coordinates Coordinates { get; set; }
-        public int DeltaX { get; set; }
-        public int DeltaY { get; set; }
+        public int DeltaX { get; set; } // Raw delta X
+        public int DeltaY { get; set; } // Raw delta Y
         public uint MouseData { get; set; }
         public uint Flags { get; set; }
         public bool IsLeftButtonDown { get; set; }
@@ -237,11 +237,11 @@ namespace CSimple.Models
             if (EventType == 256 || EventType == 257) // Keyboard events
                 return $"Key {KeyCode} {(EventType == 256 ? "Down" : "Up")}";
             else if (EventType == 512) // Mouse move
-                return $"Mouse Move to X:{Coordinates?.X ?? 0}, Y:{Coordinates?.Y ?? 0} (Delta:{DeltaX},{DeltaY})";
+                return $"Mouse Move (Raw) DeltaX:{DeltaX}, DeltaY:{DeltaY}";
             else if (EventType == 0x0201) // Left mouse button down
-                return $"Left Click at X:{Coordinates?.X ?? 0}, Y:{Coordinates?.Y ?? 0}";
+                return $"Left Click";
             else if (EventType == 0x0204) // Right mouse button down
-                return $"Right Click at X:{Coordinates?.X ?? 0}, Y:{Coordinates?.Y ?? 0}";
+                return $"Right Click";
             else
                 return $"Action Type:{EventType} at {Timestamp}";
         }

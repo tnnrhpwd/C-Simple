@@ -327,40 +327,30 @@ namespace CSimple.Services
                 {
                     MSLLHOOKSTRUCT mouseHookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
 
-                    GetCursorPos(out POINT currentMousePos);
-                    int deltaX = currentMousePos.X - _lastMousePos.X;
-                    int deltaY = currentMousePos.Y - _lastMousePos.Y;
+                    // Use raw deltas for mouse movement
+                    int deltaX = _accumulatedDeltaX;
+                    int deltaY = _accumulatedDeltaY;
 
-                    // Track accumulated deltas for raw movement
-                    _accumulatedDeltaX += deltaX;
-                    _accumulatedDeltaY += deltaY;
-
-                    TimeSpan timeDelta = _mouseMoveTimer.Elapsed;
-                    _mouseMoveTimer.Restart();
-
-                    // Calculate velocity for more accurate replay
-                    float velocityX = timeDelta.TotalSeconds > 0 ? (float)(deltaX / timeDelta.TotalSeconds) : 0;
-                    float velocityY = timeDelta.TotalSeconds > 0 ? (float)(deltaY / timeDelta.TotalSeconds) : 0;
+                    if (wParam == (IntPtr)WM_MOUSEMOVE)
+                    {
+                        deltaX = mouseHookStruct.pt.X - _lastMousePos.X;
+                        deltaY = mouseHookStruct.pt.Y - _lastMousePos.Y;
+                        _accumulatedDeltaX = deltaX;
+                        _accumulatedDeltaY = deltaY;
+                    }
 
                     actionItem.Coordinates = new Coordinates
                     {
-                        X = currentMousePos.X,
-                        Y = currentMousePos.Y,
-                        AbsoluteX = currentMousePos.X,
-                        AbsoluteY = currentMousePos.Y,
-                        RelativeX = currentMousePos.X - _startMousePos.X,
-                        RelativeY = currentMousePos.Y - _startMousePos.Y
+                        X = mouseHookStruct.pt.X,
+                        Y = mouseHookStruct.pt.Y,
+                        RelativeX = deltaX,
+                        RelativeY = deltaY
                     };
                     actionItem.DeltaX = deltaX;
                     actionItem.DeltaY = deltaY;
-                    actionItem.MouseData = mouseHookStruct.mouseData;
-                    actionItem.Flags = mouseHookStruct.flags;
                     actionItem.EventType = (ushort)wParam;
-                    actionItem.TimeSinceLastMove = DateTime.UtcNow - _lastMouseEventTime;
-                    actionItem.VelocityX = velocityX;
-                    actionItem.VelocityY = velocityY;
 
-                    // Update mouse button states
+                    // Update button states
                     if (wParam == (IntPtr)WM_LBUTTONDOWN) _leftMouseDown = true;
                     else if (wParam == (IntPtr)WM_LBUTTONUP) _leftMouseDown = false;
                     else if (wParam == (IntPtr)WM_RBUTTONDOWN) _rightMouseDown = true;
@@ -368,14 +358,11 @@ namespace CSimple.Services
                     else if (wParam == (IntPtr)WM_MBUTTONDOWN) _middleMouseDown = true;
                     else if (wParam == (IntPtr)WM_MBUTTONUP) _middleMouseDown = false;
 
-                    // Update action item with current button states
                     actionItem.IsLeftButtonDown = _leftMouseDown;
                     actionItem.IsRightButtonDown = _rightMouseDown;
                     actionItem.IsMiddleButtonDown = _middleMouseDown;
 
-                    // Remember current position for next delta calculation
-                    _lastMousePos = currentMousePos;
-                    _lastMouseEventTime = DateTime.UtcNow;
+                    AddToInputQueue(actionItem);
                 }
                 // Handle keyboard events
                 else if (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_KEYUP)
