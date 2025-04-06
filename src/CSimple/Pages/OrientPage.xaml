@@ -134,8 +134,7 @@
                                CornerRadius="8">
                             <VerticalStackLayout>
                                 <CheckBox IsChecked="True"
-                                          Checked="OnDataSourceSelected"
-                                          Unchecked="OnDataSourceSelected" />
+                                          CheckedChanged="OnDataSourceSelected" />
                                 <Label Text="Screen Data"
                                        FontAttributes="Bold"
                                        HorizontalOptions="Center" />
@@ -158,8 +157,7 @@
                                CornerRadius="8">
                             <VerticalStackLayout>
                                 <CheckBox IsChecked="True"
-                                          Checked="OnDataSourceSelected"
-                                          Unchecked="OnDataSourceSelected" />
+                                          CheckedChanged="OnDataSourceSelected" />
                                 <Label Text="Audio Data"
                                        FontAttributes="Bold"
                                        HorizontalOptions="Center" />
@@ -182,8 +180,7 @@
                                CornerRadius="8">
                             <VerticalStackLayout>
                                 <CheckBox IsChecked="True"
-                                          Checked="OnDataSourceSelected"
-                                          Unchecked="OnDataSourceSelected" />
+                                          CheckedChanged="OnDataSourceSelected" />
                                 <Label Text="Text Data"
                                        FontAttributes="Bold"
                                        HorizontalOptions="Center" />

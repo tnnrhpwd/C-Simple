@@ -630,11 +630,11 @@ namespace CSimple.Pages
             DisplayAlert("Manage Data", "Opening data management interface for reviewing and curating your training data.", "OK");
         }
 
-        private async void OnDataSourceSelected(object sender, EventArgs e)
+        private async void OnDataSourceSelected(object sender, CheckedChangedEventArgs e)
         {
-            if (sender is CheckBox checkBox && checkBox.BindingContext is DataSource dataSource)
+            if (sender is CheckBox checkBox && checkBox.Parent?.BindingContext is DataSource dataSource)
             {
-                dataSource.IsSelected = checkBox.IsChecked;
+                dataSource.IsSelected = e.Value;
 
                 // Update UI based on selection
                 OnPropertyChanged(nameof(CanStartTraining));
