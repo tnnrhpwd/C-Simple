@@ -205,6 +205,9 @@ namespace CSimple.Pages
         private bool _isRecording = false;
         private List<ActionItem> _currentRecordingBuffer = new List<ActionItem>();
 
+        // New helper property to track the last recorded action for deduplication
+        private ActionItem _lastRecordedAction;
+
         public ObservePage()
         {
             InitializeComponent();
@@ -474,8 +477,9 @@ namespace CSimple.Pages
             _mouseService.StartTracking(hwnd);
             UserTouchLevel = 0.0f; // Reset to zero when starting
 
-            // Reset recording buffer
+            // Reset recording state
             _currentRecordingBuffer = new List<ActionItem>(10000); // Pre-allocate larger capacity
+            _lastRecordedAction = null; // Reset last action for deduplication
             Debug.WriteLine("Started input recording with high-frequency mouse tracking");
         }
 
@@ -731,31 +735,90 @@ namespace CSimple.Pages
             }
         }
 
-        // New method to immediately process mouse movements
+        // New helper for determining if an action is a mouse click event (down or up)
+        private bool IsMouseClickEvent(int eventType)
+        {
+            return eventType == 0x0201 || // WM_LBUTTONDOWN
+                   eventType == 0x0202 || // WM_LBUTTONUP 
+                   eventType == 0x0204 || // WM_RBUTTONDOWN
+                   eventType == 0x0205 || // WM_RBUTTONUP
+                   eventType == 0x0207 || // WM_MBUTTONDOWN
+                   eventType == 0x0208;   // WM_MBUTTONUP
+        }
+
+        // Checks if two actions are duplicates (same properties)
+        private bool IsDuplicateAction(ActionItem newAction, ActionItem lastAction)
+        {
+            if (lastAction == null)
+                return false;
+
+            // Always record mouse click events (never consider them duplicates)
+            if (IsMouseClickEvent(newAction.EventType) || IsMouseClickEvent(lastAction.EventType))
+                return false;
+
+            // For mouse movements, compare important properties
+            if (newAction.EventType == 512 && lastAction.EventType == 512)  // Mouse move
+            {
+                // Allow small movements to be filtered out (reduce noise)
+                if (Math.Abs(newAction.DeltaX) <= 1 && Math.Abs(newAction.DeltaY) <= 1 &&
+                    Math.Abs(lastAction.DeltaX) <= 1 && Math.Abs(lastAction.DeltaY) <= 1)
+                {
+                    return true; // Filter tiny movements as duplicates
+                }
+
+                // If exact same coordinates and delta, it's a duplicate
+                if (newAction.Coordinates?.X == lastAction.Coordinates?.X &&
+                    newAction.Coordinates?.Y == lastAction.Coordinates?.Y &&
+                    newAction.DeltaX == lastAction.DeltaX &&
+                    newAction.DeltaY == lastAction.DeltaY)
+                {
+                    return true;
+                }
+            }
+
+            // For keyboard events, compare key code and event type
+            if ((newAction.EventType == 256 || newAction.EventType == 257) &&
+                (lastAction.EventType == 256 || lastAction.EventType == 257))
+            {
+                return newAction.EventType == lastAction.EventType &&
+                       newAction.KeyCode == lastAction.KeyCode;
+            }
+
+            return false;
+        }
+
+        // Modified ProcessMouseMovement to prevent duplicate actions
         private void ProcessMouseMovement(ActionItem actionItem)
         {
             if (_isRecording)
             {
-                // Directly add to recording buffer without UI updates for better performance
-                _currentRecordingBuffer.Add(actionItem);
+                // Check if this is a duplicate of the last recorded action
+                bool isDuplicate = IsDuplicateAction(actionItem, _lastRecordedAction);
 
-                // Periodically update UI to show activity without slowing down recording
-                if (_currentRecordingBuffer.Count % 50 == 0)
+                if (!isDuplicate)
                 {
-                    Dispatcher.Dispatch(() =>
-                    {
-                        // Update touch level for visual feedback only
-                        UserTouchLevel = 0.6f; // Show activity
+                    // Add to recording buffer only if not a duplicate
+                    _currentRecordingBuffer.Add(actionItem);
+                    _lastRecordedAction = actionItem;
 
-                        // Update capture preview if available (minimal UI update)
-                        if (CapturePreviewCard != null && CapturePreviewCard.IsPreviewEnabled)
+                    // Periodically update UI to show activity without slowing down recording
+                    if (_currentRecordingBuffer.Count % 50 == 0)
+                    {
+                        Dispatcher.Dispatch(() =>
                         {
-                            CapturePreviewCard.UpdateMouseMovement(new Point(
-                                actionItem.DeltaX,
-                                actionItem.DeltaY
-                            ));
-                        }
-                    });
+                            // Update touch level for visual feedback only
+                            UserTouchLevel = 0.6f; // Show activity
+
+                            // Update capture preview if available (minimal UI update)
+                            if (CapturePreviewCard != null && CapturePreviewCard.IsPreviewEnabled)
+                            {
+                                CapturePreviewCard.UpdateMouseMovement(new Point(
+                                    actionItem.DeltaX,
+                                    actionItem.DeltaY
+                                ));
+                            }
+                        });
+                    }
                 }
             }
         }
@@ -792,10 +855,23 @@ namespace CSimple.Pages
                             CapturePreviewCard.UpdateInputActivity((ushort)actionItem.KeyCode, isPressed);
                         }
 
-                        // Add to recording buffer if recording
+                        // Add to recording buffer if recording and not a duplicate
                         if (_isRecording)
                         {
-                            _currentRecordingBuffer.Add(actionItem);
+                            bool isDuplicate = IsDuplicateAction(actionItem, _lastRecordedAction);
+
+                            // For mouse clicks and key events, make sure we don't miss any
+                            if (!isDuplicate || IsMouseClickEvent(actionItem.EventType))
+                            {
+                                _currentRecordingBuffer.Add(actionItem);
+                                _lastRecordedAction = actionItem;
+
+                                // Log click events for debugging
+                                if (IsMouseClickEvent(actionItem.EventType))
+                                {
+                                    Debug.WriteLine($"Recorded mouse click: {actionItem.EventType} at ({actionItem.Coordinates?.X ?? 0}, {actionItem.Coordinates?.Y ?? 0})");
+                                }
+                            }
                         }
                     }
                 }
