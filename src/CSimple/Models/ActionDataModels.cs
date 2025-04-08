@@ -232,9 +232,26 @@ namespace CSimple.Models
         public float VelocityX { get; set; }
         public float VelocityY { get; set; }
 
+        // Touch input properties
+        public bool IsTouch { get; set; }
+        public int TouchId { get; set; }
+        public int TouchAction { get; set; } // 0=None, 1=Down, 2=Move, 3=Up, 4=Cancel
+        public int TouchWidth { get; set; }  // Contact width in device units
+        public int TouchHeight { get; set; } // Contact height in device units
+        public float Pressure { get; set; }  // Touch pressure if available
+
         public override string ToString()
         {
-            if (EventType == 256 || EventType == 257) // Keyboard events
+            if (IsTouch)
+            {
+                string actionName = TouchAction == 1 ? "Down" :
+                                   TouchAction == 2 ? "Move" :
+                                   TouchAction == 3 ? "Up" :
+                                   TouchAction == 4 ? "Cancel" : "Unknown";
+
+                return $"Touch {actionName} at X:{Coordinates?.X}, Y:{Coordinates?.Y}, ID:{TouchId}";
+            }
+            else if (EventType == 256 || EventType == 257) // Keyboard events
                 return $"Key {KeyCode} {(EventType == 256 ? "Down" : "Up")}";
             else if (EventType == 512) // Mouse move
                 return $"Mouse Move (Raw) DeltaX:{DeltaX}, DeltaY:{DeltaY}";

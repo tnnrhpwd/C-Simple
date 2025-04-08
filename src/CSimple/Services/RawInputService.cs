@@ -8,6 +8,8 @@ namespace CSimple.Services
     {
         private const int WM_INPUT = 0x00FF;
         private const uint RIM_TYPEMOUSE = 0;
+        private const uint RIM_TYPEKEYBOARD = 1;
+        private const uint RIM_TYPEHID = 2; // HID devices including touchpads and touch screens
         private IntPtr _hwnd;
         private RawInputNativeWindow _nativeWindow;
 
@@ -58,6 +60,34 @@ namespace CSimple.Services
         // Events for both mouse movement and buttons
         public event Action<int, int> MouseMoved;   // For relative mouse movement (3D controls)
         public event Action<string> ButtonDown; // For mouse button presses
+        public event Action<TouchData> TouchEvent; // For touch events
+        public event Action<TrackpadData> TrackpadEvent; // For trackpad events
+
+        // Touch data structure
+        public class TouchData
+        {
+            public int X { get; set; }
+            public int Y { get; set; }
+            public uint TouchId { get; set; }
+            public TouchAction Action { get; set; }
+        }
+
+        public enum TouchAction
+        {
+            Down,
+            Move,
+            Up,
+            Cancel
+        }
+
+        // Trackpad data structure
+        public class TrackpadData
+        {
+            public int DeltaX { get; set; }
+            public int DeltaY { get; set; }
+            public bool IsMultiTouch { get; set; }
+            public int Fingers { get; set; } // Number of fingers detected
+        }
 
         public RawInputService(Microsoft.UI.Xaml.Window window)
         {
@@ -71,11 +101,26 @@ namespace CSimple.Services
 
         private void RegisterRawInput()
         {
-            RAWINPUTDEVICE[] rid = new RAWINPUTDEVICE[1];
-            rid[0].usUsagePage = 0x01; // Generic desktop controls
-            rid[0].usUsage = 0x02;     // Mouse
-            rid[0].dwFlags = 0;        // No flags for now, could adjust
+            // Resize array to accommodate more device types
+            RAWINPUTDEVICE[] rid = new RAWINPUTDEVICE[3]; // Changed from 1 to 3
+
+            // Mouse
+            rid[0].usUsagePage = 0x01;     // Generic Desktop Controls
+            rid[0].usUsage = 0x02;         // Mouse
+            rid[0].dwFlags = 0;            // No flags for now, could adjust
             rid[0].hwndTarget = _hwnd;
+
+            // Touch Screen
+            rid[1].usUsagePage = 0x0D;     // Digitizer
+            rid[1].usUsage = 0x04;         // Touch screen
+            rid[1].dwFlags = 0;            // No flags
+            rid[1].hwndTarget = _hwnd;
+
+            // Trackpad/Touchpad
+            rid[2].usUsagePage = 0x0D;     // Digitizer
+            rid[2].usUsage = 0x05;         // Touch pad
+            rid[2].dwFlags = 0;            // No flags
+            rid[2].hwndTarget = _hwnd;
 
             if (!RegisterRawInputDevices(rid, (uint)rid.Length, (uint)Marshal.SizeOf(rid[0])))
             {
@@ -102,11 +147,8 @@ namespace CSimple.Services
                     {
                         int deltaX = raw.mouse.lLastX; // Relative movement in X
                         int deltaY = raw.mouse.lLastY; // Relative movement in Y
-                        // Debug.WriteLine("X:" + deltaX.ToString() + " Y:" + deltaY.ToString());
-                        // Trigger mouse movement event
                         MouseMoved?.Invoke(deltaX, deltaY);
 
-                        // Track mouse button states and assign descriptive strings
                         if (raw.mouse.usButtonFlags != 0)
                         {
                             string buttonState = "";
@@ -136,10 +178,12 @@ namespace CSimple.Services
                                 buttonState = "Middle button up";
                             }
 
-                            // Invoke the event with the descriptive string
                             ButtonDown?.Invoke(buttonState);
                         }
-
+                    }
+                    else if (raw.header.dwType == RIM_TYPEHID)
+                    {
+                        ProcessHidInput(raw, buffer);
                     }
                 }
                 finally
@@ -147,6 +191,66 @@ namespace CSimple.Services
                     Marshal.FreeHGlobal(buffer);
                 }
             }
+        }
+
+        private void ProcessHidInput(RAWINPUT raw, IntPtr buffer)
+        {
+            var deviceInfo = GetRawInputDeviceInfo(raw.header.hDevice);
+
+            if (deviceInfo.IsTouch)
+            {
+                ProcessTouchInput(raw, buffer);
+            }
+            else if (deviceInfo.IsTrackpad)
+            {
+                ProcessTrackpadInput(raw, buffer);
+            }
+        }
+
+        private void ProcessTouchInput(RAWINPUT raw, IntPtr buffer)
+        {
+            var touchData = new TouchData
+            {
+                X = GetTouchXCoordinate(buffer),
+                Y = GetTouchYCoordinate(buffer),
+                TouchId = GetTouchId(buffer),
+                Action = GetTouchAction(buffer)
+            };
+
+            TouchEvent?.Invoke(touchData);
+        }
+
+        private void ProcessTrackpadInput(RAWINPUT raw, IntPtr buffer)
+        {
+            var trackpadData = new TrackpadData
+            {
+                DeltaX = GetTrackpadDeltaX(buffer),
+                DeltaY = GetTrackpadDeltaY(buffer),
+                IsMultiTouch = GetIsMultiTouch(buffer),
+                Fingers = GetFingerCount(buffer)
+            };
+
+            TrackpadEvent?.Invoke(trackpadData);
+        }
+
+        private int GetTouchXCoordinate(IntPtr buffer) => 0;
+        private int GetTouchYCoordinate(IntPtr buffer) => 0;
+        private uint GetTouchId(IntPtr buffer) => 0;
+        private TouchAction GetTouchAction(IntPtr buffer) => TouchAction.Down;
+        private int GetTrackpadDeltaX(IntPtr buffer) => 0;
+        private int GetTrackpadDeltaY(IntPtr buffer) => 0;
+        private bool GetIsMultiTouch(IntPtr buffer) => false;
+        private int GetFingerCount(IntPtr buffer) => 1;
+
+        private RawInputDeviceInfo GetRawInputDeviceInfo(IntPtr hDevice)
+        {
+            return new RawInputDeviceInfo { IsTouch = false, IsTrackpad = false };
+        }
+
+        private class RawInputDeviceInfo
+        {
+            public bool IsTouch { get; set; }
+            public bool IsTrackpad { get; set; }
         }
 
         private const uint RIDEV_REMOVE = 0x00000001;

@@ -65,9 +65,27 @@ namespace CSimple.Services
         [DllImport("gdi32.dll")]
         private static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
 
+        [DllImport("user32.dll")]
+        private static extern bool RegisterTouchWindow(IntPtr hwnd, uint ulFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsTouchWindow(IntPtr hwnd, out uint pulFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnableMouseInPointer(bool enable);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetProcessPointerDevices(bool fProcessInputDevices);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnableProcessMouseWheelFiltering(bool enable);
+
         private const int HORZRES = 8;
         private const int VERTRES = 10;
         private const int SRCCOPY = 0x00CC0020;
+
+        private const uint TWF_WANTPALM = 0x00000002;
+        private const uint TWF_FINETOUCH = 0x00000001;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct POINT
@@ -370,6 +388,41 @@ namespace CSimple.Services
         public ImageSource GetSingleScreenshot()
         {
             return CaptureScreenForPreview();
+        }
+
+        public void Initialize(IntPtr windowHandle)
+        {
+#if WINDOWS
+            // Register the window for touch input with both fine-touch and palm rejection options
+            bool result = RegisterTouchWindow(windowHandle, TWF_FINETOUCH | TWF_WANTPALM);
+
+            // Verify the window was registered for touch
+            uint flags;
+            bool isTouchRegistered = IsTouchWindow(windowHandle, out flags);
+
+            DebugMessageLogged?.Invoke($"Touch registration result: {result}, Is touch window: {isTouchRegistered}, Flags: {flags}");
+
+            // Enable enhanced pointer support for Windows 8+ touch and pen support
+            try
+            {
+                // Enable Windows Pointer messages instead of legacy mouse messages
+                EnableMouseInPointer(true);
+
+                // Ensure process handles multiple pointer devices
+                SetProcessPointerDevices(true);
+
+                // Fine-tune mouse wheel behavior
+                EnableProcessMouseWheelFiltering(true);
+
+                DebugMessageLogged?.Invoke("Enhanced pointer input enabled");
+            }
+            catch (Exception ex)
+            {
+                DebugMessageLogged?.Invoke($"Error enabling enhanced pointer input: {ex.Message}");
+            }
+#else
+            DebugMessageLogged?.Invoke("Touch input registration not available on this platform");
+#endif
         }
 
         private void LogDebug(string message)

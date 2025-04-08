@@ -15,6 +15,7 @@ namespace CSimple.Services
         #region Events
         public event Action<string> InputCaptured;
         public event Action<string> DebugMessageLogged;
+        public event Action<string> TouchInputCaptured; // New event for touch input
         #endregion
 
         #region Properties
@@ -44,6 +45,10 @@ namespace CSimple.Services
         private Stopwatch _mouseMoveTimer = new Stopwatch();
         private readonly object _inputQueueLock = new object();
 
+        // Touch input tracking
+        private Dictionary<int, TouchPoint> _activeTouches = new Dictionary<int, TouchPoint>();
+        private DateTime _lastTouchEventTime = DateTime.MinValue;
+
         #endregion
 
         #region Constants
@@ -59,6 +64,12 @@ namespace CSimple.Services
         private const int WM_MOUSEWHEEL = 0x020A; // Mouse wheel
         private const int WM_KEYDOWN = 0x0100;
         private const int WM_KEYUP = 0x0101;
+
+        // Touch input constants
+        private const int WM_TOUCH = 0x0240;
+        private const int WM_POINTERDOWN = 0x0246;
+        private const int WM_POINTERUP = 0x0247;
+        private const int WM_POINTERUPDATE = 0x0245;
         #endregion
 
         #region Windows API
@@ -104,10 +115,35 @@ namespace CSimple.Services
             public int X;
             public int Y;
         }
+
+        // Touch input structures
+        [StructLayout(LayoutKind.Sequential)]
+        private struct TOUCHINPUT
+        {
+            public int x;
+            public int y;
+            public IntPtr hSource;
+            public int dwID;
+            public int dwFlags;
+            public int dwMask;
+            public int dwTime;
+            public IntPtr dwExtraInfo;
+            public int cxContact;
+            public int cyContact;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern bool RegisterTouchWindow(IntPtr hwnd, uint ulFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetTouchInputInfo(IntPtr hTouchInput, uint cInputs, [Out] TOUCHINPUT[] pInputs, int cbSize);
+
+        [DllImport("user32.dll")]
+        private static extern bool CloseTouchInputHandle(IntPtr hTouchInput);
 #endif
         #endregion
 
-        // Enhanced ActionItem to store richer mouse data
+        // Enhanced ActionItem to store richer mouse data and touch data
         public class ActionItem
         {
             public ushort EventType { get; set; }
@@ -124,6 +160,35 @@ namespace CSimple.Services
             public TimeSpan TimeSinceLastMove { get; set; } // For timing-accurate replay
             public float VelocityX { get; set; } // Mouse movement velocity
             public float VelocityY { get; set; } // Mouse movement velocity
+
+            // Touch-specific properties
+            public bool IsTouch { get; set; }
+            public int TouchId { get; set; }
+            public TouchAction TouchAction { get; set; }
+            public int TouchWidth { get; set; }
+            public int TouchHeight { get; set; }
+            public float Pressure { get; set; } // Touch pressure if available
+        }
+
+        public enum TouchAction
+        {
+            None,
+            Down,
+            Move,
+            Up,
+            Cancel
+        }
+
+        // Class to track touch points
+        private class TouchPoint
+        {
+            public int Id { get; set; }
+            public int X { get; set; }
+            public int Y { get; set; }
+            public DateTime StartTime { get; set; }
+            public DateTime LastUpdateTime { get; set; }
+            public int Width { get; set; }
+            public int Height { get; set; }
         }
 
         public class Coordinates
@@ -178,6 +243,10 @@ namespace CSimple.Services
                 _accumulatedDeltaY = 0;
                 _mouseMoveTimer.Restart();
 
+                // Reset touch tracking
+                _activeTouches.Clear();
+                _lastTouchEventTime = DateTime.MinValue;
+
                 _keyboardProc = HookCallback;
                 _mouseProc = HookCallback;
                 _keyboardHookID = SetHook(_keyboardProc, WH_KEYBOARD_LL);
@@ -189,9 +258,124 @@ namespace CSimple.Services
 
                 // Start a high-frequency mouse movement tracker
                 Task.Run(() => TrackMouseMovements());
+
+                // Register for touch input on the window
+                RegisterForTouchInput();
             }
 #endif
         }
+
+#if WINDOWS
+        private void RegisterForTouchInput()
+        {
+            // This method would register the current window for touch input
+            // Get the current window handle - this is simplified and would need to be implemented
+            var hwnd = GetActiveWindow();
+            if (hwnd != IntPtr.Zero)
+            {
+                // Register window to receive touch input
+                RegisterTouchWindow(hwnd, 0);
+                LogDebug("Registered window for touch input");
+            }
+        }
+
+        // Get active window handle - placeholder implementation
+        private IntPtr GetActiveWindow()
+        {
+            // In actual implementation, this would use P/Invoke to get the active window handle
+            return IntPtr.Zero;
+        }
+
+        // Process touch input - to be called from the window procedure
+        public void ProcessTouchInput(IntPtr lParam, int numInputs)
+        {
+            TOUCHINPUT[] inputs = new TOUCHINPUT[numInputs];
+
+            if (!GetTouchInputInfo(lParam, (uint)numInputs, inputs, Marshal.SizeOf(typeof(TOUCHINPUT))))
+            {
+                LogDebug("Failed to get touch input info");
+                return;
+            }
+
+            try
+            {
+                for (int i = 0; i < numInputs; i++)
+                {
+                    var input = inputs[i];
+
+                    // Determine touch action
+                    TouchAction action = TouchAction.None;
+                    if ((input.dwFlags & 0x0001) != 0) // TOUCHEVENTF_DOWN
+                        action = TouchAction.Down;
+                    else if ((input.dwFlags & 0x0002) != 0) // TOUCHEVENTF_UP
+                        action = TouchAction.Up;
+                    else if ((input.dwFlags & 0x0004) != 0) // TOUCHEVENTF_MOVE
+                        action = TouchAction.Move;
+
+                    // Create action item for the touch event
+                    var actionItem = new ActionItem
+                    {
+                        EventType = (ushort)(WM_TOUCH + (int)action), // Use custom event type
+                        Timestamp = DateTime.UtcNow,
+                        IsTouch = true,
+                        TouchId = input.dwID,
+                        TouchAction = action,
+                        TouchWidth = input.cxContact,
+                        TouchHeight = input.cyContact,
+                        Coordinates = new Coordinates
+                        {
+                            X = input.x,
+                            Y = input.y,
+                            AbsoluteX = input.x,
+                            AbsoluteY = input.y
+                        },
+                        TimeSinceLastMove = DateTime.UtcNow - _lastTouchEventTime
+                    };
+
+                    // Update touch tracking
+                    if (action == TouchAction.Down)
+                    {
+                        _activeTouches[input.dwID] = new TouchPoint
+                        {
+                            Id = input.dwID,
+                            X = input.x,
+                            Y = input.y,
+                            StartTime = DateTime.UtcNow,
+                            LastUpdateTime = DateTime.UtcNow,
+                            Width = input.cxContact,
+                            Height = input.cyContact
+                        };
+                    }
+                    else if (action == TouchAction.Move && _activeTouches.ContainsKey(input.dwID))
+                    {
+                        var touchPoint = _activeTouches[input.dwID];
+                        actionItem.DeltaX = input.x - touchPoint.X;
+                        actionItem.DeltaY = input.y - touchPoint.Y;
+
+                        // Update the stored touch point
+                        touchPoint.X = input.x;
+                        touchPoint.Y = input.y;
+                        touchPoint.LastUpdateTime = DateTime.UtcNow;
+                        touchPoint.Width = input.cxContact;
+                        touchPoint.Height = input.cyContact;
+                    }
+                    else if (action == TouchAction.Up && _activeTouches.ContainsKey(input.dwID))
+                    {
+                        _activeTouches.Remove(input.dwID);
+                    }
+
+                    _lastTouchEventTime = DateTime.UtcNow;
+
+                    // Add to queue for processing
+                    AddToInputQueue(actionItem);
+                }
+            }
+            finally
+            {
+                CloseTouchInputHandle(lParam);
+            }
+        }
+#endif
 
         public void StopCapturing()
         {
@@ -235,7 +419,6 @@ namespace CSimple.Services
 #endif
         }
 
-#if WINDOWS
         private void RecordFinalMouseState()
         {
             GetCursorPos(out POINT currentPos);
@@ -470,7 +653,6 @@ namespace CSimple.Services
 
             frameTimer.Stop();
         }
-#endif
 
         #region Model Conversion Methods
 
@@ -497,7 +679,15 @@ namespace CSimple.Services
                 IsMiddleButtonDown = item.IsMiddleButtonDown,
                 TimeSinceLastMoveMs = (long)item.TimeSinceLastMove.TotalMilliseconds,
                 VelocityX = item.VelocityX,
-                VelocityY = item.VelocityY
+                VelocityY = item.VelocityY,
+
+                // Copy touch-specific data
+                IsTouch = item.IsTouch,
+                TouchId = item.TouchId,
+                TouchAction = (int)item.TouchAction,
+                TouchWidth = item.TouchWidth,
+                TouchHeight = item.TouchHeight,
+                Pressure = item.Pressure
             };
 
             // Handle coordinates conversion
@@ -738,7 +928,6 @@ namespace CSimple.Services
             return activeInputsDisplay.ToString();
         }
 
-        // Implementation of the missing GetActiveKeyCount method
         public int GetActiveKeyCount()
         {
             return _activeKeyPresses.Count;
