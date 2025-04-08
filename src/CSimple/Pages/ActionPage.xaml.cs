@@ -442,10 +442,10 @@ namespace CSimple.Pages
                 bool isOnlineMode = _appModeService?.CurrentMode == AppMode.Online;
                 Debug.WriteLine($"Current app mode: {(isOnlineMode ? "Online" : "Offline")}");
 
-                // STEP 1: Always load local data
+                // STEP 1: Always load standard local data first
                 Debug.WriteLine("Loading local action data...");
-                var localDataItems = await _actionService.LoadLocalDataItemsAsync();
-                Debug.WriteLine($"Loaded {localDataItems.Count} local-only items");
+                var localDataItems = await _actionService.LoadDataItemsFromFile();
+                Debug.WriteLine($"Loaded {localDataItems.Count} standard local items");
 
                 // Add non-deleted local items to the DataItems collection
                 foreach (var item in localDataItems.Where(item => item.deleted != true))
@@ -453,7 +453,31 @@ namespace CSimple.Pages
                     DataItems.Add(item);
                 }
 
-                // STEP 2: Load backend data only if in online mode
+                // STEP 2: Load local rich data saved by the Observe page
+                Debug.WriteLine("Loading local rich data from Observe page...");
+                var observeDataService = new ObserveDataService();
+                var localRichData = await observeDataService.LoadLocalRichDataAsync();
+
+                if (localRichData != null && localRichData.Any())
+                {
+                    Debug.WriteLine($"Loaded {localRichData.Count} rich data items from Observe page");
+                    // Add non-duplicate items from rich data
+                    foreach (var item in localRichData.Where(item => item.deleted != true))
+                    {
+                        // Check if this item already exists in DataItems
+                        var exists = DataItems.Any(di =>
+                            di?.Data?.ActionGroupObject?.ActionName == item?.Data?.ActionGroupObject?.ActionName ||
+                            (!string.IsNullOrEmpty(di?._id) && di._id == item?._id));
+
+                        if (!exists)
+                        {
+                            DataItems.Add(item);
+                            Debug.WriteLine($"Added rich data item: {item?.Data?.ActionGroupObject?.ActionName}");
+                        }
+                    }
+                }
+
+                // STEP 3: Load backend data only if in online mode
                 if (isOnlineMode)
                 {
                     Debug.WriteLine("Online mode detected - loading backend data...");
@@ -464,8 +488,8 @@ namespace CSimple.Pages
                         try
                         {
                             // Load all items (including backend) using the unified method
-                            var allItems = await _actionService.LoadAllDataItemsAsync();
-                            Debug.WriteLine($"Loaded {allItems.Count} total items from all sources");
+                            var allItems = await _actionService.LoadDataItemsFromBackend();
+                            Debug.WriteLine($"Loaded {allItems.Count} total items from backend");
 
                             // Filter out deleted items and add to DataItems collection
                             var filteredItems = allItems.Where(item => item.deleted != true &&
@@ -491,11 +515,11 @@ namespace CSimple.Pages
                     }
                 }
 
-                // STEP 3: Update ActionGroups collection
+                // STEP 4: Update ActionGroups collection
                 UpdateActionGroupsFromDataItems();
                 _allActionGroups = new ObservableCollection<ActionGroup>(ActionGroups);
 
-                // STEP 4: Also refresh the LocalItems collection
+                // STEP 5: Also refresh the LocalItems collection
                 await LoadLocalItemsAsync();
 
                 // Apply filtering or sorting

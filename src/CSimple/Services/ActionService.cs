@@ -365,7 +365,7 @@ namespace CSimple.Services
                             Debug.WriteLine($"Successfully cancelled action");
                             break;
                         }
-                        Debug.WriteLine($"Scheduling Action: {action.Timestamp}");
+                        // Debug.WriteLine($"Scheduling Action: {action.Timestamp}");
 
                         DateTime currentActionTime;
                         if (!DateTime.TryParse(action.Timestamp.ToString(), null, System.Globalization.DateTimeStyles.RoundtripKind, out currentActionTime))
@@ -386,7 +386,7 @@ namespace CSimple.Services
                                 continue;
                             }
 
-                            Debug.WriteLine($"Scheduling delay for {delay.TotalMilliseconds} ms before next action.");
+                            // Debug.WriteLine($"Scheduling delay for {delay.TotalMilliseconds} ms before next action.");
                             await Task.Delay(delay);
                         }
 
