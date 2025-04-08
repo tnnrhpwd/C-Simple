@@ -255,6 +255,9 @@ namespace CSimple.Pages
 
         private readonly CSimple.Services.AppModeService.AppModeService _appModeService;
 
+        // Add missing field declaration
+        private DateTime _lastMoveTime = DateTime.MinValue;
+
         public ActionPage()
         {
             InitializeComponent();
@@ -285,8 +288,8 @@ namespace CSimple.Pages
             DeleteActionCommand = new Command<ActionGroup>(async (actionGroup) => await DeleteActionByGroupAsync(actionGroup));
             RowTappedCommand = new Command<ActionGroup>(OnRowTapped);
 
-            // New commands
-            RefreshCommand = new Command(async () => await RefreshData());
+            // Fix for CS1503: Use a lambda to properly convert the method group
+            RefreshCommand = new Command(() => OnRefreshDataClicked());
             TrainModelCommand = new Command(async () => await TrainModel());
             SearchCommand = new Command(FilterActionsBySearch);
             ChainActionCommand = new Command<ActionGroup>(ChainAction);
@@ -885,32 +888,87 @@ namespace CSimple.Pages
             }
         }
 
-        private async void OnRefreshDataClicked(object sender, EventArgs e)
+        private async void OnRefreshDataClicked(object sender = null, EventArgs e = null)
         {
             try
             {
                 // Show loading indicator
                 IsLoading = true;
 
+                // Reset page state before data reload
+                await ResetPageState();
+
+                // Clear all collections first
+                DataItems.Clear();
+                ActionGroups.Clear();
+                LocalItems.Clear();
+                _allActionGroups.Clear();
+
+                // Reset filters and search
+                if (_sortPicker != null)
+                    _sortPicker.SelectedIndex = 0;
+                SearchText = string.Empty;
+                SelectedCategory = "All Categories";
+
                 // Refresh all data according to current app mode
-                Debug.WriteLine("Manual refresh requested from UI");
+                Debug.WriteLine("Complete page refresh requested");
                 await RefreshData();
+
+                // Force UI update for all collections
+                OnPropertyChanged(nameof(DataItems));
+                OnPropertyChanged(nameof(ActionGroups));
+                OnPropertyChanged(nameof(LocalItems));
+                OnPropertyChanged(nameof(ShowEmptyMessage));
+                OnPropertyChanged(nameof(HasLocalItems));
+                OnPropertyChanged(nameof(HasSelectedActions));
 
                 // Provide user feedback
                 string modeMessage = _appModeService?.CurrentMode == AppMode.Online ?
-                    "Actions refreshed from local and backend storage" :
-                    "Actions refreshed from local storage";
+                    "Page completely refreshed with data from local and backend storage" :
+                    "Page completely refreshed with data from local storage";
 
                 await DisplayAlert("Refresh Complete", modeMessage, "OK");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in manual refresh: {ex.Message}");
-                await DisplayAlert("Refresh Error", "There was a problem refreshing actions.", "OK");
+                Debug.WriteLine($"Error in complete page refresh: {ex.Message}");
+                Debug.WriteLine(ex.StackTrace);
+                await DisplayAlert("Refresh Error", "Failed to refresh the page. Please try again.", "OK");
             }
             finally
             {
                 IsLoading = false;
+            }
+        }
+
+        // New method to reset page state completely
+        private async Task ResetPageState()
+        {
+            try
+            {
+                // Reset selection state
+                SelectedActionGroup = null;
+
+                // Reset any cached data
+                _lastMoveTime = DateTime.MinValue;
+
+                // Reset any UI element states if needed
+                foreach (var action in ActionGroups)
+                {
+                    action.IsSelected = false;
+                    action.IsSimulating = false;
+                }
+
+                // Clear input fields and reset view state
+                if (_inputActionPopup != null)
+                    _inputActionPopup.IsVisible = false;
+
+                // Let the UI update before continuing with data refresh
+                await Task.Delay(50);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error resetting page state: {ex.Message}");
             }
         }
 
@@ -1433,10 +1491,11 @@ namespace CSimple.Pages
             }
         }
 
-        private async Task NavigateToObservePage()
+        // Fix for CS1998: Remove async keyword as there's no await operation in this method
+        private Task NavigateToObservePage()
         {
             DebugOutput("Navigating to ObservePage");
-            await Shell.Current.GoToAsync("///observe");
+            return Shell.Current.GoToAsync("///observe");
         }
 
         private void OnInputActionClicked(object sender, EventArgs e)
