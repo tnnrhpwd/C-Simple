@@ -78,6 +78,7 @@ public class ActionGroup : INotifyPropertyChanged
 {
     private bool _isSimulating = false;
     private ObservableCollection<ActionStep> _recentSteps;
+    private long? _size = null;
 
     public event PropertyChangedEventHandler PropertyChanged;
 
@@ -111,6 +112,116 @@ public class ActionGroup : INotifyPropertyChanged
     public string ChainName { get; set; } = string.Empty;
     public bool IsLocal { get; set; } = false; // Indicates if the action is locally stored
     public List<ActionFile> Files { get; set; } = new List<ActionFile>(); // Add this property to store attached files
+
+    // Size property with lazy calculation
+    public long Size
+    {
+        get
+        {
+            if (!_size.HasValue)
+            {
+                _size = CalculateSize();
+            }
+            return _size.Value;
+        }
+    }
+
+    // Formatted size for display
+    public string FormattedSize => FormatFileSize(Size);
+
+    // Calculate total size of ActionGroup
+    private long CalculateSize()
+    {
+        long totalSize = 0;
+
+        // Include size contribution from ActionName and Description
+        totalSize += ActionName?.Length * 2 ?? 0; // Unicode chars = ~2 bytes
+        totalSize += Description?.Length * 2 ?? 0;
+
+        // Size of ActionArray (estimated)
+        if (ActionArray != null)
+        {
+            // Rough estimate of serialized size per action item
+            foreach (var item in ActionArray)
+            {
+                // Base size for each ActionItem (conservative estimate)
+                long actionItemSize = 50; // Base struct size estimate
+
+                // Add specific properties sizes
+                actionItemSize += 8; // Timestamp (assume 8 bytes for DateTime or similar)
+                actionItemSize += 4; // EventType (int)
+                actionItemSize += 4; // KeyCode (int)
+                actionItemSize += 4; // Duration (int)
+
+                // Add mouse properties sizes
+                actionItemSize += 8; // DeltaX & DeltaY (int * 2)
+                actionItemSize += 8; // MouseData & Flags (uint * 2)
+                actionItemSize += 3; // Various boolean flags (3 bytes)
+                actionItemSize += 8; // TimeSinceLastMove (long)
+                actionItemSize += 8; // Velocity values (float * 2)
+
+                // Add Coordinates size if present
+                if (item.Coordinates != null)
+                {
+                    actionItemSize += 24; // 6 int values * 4 bytes
+                }
+
+                totalSize += actionItemSize;
+            }
+        }
+
+        // Include size of action modifiers
+        if (ActionModifiers != null)
+        {
+            foreach (var modifier in ActionModifiers)
+            {
+                totalSize += modifier.ModifierName?.Length * 2 ?? 0;
+                totalSize += modifier.Description?.Length * 2 ?? 0;
+                totalSize += 4; // Priority (int)
+                totalSize += 16; // Rough estimate for delegate references
+            }
+        }
+
+        // Include size of files
+        if (Files != null)
+        {
+            foreach (var file in Files)
+            {
+                // Filename and ContentType
+                totalSize += file.Filename?.Length * 2 ?? 0;
+                totalSize += file.ContentType?.Length * 2 ?? 0;
+
+                // File data (if it's base64, each character represents ~0.75 bytes of actual data)
+                if (!string.IsNullOrEmpty(file.Data))
+                {
+                    // Use actual length for calculation
+                    totalSize += (long)(file.Data.Length * 0.75);
+                }
+            }
+        }
+
+        return totalSize;
+    }
+
+    // Format file size in a human-readable format
+    private string FormatFileSize(long bytes)
+    {
+        const long KB = 1024;
+        const long MB = KB * 1024;
+        const long GB = MB * 1024;
+        const long TB = GB * 1024;
+
+        if (bytes < KB)
+            return $"{bytes} B";
+        else if (bytes < MB)
+            return $"{bytes / (double)KB:0.##} KB";
+        else if (bytes < GB)
+            return $"{bytes / (double)MB:0.##} MB";
+        else if (bytes < TB)
+            return $"{bytes / (double)GB:0.##} GB";
+        else
+            return $"{bytes / (double)TB:0.##} TB";
+    }
 
     public ObservableCollection<ActionStep> RecentSteps
     {

@@ -122,7 +122,9 @@ namespace CSimple.Pages
             "Name (Z-A)",
             "Type",
             "Steps Count",
-            "Usage Count"
+            "Usage Count",
+            "Size (Largest First)",
+            "Size (Smallest First)"
         };
 
         private string _selectedSortOption;
@@ -386,25 +388,31 @@ namespace CSimple.Pages
             switch (SelectedSortOption)
             {
                 case "Date (Newest First)":
-                    sortedGroups = ActionGroups.OrderByDescending(a => a.CreatedAt ?? DateTime.MinValue).ToList(); // Fix order
+                    sortedGroups = ActionGroups.OrderByDescending(a => a.CreatedAt ?? DateTime.MinValue).ToList();
                     break;
                 case "Date (Oldest First)":
-                    sortedGroups = ActionGroups.OrderBy(a => a.CreatedAt ?? DateTime.MinValue).ToList(); // Fix order
+                    sortedGroups = ActionGroups.OrderBy(a => a.CreatedAt ?? DateTime.MinValue).ToList();
                     break;
                 case "Name (A-Z)":
-                    sortedGroups = ActionGroups.OrderByDescending(a => a.ActionName).ToList(); // Reverse order
+                    sortedGroups = ActionGroups.OrderBy(a => a.ActionName).ToList();
                     break;
                 case "Name (Z-A)":
-                    sortedGroups = ActionGroups.OrderBy(a => a.ActionName).ToList(); // Reverse order
+                    sortedGroups = ActionGroups.OrderByDescending(a => a.ActionName).ToList();
                     break;
                 case "Type":
                     sortedGroups = ActionGroups.OrderBy(a => a.ActionType).ToList();
                     break;
                 case "Steps Count":
-                    sortedGroups = ActionGroups.OrderBy(a => a.ActionArray?.Count ?? 0).ToList(); // Reverse order
+                    sortedGroups = ActionGroups.OrderByDescending(a => a.ActionArray?.Count ?? 0).ToList();
                     break;
                 case "Usage Count":
-                    sortedGroups = ActionGroups.OrderBy(a => a.UsageCount).ToList(); // Reverse order
+                    sortedGroups = ActionGroups.OrderByDescending(a => a.UsageCount).ToList();
+                    break;
+                case "Size (Largest First)":
+                    sortedGroups = ActionGroups.OrderByDescending(a => a.Size).ToList();
+                    break;
+                case "Size (Smallest First)":
+                    sortedGroups = ActionGroups.OrderBy(a => a.Size).ToList();
                     break;
                 default:
                     return;
