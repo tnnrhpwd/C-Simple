@@ -50,11 +50,21 @@ namespace CSimple.Pages
         public string Index { get; set; }
         public string Description { get; set; }
         public string Duration { get; set; }
-        public string KeyName { get; set; } // New property for key name
-        public int KeyCode { get; set; } // New property for key code
-        public DateTime Timestamp { get; set; } // New property for timestamp
-        public bool IsMouseMove { get; set; } // New property to indicate mouse move
-        public ActionItem RawData { get; set; } // New property to hold raw data
+        public string KeyName { get; set; }
+        public int KeyCode { get; set; }
+        public DateTime Timestamp { get; set; }
+        public bool IsMouseMove { get; set; }
+        public bool IsMouseButton { get; set; }
+        public string MouseButtonAction { get; set; } // "Down" or "Up"
+        public string MouseButtonType { get; set; } // "Left", "Right", "Middle"
+        public ActionItem RawData { get; set; }
+
+        // Group properties
+        public bool IsGrouped { get; set; }
+        public int GroupCount { get; set; }
+        public string GroupType { get; set; }
+        public TimeSpan GroupDuration { get; set; }
+        public List<ActionItem> GroupedItems { get; set; } = new List<ActionItem>();
     }
 
     public class ActionDetailViewModel : INotifyPropertyChanged
@@ -180,26 +190,45 @@ namespace CSimple.Pages
                     DateTime startTime = DateTime.MaxValue;
                     DateTime endTime = DateTime.MinValue;
 
+                    // Create temporary list for processing
+                    var processedSteps = new List<StepViewModel>();
+
                     for (int i = 0; i < _actionGroup.ActionArray.Count; i++)
                     {
                         var step = _actionGroup.ActionArray[i];
                         string description = step.ToString();
                         string keyName = "";
                         int keyCode = 0;
-                        string keyAction = ""; // "Key Up" or "Key Down"
+                        bool isMouseButton = false;
+                        string mouseButtonType = "";
+                        string mouseButtonAction = "";
                         DateTime timestamp = DateTime.MinValue;
 
                         // Extract key name and code if it's a key press/release event
                         if (step.EventType == 256 || step.EventType == 257)
                         {
                             keyCode = (int)step.KeyCode;
-                            keyName = GetKeyName((ushort)keyCode); // Use GetKeyName method
-                            keyAction = step.EventType == 256 ? "Down" : "Up"; // Set "Up" or "Down"
+                            keyName = GetKeyName((ushort)keyCode);
+                            string keyAction = step.EventType == 256 ? "Down" : "Up";
                             description = $"Key {keyName} {keyAction} (Code: {keyCode})";
                         }
-                        else if (step.EventType == 512) // Mouse move event
+                        else if (step.EventType == 512 || step.EventType == 0x0200) // Mouse move event
                         {
                             description = $"Mouse Move to X:{step.Coordinates?.X ?? 0}, Y:{step.Coordinates?.Y ?? 0}";
+                        }
+                        // Handle mouse button events
+                        else if (IsMouseButtonEvent(step.EventType))
+                        {
+                            isMouseButton = true;
+                            mouseButtonType = GetMouseButtonType(step.EventType);
+                            mouseButtonAction = IsMouseButtonDown(step.EventType) ? "Down" : "Up";
+                            description = $"{mouseButtonType} Click";
+
+                            // If coordinates are available, include them
+                            if (step.Coordinates != null)
+                            {
+                                description += $" at X:{step.Coordinates.X}, Y:{step.Coordinates.Y}";
+                            }
                         }
 
                         // Get timestamp
@@ -210,7 +239,7 @@ namespace CSimple.Pages
                             endTime = timestamp > endTime ? timestamp : endTime;
                         }
 
-                        ActionSteps.Add(new StepViewModel
+                        StepViewModel stepViewModel = new StepViewModel
                         {
                             Index = (i + 1).ToString(),
                             Description = description,
@@ -218,10 +247,19 @@ namespace CSimple.Pages
                             KeyName = keyName,
                             KeyCode = keyCode,
                             Timestamp = timestamp,
-                            IsMouseMove = step.EventType == 512, // Check if it's a mouse move
-                            RawData = step // Include raw data
-                        });
+                            IsMouseMove = step.EventType == 512 || step.EventType == 0x0200,
+                            IsMouseButton = isMouseButton,
+                            MouseButtonType = mouseButtonType,
+                            MouseButtonAction = mouseButtonAction,
+                            RawData = step
+                        };
+
+                        processedSteps.Add(stepViewModel);
                     }
+
+                    // Group similar consecutive actions
+                    ActionSteps.Clear();
+                    GroupSimilarActions(processedSteps);
 
                     // Calculate and set the duration
                     if (startTime != DateTime.MaxValue && endTime != DateTime.MinValue)
@@ -235,16 +273,365 @@ namespace CSimple.Pages
                 // Add demo steps if we don't have any
                 if (ActionSteps.Count == 0)
                 {
-                    ActionSteps.Add(new StepViewModel { Index = "1", Description = "Mouse Move to X:500, Y:300", Duration = "0.12s", Timestamp = DateTime.Now });
-                    ActionSteps.Add(new StepViewModel { Index = "2", Description = "Left Click", Duration = "0.05s", Timestamp = DateTime.Now.AddSeconds(0.12) });
-                    ActionSteps.Add(new StepViewModel { Index = "3", Description = "Key A Down (65)", Duration = "0.08s", KeyName = "A", KeyCode = 65, Timestamp = DateTime.Now.AddSeconds(0.17) });
-                    ActionSteps.Add(new StepViewModel { Index = "4", Description = "Key A Up (65)", Duration = "0.04s", KeyName = "A", KeyCode = 65, Timestamp = DateTime.Now.AddSeconds(0.25) });
+                    AddDemoSteps();
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error initializing steps: {ex.Message}");
                 ActionSteps.Add(new StepViewModel { Index = "!", Description = "Error loading steps", Duration = "N/A" });
+            }
+        }
+
+        private void GroupSimilarActions(List<StepViewModel> steps)
+        {
+            if (steps == null || steps.Count == 0)
+            {
+                Debug.WriteLine("No steps to group");
+                return;
+            }
+
+            try
+            {
+                // Constants for grouping configuration
+                const int MIN_GROUP_SIZE = 3; // Minimum number of similar actions to form a group
+                const int MAX_MOUSE_MOVES_BEFORE_GROUPING = 4; // Show this many individual moves before grouping
+
+                int currentIndex = 0;
+                int displayIndex = 1; // For user-visible indexing (starts at 1)
+
+                while (currentIndex < steps.Count)
+                {
+                    var currentStep = steps[currentIndex];
+
+                    // Check if we can start a grouping from this step
+                    bool canGroup = false;
+                    string groupType = "";
+
+                    // 1. Check for consecutive mouse movements
+                    if (currentStep.IsMouseMove && currentIndex + MIN_GROUP_SIZE <= steps.Count)
+                    {
+                        int mouseMoveCount = 1;
+                        for (int i = currentIndex + 1; i < steps.Count; i++)
+                        {
+                            if (steps[i].IsMouseMove)
+                                mouseMoveCount++;
+                            else
+                                break;
+                        }
+
+                        if (mouseMoveCount >= MIN_GROUP_SIZE)
+                        {
+                            canGroup = true;
+                            groupType = "MouseMove";
+                        }
+                    }
+
+                    // 2. Check for consecutive key presses of the same key
+                    else if (!string.IsNullOrEmpty(currentStep.KeyName) && currentIndex + MIN_GROUP_SIZE <= steps.Count)
+                    {
+                        int sameKeyCount = 1;
+                        string keyName = currentStep.KeyName;
+
+                        for (int i = currentIndex + 1; i < steps.Count; i++)
+                        {
+                            if (!string.IsNullOrEmpty(steps[i].KeyName) && steps[i].KeyName == keyName)
+                                sameKeyCount++;
+                            else
+                                break;
+                        }
+
+                        if (sameKeyCount >= MIN_GROUP_SIZE)
+                        {
+                            canGroup = true;
+                            groupType = "KeyPress";
+                        }
+                    }
+
+                    // 3. Process the grouping or individual step
+                    if (canGroup)
+                    {
+                        if (groupType == "MouseMove")
+                        {
+                            // Count consecutive mouse moves
+                            int mouseMoveCount = 0;
+                            for (int i = currentIndex; i < steps.Count; i++)
+                            {
+                                if (steps[i].IsMouseMove)
+                                    mouseMoveCount++;
+                                else
+                                    break;
+                            }
+
+                            // Add individual mouse moves at the beginning for context
+                            int individualMovesToShow = Math.Min(MAX_MOUSE_MOVES_BEFORE_GROUPING, mouseMoveCount / 2);
+                            for (int j = 0; j < individualMovesToShow && currentIndex + j < steps.Count; j++)
+                            {
+                                var step = steps[currentIndex + j];
+                                step.Index = displayIndex.ToString();
+                                ActionSteps.Add(step);
+                                displayIndex++;
+                            }
+
+                            // Skip if all moves are shown individually
+                            if (mouseMoveCount <= individualMovesToShow)
+                            {
+                                currentIndex += mouseMoveCount;
+                                continue;
+                            }
+
+                            // Create group for remaining moves
+                            var groupedMoves = new List<ActionItem>();
+                            DateTime firstTimestamp = DateTime.MaxValue;
+                            DateTime lastTimestamp = DateTime.MinValue;
+
+                            for (int j = individualMovesToShow; j < mouseMoveCount && currentIndex + j < steps.Count; j++)
+                            {
+                                if (steps[currentIndex + j].RawData != null)
+                                {
+                                    groupedMoves.Add(steps[currentIndex + j].RawData);
+
+                                    if (steps[currentIndex + j].Timestamp < firstTimestamp)
+                                        firstTimestamp = steps[currentIndex + j].Timestamp;
+                                    if (steps[currentIndex + j].Timestamp > lastTimestamp)
+                                        lastTimestamp = steps[currentIndex + j].Timestamp;
+                                }
+                            }
+
+                            if (groupedMoves.Any())
+                            {
+                                var firstPoint = groupedMoves.First().Coordinates;
+                                var lastPoint = groupedMoves.Last().Coordinates;
+
+                                // Fix: Add null checks for coordinates
+                                int firstX = firstPoint?.X ?? 0;
+                                int firstY = firstPoint?.Y ?? 0;
+                                int lastX = lastPoint?.X ?? 0;
+                                int lastY = lastPoint?.Y ?? 0;
+
+                                // Create a grouped step with null-safe coordinate handling
+                                ActionSteps.Add(new StepViewModel
+                                {
+                                    Index = displayIndex.ToString(),
+                                    Description = $"Mouse Movement Path ({groupedMoves.Count} steps)",
+                                    IsGrouped = true,
+                                    GroupCount = groupedMoves.Count,
+                                    GroupType = "Mouse Movements",
+                                    Duration = (lastTimestamp - firstTimestamp).TotalSeconds.ToString("0.00") + "s",
+                                    GroupDuration = lastTimestamp - firstTimestamp,
+                                    IsMouseMove = true,
+                                    GroupedItems = groupedMoves,
+                                    Timestamp = firstTimestamp,
+                                    RawData = new ActionItem
+                                    {
+                                        EventType = 512, // Mouse move
+                                        Coordinates = new Coordinates { X = firstX, Y = firstY },
+                                        DeltaX = lastX - firstX,
+                                        DeltaY = lastY - firstY
+                                    }
+                                });
+                                displayIndex++;
+                            }
+
+                            // Add the last few individual moves for context
+                            int lastMovesToShow = Math.Min(2, mouseMoveCount - individualMovesToShow);
+                            for (int j = 0; j < lastMovesToShow; j++)
+                            {
+                                int index = currentIndex + mouseMoveCount - lastMovesToShow + j;
+                                if (index < steps.Count)
+                                {
+                                    var step = steps[index];
+                                    step.Index = displayIndex.ToString();
+                                    ActionSteps.Add(step);
+                                    displayIndex++;
+                                }
+                            }
+
+                            currentIndex += mouseMoveCount;
+                        }
+                        else if (groupType == "KeyPress")
+                        {
+                            string keyName = currentStep.KeyName;
+                            int sameKeyCount = 0;
+                            for (int i = currentIndex; i < steps.Count; i++)
+                            {
+                                if (!string.IsNullOrEmpty(steps[i].KeyName) && steps[i].KeyName == keyName)
+                                    sameKeyCount++;
+                                else
+                                    break;
+                            }
+
+                            // Add first key event individually
+                            ActionSteps.Add(steps[currentIndex]);
+                            steps[currentIndex].Index = displayIndex.ToString();
+                            displayIndex++;
+
+                            // Group the middle key events if there are enough
+                            if (sameKeyCount > 3)
+                            {
+                                var groupedItems = new List<ActionItem>();
+                                DateTime firstTimestamp = steps[currentIndex + 1].Timestamp;
+                                DateTime lastTimestamp = steps[currentIndex + sameKeyCount - 2 >= currentIndex + 1
+                                    ? sameKeyCount - 2 : 1].Timestamp;
+
+                                for (int j = 1; j < sameKeyCount - 1 && currentIndex + j < steps.Count; j++)
+                                {
+                                    if (steps[currentIndex + j].RawData != null)
+                                        groupedItems.Add(steps[currentIndex + j].RawData);
+                                }
+
+                                if (groupedItems.Any())
+                                {
+                                    ActionSteps.Add(new StepViewModel
+                                    {
+                                        Index = displayIndex.ToString(),
+                                        Description = $"Repeated Key {keyName} ({groupedItems.Count} times)",
+                                        IsGrouped = true,
+                                        GroupCount = groupedItems.Count,
+                                        GroupType = "Key Repetition",
+                                        KeyName = keyName,
+                                        KeyCode = currentStep.KeyCode,
+                                        Duration = (lastTimestamp - firstTimestamp).TotalSeconds.ToString("0.00") + "s",
+                                        GroupDuration = lastTimestamp - firstTimestamp,
+                                        GroupedItems = groupedItems,
+                                        Timestamp = firstTimestamp
+                                    });
+                                    displayIndex++;
+                                }
+                            }
+
+                            // Add the last key event if there are at least 2 events
+                            if (currentIndex + sameKeyCount - 1 >= currentIndex + 1 && currentIndex + sameKeyCount - 1 < steps.Count)
+                            {
+                                steps[currentIndex + sameKeyCount - 1].Index = displayIndex.ToString();
+                                ActionSteps.Add(steps[currentIndex + sameKeyCount - 1]);
+                                displayIndex++;
+                            }
+
+                            currentIndex += sameKeyCount;
+                        }
+                    }
+                    else
+                    {
+                        // Add individual step
+                        currentStep.Index = displayIndex.ToString();
+                        ActionSteps.Add(currentStep);
+                        displayIndex++;
+                        currentIndex++;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in GroupSimilarActions: {ex.Message}");
+                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                // If grouping fails, fall back to adding all steps individually
+                for (int i = 0; i < steps.Count; i++)
+                {
+                    steps[i].Index = (i + 1).ToString();
+                    ActionSteps.Add(steps[i]);
+                }
+            }
+        }
+
+        private void AddDemoSteps()
+        {
+            // Add simple demo steps
+            ActionSteps.Add(new StepViewModel
+            {
+                Index = "1",
+                Description = "Mouse Move to X:500, Y:300",
+                Duration = "0.12s",
+                Timestamp = DateTime.Now,
+                IsMouseMove = true
+            });
+
+            // Add a group of mouse movements
+            ActionSteps.Add(new StepViewModel
+            {
+                Index = "2",
+                Description = "Mouse Movement Path (15 steps)",
+                IsGrouped = true,
+                GroupCount = 15,
+                GroupType = "Mouse Movements",
+                Duration = "0.85s",
+                GroupDuration = TimeSpan.FromSeconds(0.85),
+                IsMouseMove = true,
+                Timestamp = DateTime.Now.AddSeconds(0.2)
+            });
+
+            ActionSteps.Add(new StepViewModel
+            {
+                Index = "3",
+                Description = "Left Click",
+                Duration = "0.05s",
+                Timestamp = DateTime.Now.AddSeconds(1.05),
+                IsMouseButton = true,
+                MouseButtonType = "Left",
+                MouseButtonAction = "Down"
+            });
+
+            ActionSteps.Add(new StepViewModel
+            {
+                Index = "4",
+                Description = "Left Click",
+                Duration = "0.05s",
+                Timestamp = DateTime.Now.AddSeconds(1.1),
+                IsMouseButton = true,
+                MouseButtonType = "Left",
+                MouseButtonAction = "Up"
+            });
+
+            // Add a group of key repetitions
+            ActionSteps.Add(new StepViewModel
+            {
+                Index = "5",
+                Description = "Repeated Key A (12 times)",
+                IsGrouped = true,
+                GroupCount = 12,
+                GroupType = "Key Repetition",
+                KeyName = "A",
+                KeyCode = 65,
+                Duration = "0.6s",
+                Timestamp = DateTime.Now.AddSeconds(1.2)
+            });
+        }
+
+        // Helper method to check if an event is a mouse button event
+        private bool IsMouseButtonEvent(int eventType)
+        {
+            return eventType == 0x0201 || // WM_LBUTTONDOWN
+                   eventType == 0x0202 || // WM_LBUTTONUP
+                   eventType == 0x0204 || // WM_RBUTTONDOWN
+                   eventType == 0x0205 || // WM_RBUTTONUP
+                   eventType == 0x0207 || // WM_MBUTTONDOWN
+                   eventType == 0x0208;   // WM_MBUTTONUP
+        }
+
+        // Helper method to determine if the event is a button down event
+        private bool IsMouseButtonDown(int eventType)
+        {
+            return eventType == 0x0201 || // WM_LBUTTONDOWN
+                   eventType == 0x0204 || // WM_RBUTTONDOWN
+                   eventType == 0x0207;   // WM_MBUTTONDOWN
+        }
+
+        // Helper method to get the button type name
+        private string GetMouseButtonType(int eventType)
+        {
+            switch (eventType)
+            {
+                case 0x0201: // WM_LBUTTONDOWN
+                case 0x0202: // WM_LBUTTONUP
+                    return "Left";
+                case 0x0204: // WM_RBUTTONDOWN
+                case 0x0205: // WM_RBUTTONUP
+                    return "Right";
+                case 0x0207: // WM_MBUTTONDOWN
+                case 0x0208: // WM_MBUTTONUP
+                    return "Middle";
+                default:
+                    return "Unknown";
             }
         }
 
@@ -453,8 +840,14 @@ namespace CSimple.Pages
 
                 if (confirmed)
                 {
-                    // Store the action ID for verification and validate format
-                    string actionId = _actionGroup?.Id.ToString();
+                    // Fix: Properly handle Id regardless of type
+                    string actionId = null;
+                    if (_actionGroup?.Id != null)
+                    {
+                        // Handle different Id types safely - convert to string
+                        actionId = _actionGroup.Id.ToString();
+                    }
+
                     string actionName = _actionGroup?.ActionName;
 
                     Debug.WriteLine($"Attempting to delete action with ID: {actionId ?? "null"} and name: {actionName}");
@@ -490,7 +883,7 @@ namespace CSimple.Pages
 
                             // Try to find the action by ID or name in localDataItems
                             var localItemsToRemove = localData.Where(x =>
-                                (x.Data?.ActionGroupObject?.Id.ToString() == actionId) ||
+                                (x.Data?.ActionGroupObject?.Id != null && x.Data?.ActionGroupObject?.Id.ToString() == actionId) ||
                                 (x.Data?.ActionGroupObject?.ActionName == ActionName)).ToList();
 
                             if (localItemsToRemove.Any())
@@ -510,7 +903,7 @@ namespace CSimple.Pages
                             var standardData = await _fileService.LoadDataItemsAsync() ?? new List<DataItem>();
 
                             var standardItemsToRemove = standardData.Where(x =>
-                                (x.Data?.ActionGroupObject?.Id.ToString() == actionId) ||
+                                (x.Data?.ActionGroupObject?.Id != null && x.Data?.ActionGroupObject?.Id.ToString() == actionId) ||
                                 (x.Data?.ActionGroupObject?.ActionName == ActionName)).ToList();
 
                             if (standardItemsToRemove.Any())
@@ -528,11 +921,11 @@ namespace CSimple.Pages
 
                             // Step 3: Verify deletion by checking if the items are now marked as deleted
                             bool verifiedLocalDelete = (await _fileService.LoadLocalDataItemsAsync())
-                                .Where(x => x.Data?.ActionGroupObject?.Id.ToString() == actionId)
+                                .Where(x => x.Data?.ActionGroupObject?.Id != null && x.Data?.ActionGroupObject?.Id.ToString() == actionId)
                                 .All(x => x.deleted);
 
                             bool verifiedStandardDelete = (await _fileService.LoadDataItemsAsync())
-                                .Where(x => x.Data?.ActionGroupObject?.Id.ToString() == actionId)
+                                .Where(x => x.Data?.ActionGroupObject?.Id != null && x.Data?.ActionGroupObject?.Id.ToString() == actionId)
                                 .All(x => x.deleted);
 
                             // Success if deleted and verified from either file or both
@@ -552,18 +945,6 @@ namespace CSimple.Pages
                         if (deleteSuccess)
                         {
                             Debug.WriteLine("Delete successful, navigating back to actions list");
-
-                            // Remove MessagingCenter
-                            // Send a message to notify ActionPage to refresh its data
-                            //MessagingCenter.Send<object, Dictionary<string, string>>(
-                            //    this,
-                            //    "RefreshActionsList",
-                            //    new Dictionary<string, string>
-                            //    {
-                            //        ["deletedId"] = actionId,
-                            //        ["deletedName"] = ActionName
-                            //    }
-                            //);
 
                             // Navigate back to the actions page
                             try
