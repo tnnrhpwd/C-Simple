@@ -349,6 +349,11 @@ namespace CSimple.Services
                     DateTime? previousActionTime = null;
                     List<Task> actionTasks = new List<Task>();
 
+                    // Track previous action button states to detect changes
+                    bool prevLeftButtonDown = false;
+                    bool prevRightButtonDown = false;
+                    bool prevMiddleButtonDown = false;
+
                     // Get current cursor position
                     GetCursorPos(out POINT startPoint);
                     int currentX = startPoint.X;
@@ -377,7 +382,7 @@ namespace CSimple.Services
                             Debug.WriteLine($"Successfully cancelled action");
                             break;
                         }
-                        // Debug.WriteLine($"Scheduling Action: {action.Timestamp}");
+                        Debug.WriteLine($"Processing action with EventType: {action.EventType} (Hex: 0x{action.EventType:X4})");
 
                         DateTime currentActionTime;
                         if (!DateTime.TryParse(action.Timestamp.ToString(), null, System.Globalization.DateTimeStyles.RoundtripKind, out currentActionTime))
@@ -398,7 +403,6 @@ namespace CSimple.Services
                                 continue;
                             }
 
-                            // Debug.WriteLine($"Scheduling delay for {delay.TotalMilliseconds} ms before next action.");
                             await Task.Delay(delay);
                         }
 
@@ -413,169 +417,245 @@ namespace CSimple.Services
                                 return;
                             }
 
-                            switch (action.EventType)
+                            // NEW CODE: Detect button state changes in mouse move events
+                            if (action.EventType == 512) // Mouse Move
                             {
-                                case 512: // Mouse Move
-                                    if (action.Coordinates != null)
+                                // Check for left button state change during mouse move
+                                if (action.IsLeftButtonDown && !prevLeftButtonDown)
+                                {
+                                    // Left button was pressed during this move - simulate button down first
+                                    Debug.WriteLine($"Detected left button press during mouse move at {action.Timestamp}");
+                                    int targetX = action.Coordinates?.X ?? currentX;
+                                    int targetY = action.Coordinates?.Y ?? currentY;
+                                    SendLowLevelMouseClick(MouseButton.Left, false, targetX, targetY);
+                                    _leftButtonDown = true;
+                                    _isDragging = true;
+                                }
+                                else if (!action.IsLeftButtonDown && prevLeftButtonDown)
+                                {
+                                    // Left button was released during this move - simulate button up
+                                    Debug.WriteLine($"Detected left button release during mouse move at {action.Timestamp}");
+                                    int targetX = action.Coordinates?.X ?? currentX;
+                                    int targetY = action.Coordinates?.Y ?? currentY;
+                                    SendLowLevelMouseClick(MouseButton.Left, true, targetX, targetY);
+                                    _leftButtonDown = false;
+                                    _isDragging = _rightButtonDown || _middleButtonDown;
+                                }
+
+                                // Check for right button state changes
+                                if (action.IsRightButtonDown && !prevRightButtonDown)
+                                {
+                                    // Right button was pressed during this move
+                                    Debug.WriteLine($"Detected right button press during mouse move at {action.Timestamp}");
+                                    int targetX = action.Coordinates?.X ?? currentX;
+                                    int targetY = action.Coordinates?.Y ?? currentY;
+                                    SendLowLevelMouseClick(MouseButton.Right, false, targetX, targetY);
+                                    _rightButtonDown = true;
+                                    _isDragging = true;
+                                }
+                                else if (!action.IsRightButtonDown && prevRightButtonDown)
+                                {
+                                    // Right button was released during this move
+                                    Debug.WriteLine($"Detected right button release during mouse move at {action.Timestamp}");
+                                    int targetX = action.Coordinates?.X ?? currentX;
+                                    int targetY = action.Coordinates?.Y ?? currentY;
+                                    SendLowLevelMouseClick(MouseButton.Right, true, targetX, targetY);
+                                    _rightButtonDown = false;
+                                    _isDragging = _leftButtonDown || _middleButtonDown;
+                                }
+
+                                // Similarly handle middle button changes
+                                if (action.IsMiddleButtonDown && !prevMiddleButtonDown)
+                                {
+                                    // Middle button was pressed during this move
+                                    Debug.WriteLine($"Detected middle button press during mouse move at {action.Timestamp}");
+                                    int targetX = action.Coordinates?.X ?? currentX;
+                                    int targetY = action.Coordinates?.Y ?? currentY;
+                                    SendLowLevelMouseClick(MouseButton.Middle, false, targetX, targetY);
+                                    _middleButtonDown = true;
+                                    _isDragging = true;
+                                }
+                                else if (!action.IsMiddleButtonDown && prevMiddleButtonDown)
+                                {
+                                    // Middle button was released during this move
+                                    Debug.WriteLine($"Detected middle button release during mouse move at {action.Timestamp}");
+                                    int targetX = action.Coordinates?.X ?? currentX;
+                                    int targetY = action.Coordinates?.Y ?? currentY;
+                                    SendLowLevelMouseClick(MouseButton.Middle, true, targetX, targetY);
+                                    _middleButtonDown = false;
+                                    _isDragging = _leftButtonDown || _rightButtonDown;
+                                }
+
+                                // Now handle the mouse move itself
+                                if (action.Coordinates != null)
+                                {
+                                    int targetX = action.Coordinates?.X ?? 0;
+                                    int targetY = action.Coordinates?.Y ?? 0;
+
+                                    // Indicator for drag operations (any button is down)
+                                    bool isDragging = action.IsLeftButtonDown || action.IsRightButtonDown || action.IsMiddleButtonDown;
+
+                                    Debug.WriteLine($"Simulating Mouse Move at {action.Timestamp} to X: {targetX}, Y: {targetY} {(isDragging ? "(DRAGGING)" : "")}");
+
+                                    // Movement logic remains the same
+                                    if (UseInterpolation)
                                     {
-                                        int targetX = action.Coordinates?.X ?? 0;
-                                        int targetY = action.Coordinates?.Y ?? 0;
+                                        // Calculate duration based on the next action's timestamp if available
+                                        TimeSpan movementDuration = TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps); // Default
 
-                                        // Check if we're in a drag operation
-                                        bool isDragging = _leftButtonDown || _rightButtonDown || _middleButtonDown;
-
-                                        if (isDragging && !_isDragging)
+                                        // Try to find the next mouse move action to get exact duration
+                                        int currentIndex = actionGroup.ActionArray.IndexOf(action);
+                                        if (currentIndex >= 0 && currentIndex < actionGroup.ActionArray.Count - 1)
                                         {
-                                            _isDragging = true;
-                                            Debug.WriteLine($"Starting drag operation with mouse button down");
-                                        }
-
-                                        Debug.WriteLine($"Simulating Mouse Move at {action.Timestamp} to X: {targetX}, Y: {targetY} {(isDragging ? "(DRAGGING)" : "")}");
-
-                                        // Movement logic remains the same
-                                        if (UseInterpolation)
-                                        {
-                                            // Calculate duration based on the next action's timestamp if available
-                                            TimeSpan movementDuration = TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps); // Default
-
-                                            // Try to find the next mouse move action to get exact duration
-                                            int currentIndex = actionGroup.ActionArray.IndexOf(action);
-                                            if (currentIndex >= 0 && currentIndex < actionGroup.ActionArray.Count - 1)
+                                            // Find next action with a valid timestamp
+                                            for (int i = currentIndex + 1; i < actionGroup.ActionArray.Count; i++)
                                             {
-                                                // Find next action with a valid timestamp
-                                                for (int i = currentIndex + 1; i < actionGroup.ActionArray.Count; i++)
+                                                var nextAction = actionGroup.ActionArray[i];
+                                                if (DateTime.TryParse(action.Timestamp.ToString(), out DateTime thisTime) &&
+                                                    DateTime.TryParse(nextAction.Timestamp.ToString(), out DateTime nextTime))
                                                 {
-                                                    var nextAction = actionGroup.ActionArray[i];
-                                                    if (DateTime.TryParse(action.Timestamp.ToString(), out DateTime thisTime) &&
-                                                        DateTime.TryParse(nextAction.Timestamp.ToString(), out DateTime nextTime))
-                                                    {
-                                                        movementDuration = nextTime - thisTime;
-                                                        // Reduce slightly to account for processing time
-                                                        movementDuration = TimeSpan.FromMilliseconds(movementDuration.TotalMilliseconds * 0.95);
-                                                        break;
-                                                    }
+                                                    movementDuration = nextTime - thisTime;
+                                                    // Reduce slightly to account for processing time
+                                                    movementDuration = TimeSpan.FromMilliseconds(movementDuration.TotalMilliseconds * 0.95);
+                                                    break;
                                                 }
                                             }
-
-                                            // Use interpolation with accurate timing
-                                            int actualSteps = MovementSteps;
-                                            int actualDelayMs = (int)(movementDuration.TotalMilliseconds / actualSteps);
-
-                                            // Make sure delay isn't too small
-                                            if (actualDelayMs < 1)
-                                            {
-                                                actualDelayMs = 1;
-                                                actualSteps = (int)movementDuration.TotalMilliseconds;
-                                            }
-
-                                            Debug.WriteLine($"Mouse movement with {actualSteps} steps and {actualDelayMs}ms delay (total: {movementDuration.TotalMilliseconds}ms)");
-
-                                            // Execute time-accurate smooth movement
-                                            await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, actualSteps, actualDelayMs, movementDuration);
                                         }
-                                        else
+
+                                        // Use interpolation with accurate timing
+                                        int actualSteps = MovementSteps;
+                                        int actualDelayMs = (int)(movementDuration.TotalMilliseconds / actualSteps);
+
+                                        // Make sure delay isn't too small
+                                        if (actualDelayMs < 1)
                                         {
-                                            // Direct move (traditional)
-                                            SendLowLevelMouseMove(targetX, targetY);
+                                            actualDelayMs = 1;
+                                            actualSteps = (int)movementDuration.TotalMilliseconds;
                                         }
 
-                                        // Update current position
-                                        currentX = targetX;
-                                        currentY = targetY;
+                                        Debug.WriteLine($"Mouse movement with {actualSteps} steps and {actualDelayMs}ms delay (total: {movementDuration.TotalMilliseconds}ms)");
+
+                                        // Execute time-accurate smooth movement
+                                        await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, actualSteps, actualDelayMs, movementDuration);
                                     }
                                     else
                                     {
-                                        Debug.WriteLine($"Mouse move action at {action.Timestamp} missing coordinates.");
+                                        // Direct move (traditional)
+                                        SendLowLevelMouseMove(targetX, targetY);
                                     }
-                                    break;
 
-                                case 256: // Key Press
-                                    Debug.WriteLine($"Simulating KeyPress at {action.Timestamp} with KeyCode: {action.KeyCode}");
+                                    // Update current position
+                                    currentX = targetX;
+                                    currentY = targetY;
+                                }
 
-                                    int keyCodeInt = (int)action.KeyCode;
-                                    if (Enum.IsDefined(typeof(VirtualKey), keyCodeInt))
+                                // Update previous button states for the next action
+                                prevLeftButtonDown = action.IsLeftButtonDown;
+                                prevRightButtonDown = action.IsRightButtonDown;
+                                prevMiddleButtonDown = action.IsMiddleButtonDown;
+                            }
+                            // Handle explicit button events as before
+                            else if (action.EventType == (int)WM_LBUTTONDOWN || action.EventType == 0x0201)
+                            {
+                                Debug.WriteLine($"Simulating Left Mouse Down at {action.Timestamp}");
+                                _leftButtonDown = true;
+                                _isDragging = false;
+                                SendLowLevelMouseClick(MouseButton.Left, false, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
+                            }
+                            else if (action.EventType == 0x0202) // Left Mouse Button Up
+                            {
+                                Debug.WriteLine($"Simulating Left Mouse Up at {action.Timestamp}");
+                                _leftButtonDown = false;
+                                _isDragging = _rightButtonDown || _middleButtonDown; // Still dragging if other buttons pressed
+                                SendLowLevelMouseClick(MouseButton.Left, true, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
+                            }
+                            else if (action.EventType == (int)WM_RBUTTONDOWN || action.EventType == 0x0204)
+                            {
+                                Debug.WriteLine($"Simulating Right Mouse Down at {action.Timestamp}");
+                                _rightButtonDown = true;
+                                _isDragging = false;
+                                SendLowLevelMouseClick(MouseButton.Right, false, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
+                            }
+                            else if (action.EventType == 0x0205) // Right Mouse Button Up
+                            {
+                                Debug.WriteLine($"Simulating Right Mouse Up at {action.Timestamp}");
+                                _rightButtonDown = false;
+                                _isDragging = _leftButtonDown || _middleButtonDown; // Still dragging if other buttons pressed
+                                SendLowLevelMouseClick(MouseButton.Right, true, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
+                            }
+                            else if (action.EventType == 0x0207) // Middle Mouse Button Down
+                            {
+                                Debug.WriteLine($"Simulating Middle Mouse Down at {action.Timestamp}");
+                                _middleButtonDown = true;
+                                _isDragging = false;
+                                SendLowLevelMouseClick(MouseButton.Middle, false, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
+                            }
+                            else if (action.EventType == 0x0208) // Middle Mouse Button Up
+                            {
+                                Debug.WriteLine($"Simulating Middle Mouse Up at {action.Timestamp}");
+                                _middleButtonDown = false;
+                                _isDragging = _leftButtonDown || _rightButtonDown; // Still dragging if other buttons pressed
+                                SendLowLevelMouseClick(MouseButton.Middle, true, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
+                            }
+                            else if (action.EventType == 513) // Some systems may use this for left click
+                            {
+                                Debug.WriteLine($"Simulating Complete Left Click at {action.Timestamp}");
+                                // Down
+                                SendLowLevelMouseClick(MouseButton.Left, false, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
+                                // Small delay between down and up
+                                await Task.Delay(50);
+                                // Up
+                                SendLowLevelMouseClick(MouseButton.Left, true, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
+                            }
+                            else if (action.EventType == 256) // Key Press
+                            {
+                                Debug.WriteLine($"Simulating KeyPress at {action.Timestamp} with KeyCode: {action.KeyCode}");
+
+                                int keyCodeInt = (int)action.KeyCode;
+                                if (Enum.IsDefined(typeof(VirtualKey), keyCodeInt))
+                                {
+                                    VirtualKey virtualKey = (VirtualKey)keyCodeInt;
+
+                                    InputSimulator.SimulateKeyDown(virtualKey);
+
+                                    if (action.Duration > 0)
                                     {
-                                        VirtualKey virtualKey = (VirtualKey)keyCodeInt;
-
-                                        InputSimulator.SimulateKeyDown(virtualKey);
-
-                                        if (action.Duration > 0)
-                                        {
-                                            await Task.Delay(action.Duration);
-                                            InputSimulator.SimulateKeyUp(virtualKey);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        Debug.WriteLine($"Invalid KeyPress key code: {action.KeyCode}");
-                                    }
-                                    break;
-
-                                case (int)WM_LBUTTONDOWN: // Left Mouse Button Down
-                                    Debug.WriteLine($"Simulating Left Mouse Down at {action.Timestamp}");
-                                    _leftButtonDown = true;
-                                    _isDragging = false;
-                                    SendLowLevelMouseClick(MouseButton.Left, false, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
-                                    break;
-
-                                case 0x0202: // Left Mouse Button Up
-                                    Debug.WriteLine($"Simulating Left Mouse Up at {action.Timestamp}");
-                                    _leftButtonDown = false;
-                                    _isDragging = _rightButtonDown || _middleButtonDown; // Still dragging if other buttons pressed
-                                    SendLowLevelMouseClick(MouseButton.Left, true, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
-                                    break;
-
-                                case (int)WM_RBUTTONDOWN: // Right Mouse Button Down
-                                    Debug.WriteLine($"Simulating Right Mouse Down at {action.Timestamp}");
-                                    _rightButtonDown = true;
-                                    _isDragging = false;
-                                    SendLowLevelMouseClick(MouseButton.Right, false, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
-                                    break;
-
-                                case 0x0205: // Right Mouse Button Up
-                                    Debug.WriteLine($"Simulating Right Mouse Up at {action.Timestamp}");
-                                    _rightButtonDown = false;
-                                    _isDragging = _leftButtonDown || _middleButtonDown; // Still dragging if other buttons pressed
-                                    SendLowLevelMouseClick(MouseButton.Right, true, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
-                                    break;
-
-                                // Add middle mouse button support
-                                case 0x0207: // Middle Mouse Button Down
-                                    Debug.WriteLine($"Simulating Middle Mouse Down at {action.Timestamp}");
-                                    _middleButtonDown = true;
-                                    _isDragging = false;
-                                    SendLowLevelMouseClick(MouseButton.Middle, false, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
-                                    break;
-
-                                case 0x0208: // Middle Mouse Button Up
-                                    Debug.WriteLine($"Simulating Middle Mouse Up at {action.Timestamp}");
-                                    _middleButtonDown = false;
-                                    _isDragging = _leftButtonDown || _rightButtonDown; // Still dragging if other buttons pressed
-                                    SendLowLevelMouseClick(MouseButton.Middle, true, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
-                                    break;
-
-                                case 257: // Key Release
-                                    Debug.WriteLine($"Simulating KeyRelease at {action.Timestamp} with KeyCode: {action.KeyCode}");
-
-                                    int releaseKeyCodeInt = (int)action.KeyCode;
-                                    if (Enum.IsDefined(typeof(VirtualKey), releaseKeyCodeInt))
-                                    {
-                                        VirtualKey virtualKey = (VirtualKey)releaseKeyCodeInt;
+                                        await Task.Delay(action.Duration);
                                         InputSimulator.SimulateKeyUp(virtualKey);
                                     }
-                                    else
-                                    {
-                                        Debug.WriteLine($"Invalid KeyRelease key code: {action.KeyCode}");
-                                    }
-                                    break;
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($"Invalid KeyPress key code: {action.KeyCode}");
+                                }
+                            }
+                            else if (action.EventType == 257) // Key Release
+                            {
+                                Debug.WriteLine($"Simulating KeyRelease at {action.Timestamp} with KeyCode: {action.KeyCode}");
 
-                                default:
-                                    Debug.WriteLine($"Unhandled action type: {action.EventType} at {action.Timestamp}");
-                                    break;
+                                int releaseKeyCodeInt = (int)action.KeyCode;
+                                if (Enum.IsDefined(typeof(VirtualKey), releaseKeyCodeInt))
+                                {
+                                    VirtualKey virtualKey = (VirtualKey)releaseKeyCodeInt;
+                                    InputSimulator.SimulateKeyUp(virtualKey);
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($"Invalid KeyRelease key code: {action.KeyCode}");
+                                }
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"Unhandled action type: {action.EventType} (0x{action.EventType:X4}) at {action.Timestamp}");
                             }
                         });
 
                         actionTasks.Add(actionTask);
+
+                        // Update previous button states after each action is processed
+                        prevLeftButtonDown = action.IsLeftButtonDown;
+                        prevRightButtonDown = action.IsRightButtonDown;
+                        prevMiddleButtonDown = action.IsMiddleButtonDown;
                     }
 
                     // Execute all scheduled actions

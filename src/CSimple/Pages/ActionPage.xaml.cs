@@ -938,6 +938,11 @@ namespace CSimple.Pages
                 Debug.WriteLine("Complete page refresh requested");
                 await RefreshData();
 
+                // Explicitly reload local items after all other data has been loaded
+                // This ensures we catch any newly created local actions
+                Debug.WriteLine("Explicitly reloading local items to catch new additions");
+                await ForceReloadLocalItemsAsync();
+
                 // Force UI update for all collections
                 OnPropertyChanged(nameof(DataItems));
                 OnPropertyChanged(nameof(ActionGroups));
@@ -962,6 +967,62 @@ namespace CSimple.Pages
             finally
             {
                 IsLoading = false;
+            }
+        }
+
+        // New method to force reload all local items without filtering
+        private async Task ForceReloadLocalItemsAsync()
+        {
+            try
+            {
+                Debug.WriteLine("Force reloading ALL local items including new ones");
+
+                // Get all local items without filtering
+                var allLocalItems = await _actionService.LoadAllDataItemsAsync();
+
+                // Filter only for local items but don't exclude based on DataItems
+                var localItems = allLocalItems?.Where(item =>
+                    item?.Data?.ActionGroupObject?.IsLocal == true &&
+                    item.deleted != true  // Only filter out explicitly deleted items
+                ).ToList();
+
+                if (localItems != null)
+                {
+                    LocalItems.Clear();
+                    foreach (var item in localItems)
+                    {
+                        LocalItems.Add(item);
+                        Debug.WriteLine($"Added local item: {item?.Data?.ActionGroupObject?.ActionName}");
+                    }
+                }
+
+                // Make sure we add any local items to the main collections if they aren't there
+                foreach (var localItem in LocalItems)
+                {
+                    if (localItem?.Data?.ActionGroupObject != null)
+                    {
+                        // Check if this item exists in DataItems
+                        bool existsInDataItems = DataItems.Any(di =>
+                            di?.Data?.ActionGroupObject?.ActionName == localItem.Data.ActionGroupObject.ActionName);
+
+                        if (!existsInDataItems)
+                        {
+                            // Add to DataItems if it's not there
+                            DataItems.Add(localItem);
+                            Debug.WriteLine($"Added missing local item to DataItems: {localItem.Data.ActionGroupObject.ActionName}");
+                        }
+                    }
+                }
+
+                // Update ActionGroups to reflect these changes
+                UpdateActionGroupsFromDataItems();
+
+                OnPropertyChanged(nameof(HasLocalItems));
+                Debug.WriteLine($"Force loaded {LocalItems.Count} local items");
+            }
+            catch (Exception ex)
+            {
+                DebugOutput($"Error force loading local items: {ex.Message}");
             }
         }
 
