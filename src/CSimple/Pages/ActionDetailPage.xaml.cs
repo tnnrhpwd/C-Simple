@@ -73,6 +73,7 @@ namespace CSimple.Pages
         private readonly ActionGroup _actionGroup;
         private readonly DataService _dataService; // Add DataService
         private readonly FileService _fileService; // Add FileService for local operations
+        private readonly ActionService _actionService; // Add ActionService reference
 
         // Basic properties
         public string ActionName { get; set; }
@@ -121,6 +122,7 @@ namespace CSimple.Pages
                 _navigation = navigation;
                 _dataService = new DataService(); // Initialize DataService
                 _fileService = new FileService(); // Initialize FileService
+                _actionService = new ActionService(_dataService, _fileService); // Initialize ActionService
 
                 // Set basic properties with null checking
                 ActionName = actionGroup?.ActionName ?? "Unnamed Action";
@@ -770,13 +772,16 @@ namespace CSimple.Pages
         {
             try
             {
-                // Show an alert while we simulate execution
-                await Application.Current.MainPage.DisplayAlert(
-                    "Executing Action",
-                    $"Executing {ActionName}...",
-                    "OK");
+                // Update UI to show executing state
+                IsLoading = true;
 
-                // In a real app, you'd execute the action here
+                // Configure any execution settings before running the action
+                ConfigureExecutionSettings();
+
+                // Call the same ToggleSimulateActionGroupAsync method that ActionPage uses
+                await _actionService.ToggleSimulateActionGroupAsync(_actionGroup);
+
+                Debug.WriteLine($"Action execution completed for {ActionName}");
             }
             catch (Exception ex)
             {
@@ -786,6 +791,40 @@ namespace CSimple.Pages
                     $"Could not execute action: {ex.Message}",
                     "OK");
             }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        // Helper method to configure execution settings
+        private void ConfigureExecutionSettings()
+        {
+            // Configure the ActionService with user preferences for superior drag operations
+            _actionService.UseInterpolation = true; // Better for dragging
+
+            // Higher number of steps for smoother drag operations
+            _actionService.MovementSteps = 30;
+
+            // Minimal delay between movement steps for responsive dragging
+            _actionService.MovementDelayMs = 1;
+
+            // Use a sensitivity multiplier that preserves exact drag positions
+            _actionService.GameSensitivityMultiplier = 1.0f;
+
+            // Enable ultra-smooth mode for precise drag operations
+            _actionService.UltraSmoothMode = true;
+
+            // Update action group description to indicate click/drag capability
+            if (_actionGroup?.Description != null &&
+                !_actionGroup.Description.Contains("click and drag"))
+            {
+                _actionGroup.Description += " (Supports click and drag operations)";
+                Description = _actionGroup.Description;
+                OnPropertyChanged(nameof(Description));
+            }
+
+            Debug.WriteLine("Configured action service for enhanced drag operations");
         }
 
         private async void AssignToModel()

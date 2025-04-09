@@ -25,7 +25,7 @@
                 <Label Text="{Binding ActionName}"
                        FontSize="28"
                        FontAttributes="Bold" />
-                <Grid ColumnDefinitions="Auto,Auto,Auto,*">
+                <Grid ColumnDefinitions="*,Auto,Auto,*">
                     <Border Padding="8,4"
                             BackgroundColor="{AppThemeBinding Light=#e3f2fd, Dark=#0d47a1}"
                             StrokeShape="RoundRectangle 4">
@@ -42,15 +42,26 @@
                            Grid.Column="2"
                            TextColor="Gray"
                            VerticalOptions="Center" />
-                    <Button Text="Execute"
-                            Grid.Column="3"
-                            Command="{Binding ExecuteCommand}"
-                            HorizontalOptions="End"
-                            BackgroundColor="{AppThemeBinding Light=#4CAF50, Dark=#388E3C}"
-                            TextColor="White"
-                            WidthRequest="100"
-                            HeightRequest="36"
-                            CornerRadius="18" />
+                    <Grid Grid.Column="3"
+                          HorizontalOptions="End">
+                        <!-- Add loading indicator next to the button -->
+                        <ActivityIndicator IsRunning="{Binding IsLoading}"
+                                           IsVisible="{Binding IsLoading}"
+                                           HeightRequest="25"
+                                           WidthRequest="25"
+                                           HorizontalOptions="End"
+                                           Margin="0,0,110,0"
+                                           Color="{AppThemeBinding Light=#4CAF50, Dark=#388E3C}" />
+                        <Button Text="Execute"
+                                Command="{Binding ExecuteCommand}"
+                                HorizontalOptions="End"
+                                IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}"
+                                BackgroundColor="{AppThemeBinding Light=#4CAF50, Dark=#388E3C}"
+                                TextColor="White"
+                                WidthRequest="100"
+                                HeightRequest="36"
+                                CornerRadius="18" />
+                    </Grid>
                 </Grid>
             </VerticalStackLayout>
         </Grid>
@@ -242,44 +253,107 @@
                                                     <Border BackgroundColor="{AppThemeBinding Light=#fff3e0, Dark=#3e2723}"
                                                             StrokeShape="RoundRectangle 4"
                                                             Padding="4,2">
-                                                        <StackLayout Orientation="Horizontal"
-                                                                     Spacing="4">
-                                                            <Label Text="{Binding MouseButtonType}"
-                                                                   FontSize="11"
-                                                                   TextColor="{AppThemeBinding Light=#e65100, Dark=#ffcc80}"
-                                                                   FontAttributes="Bold" />
-                                                            <Label Text="Button"
-                                                                   FontSize="11"
-                                                                   TextColor="{AppThemeBinding Light=#e65100, Dark=#ffcc80}" />
-                                                            <Label Text="{Binding MouseButtonAction}"
-                                                                   FontSize="11"
-                                                                   TextColor="{AppThemeBinding Light=#e65100, Dark=#ffcc80}"
-                                                                   FontAttributes="Bold" />
-                                                        </StackLayout>
+                                                        <VerticalStackLayout Spacing="3">
+                                                            <StackLayout Orientation="Horizontal"
+                                                                         Spacing="4">
+                                                                <Label Text="{Binding MouseButtonType}"
+                                                                       FontSize="11"
+                                                                       TextColor="{AppThemeBinding Light=#e65100, Dark=#ffcc80}"
+                                                                       FontAttributes="Bold" />
+                                                                <Label Text="Button"
+                                                                       FontSize="11"
+                                                                       TextColor="{AppThemeBinding Light=#e65100, Dark=#ffcc80}" />
+                                                                <Label Text="{Binding MouseButtonAction}"
+                                                                       FontSize="11"
+                                                                       TextColor="{AppThemeBinding Light=#e65100, Dark=#ffcc80}"
+                                                                       FontAttributes="Bold" />
+                                                            </StackLayout>
+                                                            <!-- Mouse Button States -->
+                                                            <HorizontalStackLayout Spacing="6"
+                                                                                   IsVisible="{Binding RawData.IsLeftButtonDown, Converter={StaticResource NotNullOrEmptyConverter}}">
+                                                                <Label Text="States:"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#bf360c, Dark=#ffab91}" />
+                                                                <Label Text="Left:"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#bf360c, Dark=#ffab91}" />
+                                                                <Label Text="{Binding RawData.IsLeftButtonDown}"
+                                                                       FontSize="9"
+                                                                       FontAttributes="Bold"
+                                                                       TextColor="{AppThemeBinding Light=#bf360c, Dark=#ffab91}" />
+                                                                <Label Text="Right:"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#bf360c, Dark=#ffab91}" />
+                                                                <Label Text="{Binding RawData.IsRightButtonDown}"
+                                                                       FontSize="9"
+                                                                       FontAttributes="Bold"
+                                                                       TextColor="{AppThemeBinding Light=#bf360c, Dark=#ffab91}" />
+                                                                <Label Text="Middle:"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#bf360c, Dark=#ffab91}" />
+                                                                <Label Text="{Binding RawData.IsMiddleButtonDown}"
+                                                                       FontSize="9"
+                                                                       FontAttributes="Bold"
+                                                                       TextColor="{AppThemeBinding Light=#bf360c, Dark=#ffab91}" />
+                                                            </HorizontalStackLayout>
+                                                            <!-- Coordinates when available -->
+                                                            <HorizontalStackLayout IsVisible="{Binding RawData.Coordinates}"
+                                                                                   Spacing="4">
+                                                                <Label Text="Position:"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#bf360c, Dark=#ffab91}" />
+                                                                <Label Text="{Binding RawData.Coordinates.X, StringFormat='X:{0}'}"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#bf360c, Dark=#ffab91}" />
+                                                                <Label Text="{Binding RawData.Coordinates.Y, StringFormat='Y:{0}'}"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#bf360c, Dark=#ffab91}" />
+                                                            </HorizontalStackLayout>
+                                                        </VerticalStackLayout>
                                                     </Border>
                                                 </Grid>
-                                                <!-- Key Events - Smaller Text -->
-                                                <HorizontalStackLayout IsVisible="{Binding KeyName, Converter={StaticResource NotNullOrEmptyConverter}}"
-                                                                       Spacing="3"
-                                                                       Margin="0,2,0,0">
-                                                    <Label Text="Key:"
-                                                           FontSize="10"
-                                                           TextColor="Gray" />
-                                                    <Label Text="{Binding KeyName}"
-                                                           FontSize="10"
-                                                           FontAttributes="Bold"
-                                                           TextColor="Gray" />
-                                                    <Label Text="("
-                                                           FontSize="10"
-                                                           TextColor="Gray" />
-                                                    <Label Text="{Binding KeyCode}"
-                                                           FontSize="10"
-                                                           TextColor="Gray" />
-                                                    <Label Text=")"
-                                                           FontSize="10"
-                                                           TextColor="Gray" />
-                                                </HorizontalStackLayout>
-                                                <!-- Individual Mouse Movement Details - Smaller -->
+                                                <!-- Key Events - Enhanced Details -->
+                                                <VerticalStackLayout IsVisible="{Binding KeyName, Converter={StaticResource NotNullOrEmptyConverter}}"
+                                                                     Spacing="2"
+                                                                     Margin="0,2,0,0">
+                                                    <HorizontalStackLayout Spacing="3">
+                                                        <Label Text="Key:"
+                                                               FontSize="10"
+                                                               TextColor="Gray" />
+                                                        <Label Text="{Binding KeyName}"
+                                                               FontSize="10"
+                                                               FontAttributes="Bold"
+                                                               TextColor="Gray" />
+                                                        <Label Text="("
+                                                               FontSize="10"
+                                                               TextColor="Gray" />
+                                                        <Label Text="{Binding KeyCode}"
+                                                               FontSize="10"
+                                                               TextColor="Gray" />
+                                                        <Label Text=")"
+                                                               FontSize="10"
+                                                               TextColor="Gray" />
+                                                        <!-- Display the key event type -->
+                                                        <Label Text="-"
+                                                               FontSize="10"
+                                                               TextColor="Gray" />
+                                                        <Label Text="{Binding Path=RawData.EventType, StringFormat='{0:X}'}"
+                                                               FontSize="10"
+                                                               TextColor="Gray" />
+                                                    </HorizontalStackLayout>
+                                                    <!-- Additional key details if available -->
+                                                    <HorizontalStackLayout Spacing="4"
+                                                                           IsVisible="{Binding RawData.Duration, Converter={StaticResource NotNullOrEmptyConverter}}">
+                                                        <Label Text="Duration:"
+                                                               FontSize="9"
+                                                               TextColor="Gray" />
+                                                        <Label Text="{Binding RawData.Duration, StringFormat='{0}ms'}"
+                                                               FontSize="9"
+                                                               TextColor="Gray"
+                                                               FontAttributes="Bold" />
+                                                    </HorizontalStackLayout>
+                                                </VerticalStackLayout>
+                                                <!-- Individual Mouse Movement Details - Enhanced -->
                                                 <Grid IsVisible="{Binding IsMouseMove}"
                                                       Margin="0,2,0,0">
                                                     <Border BackgroundColor="{AppThemeBinding Light=#e8f5e9, Dark=#1b5e20}"
@@ -307,14 +381,61 @@
                                                                        FontSize="9"
                                                                        TextColor="{AppThemeBinding Light=#388e3c, Dark=#81c784}" />
                                                             </HorizontalStackLayout>
+                                                            <!-- Mouse button states for mouse movement -->
+                                                            <HorizontalStackLayout Spacing="6"
+                                                                                   IsVisible="{Binding Path=RawData.IsLeftButtonDown, Converter={StaticResource NotNullOrEmptyConverter}}">
+                                                                <Label Text="Buttons:"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#1b5e20, Dark=#81c784}" />
+                                                                <Label Text="L:"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#1b5e20, Dark=#81c784}" />
+                                                                <Label Text="{Binding RawData.IsLeftButtonDown}"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#1b5e20, Dark=#81c784}"
+                                                                       FontAttributes="Bold" />
+                                                                <Label Text="R:"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#1b5e20, Dark=#81c784}" />
+                                                                <Label Text="{Binding RawData.IsRightButtonDown}"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#1b5e20, Dark=#81c784}"
+                                                                       FontAttributes="Bold" />
+                                                                <Label Text="M:"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#1b5e20, Dark=#81c784}" />
+                                                                <Label Text="{Binding RawData.IsMiddleButtonDown}"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#1b5e20, Dark=#81c784}"
+                                                                       FontAttributes="Bold" />
+                                                            </HorizontalStackLayout>
+                                                            <!-- Velocity information if available -->
+                                                            <HorizontalStackLayout Spacing="4"
+                                                                                   IsVisible="{Binding RawData.VelocityX, Converter={StaticResource NotNullOrEmptyConverter}}">
+                                                                <Label Text="Velocity:"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#388e3c, Dark=#81c784}" />
+                                                                <Label Text="{Binding RawData.VelocityX, StringFormat='X={0:F1}'}"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#388e3c, Dark=#81c784}" />
+                                                                <Label Text="{Binding RawData.VelocityY, StringFormat='Y={0:F1}'}"
+                                                                       FontSize="9"
+                                                                       TextColor="{AppThemeBinding Light=#388e3c, Dark=#81c784}" />
+                                                            </HorizontalStackLayout>
                                                         </VerticalStackLayout>
                                                     </Border>
                                                 </Grid>
-                                                <!-- Timestamp - Even Smaller -->
-                                                <Label Text="{Binding Timestamp, StringFormat='{}{0:MM/dd/yyyy HH:mm:ss.fff}'}"
-                                                       FontSize="9"
-                                                       TextColor="{AppThemeBinding Light=#9e9e9e, Dark=#616161}"
-                                                       Margin="0,2,0,0" />
+                                                <!-- Event Type and Timestamp - Even Smaller -->
+                                                <HorizontalStackLayout Spacing="8"
+                                                                       Margin="0,2,0,0">
+                                                    <Label Text="{Binding RawData.EventType, StringFormat='Event: {0:X}'}"
+                                                           IsVisible="{Binding RawData.EventType, Converter={StaticResource NotNullOrEmptyConverter}}"
+                                                           FontSize="9"
+                                                           TextColor="{AppThemeBinding Light=#9e9e9e, Dark=#616161}" />
+                                                    <Label Text="{Binding Timestamp, StringFormat='{}{0:MM/dd/yyyy HH:mm:ss.fff}'}"
+                                                           FontSize="9"
+                                                           TextColor="{AppThemeBinding Light=#9e9e9e, Dark=#616161}" />
+                                                </HorizontalStackLayout>
                                             </VerticalStackLayout>
                                             <Label Text="{Binding Duration}"
                                                    Grid.Column="2"

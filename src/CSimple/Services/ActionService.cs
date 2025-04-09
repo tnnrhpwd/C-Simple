@@ -71,6 +71,12 @@ namespace CSimple.Services
         private const int REALIGN_EVERY_N_MOVEMENTS = 10; // Only realign every 10 raw movements
         private bool _useRawMovement = true; // Whether to prioritize raw movement data
 
+        // Add mouse button state tracking for drag operations
+        private bool _leftButtonDown = false;
+        private bool _rightButtonDown = false;
+        private bool _middleButtonDown = false;
+        private bool _isDragging = false;
+
         // Struct definitions for SendInput
         [StructLayout(LayoutKind.Sequential)]
         private struct INPUT
@@ -333,6 +339,12 @@ namespace CSimple.Services
             {
                 try
                 {
+                    // Reset mouse button states at the start of execution
+                    _leftButtonDown = false;
+                    _rightButtonDown = false;
+                    _middleButtonDown = false;
+                    _isDragging = false;
+
                     cancel_simulation = false;
                     DateTime? previousActionTime = null;
                     List<Task> actionTasks = new List<Task>();
@@ -409,8 +421,18 @@ namespace CSimple.Services
                                         int targetX = action.Coordinates?.X ?? 0;
                                         int targetY = action.Coordinates?.Y ?? 0;
 
-                                        Debug.WriteLine($"Simulating Mouse Move at {action.Timestamp} to X: {targetX}, Y: {targetY}");
+                                        // Check if we're in a drag operation
+                                        bool isDragging = _leftButtonDown || _rightButtonDown || _middleButtonDown;
 
+                                        if (isDragging && !_isDragging)
+                                        {
+                                            _isDragging = true;
+                                            Debug.WriteLine($"Starting drag operation with mouse button down");
+                                        }
+
+                                        Debug.WriteLine($"Simulating Mouse Move at {action.Timestamp} to X: {targetX}, Y: {targetY} {(isDragging ? "(DRAGGING)" : "")}");
+
+                                        // Movement logic remains the same
                                         if (UseInterpolation)
                                         {
                                             // Calculate duration based on the next action's timestamp if available
@@ -491,22 +513,45 @@ namespace CSimple.Services
 
                                 case (int)WM_LBUTTONDOWN: // Left Mouse Button Down
                                     Debug.WriteLine($"Simulating Left Mouse Down at {action.Timestamp}");
+                                    _leftButtonDown = true;
+                                    _isDragging = false;
                                     SendLowLevelMouseClick(MouseButton.Left, false, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
                                     break;
 
                                 case 0x0202: // Left Mouse Button Up
                                     Debug.WriteLine($"Simulating Left Mouse Up at {action.Timestamp}");
+                                    _leftButtonDown = false;
+                                    _isDragging = _rightButtonDown || _middleButtonDown; // Still dragging if other buttons pressed
                                     SendLowLevelMouseClick(MouseButton.Left, true, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
                                     break;
 
                                 case (int)WM_RBUTTONDOWN: // Right Mouse Button Down
                                     Debug.WriteLine($"Simulating Right Mouse Down at {action.Timestamp}");
+                                    _rightButtonDown = true;
+                                    _isDragging = false;
                                     SendLowLevelMouseClick(MouseButton.Right, false, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
                                     break;
 
                                 case 0x0205: // Right Mouse Button Up
                                     Debug.WriteLine($"Simulating Right Mouse Up at {action.Timestamp}");
+                                    _rightButtonDown = false;
+                                    _isDragging = _leftButtonDown || _middleButtonDown; // Still dragging if other buttons pressed
                                     SendLowLevelMouseClick(MouseButton.Right, true, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
+                                    break;
+
+                                // Add middle mouse button support
+                                case 0x0207: // Middle Mouse Button Down
+                                    Debug.WriteLine($"Simulating Middle Mouse Down at {action.Timestamp}");
+                                    _middleButtonDown = true;
+                                    _isDragging = false;
+                                    SendLowLevelMouseClick(MouseButton.Middle, false, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
+                                    break;
+
+                                case 0x0208: // Middle Mouse Button Up
+                                    Debug.WriteLine($"Simulating Middle Mouse Up at {action.Timestamp}");
+                                    _middleButtonDown = false;
+                                    _isDragging = _leftButtonDown || _rightButtonDown; // Still dragging if other buttons pressed
+                                    SendLowLevelMouseClick(MouseButton.Middle, true, action.Coordinates?.X ?? currentX, action.Coordinates?.Y ?? currentY);
                                     break;
 
                                 case 257: // Key Release
@@ -536,11 +581,46 @@ namespace CSimple.Services
                     // Execute all scheduled actions
                     await Task.WhenAll(actionTasks);
 
+                    // Ensure all mouse buttons are released at the end of execution
+                    if (_leftButtonDown)
+                    {
+                        Debug.WriteLine("Force releasing left mouse button at end of sequence");
+                        SendLowLevelMouseClick(MouseButton.Left, true, currentX, currentY);
+                        _leftButtonDown = false;
+                    }
+
+                    if (_rightButtonDown)
+                    {
+                        Debug.WriteLine("Force releasing right mouse button at end of sequence");
+                        SendLowLevelMouseClick(MouseButton.Right, true, currentX, currentY);
+                        _rightButtonDown = false;
+                    }
+
+                    if (_middleButtonDown)
+                    {
+                        Debug.WriteLine("Force releasing middle mouse button at end of sequence");
+                        SendLowLevelMouseClick(MouseButton.Middle, true, currentX, currentY);
+                        _middleButtonDown = false;
+                    }
+
+                    _isDragging = false;
                     Debug.WriteLine($"Completed Simulation for: {actionGroup.ActionName}");
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Error during simulation: {ex.Message}");
+
+                    // Safety cleanup - ensure mouse buttons are released even on error
+                    try
+                    {
+                        GetCursorPos(out POINT currentPoint);
+                        if (_leftButtonDown) SendLowLevelMouseClick(MouseButton.Left, true, currentPoint.X, currentPoint.Y);
+                        if (_rightButtonDown) SendLowLevelMouseClick(MouseButton.Right, true, currentPoint.X, currentPoint.Y);
+                        if (_middleButtonDown) SendLowLevelMouseClick(MouseButton.Middle, true, currentPoint.X, currentPoint.Y);
+                        _leftButtonDown = _rightButtonDown = _middleButtonDown = _isDragging = false;
+                    }
+                    catch { /* Ignore cleanup errors */ }
+
                     return false;
                 }
                 finally
