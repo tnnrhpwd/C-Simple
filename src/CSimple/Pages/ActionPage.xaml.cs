@@ -223,6 +223,10 @@ namespace CSimple.Pages
         private ActionPageViewModel _viewModel;
         private readonly SortingService _sortingService;
         private readonly FilteringService _filteringService;
+        private readonly ActionGroupService _actionGroupService;
+        private readonly GameSettingsService _gameSettingsService;
+        private readonly ActionGroupCopierService _actionGroupCopierService;
+        private readonly DialogService _dialogService;
 
         // Fix: Defining the missing SortPicker as a class field
         private Picker _sortPicker;
@@ -290,6 +294,10 @@ namespace CSimple.Pages
             _appModeService = ServiceProvider.GetService<CSimple.Services.AppModeService.AppModeService>();
             _sortingService = new SortingService();
             _filteringService = new FilteringService();
+            _actionGroupService = new ActionGroupService(_actionService);
+            _gameSettingsService = new GameSettingsService(_actionService);
+            _actionGroupCopierService = new ActionGroupCopierService();
+            _dialogService = new DialogService();
 
             // Initialize sort options
             SelectedSortOption = SortOptions[0]; // Default sort by date newest
@@ -405,8 +413,7 @@ namespace CSimple.Pages
                 await _actionService.RefreshDataAsync(DataItems, ActionGroups, LocalItems);
 
                 // Update ActionGroups collection
-                UpdateActionGroupsFromDataItems();
-                _allActionGroups = new ObservableCollection<ActionGroup>(ActionGroups);
+                _actionGroupService.UpdateActionGroupsFromDataItems(DataItems, ActionGroups, _allActionGroups);
 
                 // Apply filtering or sorting
                 if (!string.IsNullOrEmpty(SearchText))
@@ -1049,76 +1056,10 @@ namespace CSimple.Pages
         // Enhanced method to extract ActionGroup objects from DataItems with additional properties
         private void UpdateActionGroupsFromDataItems()
         {
-            ActionGroups.Clear();
-
-            foreach (var item in DataItems)
-            {
-                if (item?.Data?.ActionGroupObject != null)
-                {
-                    // Make sure the action group has all required properties for display
-                    var actionGroup = item.Data.ActionGroupObject;
-
-                    // Set additional metadata for display
-                    if (string.IsNullOrEmpty(actionGroup.ActionName))
-                    {
-                        actionGroup.ActionName = "Unnamed Action";
-                    }
-
-                    // CRITICAL FIX: Always use original database timestamp, never generate random dates
-                    // or override with defaults. This ensures we show the actual creation date.
-                    if (actionGroup.CreatedAt == null || actionGroup.CreatedAt == default(DateTime))
-                    {
-                        // Use the database timestamp directly
-                        actionGroup.CreatedAt = item.createdAt;
-                    }
-
-                    // Preserve the IsLocal flag - don't override it
-                    // actionGroup.IsLocal = actionGroup.IsLocal; 
-
-                    // Set default values for new properties if they don't exist
-                    actionGroup.Category = DetermineCategory(actionGroup);
-                    actionGroup.UsageCount = actionGroup.UsageCount > 0 ? actionGroup.UsageCount : new Random().Next(1, 20);
-                    actionGroup.SuccessRate = actionGroup.SuccessRate > 0 ? actionGroup.SuccessRate : (double)new Random().Next(70, 100) / 100;
-                    actionGroup.IsPartOfTraining = actionGroup.IsPartOfTraining; // Preserve existing value
-                    actionGroup.IsChained = actionGroup.IsChained; // Preserve existing value
-                    actionGroup.HasMetrics = true; // Show metrics by default
-                    actionGroup.Description = actionGroup.Description ?? $"Action for {actionGroup.ActionName}";
-
-                    // FIX: Always use the database timestamp instead of generating random dates
-                    if (actionGroup.CreatedAt == null || actionGroup.CreatedAt == default(DateTime))
-                    {
-                        // Always use the item's creation date from the database
-                        actionGroup.CreatedAt = item.createdAt;
-
-                        // If item.createdAt is also default, it's truly a new item, so use current time
-                        if (actionGroup.CreatedAt == default(DateTime))
-                        {
-                            actionGroup.CreatedAt = DateTime.Now;
-                        }
-                    }
-
-                    // Determine action type if not set
-                    if (string.IsNullOrEmpty(actionGroup.ActionType))
-                    {
-                        actionGroup.ActionType = DetermineActionTypeFromSteps(actionGroup);
-                    }
-
-                    // Add to the collection - only add if not already present to prevent duplicates
-                    if (!ActionGroups.Any(ag =>
-                        (!string.IsNullOrEmpty(actionGroup.Id.ToString()) && actionGroup.Id.ToString() == ag.Id.ToString()) ||
-                        (!string.IsNullOrEmpty(actionGroup.ActionName) && actionGroup.ActionName == ag.ActionName)))
-                    {
-                        ActionGroups.Add(actionGroup);
-                    }
-                }
-            }
-
-            // Notify UI to refresh
+            _actionGroupService.UpdateActionGroupsFromDataItems(DataItems, ActionGroups, _allActionGroups);
             OnPropertyChanged(nameof(ActionGroups));
             OnPropertyChanged(nameof(ShowEmptyMessage));
-            OnPropertyChanged(nameof(HasSelectedActions));  // Make sure this is called
-
-            // Apply current sort method
+            OnPropertyChanged(nameof(HasSelectedActions));
             SortActionGroups();
         }
 
@@ -1155,7 +1096,7 @@ namespace CSimple.Pages
                 if (sender is FrameworkElement element && element.DataContext is ActionGroup actionGroup)
                 {
                     // Create a safe copy to pass to the detail page
-                    var safeActionGroup = SafelyCopyActionGroup(actionGroup);
+                    var safeActionGroup = _actionGroupCopierService.SafelyCopyActionGroup(actionGroup);
 
                     // Ensure files are safely handled
                     var files = ActionGroupExtensions.GetFiles(actionGroup);
@@ -1175,74 +1116,9 @@ namespace CSimple.Pages
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
 
                 // Show an error dialog to the user
-                ShowErrorDialog("Navigation failed",
+                await _dialogService.ShowErrorDialog("Navigation failed",
                     "There was a problem navigating to the action details. Please try again.");
             }
-        }
-
-        private ActionGroup SafelyCopyActionGroup(ActionGroup source)
-        {
-            if (source == null) return null;
-
-            try
-            {
-                var copy = new ActionGroup
-                {
-                    Id = source.Id,
-                    ActionName = source.ActionName,
-                    Description = source.Description,
-                    Category = source.Category,
-                    ActionType = source.ActionType ?? "Local Action",
-                    IsSelected = false, // Reset selection state for detail page
-                    IsSimulating = false // Ensure simulation is off
-                };
-
-                // Safely copy action array
-                if (source.ActionArray != null)
-                {
-                    copy.ActionArray = source.ActionArray.Select(a => new ActionItem
-                    {
-                        EventType = a.EventType,
-                        KeyCode = a.KeyCode,
-                        Duration = a.Duration,
-                        Timestamp = a.Timestamp,
-                        Coordinates = a.Coordinates != null ? new Coordinates
-                        {
-                            X = a.Coordinates.X,
-                            Y = a.Coordinates.Y
-                        } : null
-                    }).ToList();
-                }
-
-                // Safely copy files using the extension method
-                var sourceFiles = ActionGroupExtensions.GetFiles(source);
-                if (sourceFiles != null)
-                {
-                    var copiedFiles = sourceFiles.Select(f => new ActionFile
-                    {
-                        Filename = f.Filename,
-                        ContentType = f.ContentType,
-                        Data = f.Data,
-                        AddedAt = f.AddedAt,
-                        IsProcessed = f.IsProcessed
-                    }).ToList();
-
-                    copy.SetFiles(copiedFiles);
-                }
-
-                return copy;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error copying ActionGroup: {ex.Message}");
-                return new ActionGroup { ActionName = "Error copying action" };
-            }
-        }
-
-        private async void ShowErrorDialog(string title, string content)
-        {
-            // Use MAUI's built-in alert dialog instead of WinUI ContentDialog
-            await DisplayAlert(title, content, "OK");
         }
 
         // Add these properties for local items
@@ -1394,16 +1270,7 @@ namespace CSimple.Pages
 
         private void UpdateGameSettings()
         {
-            InputSimulator.SetGameEnhancedMode(_gameOptimizedMode, _mouseSensitivity);
-
-            // Update the action service settings (if already created)
-            if (_actionService != null)
-            {
-                // Store these settings in the ActionService
-                _actionService.UseInterpolation = _useSmoothing;
-                _actionService.MovementSteps = _gameOptimizedMode ? 20 : 10; // More steps in game mode
-                _actionService.MovementDelayMs = _gameOptimizedMode ? 1 : 2; // Faster in game mode
-            }
+            _gameSettingsService.UpdateGameSettings(GameOptimizedMode, MouseSensitivity, UseSmoothing);
         }
 
         // Fix for CS1998: Remove async keyword as there's no await operation in this method

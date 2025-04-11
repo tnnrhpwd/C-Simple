@@ -83,6 +83,10 @@ public static class MauiProgram
         services.AddSingleton<GlobalInputCapture>();
         services.AddSingleton<IOnTrainModelClickedService, OnTrainModelClickedService>();
         services.AddSingleton<AppModeService>();
+        services.AddSingleton<ActionGroupService>();
+        services.AddSingleton<GameSettingsService>();
+        services.AddSingleton<ActionGroupCopierService>();
+        services.AddSingleton<DialogService>();
 
 #if WINDOWS
         services.AddSingleton<ITrayService, WinUI.TrayService>();
