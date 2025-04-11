@@ -221,6 +221,8 @@ namespace CSimple.Pages
         private readonly DataService _dataService;
         private readonly UserService _userService;
         private ActionPageViewModel _viewModel;
+        private readonly SortingService _sortingService;
+        private readonly FilteringService _filteringService;
 
         // Fix: Defining the missing SortPicker as a class field
         private Picker _sortPicker;
@@ -286,6 +288,8 @@ namespace CSimple.Pages
             _userService = new UserService(); // Initialize the user service
             _actionService = new ActionService(_dataService, fileService);
             _appModeService = ServiceProvider.GetService<CSimple.Services.AppModeService.AppModeService>();
+            _sortingService = new SortingService();
+            _filteringService = new FilteringService();
 
             // Initialize sort options
             SelectedSortOption = SortOptions[0]; // Default sort by date newest
@@ -364,77 +368,19 @@ namespace CSimple.Pages
                 return;
             }
 
-            // Filter by selected category
-            var filteredActions = _allActionGroups
-                .Where(a => a.Category == SelectedCategory)
-                .ToList();
-
+            var filteredActions = _filteringService.FilterActions(_allActionGroups, SearchText, SelectedCategory);
             ActionGroups = new ObservableCollection<ActionGroup>(filteredActions);
         }
 
         private void FilterActionsBySearch()
         {
-            if (string.IsNullOrEmpty(SearchText))
-            {
-                // Reset to show all actions (respecting category filter)
-                FilterActionsByCategory();
-                return;
-            }
-
-            // Filter by search text within the current category filter
-            var baseList = string.IsNullOrEmpty(SelectedCategory) || SelectedCategory == "All Categories"
-                ? _allActionGroups
-                : _allActionGroups.Where(a => a.Category == SelectedCategory);
-
-            var searchResults = baseList
-                .Where(a => a.ActionName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-                           (a.Description != null && a.Description.Contains(SearchText, StringComparison.OrdinalIgnoreCase)) ||
-                           (a.ActionType != null && a.ActionType.Contains(SearchText, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-
-            ActionGroups = new ObservableCollection<ActionGroup>(searchResults);
+            var filteredActions = _filteringService.FilterActions(_allActionGroups, SearchText, SelectedCategory);
+            ActionGroups = new ObservableCollection<ActionGroup>(filteredActions);
         }
 
         private void SortActionGroups()
         {
-            if (ActionGroups == null || ActionGroups.Count == 0)
-                return;
-
-            List<ActionGroup> sortedGroups;
-
-            switch (SelectedSortOption)
-            {
-                case "Date (Newest First)":
-                    sortedGroups = ActionGroups.OrderByDescending(a => a.CreatedAt ?? DateTime.MinValue).ToList();
-                    break;
-                case "Date (Oldest First)":
-                    sortedGroups = ActionGroups.OrderBy(a => a.CreatedAt ?? DateTime.MinValue).ToList();
-                    break;
-                case "Name (A-Z)":
-                    sortedGroups = ActionGroups.OrderBy(a => a.ActionName).ToList();
-                    break;
-                case "Name (Z-A)":
-                    sortedGroups = ActionGroups.OrderByDescending(a => a.ActionName).ToList();
-                    break;
-                case "Type":
-                    sortedGroups = ActionGroups.OrderBy(a => a.ActionType).ToList();
-                    break;
-                case "Steps Count":
-                    sortedGroups = ActionGroups.OrderByDescending(a => a.ActionArray?.Count ?? 0).ToList();
-                    break;
-                case "Usage Count":
-                    sortedGroups = ActionGroups.OrderByDescending(a => a.UsageCount).ToList();
-                    break;
-                case "Size (Largest First)":
-                    sortedGroups = ActionGroups.OrderByDescending(a => a.Size).ToList();
-                    break;
-                case "Size (Smallest First)":
-                    sortedGroups = ActionGroups.OrderBy(a => a.Size).ToList();
-                    break;
-                default:
-                    return;
-            }
-
+            var sortedGroups = _sortingService.SortActionGroups(ActionGroups.ToList(), SelectedSortOption);
             ActionGroups = new ObservableCollection<ActionGroup>(sortedGroups);
         }
 
@@ -451,90 +397,16 @@ namespace CSimple.Pages
                 // Clear existing collections
                 DataItems.Clear();
                 ActionGroups.Clear();
+                LocalItems.Clear();
+                _allActionGroups.Clear();
 
-                // Check current app mode
-                bool isOnlineMode = _appModeService?.CurrentMode == AppMode.Online;
-                Debug.WriteLine($"Current app mode: {(isOnlineMode ? "Online" : "Offline")}");
+                // Refresh all data according to current app mode
+                Debug.WriteLine("Complete page refresh requested");
+                await _actionService.RefreshDataAsync(DataItems, ActionGroups, LocalItems);
 
-                // STEP 1: Always load standard local data first
-                Debug.WriteLine("Loading local action data...");
-                var localDataItems = await _actionService.LoadDataItemsFromFile();
-                Debug.WriteLine($"Loaded {localDataItems.Count} standard local items");
-
-                // Add non-deleted local items to the DataItems collection
-                foreach (var item in localDataItems.Where(item => item.deleted != true))
-                {
-                    DataItems.Add(item);
-                }
-
-                // STEP 2: Load local rich data saved by the Observe page
-                Debug.WriteLine("Loading local rich data from Observe page...");
-                var observeDataService = new ObserveDataService();
-                var localRichData = await observeDataService.LoadLocalRichDataAsync();
-
-                if (localRichData != null && localRichData.Any())
-                {
-                    Debug.WriteLine($"Loaded {localRichData.Count} rich data items from Observe page");
-                    // Add non-duplicate items from rich data
-                    foreach (var item in localRichData.Where(item => item.deleted != true))
-                    {
-                        // Check if this item already exists in DataItems
-                        var exists = DataItems.Any(di =>
-                            di?.Data?.ActionGroupObject?.ActionName == item?.Data?.ActionGroupObject?.ActionName ||
-                            (!string.IsNullOrEmpty(di?._id) && di._id == item?._id));
-
-                        if (!exists)
-                        {
-                            DataItems.Add(item);
-                            Debug.WriteLine($"Added rich data item: {item?.Data?.ActionGroupObject?.ActionName}");
-                        }
-                    }
-                }
-
-                // STEP 3: Load backend data only if in online mode
-                if (isOnlineMode)
-                {
-                    Debug.WriteLine("Online mode detected - loading backend data...");
-                    var token = await SecureStorage.GetAsync("userToken");
-
-                    if (!string.IsNullOrEmpty(token))
-                    {
-                        try
-                        {
-                            // Load all items (including backend) using the unified method
-                            var allItems = await _actionService.LoadDataItemsFromBackend();
-                            Debug.WriteLine($"Loaded {allItems.Count} total items from backend");
-
-                            // Filter out deleted items and add to DataItems collection
-                            var filteredItems = allItems.Where(item => item.deleted != true &&
-                                // Avoid duplicates with already added local items
-                                !DataItems.Any(di =>
-                                    di.Data?.ActionGroupObject?.ActionName == item.Data?.ActionGroupObject?.ActionName)
-                            ).ToList();
-
-                            Debug.WriteLine($"Adding {filteredItems.Count} non-duplicate backend items");
-                            foreach (var item in filteredItems)
-                            {
-                                DataItems.Add(item);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"Error loading backend data: {ex.Message}");
-                        }
-                    }
-                    else
-                    {
-                        Debug.WriteLine("User token not found - skipping backend data");
-                    }
-                }
-
-                // STEP 4: Update ActionGroups collection
+                // Update ActionGroups collection
                 UpdateActionGroupsFromDataItems();
                 _allActionGroups = new ObservableCollection<ActionGroup>(ActionGroups);
-
-                // STEP 5: Also refresh the LocalItems collection
-                await LoadLocalItemsAsync();
 
                 // Apply filtering or sorting
                 if (!string.IsNullOrEmpty(SearchText))
@@ -1252,68 +1124,12 @@ namespace CSimple.Pages
 
         private string DetermineCategory(ActionGroup actionGroup)
         {
-            // Determine category based on action name or steps
-            string name = actionGroup.ActionName.ToLowerInvariant();
-            string steps = actionGroup.ActionArray?.FirstOrDefault()?.ToString()?.ToLowerInvariant() ?? "";
-
-            if (name.Contains("excel") || name.Contains("spreadsheet") || steps.Contains("excel"))
-                return "Data Analysis";
-
-            if (name.Contains("word") || name.Contains("document") || steps.Contains("word") || steps.Contains(".doc"))
-                return "Document Editing";
-
-            if (name.Contains("browser") || name.Contains("chrome") || name.Contains("firefox") || name.Contains("edge") || steps.Contains("browser"))
-                return "Browser";
-
-            if (name.Contains("file") || name.Contains("folder") || name.Contains("copy") || name.Contains("move"))
-                return "File Management";
-
-            if (name.Contains("email") || name.Contains("outlook") || name.Contains("teams") || name.Contains("slack"))
-                return "Communication";
-
-            if (name.Contains("code") || name.Contains("visual studio") || name.Contains("vs code") || steps.Contains("code"))
-                return "Development";
-
-            if (name.Contains("system") || name.Contains("settings") || name.Contains("control"))
-                return "System";
-
-            return "Productivity"; // Default category
+            return _actionService.DetermineCategory(actionGroup);
         }
 
         private string DetermineActionTypeFromSteps(ActionGroup actionGroup)
         {
-            if (actionGroup.ActionArray == null || !actionGroup.ActionArray.Any())
-                return "Unknown";
-
-            // Count of different action types
-            int keyboardActions = 0;
-            int mouseActions = 0;
-            int applicationActions = 0;
-
-            foreach (var action in actionGroup.ActionArray)
-            {
-                string actionStr = action.ToString().ToLowerInvariant();
-
-                if (actionStr.Contains("key") || actionStr.Contains("type") || action.EventType == 256 || action.EventType == 257)
-                    keyboardActions++;
-                else if (actionStr.Contains("mouse") || actionStr.Contains("click") || action.EventType == 512 || action.EventType == 0x0201)
-                    mouseActions++;
-                else if (actionStr.Contains("launch") || actionStr.Contains("start") || actionStr.Contains("open"))
-                    applicationActions++;
-            }
-
-            // Determine dominant action type
-            if (keyboardActions > mouseActions && keyboardActions > applicationActions)
-                return "Keyboard Action";
-            if (mouseActions > keyboardActions && mouseActions > applicationActions)
-                return "Mouse Action";
-            if (applicationActions > keyboardActions && applicationActions > mouseActions)
-                return "Application Launch";
-
-            if (keyboardActions > 0 && mouseActions > 0)
-                return "Mixed Input";
-
-            return "Custom Action";
+            return _actionService.DetermineActionTypeFromSteps(actionGroup);
         }
 
         private void OnSortOrderChanged(object sender, EventArgs e)

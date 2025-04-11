@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using CSimple.Services.AppModeService;
+using CSimple.Models;
 
 namespace CSimple.Services
 {
@@ -1352,6 +1353,96 @@ namespace CSimple.Services
                 Debug.WriteLine($"Error saving data item to backend: {ex.Message}");
                 return false;
             }
+        }
+
+        // New method to perform the complete data refresh
+        public async Task RefreshDataAsync(ObservableCollection<DataItem> dataItems, ObservableCollection<ActionGroup> actionGroups, ObservableCollection<DataItem> localItems)
+        {
+            dataItems.Clear();
+            actionGroups.Clear();
+            localItems.Clear();
+
+            // Load all data items
+            var allDataItems = await LoadAllDataItemsAsync();
+
+            // Populate the collections
+            foreach (var item in allDataItems)
+            {
+                dataItems.Add(item);
+            }
+
+            // Populate the local items
+            var allLocalItems = await LoadLocalDataItemsAsync();
+            foreach (var item in allLocalItems)
+            {
+                localItems.Add(item);
+            }
+        }
+
+        public string DetermineCategory(ActionGroup actionGroup)
+        {
+            // Determine category based on action name or steps
+            string name = actionGroup.ActionName.ToLowerInvariant();
+            string steps = actionGroup.ActionArray?.FirstOrDefault()?.ToString()?.ToLowerInvariant() ?? "";
+
+            if (name.Contains("excel") || name.Contains("spreadsheet") || steps.Contains("excel"))
+                return "Data Analysis";
+
+            if (name.Contains("word") || name.Contains("document") || steps.Contains("word") || steps.Contains(".doc"))
+                return "Document Editing";
+
+            if (name.Contains("browser") || name.Contains("chrome") || name.Contains("firefox") || name.Contains("edge") || steps.Contains("browser"))
+                return "Browser";
+
+            if (name.Contains("file") || name.Contains("folder") || name.Contains("copy") || name.Contains("move"))
+                return "File Management";
+
+            if (name.Contains("email") || name.Contains("outlook") || name.Contains("teams") || name.Contains("slack"))
+                return "Communication";
+
+            if (name.Contains("code") || name.Contains("visual studio") || name.Contains("vs code") || steps.Contains("code"))
+                return "Development";
+
+            if (name.Contains("system") || name.Contains("settings") || name.Contains("control"))
+                return "System";
+
+            return "Productivity"; // Default category
+        }
+
+        public string DetermineActionTypeFromSteps(ActionGroup actionGroup)
+        {
+            if (actionGroup.ActionArray == null || !actionGroup.ActionArray.Any())
+                return "Unknown";
+
+            // Count of different action types
+            int keyboardActions = 0;
+            int mouseActions = 0;
+            int applicationActions = 0;
+
+            foreach (var action in actionGroup.ActionArray)
+            {
+                string actionStr = action.ToString().ToLowerInvariant();
+
+                if (actionStr.Contains("key") || actionStr.Contains("type") || action.EventType == 256 || action.EventType == 257)
+                    keyboardActions++;
+                else if (actionStr.Contains("mouse") || actionStr.Contains("click") || action.EventType == 512 || action.EventType == 0x0201)
+                    mouseActions++;
+                else if (actionStr.Contains("launch") || actionStr.Contains("start") || actionStr.Contains("open"))
+                    applicationActions++;
+            }
+
+            // Determine dominant action type
+            if (keyboardActions > mouseActions && keyboardActions > applicationActions)
+                return "Keyboard Action";
+            if (mouseActions > keyboardActions && mouseActions > applicationActions)
+                return "Mouse Action";
+            if (applicationActions > keyboardActions && applicationActions > mouseActions)
+                return "Application Launch";
+
+            if (keyboardActions > 0 && mouseActions > 0)
+                return "Mixed Input";
+
+            return "Custom Action";
         }
     }
 }
