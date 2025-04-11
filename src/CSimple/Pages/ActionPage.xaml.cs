@@ -158,8 +158,16 @@ namespace CSimple.Pages
             }
         }
 
-        // Selected actions tracking
-        public bool HasSelectedActions => ActionGroups.Any(a => a.IsSelected);
+        // Selected actions tracking - Fix to ensure this property updates properly
+        public bool HasSelectedActions
+        {
+            get
+            {
+                bool hasSelected = ActionGroups?.Any(a => a.IsSelected) == true;
+                Debug.WriteLine($"HasSelectedActions called: {hasSelected} (ActionGroups count: {ActionGroups?.Count ?? 0})");
+                return hasSelected;
+            }
+        }
 
         // Track if data is being loaded to show loading indicator
         private bool _isLoading = false;
@@ -204,6 +212,9 @@ namespace CSimple.Pages
 
         // Add a new command to handle deletion by ActionGroup
         public ICommand DeleteActionCommand { get; }
+
+        // Add a command for deleting multiple selected actions
+        public ICommand DeleteSelectedActionsCommand { get; }
 
         private bool _isSimulating = false;
         private readonly ActionService _actionService;
@@ -295,6 +306,9 @@ namespace CSimple.Pages
             ChainActionCommand = new Command<ActionGroup>(ChainAction);
             ChainSelectedActionsCommand = new Command(ChainSelectedActions);
             AddToTrainingCommand = new Command(AddSelectedActionsToTraining);
+
+            // Initialize delete selected actions command
+            DeleteSelectedActionsCommand = new Command(DeleteSelectedActions);
 
             // Initialize new commands for local items
             ViewLocalItemCommand = new Command<DataItem>(ViewLocalItem);
@@ -1230,7 +1244,7 @@ namespace CSimple.Pages
             // Notify UI to refresh
             OnPropertyChanged(nameof(ActionGroups));
             OnPropertyChanged(nameof(ShowEmptyMessage));
-            OnPropertyChanged(nameof(HasSelectedActions));
+            OnPropertyChanged(nameof(HasSelectedActions));  // Make sure this is called
 
             // Apply current sort method
             SortActionGroups();
@@ -1673,6 +1687,130 @@ namespace CSimple.Pages
             {
                 Debug.WriteLine($"Error deleting action: {ex.Message}");
                 await DisplayAlert("Error", "An error occurred while deleting the action.", "OK");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        // Fixed method to delete selected actions with better debugging and error handling
+        private async void DeleteSelectedActions()
+        {
+            Debug.WriteLine("DeleteSelectedActions method called");
+
+            try
+            {
+                // Get all selected actions
+                var selectedActions = ActionGroups.Where(a => a.IsSelected).ToList();
+                Debug.WriteLine($"Selected actions count: {selectedActions.Count}");
+
+                if (selectedActions.Count == 0)
+                {
+                    Debug.WriteLine("No actions selected, showing alert");
+                    await DisplayAlert("Delete Actions",
+                        "Please select at least one action to delete.",
+                        "OK");
+                    return;
+                }
+
+                // Log selected action names for debugging
+                foreach (var action in selectedActions)
+                {
+                    Debug.WriteLine($"Selected for deletion: {action.ActionName}");
+                }
+
+                // Confirm deletion
+                Debug.WriteLine("Requesting deletion confirmation");
+                bool confirmDelete = await DisplayAlert("Confirm Delete",
+                    $"Are you sure you want to delete {selectedActions.Count} selected action{(selectedActions.Count > 1 ? "s" : "")}?",
+                    "Yes", "No");
+
+                if (!confirmDelete)
+                {
+                    Debug.WriteLine("User cancelled deletion");
+                    return;
+                }
+
+                Debug.WriteLine("Starting deletion process");
+                IsLoading = true;
+
+                int successCount = 0;
+                int failCount = 0;
+
+                // Process each selected action
+                foreach (var action in selectedActions)
+                {
+                    Debug.WriteLine($"Processing deletion for: {action.ActionName}");
+
+                    // Find corresponding DataItem for this ActionGroup
+                    var dataItem = DataItems.FirstOrDefault(item =>
+                        item?.Data?.ActionGroupObject?.ActionName == action.ActionName);
+
+                    if (dataItem != null)
+                    {
+                        Debug.WriteLine($"Found matching DataItem for {action.ActionName}");
+                        // Delete the item (skip confirmation since we already confirmed)
+                        bool success = await _actionService.DeleteDataItemAsync(dataItem);
+                        if (success)
+                        {
+                            // Remove from DataItems collection
+                            if (DataItems.Contains(dataItem))
+                            {
+                                DataItems.Remove(dataItem);
+                                Debug.WriteLine($"Removed {action.ActionName} from DataItems");
+                            }
+                            successCount++;
+                        }
+                        else
+                        {
+                            failCount++;
+                            Debug.WriteLine($"Failed to delete action: {action.ActionName}");
+                        }
+                    }
+                    else
+                    {
+                        // Handle case where DataItem isn't found - remove from ActionGroups directly
+                        Debug.WriteLine($"No DataItem found for ActionGroup: {action.ActionName}, removing directly from ActionGroups");
+                        ActionGroups.Remove(action);
+                        _allActionGroups.Remove(_allActionGroups.FirstOrDefault(ag => ag.ActionName == action.ActionName));
+                        successCount++; // Count as success since we removed it from the UI
+                    }
+                }
+
+                // Update the ActionGroups collection to reflect changes
+                Debug.WriteLine("Updating ActionGroups collection");
+                UpdateActionGroupsFromDataItems();
+
+                // Save changes to file to ensure persistence
+                Debug.WriteLine("Saving changes to file");
+                await SaveDataItemsToFile();
+
+                // Show result message
+                if (failCount == 0)
+                {
+                    Debug.WriteLine($"Delete complete: {successCount} action(s) deleted");
+                    await DisplayAlert("Delete Complete",
+                        $"Successfully deleted {successCount} action{(successCount > 1 ? "s" : "")}.",
+                        "OK");
+                }
+                else
+                {
+                    Debug.WriteLine($"Delete partial: {successCount} deleted, {failCount} failed");
+                    await DisplayAlert("Delete Partial",
+                        $"Deleted {successCount} action{(successCount > 1 ? "s" : "")}, but {failCount} action{(failCount > 1 ? "s" : "")} failed to delete.",
+                        "OK");
+                }
+
+                // Update UI indicators
+                OnPropertyChanged(nameof(ShowEmptyMessage));
+                OnPropertyChanged(nameof(HasSelectedActions));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error deleting selected actions: {ex.Message}");
+                Debug.WriteLine($"Exception stack trace: {ex.StackTrace}");
+                await DisplayAlert("Error", "An error occurred while deleting the selected actions.", "OK");
             }
             finally
             {

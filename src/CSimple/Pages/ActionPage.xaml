@@ -252,7 +252,7 @@
         <!-- Footer -->
         <Grid Grid.Row="3"
               Margin="0,10,0,0"
-              ColumnDefinitions="*,Auto,*">
+              ColumnDefinitions="*,Auto,Auto,*">
             <Button Grid.Column="0"
                     Text="Record New Action"
                     Command="{Binding NavigateToObservePageCommand}"
@@ -263,8 +263,18 @@
                     BackgroundColor="#2196F3"
                     TextColor="White"
                     IsEnabled="{Binding HasSelectedActions}"
-                    HorizontalOptions="Center" />
+                    HorizontalOptions="Center"
+                    Margin="0,0,10,0" />
             <Button Grid.Column="2"
+                    x:Name="DeleteSelectedButton"
+                    Text="Delete Selected Actions"
+                    Command="{Binding DeleteSelectedActionsCommand}"
+                    BackgroundColor="#FF5252"
+                    TextColor="White"
+                    IsEnabled="{Binding HasSelectedActions}"
+                    HorizontalOptions="Center"
+                    Margin="0,0,10,0" />
+            <Button Grid.Column="3"
                     Text="Add Selected to Training"
                     Command="{Binding AddToTrainingCommand}"
                     BackgroundColor="#4CAF50"
