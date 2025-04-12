@@ -272,38 +272,9 @@
                     Clicked="OnDeleteSelectedButtonClicked"
                     BackgroundColor="#FF5252"
                     TextColor="White"
-                    IsEnabled="{Binding HasSelectedActions}"
+                    IsEnabled="{Binding HasSelectedActions, Mode=OneWay}"
                     HorizontalOptions="Center"
-                    Margin="0,0,10,0">
-                <Button.VisualStateManager.VisualStateGroups>
-                    <VisualStateGroup Name="CommonStates">
-                        <VisualState Name="Normal">
-                            <VisualState.Setters>
-                                <Setter Property="Opacity"
-                                        Value="1.0" />
-                            </VisualState.Setters>
-                        </VisualState>
-                        <VisualState Name="Disabled">
-                            <VisualState.Setters>
-                                <Setter Property="Opacity"
-                                        Value="0.5" />
-                                <Setter Property="BackgroundColor"
-                                        Value="#AAAAAA" />
-                            </VisualState.Setters>
-                        </VisualState>
-                        <VisualState Name="Pressed">
-                            <VisualState.Setters>
-                                <Setter Property="Opacity"
-                                        Value="0.8" />
-                                <Setter Property="BackgroundColor"
-                                        Value="#D32F2F" />
-                                <Setter Property="Scale"
-                                        Value="0.98" />
-                            </VisualState.Setters>
-                        </VisualState>
-                    </VisualStateGroup>
-                </Button.VisualStateManager.VisualStateGroups>
-            </Button>
+                    Margin="0,0,10,0" />
             <Button Grid.Column="3"
                     Text="Add Selected to Training"
                     Command="{Binding AddToTrainingCommand}"

@@ -227,21 +227,17 @@ namespace CSimple.Services
 
                     foreach (var dataItem in loadedDataItems)
                     {
-                        // Skip deleted items
-                        if (dataItem.deleted)
-                            continue;
-
+                        // We don't need to check deleted flag anymore since FileService filters them out
                         ParseDataItemText(dataItem);
 
                         // IMPORTANT: Don't override original creation dates
                         if (dataItem?.Data?.ActionGroupObject != null)
                         {
-                            // Ensure non-local status for backend items
-                            dataItem.Data.ActionGroupObject.IsLocal = false;
-
-                            // Set CreatedAt explicitly to the original createdAt value from the database
-                            // This preserves the actual creation time rather than using current time
-                            dataItem.Data.ActionGroupObject.CreatedAt = dataItem.createdAt;
+                            if (dataItem.Data.ActionGroupObject.CreatedAt == null ||
+                                dataItem.Data.ActionGroupObject.CreatedAt == default(DateTime))
+                            {
+                                dataItem.Data.ActionGroupObject.CreatedAt = dataItem.createdAt;
+                            }
 
                             // Create unique key using ID or name
                             string key = !string.IsNullOrEmpty(dataItem._id)
@@ -298,45 +294,24 @@ namespace CSimple.Services
 
             try
             {
-                // Mark the item as deleted
-                dataItem.deleted = true;
+                // Gather all identifiers for this item
+                List<string> idList = new List<string>();
+                List<string> nameList = new List<string>();
 
-                // Get current data from file
-                var allItems = await LoadDataItemsFromFile();
+                if (!string.IsNullOrEmpty(dataItem._id))
+                    idList.Add(dataItem._id);
 
-                // Remove this item from the list if it exists
-                var existingItem = allItems.FirstOrDefault(x =>
-                    (!string.IsNullOrEmpty(x._id) && !string.IsNullOrEmpty(dataItem._id) && x._id == dataItem._id) ||
-                    (x.Data?.ActionGroupObject?.ActionName == dataItem.Data?.ActionGroupObject?.ActionName));
+                if (dataItem?.Data?.ActionGroupObject?.ActionName != null)
+                    nameList.Add(dataItem.Data.ActionGroupObject.ActionName);
 
-                if (existingItem != null)
-                {
-                    allItems.Remove(existingItem);
-                }
+                // Delete from ALL storage locations in one go
+                await _fileService.DeleteDataItemsAsync(idList, nameList);
 
-                // Save the filtered list back to file
-                await SaveDataItemsToFile(allItems);
-
-                // Also handle local storage items
-                if (dataItem.Data?.ActionGroupObject?.IsLocal == true)
-                {
-                    var localItems = await LoadLocalDataItemsAsync();
-                    var localItem = localItems.FirstOrDefault(x =>
-                        (!string.IsNullOrEmpty(x._id) && !string.IsNullOrEmpty(dataItem._id) && x._id == dataItem._id) ||
-                        (x.Data?.ActionGroupObject?.ActionName == dataItem.Data?.ActionGroupObject?.ActionName));
-
-                    if (localItem != null)
-                    {
-                        localItems.Remove(localItem);
-                        await _fileService.SaveLocalDataItemsAsync(localItems);
-                    }
-                }
-
-                // Delete from backend only if in online mode
+                // If we are in online mode, also delete from backend
                 if (_appModeService?.CurrentMode == AppMode.Online)
                 {
                     var token = await SecureStorage.GetAsync("userToken");
-                    if (!string.IsNullOrEmpty(token))
+                    if (!string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(dataItem._id))
                     {
                         var response = await _dataService.DeleteDataAsync(dataItem._id, token);
                         if (response.DataIsSuccess)
@@ -353,14 +328,60 @@ namespace CSimple.Services
                 else
                 {
                     Debug.WriteLine("App is not in online mode. Item deleted from local storage only.");
-                    return true; // Return success even though we only deleted locally
+                    return true;
                 }
+
+                return true; // Return success for local deletion
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error deleting action group: {ex.Message}");
+                return false;
             }
-            return false;
+        }
+
+        public async Task<List<DataItem>> LoadLocalDataItemsAsync()
+        {
+            try
+            {
+                var localItems = await _fileService.LoadLocalDataItemsAsync() ?? new List<DataItem>();
+
+                // No need to filter deleted items as FileService already does that
+                var uniqueLocalItems = new Dictionary<string, DataItem>();
+
+                foreach (var item in localItems)
+                {
+                    if (item?.Data?.ActionGroupObject != null)
+                    {
+                        // Always mark local items as local
+                        item.Data.ActionGroupObject.IsLocal = true;
+
+                        // Always use the original timestamp from the database/file
+                        if (item.Data.ActionGroupObject.CreatedAt == null ||
+                            item.Data.ActionGroupObject.CreatedAt == default(DateTime))
+                        {
+                            // Use item.createdAt directly without fallback to current time
+                            item.Data.ActionGroupObject.CreatedAt = item.createdAt;
+                        }
+
+                        // Use actionName as the key for local items
+                        string key = item.Data.ActionGroupObject.ActionName;
+
+                        if (!string.IsNullOrEmpty(key) && !uniqueLocalItems.ContainsKey(key))
+                        {
+                            uniqueLocalItems[key] = item;
+                        }
+                    }
+                }
+
+                Debug.WriteLine($"LoadLocalDataItemsAsync: Loaded {uniqueLocalItems.Count} unique local items");
+                return uniqueLocalItems.Values.ToList();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading local items: {ex.Message}");
+                return new List<DataItem>();
+            }
         }
 
         public async Task<bool> ToggleSimulateActionGroupAsync(ActionGroup actionGroup)
@@ -1172,53 +1193,6 @@ namespace CSimple.Services
             {
                 Debug.WriteLine($"Error getting action files: {ex.Message}");
                 return new List<ActionFile>();
-            }
-        }
-
-        public async Task<List<DataItem>> LoadLocalDataItemsAsync()
-        {
-            try
-            {
-                var localItems = await _fileService.LoadLocalDataItemsAsync() ?? new List<DataItem>();
-
-                // Filter out any deleted items
-                localItems = localItems.Where(item => !item.deleted).ToList();
-
-                // Filter out any duplicate items by ID or name
-                var uniqueLocalItems = new Dictionary<string, DataItem>();
-
-                foreach (var item in localItems)
-                {
-                    if (item?.Data?.ActionGroupObject != null)
-                    {
-                        // Always mark local items as local
-                        item.Data.ActionGroupObject.IsLocal = true;
-
-                        // Always use the original timestamp from the database/file
-                        if (item.Data.ActionGroupObject.CreatedAt == null ||
-                            item.Data.ActionGroupObject.CreatedAt == default(DateTime))
-                        {
-                            // Use item.createdAt directly without fallback to current time
-                            item.Data.ActionGroupObject.CreatedAt = item.createdAt;
-                        }
-
-                        // Use actionName as the key for local items
-                        string key = item.Data.ActionGroupObject.ActionName;
-
-                        if (!string.IsNullOrEmpty(key) && !uniqueLocalItems.ContainsKey(key))
-                        {
-                            uniqueLocalItems[key] = item;
-                        }
-                    }
-                }
-
-                Debug.WriteLine($"LoadLocalDataItemsAsync: Loaded {uniqueLocalItems.Count} unique local items");
-                return uniqueLocalItems.Values.ToList();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading local items: {ex.Message}");
-                return new List<DataItem>();
             }
         }
 

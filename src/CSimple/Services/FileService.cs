@@ -41,6 +41,65 @@ namespace CSimple.Services
         public async Task<List<DataItem>> LoadDataItemsAsync() =>
             await LoadFromFileAsync<List<DataItem>, List<DataItem>>(_dataItemsFilePath, c => c?.Where(item => !item.deleted).ToList() ?? new List<DataItem>());
 
+        public async Task DeleteDataItemsAsync(List<string> itemIds, List<string> actionNames)
+        {
+            try
+            {
+                // Load existing data
+                var existingData = await LoadFromFileAsync<List<DataItem>, List<DataItem>>(_dataItemsFilePath, c => c)
+                                ?? new List<DataItem>();
+
+                // Remove items that match any of the provided IDs or action names
+                var remainingData = existingData.Where(item =>
+                    !(itemIds.Contains(item._id) ||
+                     (item.Data?.ActionGroupObject?.ActionName != null &&
+                      actionNames.Contains(item.Data.ActionGroupObject.ActionName))))
+                    .ToList();
+
+                // Save the filtered list back to the file
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                var json = JsonSerializer.Serialize(remainingData, options);
+                await File.WriteAllTextAsync(_dataItemsFilePath, json);
+
+                System.Diagnostics.Debug.WriteLine($"Successfully removed {existingData.Count - remainingData.Count} items from {_dataItemsFilePath}");
+
+                // Also delete from local data items
+                await DeleteLocalDataItemsAsync(itemIds, actionNames);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error deleting data items: {ex.Message}");
+            }
+        }
+
+        public async Task DeleteLocalDataItemsAsync(List<string> itemIds, List<string> actionNames)
+        {
+            try
+            {
+                // Load existing local data
+                var existingData = await LoadFromFileAsync<List<DataItem>, List<DataItem>>(_localDataItemsFilePath, c => c)
+                                ?? new List<DataItem>();
+
+                // Remove items that match any of the provided IDs or action names
+                var remainingData = existingData.Where(item =>
+                    !(itemIds.Contains(item._id) ||
+                     (item.Data?.ActionGroupObject?.ActionName != null &&
+                      actionNames.Contains(item.Data.ActionGroupObject.ActionName))))
+                    .ToList();
+
+                // Save the filtered list back to the file
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                var json = JsonSerializer.Serialize(remainingData, options);
+                await File.WriteAllTextAsync(_localDataItemsFilePath, json);
+
+                System.Diagnostics.Debug.WriteLine($"Successfully removed {existingData.Count - remainingData.Count} local items from {_localDataItemsFilePath}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error deleting local data items: {ex.Message}");
+            }
+        }
+
         public async Task SaveLocalDataItemsAsync(List<DataItem> newData)
         {
             try
@@ -52,7 +111,7 @@ namespace CSimple.Services
                 existingData = existingData.Where(item => !item.deleted).ToList();
 
                 // Merge new data with existing data, avoiding duplicates with better detection
-                foreach (var item in newData)
+                foreach (var item in newData.Where(i => !i.deleted))
                 {
                     // Skip deleted items
                     if (item.deleted)
@@ -111,36 +170,43 @@ namespace CSimple.Services
         {
             try
             {
+                // Get existing data
                 var existingData = await LoadFromFileAsync<List<DataItem>, List<DataItem>>(filePath, c => c)
                                ?? new List<DataItem>();
 
-                // Filter out deleted items from the existing data
-                existingData = existingData.Where(item => !item.deleted).ToList();
+                // Create a list of items to keep - don't use deleted flag anymore
+                var dataToSave = new List<DataItem>();
 
-                // Create a new list to hold the updated items
-                var updatedData = new List<DataItem>();
-
-                // Process each item from existing data
+                // First, add all existing items that aren't being replaced or deleted
                 foreach (var item in existingData)
                 {
-                    // Skip if this item matches one in the new data (will be replaced)
-                    if (newData.Any(x => (!string.IsNullOrEmpty(x._id) && !string.IsNullOrEmpty(item._id) && x._id == item._id) ||
+                    // Skip if this item is marked as deleted
+                    if (item.deleted)
+                        continue;
+
+                    // Skip if this item is being replaced by new data
+                    if (newData.Any(x =>
+                        (!string.IsNullOrEmpty(x._id) && !string.IsNullOrEmpty(item._id) && x._id == item._id) ||
                         (x.Data?.ActionGroupObject?.ActionName == item.Data?.ActionGroupObject?.ActionName)))
                     {
                         continue;
                     }
-                    updatedData.Add(item);
+
+                    dataToSave.Add(item);
                 }
 
-                // Add all non-deleted items from new data
-                foreach (var item in newData.Where(i => !i.deleted))
+                // Then add all non-deleted items from new data
+                foreach (var item in newData)
                 {
-                    updatedData.Add(item);
+                    if (!item.deleted)
+                    {
+                        dataToSave.Add(item);
+                    }
                 }
 
-                System.Diagnostics.Debug.WriteLine($"Attempting to save data to {filePath}");
+                System.Diagnostics.Debug.WriteLine($"Saving {dataToSave.Count} items to {filePath} (removed {newData.Count(i => i.deleted)} deleted items)");
                 var options = new JsonSerializerOptions { WriteIndented = true };
-                var json = JsonSerializer.Serialize(updatedData, options);
+                var json = JsonSerializer.Serialize(dataToSave, options);
                 await File.WriteAllTextAsync(filePath, json);
                 System.Diagnostics.Debug.WriteLine($"Successfully saved data to {filePath}");
             }

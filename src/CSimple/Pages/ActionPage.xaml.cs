@@ -47,7 +47,22 @@ namespace CSimple.Pages
             {
                 if (_actionGroups != value)
                 {
+                    // Unsubscribe from old collection changes
+                    if (_actionGroups != null)
+                    {
+                        _actionGroups.CollectionChanged -= ActionGroups_CollectionChanged;
+                        UnsubscribeFromSelectionChanges(_actionGroups);
+                    }
+
                     _actionGroups = value;
+
+                    // Subscribe to new collection changes
+                    if (_actionGroups != null)
+                    {
+                        _actionGroups.CollectionChanged += ActionGroups_CollectionChanged;
+                        SubscribeToSelectionChanges(_actionGroups);
+                    }
+
                     OnPropertyChanged(nameof(ActionGroups));
                     // Update grouped actions when the collection changes
                     if (IsGrouped)
@@ -1056,7 +1071,23 @@ namespace CSimple.Pages
         // Enhanced method to extract ActionGroup objects from DataItems with additional properties
         private void UpdateActionGroupsFromDataItems()
         {
+            // Temporarily unsubscribe collection change handler to avoid multiple events
+            if (_actionGroups != null)
+            {
+                _actionGroups.CollectionChanged -= ActionGroups_CollectionChanged;
+            }
+
+            // Use the existing service method
             _actionGroupService.UpdateActionGroupsFromDataItems(DataItems, ActionGroups, _allActionGroups);
+
+            // Re-subscribe to collection changes
+            if (_actionGroups != null)
+            {
+                _actionGroups.CollectionChanged += ActionGroups_CollectionChanged;
+                // Re-subscribe to all items in the collection
+                SubscribeToSelectionChanges(_actionGroups);
+            }
+
             OnPropertyChanged(nameof(ActionGroups));
             OnPropertyChanged(nameof(ShowEmptyMessage));
             OnPropertyChanged(nameof(HasSelectedActions));
@@ -1514,11 +1545,16 @@ namespace CSimple.Pages
                 // Also update local items in file storage
                 await _actionService.SaveDataItemsToFile(await _actionService.LoadDataItemsFromFile());
 
-                // Show result message
+                // Simplified result message - no detailed list of deleted items
                 Debug.WriteLine($"🏁 Deletion complete: {successCount} action(s) deleted");
-                await DisplayAlert("Delete Complete",
-                    $"Successfully deleted {successCount} action{(successCount > 1 ? "s" : "")}:\n{string.Join("\n", deletedNames)}",
-                    "OK");
+
+                // Either remove the dialog entirely or just show a simple message
+                if (successCount > 0)
+                {
+                    await DisplayAlert("Delete Complete",
+                        $"Successfully deleted {successCount} action{(successCount > 1 ? "s" : "")}.",
+                        "OK");
+                }
 
                 // Force update of collections
                 UpdateActionGroupsFromDataItems();
@@ -1564,6 +1600,57 @@ namespace CSimple.Pages
             {
                 Debug.WriteLine($"❌ Error in OnDeleteSelectedButtonClicked: {ex.Message}");
                 await DisplayAlert("Error", "Failed to delete selected actions. Please try again.", "OK");
+            }
+            finally
+            {
+                // Force UI update for button state
+                OnPropertyChanged(nameof(HasSelectedActions));
+            }
+        }
+
+        // Monitor collection changes
+        private void ActionGroups_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (e.NewItems != null)
+            {
+                SubscribeToSelectionChanges(e.NewItems.Cast<ActionGroup>());
+            }
+
+            if (e.OldItems != null)
+            {
+                UnsubscribeFromSelectionChanges(e.OldItems.Cast<ActionGroup>());
+            }
+
+            // Always update HasSelectedActions when collection changes
+            OnPropertyChanged(nameof(HasSelectedActions));
+        }
+
+        // Subscribe to PropertyChanged events of each ActionGroup
+        private void SubscribeToSelectionChanges(IEnumerable<ActionGroup> actionGroups)
+        {
+            foreach (var actionGroup in actionGroups)
+            {
+                actionGroup.PropertyChanged += ActionGroup_PropertyChanged;
+            }
+        }
+
+        // Unsubscribe to avoid memory leaks
+        private void UnsubscribeFromSelectionChanges(IEnumerable<ActionGroup> actionGroups)
+        {
+            foreach (var actionGroup in actionGroups)
+            {
+                actionGroup.PropertyChanged -= ActionGroup_PropertyChanged;
+            }
+        }
+
+        // Handle PropertyChanged events from ActionGroup objects
+        private void ActionGroup_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ActionGroup.IsSelected))
+            {
+                // Selection state changed, update HasSelectedActions
+                Debug.WriteLine("Action selection changed, updating HasSelectedActions");
+                OnPropertyChanged(nameof(HasSelectedActions));
             }
         }
     }

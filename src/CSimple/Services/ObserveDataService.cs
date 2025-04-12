@@ -208,39 +208,20 @@ namespace CSimple.Services
 
             try
             {
-                // Mark the item as deleted
-                dataItem.deleted = true;
+                // Gather identifying information to delete from all locations
+                List<string> idList = new List<string>();
+                List<string> nameList = new List<string>();
 
-                // Load current data
-                var allItems = await LoadDataItemsFromFile();
+                if (!string.IsNullOrEmpty(dataItem._id))
+                    idList.Add(dataItem._id);
 
-                // Find and update or remove the item
-                var existingItem = allItems.FirstOrDefault(x =>
-                    (!string.IsNullOrEmpty(x._id) && x._id == dataItem._id) ||
-                    (x.Data?.ActionGroupObject?.ActionName == dataItem.Data?.ActionGroupObject?.ActionName));
+                if (dataItem?.Data?.ActionGroupObject?.ActionName != null)
+                    nameList.Add(dataItem.Data.ActionGroupObject.ActionName);
 
-                if (existingItem != null)
-                {
-                    // Remove the item from the collection
-                    allItems.Remove(existingItem);
-                }
+                // Delete from all storage locations
+                await _fileService.DeleteDataItemsAsync(idList, nameList);
 
-                // Save the updated collection
-                await SaveDataItemsToFile(allItems);
-
-                // Also remove from local rich data if it exists there
-                var localItems = await LoadLocalRichDataAsync();
-                var localItem = localItems.FirstOrDefault(x =>
-                    (!string.IsNullOrEmpty(x._id) && x._id == dataItem._id) ||
-                    (x.Data?.ActionGroupObject?.ActionName == dataItem.Data?.ActionGroupObject?.ActionName));
-
-                if (localItem != null)
-                {
-                    localItems.Remove(localItem);
-                    await SaveLocalRichDataAsync(localItems);
-                }
-
-                LogDebug($"Data item deleted: {dataItem.Data?.ActionGroupObject?.ActionName ?? dataItem._id}");
+                LogDebug($"Data item completely deleted: {dataItem.Data?.ActionGroupObject?.ActionName ?? dataItem._id}");
                 return true;
             }
             catch (Exception ex)
