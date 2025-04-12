@@ -54,12 +54,31 @@ namespace CSimple.Services
         {
             try
             {
-                await _fileService.SaveDataItemsAsync(dataItems.ToList());
-                LogDebug("Data items saved to file");
+                // Check if we have any items to save
+                var itemsList = dataItems.ToList();
+                if (itemsList.Count == 0)
+                {
+                    LogDebug("No data items to save");
+                    return;
+                }
+
+                // Ensure all items have the IsLocal flag properly set
+                foreach (var item in itemsList)
+                {
+                    if (item?.Data?.ActionGroupObject != null)
+                    {
+                        // If this is called from ObservePage, assume it's a local action
+                        item.Data.ActionGroupObject.IsLocal = true;
+                    }
+                }
+
+                await _fileService.SaveDataItemsAsync(itemsList);
+                LogDebug($"Saved {itemsList.Count} data items to file");
             }
             catch (Exception ex)
             {
                 LogDebug($"Error saving data items: {ex.Message}");
+                LogDebug(ex.StackTrace);
             }
         }
 
@@ -82,13 +101,26 @@ namespace CSimple.Services
         {
             try
             {
+                // Check if we have any items to save
+                var itemsList = dataItems.ToList();
+                if (itemsList.Count == 0)
+                {
+                    LogDebug("No local rich data items to save");
+                    return;
+                }
+
+                // Log some details about what we're saving
+                var actionNames = itemsList.Select(i => i.Data?.ActionGroupObject?.ActionName).ToList();
+                LogDebug($"Saving {itemsList.Count} items to local rich data: {string.Join(", ", actionNames)}");
+
                 // Use the updated SaveLocalDataItemsAsync method to append data
-                await _fileService.SaveLocalDataItemsAsync(dataItems.ToList());
-                LogDebug("Local rich data saved");
+                await _fileService.SaveLocalDataItemsAsync(itemsList);
+                LogDebug("Local rich data saved successfully");
             }
             catch (Exception ex)
             {
                 LogDebug($"Error saving local rich data: {ex.Message}");
+                LogDebug(ex.StackTrace);
             }
         }
 

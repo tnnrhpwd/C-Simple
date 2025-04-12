@@ -106,9 +106,15 @@ namespace CSimple.Services
             {
                 // Load existing local data
                 var existingData = await LoadLocalDataItemsAsync() ?? new List<DataItem>();
+                System.Diagnostics.Debug.WriteLine($"SaveLocalDataItemsAsync: Loaded {existingData.Count} existing items");
 
                 // Filter out any deleted items from the existing data
                 existingData = existingData.Where(item => !item.deleted).ToList();
+                System.Diagnostics.Debug.WriteLine($"SaveLocalDataItemsAsync: {existingData.Count} items after filtering deleted");
+
+                // Keep track of items added
+                int addedCount = 0;
+                int updatedCount = 0;
 
                 // Merge new data with existing data, avoiding duplicates with better detection
                 foreach (var item in newData.Where(i => !i.deleted))
@@ -119,15 +125,18 @@ namespace CSimple.Services
 
                     // Improved duplicate detection logic
                     bool isDuplicate = false;
+                    int duplicateIndex = -1;
 
-                    foreach (var existingItem in existingData)
+                    for (int i = 0; i < existingData.Count; i++)
                     {
+                        var existingItem = existingData[i];
                         // Check ID if available
                         if (!string.IsNullOrEmpty(item._id) && !string.IsNullOrEmpty(existingItem._id))
                         {
                             if (item._id == existingItem._id)
                             {
                                 isDuplicate = true;
+                                duplicateIndex = i;
                                 break;
                             }
                         }
@@ -135,11 +144,21 @@ namespace CSimple.Services
                         else if (item.Data?.ActionGroupObject?.ActionName == existingItem.Data?.ActionGroupObject?.ActionName)
                         {
                             isDuplicate = true;
+                            duplicateIndex = i;
                             break;
                         }
                     }
 
-                    if (!isDuplicate)
+                    if (isDuplicate)
+                    {
+                        // Replace existing item with new version
+                        if (duplicateIndex >= 0)
+                        {
+                            existingData[duplicateIndex] = item;
+                            updatedCount++;
+                        }
+                    }
+                    else
                     {
                         // Make sure we mark it as local
                         if (item?.Data?.ActionGroupObject != null)
@@ -147,19 +166,24 @@ namespace CSimple.Services
                             item.Data.ActionGroupObject.IsLocal = true;
                         }
                         existingData.Add(item);
+                        addedCount++;
                     }
                 }
+
+                // Sort items by creation date to keep newest at the top
+                existingData = existingData.OrderByDescending(i => i.createdAt).ToList();
 
                 // Save the merged data back to the file
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 var json = JsonSerializer.Serialize(existingData, options);
                 await File.WriteAllTextAsync(_localDataItemsFilePath, json);
 
-                System.Diagnostics.Debug.WriteLine($"Successfully saved local data to {_localDataItemsFilePath}");
+                System.Diagnostics.Debug.WriteLine($"Successfully saved local data: {addedCount} items added, {updatedCount} items updated, total {existingData.Count} items");
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error saving local data: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine(ex.StackTrace);
             }
         }
 
@@ -174,8 +198,16 @@ namespace CSimple.Services
                 var existingData = await LoadFromFileAsync<List<DataItem>, List<DataItem>>(filePath, c => c)
                                ?? new List<DataItem>();
 
+                System.Diagnostics.Debug.WriteLine($"SaveToFileAsync: Loaded {existingData.Count} existing items from {filePath}");
+
                 // Create a list of items to keep - don't use deleted flag anymore
                 var dataToSave = new List<DataItem>();
+
+                // Keep track of items for logging
+                int keptCount = 0;
+                int replacedCount = 0;
+                int newCount = 0;
+                int deletedCount = newData.Count(i => i.deleted);
 
                 // First, add all existing items that aren't being replaced or deleted
                 foreach (var item in existingData)
@@ -185,14 +217,19 @@ namespace CSimple.Services
                         continue;
 
                     // Skip if this item is being replaced by new data
-                    if (newData.Any(x =>
+                    bool isBeingReplaced = newData.Any(x =>
                         (!string.IsNullOrEmpty(x._id) && !string.IsNullOrEmpty(item._id) && x._id == item._id) ||
-                        (x.Data?.ActionGroupObject?.ActionName == item.Data?.ActionGroupObject?.ActionName)))
-                    {
-                        continue;
-                    }
+                        (x.Data?.ActionGroupObject?.ActionName == item.Data?.ActionGroupObject?.ActionName));
 
-                    dataToSave.Add(item);
+                    if (!isBeingReplaced)
+                    {
+                        dataToSave.Add(item);
+                        keptCount++;
+                    }
+                    else
+                    {
+                        replacedCount++;
+                    }
                 }
 
                 // Then add all non-deleted items from new data
@@ -201,10 +238,16 @@ namespace CSimple.Services
                     if (!item.deleted)
                     {
                         dataToSave.Add(item);
+                        newCount++;
                     }
                 }
 
-                System.Diagnostics.Debug.WriteLine($"Saving {dataToSave.Count} items to {filePath} (removed {newData.Count(i => i.deleted)} deleted items)");
+                System.Diagnostics.Debug.WriteLine($"SaveToFileAsync: Saving {dataToSave.Count} items to {filePath} " +
+                    $"(kept {keptCount}, replaced {replacedCount}, new {newCount}, removed {deletedCount} deleted items)");
+
+                // Sort items by creation date to keep newest at the top
+                dataToSave = dataToSave.OrderByDescending(i => i.createdAt).ToList();
+
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 var json = JsonSerializer.Serialize(dataToSave, options);
                 await File.WriteAllTextAsync(filePath, json);
@@ -213,6 +256,7 @@ namespace CSimple.Services
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error saving data: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine(ex.StackTrace);
             }
         }
 

@@ -842,14 +842,13 @@ namespace CSimple.Pages
                 SearchText = string.Empty;
                 SelectedCategory = "All Categories";
 
-                // Refresh all data according to current app mode
-                Debug.WriteLine("Complete page refresh requested");
-                await RefreshData();
+                Debug.WriteLine("Refreshing all data sources");
 
-                // Explicitly reload local items after all other data has been loaded
-                // This ensures we catch any newly created local actions
-                Debug.WriteLine("Explicitly reloading local items to catch new additions");
+                // First load all local items directly from the file system
                 await ForceReloadLocalItemsAsync();
+
+                // Then refresh all data according to current app mode
+                await RefreshData();
 
                 // Force UI update for all collections
                 OnPropertyChanged(nameof(DataItems));
@@ -1329,27 +1328,26 @@ namespace CSimple.Pages
 
             try
             {
-                if (_appModeService.CurrentMode == AppMode.Online)
-                {
-                    Debug.WriteLine("App is in online mode. Loading backend and local actions.");
-                    // Load all items from backend and local storage
-                    await RefreshData();
+                // First attempt to load all local items directly
+                await ForceReloadLocalItemsAsync();
 
-                    // Also ensure local items are loaded
-                    await LoadLocalItemsAsync();
+                if (_appModeService?.CurrentMode == AppMode.Online)
+                {
+                    Debug.WriteLine("App is in online mode. Loading backend actions.");
+                    // Load backend items and merge with local items
+                    await RefreshData();
                 }
                 else
                 {
-                    Debug.WriteLine("App is not in online mode. Loading local actions only.");
-                    await LoadLocalItemsAsync();
-
-                    // Update ActionGroups from locally loaded items
+                    Debug.WriteLine("App is in offline mode.");
+                    // Update ActionGroups from loaded items
                     UpdateActionGroupsFromDataItems();
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error in LoadActionsData: {ex.Message}");
+                Debug.WriteLine(ex.StackTrace);
             }
             finally
             {

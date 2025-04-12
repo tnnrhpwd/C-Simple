@@ -64,8 +64,8 @@ namespace CSimple.Pages
         public ICommand SaveToFileCommand { get; }
         public ICommand LoadFromFileCommand { get; }
 
-        // Save options
-        private bool _saveRecord = false; // Changed from true to false
+        // Save options - Change defaults to true to ensure actions are always saved
+        private bool _saveRecord = true; // Changed from false to true
         public bool SaveRecord
         {
             get => _saveRecord;
@@ -86,7 +86,7 @@ namespace CSimple.Pages
             }
         }
 
-        private bool _saveLocally = false; // Changed from true to false
+        private bool _saveLocally = true; // Changed from false to true
         public bool SaveLocally
         {
             get => _saveLocally;
@@ -324,15 +324,25 @@ namespace CSimple.Pages
 
         protected override async void OnDisappearing()
         {
-            // Save local actions before navigating away
-            if (SaveLocally)
-            {
-                await SaveDataItemsToFile();
-            }
-
-            // Stop all captures and previews when navigating away
+            // Stop all captures first
             StopAllCaptures();
             UpdatePreviewSources(false);
+
+            // Always try to save data before navigating away, regardless of SaveLocally flag
+            // This ensures we don't lose data when changing pages
+            try
+            {
+                if (Data.Count > 0)
+                {
+                    Debug.WriteLine("OnDisappearing: Saving all data before navigation");
+                    await _dataService.SaveDataItemsToFile(Data.ToList());
+                    await _dataService.SaveLocalRichDataAsync(Data.ToList());
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving data on page disappearing: {ex.Message}");
+            }
 
             base.OnDisappearing();
         }
@@ -489,15 +499,28 @@ namespace CSimple.Pages
             _mouseService.StopTracking();
             _isRecording = false; // Ensure recording flag is set to false
 
-            // Only save if we're saving records
-            if (SaveRecord)
-            {
-                // Process all buffered actions at once now that we're done recording
-                await SaveAllBufferedActions();
+            Debug.WriteLine($"Stopping touch recording. Buffer has {_currentRecordingBuffer.Count} items.");
+            Debug.WriteLine($"SaveRecord={SaveRecord}, SaveLocally={SaveLocally}");
 
-                // Only save to file if that option is enabled
-                if (SaveLocally)
-                    await SaveDataItemsToFile();
+            try
+            {
+                // Only save if we're saving records
+                if (SaveRecord)
+                {
+                    // Process all buffered actions at once now that we're done recording
+                    await SaveAllBufferedActions();
+
+                    // Ensure actions are saved to the file system before navigating
+                    if (SaveLocally)
+                    {
+                        Debug.WriteLine("Explicitly saving to local files...");
+                        await SaveDataItemsToFile();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in StopUserTouch: {ex.Message}");
             }
         }
 
@@ -507,6 +530,8 @@ namespace CSimple.Pages
             string actionName = ActionConfigCard?.ActionName;
             if (string.IsNullOrEmpty(actionName) || _currentRecordingBuffer.Count == 0)
                 return;
+
+            Debug.WriteLine($"Saving {_currentRecordingBuffer.Count} actions for: {actionName}");
 
             // Create priority and modifier configuration
             int priority = 0;
@@ -538,7 +563,13 @@ namespace CSimple.Pages
                 // Make sure it's marked as local
                 existingGroup.Data.ActionGroupObject.IsLocal = true;
 
+                // Make sure timestamp is updated
+                existingGroup.updatedAt = DateTime.Now;
+
                 Debug.WriteLine($"Updated Action Group with {_currentRecordingBuffer.Count} items");
+
+                // Save the updated action
+                await SaveNewActionToFile(existingGroup);
             }
             else
             {
@@ -556,13 +587,15 @@ namespace CSimple.Pages
                 var newItem = new DataItem
                 {
                     Data = new DataObject { ActionGroupObject = newActionGroup },
-                    createdAt = DateTime.Now  // Set the timestamp on the DataItem
+                    createdAt = DateTime.Now,  // Set the timestamp on the DataItem
+                    _id = newActionGroupId.ToString(), // Ensure the _id field is set
+                    deleted = false // Explicitly set not deleted
                 };
 
                 Data.Add(newItem);
-                Debug.WriteLine($"Saved New Action Group: {actionName} with {_currentRecordingBuffer.Count} items");
+                Debug.WriteLine($"Created New Action Group: {actionName} with {_currentRecordingBuffer.Count} items");
 
-                // Save the new action to dataitems.json - only when explicitly stopping
+                // Save the new action to files - only when explicitly stopping
                 await SaveNewActionToFile(newItem);
             }
 
@@ -961,9 +994,30 @@ namespace CSimple.Pages
         {
             if (SaveLocally)
             {
-                // Save new data while preserving existing local data
-                await _dataService.SaveLocalRichDataAsync(Data);
-                Debug.WriteLine("Saved action group to local storage");
+                try
+                {
+                    Debug.WriteLine($"SaveDataItemsToFile: Saving {Data.Count} action groups to local storage");
+                    if (Data.Count > 0)
+                    {
+                        // Save all data to both storage locations to ensure consistency
+                        await _dataService.SaveDataItemsToFile(Data.ToList());
+                        await _dataService.SaveLocalRichDataAsync(Data.ToList());
+                        Debug.WriteLine("Successfully saved all action groups to both storage locations");
+                    }
+                    else
+                    {
+                        Debug.WriteLine("No data to save to local storage");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error saving data to files: {ex.Message}");
+                    Debug.WriteLine(ex.StackTrace);
+                }
+            }
+            else
+            {
+                Debug.WriteLine("SaveLocally is false - not saving action groups to local storage");
             }
         }
 
@@ -1030,28 +1084,46 @@ namespace CSimple.Pages
             }
         }
 
+        // Improved SaveNewActionToFile to guarantee the action is saved to both files
         private async Task SaveNewActionToFile(DataItem newItem)
         {
             try
             {
-                // Load existing items first
-                var existingItems = await _dataService.LoadDataItemsFromFile();
+                Debug.WriteLine($"SaveNewActionToFile: Saving action '{newItem?.Data?.ActionGroupObject?.ActionName ?? "Unknown"}'");
 
-                // Add the new item if it doesn't exist yet
-                if (!existingItems.Any(item =>
-                    item.Data?.ActionGroupObject?.ActionName == newItem.Data?.ActionGroupObject?.ActionName))
+                // Make sure IsLocal flag is set
+                if (newItem?.Data?.ActionGroupObject != null)
                 {
-                    existingItems.Add(newItem);
+                    newItem.Data.ActionGroupObject.IsLocal = true;
                 }
 
-                // Save to both regular file and local data store
+                // Step 1: Load & update the regular dataitems.json file
+                var existingItems = await _dataService.LoadDataItemsFromFile();
+                Debug.WriteLine($"Loaded {existingItems.Count} existing items from dataitems.json");
+
+                // Remove any existing item with the same name to prevent duplicates
+                existingItems.RemoveAll(item =>
+                    item?.Data?.ActionGroupObject?.ActionName == newItem?.Data?.ActionGroupObject?.ActionName);
+
+                // Add the new item
+                existingItems.Add(newItem);
+                Debug.WriteLine($"Added new action to regular items list (now {existingItems.Count} items)");
+
+                // Save to regular data file
                 await _dataService.SaveDataItemsToFile(existingItems);
-                await _dataService.SaveLocalRichDataAsync(new List<DataItem> { newItem });
-                Debug.WriteLine("New action saved to both dataitems.json and local data store");
+                Debug.WriteLine("Saved action to dataitems.json");
+
+                // Step 2: Also save to local data store (localdataitems.json)
+                // Make a new list with just the action we want to save
+                var localItems = new List<DataItem> { newItem };
+
+                await _dataService.SaveLocalRichDataAsync(localItems);
+                Debug.WriteLine("Saved action to localdataitems.json");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error saving new action to file: {ex.Message}");
+                Debug.WriteLine($"Error saving action to files: {ex.Message}");
+                Debug.WriteLine(ex.StackTrace);
             }
         }
 
