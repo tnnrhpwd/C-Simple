@@ -1421,6 +1421,7 @@ namespace CSimple.Pages
                 int successCount = 0;
                 int failCount = 0;
                 List<string> deletedNames = new List<string>();
+                List<DataItem> itemsToSave = new List<DataItem>();
 
                 // Process each selected action
                 foreach (var action in selectedActions)
@@ -1435,40 +1436,83 @@ namespace CSimple.Pages
                     {
                         Debug.WriteLine($"✓ Found matching DataItem for {action.ActionName}");
 
-                        // IMPORTANT FIX: Use the local DeleteDataItemAsync method instead of service method
-                        await DeleteDataItemAsync(dataItem, skipConfirmation: true);
+                        // Mark the item as deleted
+                        dataItem.deleted = true;
 
-                        // Track success/failure
+                        // Add to our list of items that need to be saved
+                        itemsToSave.Add(dataItem);
+
+                        // Remove from collections
+                        DataItems.Remove(dataItem);
+
+                        // Track success
                         successCount++;
                         deletedNames.Add(action.ActionName);
                         Debug.WriteLine($"✓ Successfully deleted {action.ActionName}");
                     }
                     else
                     {
-                        // Handle case where DataItem isn't found - remove from ActionGroups directly
-                        Debug.WriteLine($"⚠️ No DataItem found for ActionGroup: {action.ActionName}, removing directly from ActionGroups");
+                        // Create a temporary DataItem for deletion if we can't find the original
+                        Debug.WriteLine($"⚠️ No DataItem found for ActionGroup: {action.ActionName}, creating deletion placeholder");
 
-                        if (ActionGroups.Contains(action))
+                        var tempItem = new DataItem
                         {
-                            ActionGroups.Remove(action);
-                            Debug.WriteLine($"✓ Removed {action.ActionName} from ActionGroups");
-                        }
+                            _id = action.Id.ToString(),
+                            deleted = true,
+                            Data = new DataObject
+                            {
+                                ActionGroupObject = new ActionGroup
+                                {
+                                    ActionName = action.ActionName,
+                                    IsLocal = action.IsLocal
+                                }
+                            }
+                        };
 
-                        var allGroupItem = _allActionGroups.FirstOrDefault(ag => ag.ActionName == action.ActionName);
-                        if (allGroupItem != null)
-                        {
-                            _allActionGroups.Remove(allGroupItem);
-                            Debug.WriteLine($"✓ Removed {action.ActionName} from _allActionGroups");
-                        }
-
+                        // Add to our save list for persistence
+                        itemsToSave.Add(tempItem);
                         successCount++;
                         deletedNames.Add(action.ActionName);
                     }
+
+                    // Remove from UI collections
+                    if (ActionGroups.Contains(action))
+                    {
+                        ActionGroups.Remove(action);
+                        Debug.WriteLine($"✓ Removed {action.ActionName} from ActionGroups");
+                    }
+
+                    var allGroupItem = _allActionGroups.FirstOrDefault(ag => ag.ActionName == action.ActionName);
+                    if (allGroupItem != null)
+                    {
+                        _allActionGroups.Remove(allGroupItem);
+                        Debug.WriteLine($"✓ Removed {action.ActionName} from _allActionGroups");
+                    }
                 }
 
-                // Save changes to file to ensure persistence
-                Debug.WriteLine("💾 Saving changes to file");
-                await SaveDataItemsToFile();
+                // Save all deletions to file
+                Debug.WriteLine("💾 Saving deletion changes to file");
+                await _actionService.SaveDataItemsToFile(itemsToSave);
+
+                // Also ensure local items are updated
+                foreach (var item in itemsToSave)
+                {
+                    if (item.Data?.ActionGroupObject?.IsLocal == true)
+                    {
+                        // Remove from LocalItems collection
+                        var localItemToRemove = LocalItems.FirstOrDefault(li =>
+                            li.Data?.ActionGroupObject?.ActionName == item.Data.ActionGroupObject.ActionName);
+
+                        if (localItemToRemove != null)
+                        {
+                            LocalItems.Remove(localItemToRemove);
+                            Debug.WriteLine($"✓ Removed {item.Data.ActionGroupObject.ActionName} from LocalItems");
+                        }
+                    }
+                }
+
+                // Also update local items in file storage
+                await _actionService.SaveDataItemsToFile(await _actionService.LoadDataItemsFromFile());
 
                 // Show result message
                 Debug.WriteLine($"🏁 Deletion complete: {successCount} action(s) deleted");

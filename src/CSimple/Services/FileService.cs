@@ -39,7 +39,7 @@ namespace CSimple.Services
         }
 
         public async Task<List<DataItem>> LoadDataItemsAsync() =>
-                    await LoadFromFileAsync<List<DataItem>, List<DataItem>>(_dataItemsFilePath, c => c);
+            await LoadFromFileAsync<List<DataItem>, List<DataItem>>(_dataItemsFilePath, c => c?.Where(item => !item.deleted).ToList() ?? new List<DataItem>());
 
         public async Task SaveLocalDataItemsAsync(List<DataItem> newData)
         {
@@ -48,9 +48,16 @@ namespace CSimple.Services
                 // Load existing local data
                 var existingData = await LoadLocalDataItemsAsync() ?? new List<DataItem>();
 
+                // Filter out any deleted items from the existing data
+                existingData = existingData.Where(item => !item.deleted).ToList();
+
                 // Merge new data with existing data, avoiding duplicates with better detection
                 foreach (var item in newData)
                 {
+                    // Skip deleted items
+                    if (item.deleted)
+                        continue;
+
                     // Improved duplicate detection logic
                     bool isDuplicate = false;
 
@@ -98,25 +105,42 @@ namespace CSimple.Services
         }
 
         public Task<List<DataItem>> LoadLocalDataItemsAsync() =>
-            LoadFromFileAsync<List<DataItem>, List<DataItem>>(_localDataItemsFilePath, c => c);
+            LoadFromFileAsync<List<DataItem>, List<DataItem>>(_localDataItemsFilePath, c => c?.Where(item => !item.deleted).ToList() ?? new List<DataItem>());
 
         private async Task SaveToFileAsync(string filePath, List<DataItem> newData)
         {
             try
             {
                 var existingData = await LoadFromFileAsync<List<DataItem>, List<DataItem>>(filePath, c => c)
-                                   ?? new List<DataItem>();
+                               ?? new List<DataItem>();
 
-                foreach (var item in newData)
+                // Filter out deleted items from the existing data
+                existingData = existingData.Where(item => !item.deleted).ToList();
+
+                // Create a new list to hold the updated items
+                var updatedData = new List<DataItem>();
+
+                // Process each item from existing data
+                foreach (var item in existingData)
                 {
-                    var matchingItem = existingData.FirstOrDefault(x => x._id == item._id);
-                    if (matchingItem != null) existingData.Remove(matchingItem);
-                    existingData.Add(item);
+                    // Skip if this item matches one in the new data (will be replaced)
+                    if (newData.Any(x => (!string.IsNullOrEmpty(x._id) && !string.IsNullOrEmpty(item._id) && x._id == item._id) ||
+                        (x.Data?.ActionGroupObject?.ActionName == item.Data?.ActionGroupObject?.ActionName)))
+                    {
+                        continue;
+                    }
+                    updatedData.Add(item);
+                }
+
+                // Add all non-deleted items from new data
+                foreach (var item in newData.Where(i => !i.deleted))
+                {
+                    updatedData.Add(item);
                 }
 
                 System.Diagnostics.Debug.WriteLine($"Attempting to save data to {filePath}");
                 var options = new JsonSerializerOptions { WriteIndented = true };
-                var json = JsonSerializer.Serialize(existingData, options);
+                var json = JsonSerializer.Serialize(updatedData, options);
                 await File.WriteAllTextAsync(filePath, json);
                 System.Diagnostics.Debug.WriteLine($"Successfully saved data to {filePath}");
             }

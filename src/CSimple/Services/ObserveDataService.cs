@@ -202,6 +202,54 @@ namespace CSimple.Services
             }
         }
 
+        public async Task<bool> DeleteDataItemAsync(DataItem dataItem)
+        {
+            if (dataItem == null) return false;
+
+            try
+            {
+                // Mark the item as deleted
+                dataItem.deleted = true;
+
+                // Load current data
+                var allItems = await LoadDataItemsFromFile();
+
+                // Find and update or remove the item
+                var existingItem = allItems.FirstOrDefault(x =>
+                    (!string.IsNullOrEmpty(x._id) && x._id == dataItem._id) ||
+                    (x.Data?.ActionGroupObject?.ActionName == dataItem.Data?.ActionGroupObject?.ActionName));
+
+                if (existingItem != null)
+                {
+                    // Remove the item from the collection
+                    allItems.Remove(existingItem);
+                }
+
+                // Save the updated collection
+                await SaveDataItemsToFile(allItems);
+
+                // Also remove from local rich data if it exists there
+                var localItems = await LoadLocalRichDataAsync();
+                var localItem = localItems.FirstOrDefault(x =>
+                    (!string.IsNullOrEmpty(x._id) && x._id == dataItem._id) ||
+                    (x.Data?.ActionGroupObject?.ActionName == dataItem.Data?.ActionGroupObject?.ActionName));
+
+                if (localItem != null)
+                {
+                    localItems.Remove(localItem);
+                    await SaveLocalRichDataAsync(localItems);
+                }
+
+                LogDebug($"Data item deleted: {dataItem.Data?.ActionGroupObject?.ActionName ?? dataItem._id}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"Error deleting data item: {ex.Message}");
+                return false;
+            }
+        }
+
         private void LogDebug(string message)
         {
             DebugMessageLogged?.Invoke(message);

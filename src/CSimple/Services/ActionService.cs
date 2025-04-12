@@ -227,6 +227,10 @@ namespace CSimple.Services
 
                     foreach (var dataItem in loadedDataItems)
                     {
+                        // Skip deleted items
+                        if (dataItem.deleted)
+                            continue;
+
                         ParseDataItemText(dataItem);
 
                         // IMPORTANT: Don't override original creation dates
@@ -294,8 +298,39 @@ namespace CSimple.Services
 
             try
             {
-                // Save the updated collection to file
-                await SaveDataItemsToFile(await LoadDataItemsFromFile());
+                // Mark the item as deleted
+                dataItem.deleted = true;
+
+                // Get current data from file
+                var allItems = await LoadDataItemsFromFile();
+
+                // Remove this item from the list if it exists
+                var existingItem = allItems.FirstOrDefault(x =>
+                    (!string.IsNullOrEmpty(x._id) && !string.IsNullOrEmpty(dataItem._id) && x._id == dataItem._id) ||
+                    (x.Data?.ActionGroupObject?.ActionName == dataItem.Data?.ActionGroupObject?.ActionName));
+
+                if (existingItem != null)
+                {
+                    allItems.Remove(existingItem);
+                }
+
+                // Save the filtered list back to file
+                await SaveDataItemsToFile(allItems);
+
+                // Also handle local storage items
+                if (dataItem.Data?.ActionGroupObject?.IsLocal == true)
+                {
+                    var localItems = await LoadLocalDataItemsAsync();
+                    var localItem = localItems.FirstOrDefault(x =>
+                        (!string.IsNullOrEmpty(x._id) && !string.IsNullOrEmpty(dataItem._id) && x._id == dataItem._id) ||
+                        (x.Data?.ActionGroupObject?.ActionName == dataItem.Data?.ActionGroupObject?.ActionName));
+
+                    if (localItem != null)
+                    {
+                        localItems.Remove(localItem);
+                        await _fileService.SaveLocalDataItemsAsync(localItems);
+                    }
+                }
 
                 // Delete from backend only if in online mode
                 if (_appModeService?.CurrentMode == AppMode.Online)
@@ -1145,6 +1180,9 @@ namespace CSimple.Services
             try
             {
                 var localItems = await _fileService.LoadLocalDataItemsAsync() ?? new List<DataItem>();
+
+                // Filter out any deleted items
+                localItems = localItems.Where(item => !item.deleted).ToList();
 
                 // Filter out any duplicate items by ID or name
                 var uniqueLocalItems = new Dictionary<string, DataItem>();
