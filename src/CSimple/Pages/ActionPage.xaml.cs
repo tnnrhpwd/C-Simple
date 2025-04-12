@@ -1428,12 +1428,6 @@ namespace CSimple.Pages
                     return;
                 }
 
-                // Log selected action names for debugging
-                foreach (var action in selectedActions)
-                {
-                    Debug.WriteLine($"🗑️ Selected for deletion: {action.ActionName}");
-                }
-
                 // Confirm deletion
                 Debug.WriteLine("❓ Requesting deletion confirmation");
                 bool confirmDelete = await DisplayAlert("Confirm Delete",
@@ -1450,14 +1444,20 @@ namespace CSimple.Pages
                 IsLoading = true;
 
                 int successCount = 0;
-                int failCount = 0;
-                List<string> deletedNames = new List<string>();
-                List<DataItem> itemsToSave = new List<DataItem>();
+                List<string> idsToDelete = new List<string>();
+                List<string> namesToDelete = new List<string>();
 
                 // Process each selected action
                 foreach (var action in selectedActions)
                 {
                     Debug.WriteLine($"⏳ Processing deletion for: {action.ActionName}");
+
+                    // Add identifying information for deletion
+                    if (!string.IsNullOrEmpty(action.Id.ToString()))
+                        idsToDelete.Add(action.Id.ToString());
+
+                    if (!string.IsNullOrEmpty(action.ActionName))
+                        namesToDelete.Add(action.ActionName);
 
                     // Find corresponding DataItem for this ActionGroup
                     var dataItem = DataItems.FirstOrDefault(item =>
@@ -1467,43 +1467,12 @@ namespace CSimple.Pages
                     {
                         Debug.WriteLine($"✓ Found matching DataItem for {action.ActionName}");
 
-                        // Mark the item as deleted
-                        dataItem.deleted = true;
+                        // Add the DataItem ID if available
+                        if (!string.IsNullOrEmpty(dataItem._id))
+                            idsToDelete.Add(dataItem._id);
 
-                        // Add to our list of items that need to be saved
-                        itemsToSave.Add(dataItem);
-
-                        // Remove from collections
+                        // Remove from UI collections
                         DataItems.Remove(dataItem);
-
-                        // Track success
-                        successCount++;
-                        deletedNames.Add(action.ActionName);
-                        Debug.WriteLine($"✓ Successfully deleted {action.ActionName}");
-                    }
-                    else
-                    {
-                        // Create a temporary DataItem for deletion if we can't find the original
-                        Debug.WriteLine($"⚠️ No DataItem found for ActionGroup: {action.ActionName}, creating deletion placeholder");
-
-                        var tempItem = new DataItem
-                        {
-                            _id = action.Id.ToString(),
-                            deleted = true,
-                            Data = new DataObject
-                            {
-                                ActionGroupObject = new ActionGroup
-                                {
-                                    ActionName = action.ActionName,
-                                    IsLocal = action.IsLocal
-                                }
-                            }
-                        };
-
-                        // Add to our save list for persistence
-                        itemsToSave.Add(tempItem);
-                        successCount++;
-                        deletedNames.Add(action.ActionName);
                     }
 
                     // Remove from UI collections
@@ -1519,36 +1488,28 @@ namespace CSimple.Pages
                         _allActionGroups.Remove(allGroupItem);
                         Debug.WriteLine($"✓ Removed {action.ActionName} from _allActionGroups");
                     }
-                }
 
-                // Save all deletions to file
-                Debug.WriteLine("💾 Saving deletion changes to file");
-                await _actionService.SaveDataItemsToFile(itemsToSave);
+                    // Also remove from local items collection
+                    var localItemToRemove = LocalItems.FirstOrDefault(li =>
+                        li.Data?.ActionGroupObject?.ActionName == action.ActionName);
 
-                // Also ensure local items are updated
-                foreach (var item in itemsToSave)
-                {
-                    if (item.Data?.ActionGroupObject?.IsLocal == true)
+                    if (localItemToRemove != null)
                     {
-                        // Remove from LocalItems collection
-                        var localItemToRemove = LocalItems.FirstOrDefault(li =>
-                            li.Data?.ActionGroupObject?.ActionName == item.Data.ActionGroupObject.ActionName);
-
-                        if (localItemToRemove != null)
-                        {
-                            LocalItems.Remove(localItemToRemove);
-                            Debug.WriteLine($"✓ Removed {item.Data.ActionGroupObject.ActionName} from LocalItems");
-                        }
+                        LocalItems.Remove(localItemToRemove);
+                        Debug.WriteLine($"✓ Removed {action.ActionName} from LocalItems");
                     }
+
+                    // Track for success message
+                    successCount++;
                 }
 
-                // Also update local items in file storage
-                await _actionService.SaveDataItemsToFile(await _actionService.LoadDataItemsFromFile());
+                // Use the file service directly to delete all identified items
+                Debug.WriteLine($"🗑️ Deleting {idsToDelete.Count} IDs and {namesToDelete.Count} action names from storage");
+                var fileService = new FileService();
+                await fileService.DeleteDataItemsAsync(idsToDelete, namesToDelete);
 
-                // Simplified result message - no detailed list of deleted items
+                // Show result message
                 Debug.WriteLine($"🏁 Deletion complete: {successCount} action(s) deleted");
-
-                // Either remove the dialog entirely or just show a simple message
                 if (successCount > 0)
                 {
                     await DisplayAlert("Delete Complete",
@@ -1559,14 +1520,11 @@ namespace CSimple.Pages
                 // Force update of collections
                 UpdateActionGroupsFromDataItems();
 
-                // Update UI indicators - call these explicitly
+                // Update UI indicators
                 OnPropertyChanged(nameof(ActionGroups));
                 OnPropertyChanged(nameof(ShowEmptyMessage));
                 OnPropertyChanged(nameof(HasSelectedActions));
-
-                // Ensure the delete button is updated
-                var hasAnySelected = ActionGroups?.Any(a => a.IsSelected) == true;
-                Debug.WriteLine($"👆 HasSelectedActions after deletion: {hasAnySelected}");
+                OnPropertyChanged(nameof(HasLocalItems));
             }
             catch (Exception ex)
             {
