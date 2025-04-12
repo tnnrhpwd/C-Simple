@@ -328,6 +328,26 @@ namespace CSimple.Pages
                             groupType = "MouseMove";
                         }
                     }
+                    // Grouping for Mouse Clicks
+                    else if (currentStep.IsMouseButton && currentIndex + MIN_GROUP_SIZE <= steps.Count)
+                    {
+                        int mouseClickCount = 1;
+                        for (int i = currentIndex + 1; i < steps.Count; i++)
+                        {
+                            if (steps[i].IsMouseButton &&
+                                steps[i].MouseButtonType == currentStep.MouseButtonType &&
+                                steps[i].MouseButtonAction == currentStep.MouseButtonAction)
+                                mouseClickCount++;
+                            else
+                                break;
+                        }
+
+                        if (mouseClickCount >= MIN_GROUP_SIZE)
+                        {
+                            canGroup = true;
+                            groupType = "MouseClick";
+                        }
+                    }
 
                     // 2. Check for consecutive key presses of the same key
                     else if (!string.IsNullOrEmpty(currentStep.KeyName) && currentIndex + MIN_GROUP_SIZE <= steps.Count)
@@ -450,6 +470,69 @@ namespace CSimple.Pages
                             }
 
                             currentIndex += mouseMoveCount;
+                        }
+                        else if (groupType == "MouseClick")
+                        {
+                            // Count consecutive mouse clicks
+                            int mouseClickCount = 0;
+                            for (int i = currentIndex; i < steps.Count; i++)
+                            {
+                                if (steps[i].IsMouseButton &&
+                                    steps[i].MouseButtonType == currentStep.MouseButtonType &&
+                                    steps[i].MouseButtonAction == currentStep.MouseButtonAction)
+                                    mouseClickCount++;
+                                else
+                                    break;
+                            }
+
+                            // Add first key event individually
+                            ActionSteps.Add(steps[currentIndex]);
+                            steps[currentIndex].Index = displayIndex.ToString();
+                            displayIndex++;
+
+                            // Group the middle key events if there are enough
+                            if (mouseClickCount > 3)
+                            {
+                                var groupedItems = new List<ActionItem>();
+                                DateTime firstTimestamp = steps[currentIndex + 1].Timestamp;
+                                DateTime lastTimestamp = steps[currentIndex + mouseClickCount - 2 >= currentIndex + 1
+                                    ? mouseClickCount - 2 : 1].Timestamp;
+
+                                for (int j = 1; j < mouseClickCount - 1 && currentIndex + j < steps.Count; j++)
+                                {
+                                    if (steps[currentIndex + j].RawData != null)
+                                        groupedItems.Add(steps[currentIndex + j].RawData);
+                                }
+
+                                if (groupedItems.Any())
+                                {
+                                    ActionSteps.Add(new StepViewModel
+                                    {
+                                        Index = displayIndex.ToString(),
+                                        Description = $"Repeated {currentStep.MouseButtonType} Click {currentStep.MouseButtonAction} ({groupedItems.Count} times)",
+                                        IsGrouped = true,
+                                        GroupCount = groupedItems.Count,
+                                        GroupType = "Mouse Click Repetition",
+                                        MouseButtonType = currentStep.MouseButtonType,
+                                        MouseButtonAction = currentStep.MouseButtonAction,
+                                        Duration = (lastTimestamp - firstTimestamp).TotalSeconds.ToString("0.00") + "s",
+                                        GroupDuration = lastTimestamp - firstTimestamp,
+                                        GroupedItems = groupedItems,
+                                        Timestamp = firstTimestamp
+                                    });
+                                    displayIndex++;
+                                }
+                            }
+
+                            // Add the last key event if there are at least 2 events
+                            if (currentIndex + mouseClickCount - 1 >= currentIndex + 1 && currentIndex + mouseClickCount - 1 < steps.Count)
+                            {
+                                steps[currentIndex + mouseClickCount - 1].Index = displayIndex.ToString();
+                                ActionSteps.Add(steps[currentIndex + mouseClickCount - 1]);
+                                displayIndex++;
+                            }
+
+                            currentIndex += mouseClickCount;
                         }
                         else if (groupType == "KeyPress")
                         {
