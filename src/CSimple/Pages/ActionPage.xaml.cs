@@ -1380,17 +1380,17 @@ namespace CSimple.Pages
         // Fixed method to delete selected actions with better debugging and error handling
         private async void DeleteSelectedActions()
         {
-            Debug.WriteLine("DeleteSelectedActions method called");
+            Debug.WriteLine("⚠️ DeleteSelectedActions method called");
 
             try
             {
                 // Get all selected actions
                 var selectedActions = ActionGroups.Where(a => a.IsSelected).ToList();
-                Debug.WriteLine($"Selected actions count: {selectedActions.Count}");
+                Debug.WriteLine($"🔍 Found {selectedActions.Count} selected action(s) for deletion");
 
                 if (selectedActions.Count == 0)
                 {
-                    Debug.WriteLine("No actions selected, showing alert");
+                    Debug.WriteLine("⚠️ No actions selected, showing alert");
                     await DisplayAlert("Delete Actions",
                         "Please select at least one action to delete.",
                         "OK");
@@ -1400,31 +1400,32 @@ namespace CSimple.Pages
                 // Log selected action names for debugging
                 foreach (var action in selectedActions)
                 {
-                    Debug.WriteLine($"Selected for deletion: {action.ActionName}");
+                    Debug.WriteLine($"🗑️ Selected for deletion: {action.ActionName}");
                 }
 
                 // Confirm deletion
-                Debug.WriteLine("Requesting deletion confirmation");
+                Debug.WriteLine("❓ Requesting deletion confirmation");
                 bool confirmDelete = await DisplayAlert("Confirm Delete",
                     $"Are you sure you want to delete {selectedActions.Count} selected action{(selectedActions.Count > 1 ? "s" : "")}?",
                     "Yes", "No");
 
                 if (!confirmDelete)
                 {
-                    Debug.WriteLine("User cancelled deletion");
+                    Debug.WriteLine("❌ User cancelled deletion");
                     return;
                 }
 
-                Debug.WriteLine("Starting deletion process");
+                Debug.WriteLine("✅ Starting deletion process");
                 IsLoading = true;
 
                 int successCount = 0;
                 int failCount = 0;
+                List<string> deletedNames = new List<string>();
 
                 // Process each selected action
                 foreach (var action in selectedActions)
                 {
-                    Debug.WriteLine($"Processing deletion for: {action.ActionName}");
+                    Debug.WriteLine($"⏳ Processing deletion for: {action.ActionName}");
 
                     // Find corresponding DataItem for this ActionGroup
                     var dataItem = DataItems.FirstOrDefault(item =>
@@ -1432,72 +1433,93 @@ namespace CSimple.Pages
 
                     if (dataItem != null)
                     {
-                        Debug.WriteLine($"Found matching DataItem for {action.ActionName}");
-                        // Delete the item (skip confirmation since we already confirmed)
-                        bool success = await _actionService.DeleteDataItemAsync(dataItem);
-                        if (success)
-                        {
-                            // Remove from DataItems collection
-                            if (DataItems.Contains(dataItem))
-                            {
-                                DataItems.Remove(dataItem);
-                                Debug.WriteLine($"Removed {action.ActionName} from DataItems");
-                            }
-                            successCount++;
-                        }
-                        else
-                        {
-                            failCount++;
-                            Debug.WriteLine($"Failed to delete action: {action.ActionName}");
-                        }
+                        Debug.WriteLine($"✓ Found matching DataItem for {action.ActionName}");
+
+                        // IMPORTANT FIX: Use the local DeleteDataItemAsync method instead of service method
+                        await DeleteDataItemAsync(dataItem, skipConfirmation: true);
+
+                        // Track success/failure
+                        successCount++;
+                        deletedNames.Add(action.ActionName);
+                        Debug.WriteLine($"✓ Successfully deleted {action.ActionName}");
                     }
                     else
                     {
                         // Handle case where DataItem isn't found - remove from ActionGroups directly
-                        Debug.WriteLine($"No DataItem found for ActionGroup: {action.ActionName}, removing directly from ActionGroups");
-                        ActionGroups.Remove(action);
-                        _allActionGroups.Remove(_allActionGroups.FirstOrDefault(ag => ag.ActionName == action.ActionName));
-                        successCount++; // Count as success since we removed it from the UI
+                        Debug.WriteLine($"⚠️ No DataItem found for ActionGroup: {action.ActionName}, removing directly from ActionGroups");
+
+                        if (ActionGroups.Contains(action))
+                        {
+                            ActionGroups.Remove(action);
+                            Debug.WriteLine($"✓ Removed {action.ActionName} from ActionGroups");
+                        }
+
+                        var allGroupItem = _allActionGroups.FirstOrDefault(ag => ag.ActionName == action.ActionName);
+                        if (allGroupItem != null)
+                        {
+                            _allActionGroups.Remove(allGroupItem);
+                            Debug.WriteLine($"✓ Removed {action.ActionName} from _allActionGroups");
+                        }
+
+                        successCount++;
+                        deletedNames.Add(action.ActionName);
                     }
                 }
 
-                // Update the ActionGroups collection to reflect changes
-                Debug.WriteLine("Updating ActionGroups collection");
-                UpdateActionGroupsFromDataItems();
-
                 // Save changes to file to ensure persistence
-                Debug.WriteLine("Saving changes to file");
+                Debug.WriteLine("💾 Saving changes to file");
                 await SaveDataItemsToFile();
 
                 // Show result message
-                if (failCount == 0)
-                {
-                    Debug.WriteLine($"Delete complete: {successCount} action(s) deleted");
-                    await DisplayAlert("Delete Complete",
-                        $"Successfully deleted {successCount} action{(successCount > 1 ? "s" : "")}.",
-                        "OK");
-                }
-                else
-                {
-                    Debug.WriteLine($"Delete partial: {successCount} deleted, {failCount} failed");
-                    await DisplayAlert("Delete Partial",
-                        $"Deleted {successCount} action{(successCount > 1 ? "s" : "")}, but {failCount} action{(failCount > 1 ? "s" : "")} failed to delete.",
-                        "OK");
-                }
+                Debug.WriteLine($"🏁 Deletion complete: {successCount} action(s) deleted");
+                await DisplayAlert("Delete Complete",
+                    $"Successfully deleted {successCount} action{(successCount > 1 ? "s" : "")}:\n{string.Join("\n", deletedNames)}",
+                    "OK");
 
-                // Update UI indicators
+                // Force update of collections
+                UpdateActionGroupsFromDataItems();
+
+                // Update UI indicators - call these explicitly
+                OnPropertyChanged(nameof(ActionGroups));
                 OnPropertyChanged(nameof(ShowEmptyMessage));
                 OnPropertyChanged(nameof(HasSelectedActions));
+
+                // Ensure the delete button is updated
+                var hasAnySelected = ActionGroups?.Any(a => a.IsSelected) == true;
+                Debug.WriteLine($"👆 HasSelectedActions after deletion: {hasAnySelected}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error deleting selected actions: {ex.Message}");
-                Debug.WriteLine($"Exception stack trace: {ex.StackTrace}");
+                Debug.WriteLine($"❌ ERROR deleting selected actions: {ex.Message}");
+                Debug.WriteLine($"❌ Exception stack trace: {ex.StackTrace}");
                 await DisplayAlert("Error", "An error occurred while deleting the selected actions.", "OK");
             }
             finally
             {
                 IsLoading = false;
+            }
+        }
+
+        private async void OnDeleteSelectedButtonClicked(object sender, EventArgs e)
+        {
+            Debug.WriteLine("⚡ Delete Selected button directly clicked");
+
+            // Check if the button should be enabled
+            if (!HasSelectedActions)
+            {
+                Debug.WriteLine("❌ Button clicked but HasSelectedActions is false - no actions selected");
+                return;
+            }
+
+            try
+            {
+                // Call the DeleteSelectedActions method directly
+                DeleteSelectedActions();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ Error in OnDeleteSelectedButtonClicked: {ex.Message}");
+                await DisplayAlert("Error", "Failed to delete selected actions. Please try again.", "OK");
             }
         }
     }
