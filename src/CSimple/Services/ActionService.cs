@@ -440,94 +440,19 @@ namespace CSimple.Services
                     int currentX = startPoint.X;
                     int currentY = startPoint.Y;
 
-                    // PRE-PROCESS: Analyze the action group and log keyboard events
-                    Debug.WriteLine("============= ACTION GROUP ANALYSIS =============");
-                    Debug.WriteLine($"Total actions in group: {actionGroup.ActionArray?.Count ?? 0}");
-
-                    // Count different event types for diagnostic purposes
-                    int mouseMoveCount = 0;
-                    int mouseClickCount = 0;
-                    int keyPressCount = 0;
-                    int directClickEvents = 0;
-                    int moveWithButtonStateChange = 0;
-                    int keyDownEvents = 0;
-                    int keyUpEvents = 0;
-
-                    foreach (var action in actionGroup.ActionArray)
-                    {
-                        if (action.EventType == 512) // Mouse move
-                        {
-                            mouseMoveCount++;
-                            if ((action.IsLeftButtonDown != prevLeftButtonDown) ||
-                                (action.IsRightButtonDown != prevRightButtonDown) ||
-                                (action.IsMiddleButtonDown != prevMiddleButtonDown))
-                            {
-                                moveWithButtonStateChange++;
-                            }
-                            prevLeftButtonDown = action.IsLeftButtonDown;
-                            prevRightButtonDown = action.IsRightButtonDown;
-                            prevMiddleButtonDown = action.IsMiddleButtonDown;
-                        }
-                        else if (action.EventType == 0x0201 || action.EventType == 0x0202 || // Left down/up
-                                 action.EventType == 0x0204 || action.EventType == 0x0205 || // Right down/up
-                                 action.EventType == 0x0207 || action.EventType == 0x0208)   // Middle down/up
-                        {
-                            directClickEvents++;
-                            mouseClickCount++;
-                        }
-                        else if (action.EventType == 0x0100) // WM_KEYDOWN
-                        {
-                            keyPressCount++;
-                            keyDownEvents++;
-                        }
-                        else if (action.EventType == 0x0101) // WM_KEYUP
-                        {
-                            keyPressCount++;
-                            keyUpEvents++;
-                        }
-                    }
-
-                    Debug.WriteLine($"Action Statistics:");
-                    Debug.WriteLine($"- Mouse moves: {mouseMoveCount}");
-                    Debug.WriteLine($"- Mouse clicks: {mouseClickCount}");
-                    Debug.WriteLine($"- Key presses: {keyPressCount} (DOWN: {keyDownEvents}, UP: {keyUpEvents})");
-                    Debug.WriteLine($"- Direct click events: {directClickEvents}");
-                    Debug.WriteLine($"- Move+button state changes: {moveWithButtonStateChange}");
-                    Debug.WriteLine("===============================================");
-
-                    // Reset state variables before execution
-                    prevLeftButtonDown = false;
-                    prevRightButtonDown = false;
-                    prevMiddleButtonDown = false;
-
                     // Track pressed keys to ensure all are released at the end
                     Dictionary<int, bool> pressedKeys = new Dictionary<int, bool>();
-
-                    // Debug tracking variables for execution
-                    int totalActionsExecuted = 0;
-                    int totalClicksSimulated = 0;
-                    int totalMovesSimulated = 0;
-                    int totalKeystrokesSimulated = 0;
-                    int actualKeyDownsExecuted = 0;
-                    int actualKeyUpsExecuted = 0;
 
                     // Set up realistic keyboard timing
                     Random random = new Random();
                     const int MIN_KEY_DOWN_DURATION = 50;  // Minimum time to hold a key down (ms)
                     const int MAX_KEY_DOWN_DURATION = 150; // Maximum time to hold a key down (ms)
-                    const int MIN_KEY_DELAY = 20;          // Minimum delay between keys (ms)
-                    const int MAX_KEY_DELAY = 80;          // Maximum delay between keys (ms)
 
-                    // EXECUTE ACTIONS SEQUENTIALLY
+                    // Execute each action sequentially
                     foreach (var action in actionGroup.ActionArray)
                     {
                         if (cancel_simulation)
-                        {
-                            Debug.WriteLine("Simulation cancelled");
                             break;
-                        }
-
-                        totalActionsExecuted++;
 
                         DateTime currentActionTime;
                         if (!DateTime.TryParse(action.Timestamp.ToString(), null, System.Globalization.DateTimeStyles.RoundtripKind, out currentActionTime))
@@ -540,213 +465,238 @@ namespace CSimple.Services
                         if (previousActionTime.HasValue)
                         {
                             TimeSpan delay = currentActionTime - previousActionTime.Value;
-                            if (delay.TotalMilliseconds < 0)
-                            {
-                                // Skip negative delays but don't break the sequence
-                                Debug.WriteLine($"Warning: Negative delay ({delay.TotalMilliseconds}ms) adjusted to 0ms");
-                                delay = TimeSpan.FromMilliseconds(0);
-                            }
-                            else if (delay.TotalMilliseconds > 2000)
-                            {
-                                // Cap very long delays for better user experience
-                                Debug.WriteLine($"Warning: Long delay ({delay.TotalMilliseconds}ms) capped to 2000ms");
-                                delay = TimeSpan.FromMilliseconds(2000);
-                            }
-
-                            // Use the explicit Duration if available (for mouse clicks and key presses)
-                            if (action.Duration > 0)
-                            {
-                                Debug.WriteLine($"Using explicit duration: {action.Duration}ms");
-                                // Adjust delay so the total timing is preserved
+                            if (delay.TotalMilliseconds > 0 && delay.TotalMilliseconds < 2000) // Cap at 2 seconds
                                 await Task.Delay(delay);
-                            }
-                            else
-                            {
-                                // Standard delay between actions
-                                await Task.Delay(delay);
-                            }
                         }
                         previousActionTime = currentActionTime;
 
-                        // EXECUTE ACTION - Process each type properly
                         try
                         {
-                            // CASE 1: MOUSE MOVE WITH BUTTON STATE CHANGES
-                            if (action.EventType == 512) // Mouse Move
+                            // KEYBOARD EVENTS
+                            if (action.EventType == 0x0100) // WM_KEYDOWN
                             {
-                                // Get target coordinates - use absolute coordinates if available
-                                int targetX = action.Coordinates?.AbsoluteX ?? action.Coordinates?.X ?? currentX;
-                                int targetY = action.Coordinates?.AbsoluteY ?? action.Coordinates?.Y ?? currentY;
+                                Debug.WriteLine($"Simulating KEY DOWN: {action.KeyCode} (0x{action.KeyCode:X2})");
+                                pressedKeys[action.KeyCode] = true;
+                                SendKeyboardInput((ushort)action.KeyCode, false);
 
-                                // Use relative coordinates as delta if available
-                                if (action.Coordinates?.RelativeX != null && action.Coordinates?.RelativeY != null)
+                                // If action has explicit duration data, use it
+                                if (action.Duration > 0)
                                 {
-                                    // Adjust for relative movement if appropriate
-                                    // Only do this if RelativeX/Y values are significant
-                                    if (Math.Abs(action.Coordinates.RelativeX) > 5 || Math.Abs(action.Coordinates.RelativeY) > 5)
+                                    await Task.Delay(action.Duration);
+                                    SendKeyboardInput((ushort)action.KeyCode, true);
+                                    pressedKeys.Remove(action.KeyCode);
+                                }
+                            }
+                            else if (action.EventType == 0x0101) // WM_KEYUP
+                            {
+                                Debug.WriteLine($"Simulating KEY UP: {action.KeyCode} (0x{action.KeyCode:X2})");
+                                SendKeyboardInput((ushort)action.KeyCode, true);
+                                pressedKeys.Remove(action.KeyCode);
+                            }
+                            // MOUSE CLICK EVENTS
+                            else if (action.EventType == 0x0201) // WM_LBUTTONDOWN
+                            {
+                                int targetX = action.Coordinates?.X ?? currentX;
+                                int targetY = action.Coordinates?.Y ?? currentY;
+
+                                // Move to position first
+                                if (targetX != currentX || targetY != currentY)
+                                {
+                                    if (UseInterpolation)
                                     {
-                                        targetX = startPoint.X + action.Coordinates.RelativeX;
-                                        targetY = startPoint.Y + action.Coordinates.RelativeY;
+                                        await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, MovementSteps, MovementDelayMs,
+                                            TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps));
                                     }
+                                    else
+                                    {
+                                        SendLowLevelMouseMove(targetX, targetY);
+                                    }
+                                    currentX = targetX;
+                                    currentY = targetY;
                                 }
 
-                                // Use raw DeltaX/Y for movements if available (highest precision)
-                                bool useRawDelta = action.DeltaX != 0 || action.DeltaY != 0;
-                                if (useRawDelta)
+                                // Send mouse down
+                                SendLowLevelMouseClick(MouseButton.Left, false, targetX, targetY);
+                                _leftButtonDown = true;
+
+                                // If action has explicit duration data, use it for automatic release
+                                if (action.Duration > 0)
+                                {
+                                    await Task.Delay(action.Duration);
+                                    SendLowLevelMouseClick(MouseButton.Left, true, targetX, targetY);
+                                    _leftButtonDown = false;
+                                }
+                            }
+                            else if (action.EventType == 0x0202) // WM_LBUTTONUP
+                            {
+                                int targetX = action.Coordinates?.X ?? currentX;
+                                int targetY = action.Coordinates?.Y ?? currentY;
+
+                                // Move to position first if needed
+                                if (targetX != currentX || targetY != currentY)
+                                {
+                                    if (UseInterpolation)
+                                    {
+                                        await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, MovementSteps, MovementDelayMs,
+                                            TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps));
+                                    }
+                                    else
+                                    {
+                                        SendLowLevelMouseMove(targetX, targetY);
+                                    }
+                                    currentX = targetX;
+                                    currentY = targetY;
+                                }
+
+                                // Send mouse up
+                                SendLowLevelMouseClick(MouseButton.Left, true, targetX, targetY);
+                                _leftButtonDown = false;
+                            }
+                            else if (action.EventType == 0x0204) // WM_RBUTTONDOWN
+                            {
+                                int targetX = action.Coordinates?.X ?? currentX;
+                                int targetY = action.Coordinates?.Y ?? currentY;
+
+                                // Move to position first
+                                if (targetX != currentX || targetY != currentY)
+                                {
+                                    if (UseInterpolation)
+                                    {
+                                        await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, MovementSteps, MovementDelayMs,
+                                            TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps));
+                                    }
+                                    else
+                                    {
+                                        SendLowLevelMouseMove(targetX, targetY);
+                                    }
+                                    currentX = targetX;
+                                    currentY = targetY;
+                                }
+
+                                // Send mouse down
+                                SendLowLevelMouseClick(MouseButton.Right, false, targetX, targetY);
+                                prevRightButtonDown = true;
+
+                                // Use duration if available
+                                if (action.Duration > 0)
+                                {
+                                    await Task.Delay(action.Duration);
+                                    SendLowLevelMouseClick(MouseButton.Right, true, targetX, targetY);
+                                    prevRightButtonDown = false;
+                                }
+                            }
+                            else if (action.EventType == 0x0205) // WM_RBUTTONUP
+                            {
+                                int targetX = action.Coordinates?.X ?? currentX;
+                                int targetY = action.Coordinates?.Y ?? currentY;
+
+                                // Move to position first if needed
+                                if (targetX != currentX || targetY != currentY)
+                                {
+                                    if (UseInterpolation)
+                                    {
+                                        await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, MovementSteps, MovementDelayMs,
+                                            TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps));
+                                    }
+                                    else
+                                    {
+                                        SendLowLevelMouseMove(targetX, targetY);
+                                    }
+                                    currentX = targetX;
+                                    currentY = targetY;
+                                }
+
+                                // Send mouse up
+                                SendLowLevelMouseClick(MouseButton.Right, true, targetX, targetY);
+                                prevRightButtonDown = false;
+                            }
+                            // MIDDLE BUTTON EVENTS
+                            else if (action.EventType == 0x0207) // WM_MBUTTONDOWN
+                            {
+                                int targetX = action.Coordinates?.X ?? currentX;
+                                int targetY = action.Coordinates?.Y ?? currentY;
+
+                                // Move to position first
+                                if (targetX != currentX || targetY != currentY)
+                                {
+                                    if (UseInterpolation)
+                                    {
+                                        await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, MovementSteps, MovementDelayMs,
+                                            TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps));
+                                    }
+                                    else
+                                    {
+                                        SendLowLevelMouseMove(targetX, targetY);
+                                    }
+                                    currentX = targetX;
+                                    currentY = targetY;
+                                }
+
+                                // Send mouse down
+                                SendLowLevelMouseClick(MouseButton.Middle, false, targetX, targetY);
+                                _middleButtonDown = true;
+
+                                // Use duration if available
+                                if (action.Duration > 0)
+                                {
+                                    await Task.Delay(action.Duration);
+                                    SendLowLevelMouseClick(MouseButton.Middle, true, targetX, targetY);
+                                    _middleButtonDown = false;
+                                }
+                            }
+                            else if (action.EventType == 0x0208) // WM_MBUTTONUP
+                            {
+                                int targetX = action.Coordinates?.X ?? currentX;
+                                int targetY = action.Coordinates?.Y ?? currentY;
+
+                                // Move to position first if needed
+                                if (targetX != currentX || targetY != currentY)
+                                {
+                                    if (UseInterpolation)
+                                    {
+                                        await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, MovementSteps, MovementDelayMs,
+                                            TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps));
+                                    }
+                                    else
+                                    {
+                                        SendLowLevelMouseMove(targetX, targetY);
+                                    }
+                                    currentX = targetX;
+                                    currentY = targetY;
+                                }
+
+                                // Send mouse up
+                                SendLowLevelMouseClick(MouseButton.Middle, true, targetX, targetY);
+                                _middleButtonDown = false;
+                            }
+                            // MOUSE MOVE EVENTS
+                            else if (action.EventType == 512 || action.EventType == 0x0200) // Mouse move
+                            {
+                                int targetX = action.Coordinates?.X ?? currentX;
+                                int targetY = action.Coordinates?.Y ?? currentY;
+
+                                // Use deltas if available for more precise movement
+                                if (action.DeltaX != 0 || action.DeltaY != 0)
                                 {
                                     targetX = currentX + action.DeltaX;
                                     targetY = currentY + action.DeltaY;
                                 }
 
-                                // Now perform the mouse movement with accurate delta/absolute positioning
-                                if (UseInterpolation)
+                                // Only move if the position has changed
+                                if (targetX != currentX || targetY != currentY)
                                 {
-                                    // Calculate movement duration and execute smooth movement
-                                    TimeSpan movementDuration = TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps);
-                                    await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, MovementSteps, MovementDelayMs, movementDuration);
-                                }
-                                else
-                                {
-                                    // Direct move
-                                    SendLowLevelMouseMove(targetX, targetY);
-                                }
-
-                                // Update position and button states
-                                currentX = targetX;
-                                currentY = targetY;
-                                prevLeftButtonDown = action.IsLeftButtonDown;
-                                prevRightButtonDown = action.IsRightButtonDown;
-                                prevMiddleButtonDown = action.IsMiddleButtonDown;
-                                totalMovesSimulated++;
-                            }
-                            // CASE 2: EXPLICIT MOUSE BUTTON EVENTS
-                            else if (action.EventType == 0x0201 || action.EventType == 0x0202 || // Left down/up
-                                     action.EventType == 0x0204 || action.EventType == 0x0205 || // Right down/up
-                                     action.EventType == 0x0207 || action.EventType == 0x0208)   // Middle down/up
-                            {
-                                int targetX = action.Coordinates?.X ?? currentX;
-                                int targetY = action.Coordinates?.Y ?? currentY;
-
-                                // Determine which button and whether it's down or up
-                                MouseButton button;
-                                bool isDown;
-
-                                if (action.EventType == 0x0201) { button = MouseButton.Left; isDown = true; }
-                                else if (action.EventType == 0x0202) { button = MouseButton.Left; isDown = false; }
-                                else if (action.EventType == 0x0204) { button = MouseButton.Right; isDown = true; }
-                                else if (action.EventType == 0x0205) { button = MouseButton.Right; isDown = false; }
-                                else if (action.EventType == 0x0207) { button = MouseButton.Middle; isDown = true; }
-                                else { button = MouseButton.Middle; isDown = false; }
-
-                                // First move to position
-                                if (UseInterpolation && (targetX != currentX || targetY != currentY))
-                                {
-                                    // Smooth move to position before clicking
-                                    TimeSpan movementDuration = TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps);
-                                    await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, MovementSteps, MovementDelayMs, movementDuration);
-                                }
-                                else if (targetX != currentX || targetY != currentY)
-                                {
-                                    // Direct move
-                                    SendLowLevelMouseMove(targetX, targetY);
-                                }
-
-                                // Send mouse button event
-                                SendLowLevelMouseClick(button, !isDown, targetX, targetY);
-                                Debug.WriteLine($"{button} button {(isDown ? "DOWN" : "UP")} sent at ({targetX},{targetY})");
-
-                                // Update states
-                                if (button == MouseButton.Left)
-                                    _leftButtonDown = isDown;
-                                else if (button == MouseButton.Right)
-                                    _rightButtonDown = isDown;
-                                else
-                                    _middleButtonDown = isDown;
-
-                                currentX = targetX;
-                                currentY = targetY;
-                                totalClicksSimulated++;
-
-                                // Use explicit key duration for key-up events if available
-                                if (!isDown && action.Duration > 0)
-                                {
-                                    Debug.WriteLine($"Using explicit button press duration: {action.Duration}ms");
-                                    // No need to add additional delay here as we already handled it earlier
-                                }
-                            }
-                            // CASE 3: KEYBOARD EVENTS
-                            else if (action.EventType == 0x0100 || action.EventType == WM_KEYDOWN) // Key down
-                            {
-                                Debug.WriteLine($"*** KEY DOWN: VKCode = {action.KeyCode} (0x{action.KeyCode:X}) ***");
-                                // Track this key as being pressed down
-                                pressedKeys[action.KeyCode] = true;
-
-                                // Send the key down event
-                                SendKeyboardInput((ushort)action.KeyCode, false);
-                                totalKeystrokesSimulated++;
-                                actualKeyDownsExecuted++;
-
-                                // For keys without explicit UP events, add a realistic hold duration
-                                bool hasMatchingUpEventSoon = false;
-
-                                // Look ahead in the next few actions to check if there's a matching UP event
-                                int currentIndex = actionGroup.ActionArray.IndexOf(action);
-                                if (currentIndex >= 0)
-                                {
-                                    for (int i = currentIndex + 1; i < Math.Min(currentIndex + 15, actionGroup.ActionArray.Count); i++)
+                                    if (UseInterpolation)
                                     {
-                                        var futureAction = actionGroup.ActionArray[i];
-                                        if (futureAction.EventType == 0x0101 && futureAction.KeyCode == action.KeyCode)
-                                        {
-                                            hasMatchingUpEventSoon = true;
-                                            break;
-                                        }
+                                        await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, MovementSteps, MovementDelayMs,
+                                            TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps));
                                     }
+                                    else
+                                    {
+                                        SendLowLevelMouseMove(targetX, targetY);
+                                    }
+                                    currentX = targetX;
+                                    currentY = targetY;
                                 }
-
-                                // If no matching UP event is coming soon, add a realistic key hold duration
-                                // This helps with keys that might not have explicit UP events due to recording issues
-                                if (!hasMatchingUpEventSoon)
-                                {
-                                    // Use explicit duration if available (properly recorded)
-                                    int holdDuration = action.Duration > 0 ?
-                                        action.Duration :
-                                        random.Next(MIN_KEY_DOWN_DURATION, MAX_KEY_DOWN_DURATION);
-
-                                    await Task.Delay(holdDuration);
-
-                                    // Auto-release the key for a more natural simulation
-                                    SendKeyboardInput((ushort)action.KeyCode, true);
-                                    pressedKeys.Remove(action.KeyCode);
-                                    Debug.WriteLine($"*** Auto-releasing KEY UP: VKCode = {action.KeyCode} (0x{action.KeyCode:X}) after {holdDuration}ms ***");
-                                    actualKeyUpsExecuted++;
-                                }
-                            }
-                            else if (action.EventType == 0x0101 || action.EventType == WM_KEYUP) // Key up
-                            {
-                                Debug.WriteLine($"*** KEY UP: VKCode = {action.KeyCode} (0x{action.KeyCode:X}) ***");
-
-                                // Release the key
-                                SendKeyboardInput((ushort)action.KeyCode, true);
-                                totalKeystrokesSimulated++;
-                                actualKeyUpsExecuted++;
-
-                                // Remove from pressed keys tracking
-                                if (pressedKeys.ContainsKey(action.KeyCode))
-                                {
-                                    pressedKeys.Remove(action.KeyCode);
-                                }
-
-                                // Use explicit key duration if available
-                                if (action.Duration > 0)
-                                {
-                                    Debug.WriteLine($"Key was held for {action.Duration}ms");
-                                    // No need for additional delay here as we already handled it earlier
-                                }
-                            }
-                            else
-                            {
-                                Debug.WriteLine($"Unhandled action type: {action.EventType} (0x{action.EventType:X4})");
                             }
                         }
                         catch (Exception ex)
@@ -755,44 +705,27 @@ namespace CSimple.Services
                         }
                     }
 
-                    // SUMMARY STATISTICS
-                    Debug.WriteLine("================= EXECUTION SUMMARY =================");
-                    Debug.WriteLine($"Total actions executed: {totalActionsExecuted}");
-                    Debug.WriteLine($"Total clicks simulated: {totalClicksSimulated}");
-                    Debug.WriteLine($"Total moves simulated: {totalMovesSimulated}");
-                    Debug.WriteLine($"Total keystrokes simulated: {totalKeystrokesSimulated}");
-                    Debug.WriteLine($"Keyboard breakdown - DOWN: {actualKeyDownsExecuted}, UP: {actualKeyUpsExecuted}");
-                    Debug.WriteLine("====================================================");
-
                     // SAFETY: Ensure all pressed keys are released at the end
-                    if (pressedKeys.Count > 0)
+                    foreach (var keyCode in pressedKeys.Keys.ToList())
                     {
-                        Debug.WriteLine($"Safety: Releasing {pressedKeys.Count} keys that were still pressed at end of simulation");
-                        foreach (var keyCode in pressedKeys.Keys)
-                        {
-                            SendKeyboardInput((ushort)keyCode, true);
-                            Debug.WriteLine($"Force releasing key: {keyCode:X}");
-                        }
+                        SendKeyboardInput((ushort)keyCode, true);
+                        Debug.WriteLine($"Force releasing key: {keyCode:X}");
                     }
 
                     // Ensure all buttons are released at the end
                     if (_leftButtonDown)
                     {
-                        Debug.WriteLine("Force releasing left mouse button at end of sequence");
                         SendLowLevelMouseClick(MouseButton.Left, true, currentX, currentY);
                         _leftButtonDown = false;
                     }
-                    if (_rightButtonDown)
+                    if (prevRightButtonDown) // Use the local variable here
                     {
-                        Debug.WriteLine("Force releasing right mouse button at end of sequence");
                         SendLowLevelMouseClick(MouseButton.Right, true, currentX, currentY);
-                        _rightButtonDown = false;
+                        prevRightButtonDown = false; // Update the local variable
                     }
-                    if (_middleButtonDown)
+                    if (prevMiddleButtonDown)
                     {
-                        Debug.WriteLine("Force releasing middle mouse button at end of sequence");
-                        SendLowLevelMouseClick(MouseButton.Middle, true, currentX, currentY);
-                        _middleButtonDown = false;
+                        // ...existing code...
                     }
 
                     _isDragging = false;
