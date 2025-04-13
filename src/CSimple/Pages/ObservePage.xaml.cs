@@ -53,6 +53,7 @@ namespace CSimple.Pages
         private readonly AudioCaptureService _audioService;
         private readonly ObserveDataService _dataService;
         private readonly MouseTrackingService _mouseService;
+        private readonly ActionService _actionService; // Add ActionService
 
         // Commands
         public ICommand TogglePCVisualCommand { get; }
@@ -208,16 +209,20 @@ namespace CSimple.Pages
         // New helper property to track the last recorded action for deduplication
         private ActionItem _lastRecordedAction;
 
-        public ObservePage()
+        // Modify the constructor to accept ActionService
+        public ObservePage(InputCaptureService inputService, ScreenCaptureService screenService,
+                           AudioCaptureService audioService, ObserveDataService dataService,
+                           MouseTrackingService mouseService, ActionService actionService)
         {
             InitializeComponent();
 
             // Init services
-            _inputService = new InputCaptureService();
-            _screenService = new ScreenCaptureService();
-            _audioService = new AudioCaptureService();
-            _dataService = new ObserveDataService();
-            _mouseService = new MouseTrackingService();
+            _inputService = inputService;
+            _screenService = screenService;
+            _audioService = audioService;
+            _dataService = dataService;
+            _mouseService = mouseService;
+            _actionService = actionService; // Assign ActionService
 
             // Set up events
             _inputService.InputCaptured += OnInputCaptured;

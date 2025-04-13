@@ -226,11 +226,15 @@ namespace CSimple.Services
 
         public class KeyboardInputManager { }
 
-        public InputCaptureService()
+        // Add ActionService dependency
+        private readonly ActionService _actionService;
+
+        public InputCaptureService(ActionService actionService)
         {
             // Initialize the queue
             ResetInputQueue();
             _mouseMoveTimer.Start();
+            _actionService = actionService;
         }
 
         // Create a method to reset the input queue
@@ -528,6 +532,18 @@ namespace CSimple.Services
                     bool isKeyDown = wParamInt == WM_KEYDOWN || wParamInt == WM_SYSKEYDOWN;
                     bool isKeyUp = wParamInt == WM_KEYUP || wParamInt == WM_SYSKEYUP;
                     DateTime now = DateTime.UtcNow;
+
+                    // Check for CTRL+SHIFT+ESC key combination
+                    bool isCtrlPressed = (Control.ModifierKeys & Keys.Control) != 0;
+                    bool isShiftPressed = (Control.ModifierKeys & Keys.Shift) != 0;
+                    bool isEscPressed = keyCode == 27; // VK_ESCAPE = 0x1B = 27
+
+                    if (isCtrlPressed && isShiftPressed && isEscPressed && isKeyDown)
+                    {
+                        // Cancel the simulation
+                        _actionService?.CancelSimulation();
+                        LogDebug("CTRL+SHIFT+ESC detected - Simulation cancelled.");
+                    }
 
                     // Skip recording if this is a duplicate key event (key is already in desired state)
                     if ((isKeyDown && _currentlyPressedKeys.Contains(keyCode)) ||

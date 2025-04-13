@@ -82,11 +82,31 @@ public static class MauiProgram
         services.AddSingleton<ActionService>();  // Register ActionService with DI
         services.AddSingleton<GlobalInputCapture>();
         services.AddSingleton<IOnTrainModelClickedService, OnTrainModelClickedService>();
+        // Inject ActionService into InputCaptureService
+        services.AddSingleton(sp =>
+        {
+            var actionService = sp.GetRequiredService<ActionService>();
+            return new InputCaptureService(actionService);
+        });
         services.AddSingleton<AppModeService>();
         services.AddSingleton<ActionGroupService>();
         services.AddSingleton<GameSettingsService>();
         services.AddSingleton<ActionGroupCopierService>();
         services.AddSingleton<DialogService>();
+        services.AddSingleton<ScreenCaptureService>();
+        services.AddSingleton<AudioCaptureService>();
+        services.AddSingleton<ObserveDataService>();
+        services.AddSingleton<MouseTrackingService>();
+
+        // Register ObservePage with all dependencies
+        services.AddSingleton(sp => new ObservePage(
+            sp.GetRequiredService<InputCaptureService>(),
+            sp.GetRequiredService<ScreenCaptureService>(),
+            sp.GetRequiredService<AudioCaptureService>(),
+            sp.GetRequiredService<ObserveDataService>(),
+            sp.GetRequiredService<MouseTrackingService>(),
+            sp.GetRequiredService<ActionService>()
+        ));
 
 #if WINDOWS
         services.AddSingleton<ITrayService, WinUI.TrayService>();
