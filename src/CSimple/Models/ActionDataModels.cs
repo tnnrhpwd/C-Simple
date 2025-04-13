@@ -217,7 +217,7 @@ namespace CSimple.Models
         public object Timestamp { get; set; }
         public int EventType { get; set; }
         public int KeyCode { get; set; }
-        public int Duration { get; set; }
+        public int Duration { get; set; } // Hold duration in milliseconds
 
         // Enhanced mouse movement properties
         public Coordinates Coordinates { get; set; }

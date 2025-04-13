@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using System.Windows.Forms; // Add this for Keys enum
 
 namespace CSimple.Services
 {
@@ -37,7 +38,7 @@ namespace CSimple.Services
         private POINT _startMousePos; // Track start position for relative movements
         private bool _leftMouseDown = false;
         private bool _rightMouseDown = false;
-        private bool _middleMouseDown = false;
+        private bool _middleButtonDown = false;
 
         // Track raw mouse movement for more accurate replay
         private int _accumulatedDeltaX = 0;
@@ -48,6 +49,16 @@ namespace CSimple.Services
         // Touch input tracking
         private Dictionary<int, TouchPoint> _activeTouches = new Dictionary<int, TouchPoint>();
         private DateTime _lastTouchEventTime = DateTime.MinValue;
+
+        // Enhanced state tracking - prevent duplicates while ensuring all press/release events are captured
+        private Dictionary<ushort, DateTime> _lastKeyDownEvents = new Dictionary<ushort, DateTime>();
+        private Dictionary<ushort, DateTime> _lastKeyUpEvents = new Dictionary<ushort, DateTime>();
+        private Dictionary<ushort, DateTime> _lastMouseButtonDownEvents = new Dictionary<ushort, DateTime>();
+        private Dictionary<ushort, DateTime> _lastMouseButtonUpEvents = new Dictionary<ushort, DateTime>();
+
+        // Minimum time between same key events to be considered unique (in milliseconds)
+        private const int KEY_EVENT_DEBOUNCE_MS = 50;
+        private const int MOUSE_BUTTON_DEBOUNCE_MS = 50;
 
         #endregion
 
@@ -162,6 +173,7 @@ namespace CSimple.Services
             public TimeSpan TimeSinceLastMove { get; set; } // For timing-accurate replay
             public float VelocityX { get; set; } // Mouse movement velocity
             public float VelocityY { get; set; } // Mouse movement velocity
+            public int Duration { get; set; } // Add missing Duration property
 
             // Touch-specific properties
             public bool IsTouch { get; set; }
@@ -240,7 +252,7 @@ namespace CSimple.Services
                 // Reset mouse state tracking
                 _leftMouseDown = false;
                 _rightMouseDown = false;
-                _middleMouseDown = false;
+                _middleButtonDown = false;
                 _accumulatedDeltaX = 0;
                 _accumulatedDeltaY = 0;
                 _mouseMoveTimer.Restart();
@@ -395,7 +407,7 @@ namespace CSimple.Services
                 _isActive = false; // Set _isActive to false first
 
                 // Store final mouse state before stopping
-                if (_leftMouseDown || _rightMouseDown || _middleMouseDown)
+                if (_leftMouseDown || _rightMouseDown || _middleButtonDown)
                 {
                     // Create final mouse up events if mouse buttons were down at stop
                     RecordFinalMouseState();
@@ -443,7 +455,7 @@ namespace CSimple.Services
                     Timestamp = DateTime.UtcNow,
                     IsLeftButtonDown = false,
                     IsRightButtonDown = _rightMouseDown,
-                    IsMiddleButtonDown = _middleMouseDown
+                    IsMiddleButtonDown = _middleButtonDown
                 };
                 AddToInputQueue(actionItem);
             }
@@ -457,12 +469,12 @@ namespace CSimple.Services
                     Timestamp = DateTime.UtcNow,
                     IsLeftButtonDown = false,
                     IsRightButtonDown = false,
-                    IsMiddleButtonDown = _middleMouseDown
+                    IsMiddleButtonDown = _middleButtonDown
                 };
                 AddToInputQueue(actionItem);
             }
 
-            if (_middleMouseDown)
+            if (_middleButtonDown)
             {
                 var actionItem = new ActionItem
                 {
@@ -508,58 +520,80 @@ namespace CSimple.Services
                     // Immediately grab event details
                     int wParamInt = wParam.ToInt32();
                     int vkCode = Marshal.ReadInt32(lParam);
+                    ushort keyCode = (ushort)vkCode;
+                    bool isKeyDown = wParamInt == WM_KEYDOWN || wParamInt == WM_SYSKEYDOWN;
+                    bool isKeyUp = wParamInt == WM_KEYUP || wParamInt == WM_SYSKEYUP;
+                    DateTime now = DateTime.UtcNow;
 
                     // Create the action item regardless of event type
                     var actionItem = new ActionItem
                     {
-                        Timestamp = DateTime.UtcNow,
+                        Timestamp = now,
                         KeyCode = vkCode,
                         EventType = (ushort)wParamInt,
                         IsLeftButtonDown = _leftMouseDown,
                         IsRightButtonDown = _rightMouseDown,
-                        IsMiddleButtonDown = _middleMouseDown
+                        IsMiddleButtonDown = _middleButtonDown
                     };
 
-                    // Enhanced logging to trace every keyboard event
-                    string eventName = "UNKNOWN";
-                    bool isKeyEvent = false;
+                    // Enhanced logging and tracking
+                    string eventName = isKeyDown ? (wParamInt == WM_KEYDOWN ? "WM_KEYDOWN" : "WM_SYSKEYDOWN") :
+                                      isKeyUp ? (wParamInt == WM_KEYUP ? "WM_KEYUP" : "WM_SYSKEYUP") : "UNKNOWN";
 
-                    if (wParamInt == WM_KEYDOWN) { eventName = "WM_KEYDOWN"; isKeyEvent = true; }
-                    else if (wParamInt == WM_KEYUP) { eventName = "WM_KEYUP"; isKeyEvent = true; }
-                    else if (wParamInt == WM_SYSKEYDOWN) { eventName = "WM_SYSKEYDOWN"; isKeyEvent = true; }
-                    else if (wParamInt == WM_SYSKEYUP) { eventName = "WM_SYSKEYUP"; isKeyEvent = true; }
+                    // Apply debounce to avoid duplicate key events
+                    bool shouldProcessEvent = false;
 
-                    if (isKeyEvent)
+                    if (isKeyDown)
                     {
-                        LogDebug($"KEYBOARD: {eventName} Key: {vkCode} (0x{vkCode:X2})");
-
-                        // Track key state - important for maintaining accurate active keys list
-                        bool isKeyDown = wParamInt == WM_KEYDOWN || wParamInt == WM_SYSKEYDOWN;
-
-                        // Log an additional explicit message to confirm we're handling this key correctly
-                        LogDebug($">>> PROCESSING {(isKeyDown ? "DOWN" : "UP")} EVENT for key {vkCode} <<<");
-
-                        if (isKeyDown)
+                        // For key down events, only process if it's a new key press or enough time has passed
+                        if (!_lastKeyDownEvents.ContainsKey(keyCode) ||
+                            (now - _lastKeyDownEvents[keyCode]).TotalMilliseconds > KEY_EVENT_DEBOUNCE_MS)
                         {
+                            _lastKeyDownEvents[keyCode] = now;
                             _activeKeyPresses[(ushort)vkCode] = actionItem;
-                            _keyPressDownTimestamps[(ushort)vkCode] = DateTime.UtcNow;
+                            _keyPressDownTimestamps[(ushort)vkCode] = now;
+                            shouldProcessEvent = true;
+                            LogDebug($"Processing KEY DOWN: {vkCode:X2} ({(Keys)vkCode})");
                         }
-                        else
+                    }
+                    else if (isKeyUp)
+                    {
+                        // For key up events, only process if it's been pressed before or enough time has passed
+                        if (!_lastKeyUpEvents.ContainsKey(keyCode) ||
+                            (now - _lastKeyUpEvents[keyCode]).TotalMilliseconds > KEY_EVENT_DEBOUNCE_MS)
                         {
+                            _lastKeyUpEvents[keyCode] = now;
                             _activeKeyPresses.Remove((ushort)vkCode);
                             _keyPressDownTimestamps.Remove((ushort)vkCode);
+                            shouldProcessEvent = true;
+                            LogDebug($"Processing KEY UP: {vkCode:X2} ({(Keys)vkCode})");
+                        }
+                    }
+
+                    // Enhanced key event tracking
+                    if (shouldProcessEvent)
+                    {
+                        // Add key hold duration if this is a key up event and we have the down timestamp
+                        if (isKeyUp && _keyPressDownTimestamps.TryGetValue((ushort)vkCode, out DateTime downTime))
+                        {
+                            actionItem.Duration = (int)(now - downTime).TotalMilliseconds;
                         }
 
-                        // Add to input queue - ensure this happens for both down and up events
+                        // Add rich data for accurate replay
+                        GetCursorPos(out POINT curPos);
+                        actionItem.Coordinates = new Coordinates
+                        {
+                            X = curPos.X,
+                            Y = curPos.Y,
+                            AbsoluteX = curPos.X,
+                            AbsoluteY = curPos.Y
+                        };
+
+                        // Add to input queue
                         AddToInputQueue(actionItem);
 
-                        // Process the keyboard event directly - bypass queue for testing
-                        // Note: This is for diagnostic purposes and can be removed once fixed
-                        if (isKeyDown)
-                        {
-                            LogDebug($"Direct processing of key DOWN: {vkCode}");
-                            // If this logs but the queue processing doesn't, we know it's a queue issue
-                        }
+                        // Log the event for debugging/monitoring
+                        LogDebug($"KEYBOARD: {eventName} Key: {vkCode} (0x{vkCode:X2}) ({(Keys)vkCode}) at ({curPos.X},{curPos.Y})");
                     }
                 }
                 catch (Exception ex)
@@ -579,87 +613,158 @@ namespace CSimple.Services
                 try
                 {
                     int wParamInt = wParam.ToInt32();
+                    bool isButtonEvent = IsMouseButtonEvent(wParamInt);
+                    DateTime now = DateTime.UtcNow;
+
+                    // Parse mouse data
+                    MSLLHOOKSTRUCT mouseHookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
 
                     // Create action item with current button state
                     var actionItem = new ActionItem
                     {
-                        Timestamp = DateTime.UtcNow,
+                        Timestamp = now,
                         EventType = (ushort)wParamInt,
                         IsLeftButtonDown = _leftMouseDown,
                         IsRightButtonDown = _rightMouseDown,
-                        IsMiddleButtonDown = _middleMouseDown
+                        IsMiddleButtonDown = _middleButtonDown,
+                        Coordinates = new Coordinates
+                        {
+                            X = mouseHookStruct.pt.X,
+                            Y = mouseHookStruct.pt.Y,
+                            AbsoluteX = mouseHookStruct.pt.X,
+                            AbsoluteY = mouseHookStruct.pt.Y,
+                            RelativeX = mouseHookStruct.pt.X - _startMousePos.X,
+                            RelativeY = mouseHookStruct.pt.Y - _startMousePos.Y
+                        },
+                        MouseData = mouseHookStruct.mouseData,
+                        Flags = mouseHookStruct.flags
                     };
 
-                    MSLLHOOKSTRUCT mouseHookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
+                    // Apply special handling for button events to avoid duplicates
+                    bool shouldProcessEvent = true;
+                    ushort buttonCode = (ushort)wParamInt;  // Use event type as button identifier
 
-                    // Create coordinates regardless of event type
-                    actionItem.Coordinates = new Coordinates
+                    if (isButtonEvent)
                     {
-                        X = mouseHookStruct.pt.X,
-                        Y = mouseHookStruct.pt.Y,
-                        AbsoluteX = mouseHookStruct.pt.X,
-                        AbsoluteY = mouseHookStruct.pt.Y,
-                        RelativeX = mouseHookStruct.pt.X - _startMousePos.X,
-                        RelativeY = mouseHookStruct.pt.Y - _startMousePos.Y
-                    };
+                        bool isButtonDown = IsMouseButtonDownEvent(wParamInt);
 
-                    // Process mouse events by type
+                        // Debounce button events
+                        if (isButtonDown)
+                        {
+                            if (_lastMouseButtonDownEvents.ContainsKey(buttonCode) &&
+                                (now - _lastMouseButtonDownEvents[buttonCode]).TotalMilliseconds < MOUSE_BUTTON_DEBOUNCE_MS)
+                            {
+                                shouldProcessEvent = false;
+                            }
+                            else
+                            {
+                                _lastMouseButtonDownEvents[buttonCode] = now;
+                            }
+                        }
+                        else
+                        {
+                            if (_lastMouseButtonUpEvents.ContainsKey(buttonCode) &&
+                                (now - _lastMouseButtonUpEvents[buttonCode]).TotalMilliseconds < MOUSE_BUTTON_DEBOUNCE_MS)
+                            {
+                                shouldProcessEvent = false;
+                            }
+                            else
+                            {
+                                _lastMouseButtonUpEvents[buttonCode] = now;
+                            }
+                        }
+                    }
+
+                    // Calculate delta for mouse movement
+                    if (wParamInt == WM_MOUSEMOVE)
+                    {
+                        actionItem.DeltaX = mouseHookStruct.pt.X - _lastMousePos.X;
+                        actionItem.DeltaY = mouseHookStruct.pt.Y - _lastMousePos.Y;
+                        // Skip tiny movements - they're often noise
+                        if (Math.Abs(actionItem.DeltaX) < 2 && Math.Abs(actionItem.DeltaY) < 2)
+                        {
+                            shouldProcessEvent = false;
+                        }
+                    }
+
+                    // Update button states properly (regardless of debounce)
                     switch (wParamInt)
                     {
                         case WM_LBUTTONDOWN:
                             _leftMouseDown = true;
                             actionItem.IsLeftButtonDown = true;
-                            Debug.WriteLine("Left button DOWN detected in hook");
+                            LogDebug($"Left button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             break;
 
                         case WM_LBUTTONUP:
                             _leftMouseDown = false;
                             actionItem.IsLeftButtonDown = false;
-                            Debug.WriteLine("Left button UP detected in hook");
+                            LogDebug($"Left button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             break;
 
                         case WM_RBUTTONDOWN:
                             _rightMouseDown = true;
                             actionItem.IsRightButtonDown = true;
-                            Debug.WriteLine("Right button DOWN detected in hook");
+                            LogDebug($"Right button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             break;
 
                         case WM_RBUTTONUP:
                             _rightMouseDown = false;
                             actionItem.IsRightButtonDown = false;
-                            Debug.WriteLine("Right button UP detected in hook");
+                            LogDebug($"Right button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             break;
 
                         case WM_MBUTTONDOWN:
-                            _middleMouseDown = true;
+                            _middleButtonDown = true;
                             actionItem.IsMiddleButtonDown = true;
-                            Debug.WriteLine("Middle button DOWN detected in hook");
+                            LogDebug($"Middle button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             break;
 
                         case WM_MBUTTONUP:
-                            _middleMouseDown = false;
+                            _middleButtonDown = false;
                             actionItem.IsMiddleButtonDown = false;
-                            Debug.WriteLine("Middle button UP detected in hook");
+                            LogDebug($"Middle button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             break;
 
                         case WM_MOUSEMOVE:
-                            int deltaX = mouseHookStruct.pt.X - _lastMousePos.X;
-                            int deltaY = mouseHookStruct.pt.Y - _lastMousePos.Y;
-                            actionItem.DeltaX = deltaX;
-                            actionItem.DeltaY = deltaY;
-
                             _lastMousePos = mouseHookStruct.pt;
-                            _accumulatedDeltaX = deltaX;
-                            _accumulatedDeltaY = deltaY;
-                            break;
-
-                        case WM_MOUSEWHEEL:
-                            actionItem.MouseData = mouseHookStruct.mouseData;
                             break;
                     }
 
-                    // Add to input queue for processing
-                    AddToInputQueue(actionItem);
+                    // Add extra duration data for mouse button events
+                    if (wParamInt == WM_LBUTTONUP)
+                    {
+                        if (_lastMouseButtonDownEvents.ContainsKey((ushort)WM_LBUTTONDOWN))
+                        {
+                            actionItem.Duration = (int)(now - _lastMouseButtonDownEvents[(ushort)WM_LBUTTONDOWN]).TotalMilliseconds;
+                        }
+                    }
+                    else if (wParamInt == WM_RBUTTONUP)
+                    {
+                        if (_lastMouseButtonDownEvents.ContainsKey((ushort)WM_RBUTTONDOWN))
+                        {
+                            actionItem.Duration = (int)(now - _lastMouseButtonDownEvents[(ushort)WM_RBUTTONDOWN]).TotalMilliseconds;
+                        }
+                    }
+                    else if (wParamInt == WM_MBUTTONUP)
+                    {
+                        if (_lastMouseButtonDownEvents.ContainsKey((ushort)WM_MBUTTONDOWN))
+                        {
+                            actionItem.Duration = (int)(now - _lastMouseButtonDownEvents[(ushort)WM_MBUTTONDOWN]).TotalMilliseconds;
+                        }
+                    }
+
+                    // Only add to queue if it passes our filters
+                    if (shouldProcessEvent)
+                    {
+                        AddToInputQueue(actionItem);
+                    }
+
+                    // For mouse moves, update the last move time regardless of whether we queue the event
+                    if (wParamInt == WM_MOUSEMOVE)
+                    {
+                        _lastMouseEventTime = now;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -668,6 +773,19 @@ namespace CSimple.Services
             }
 
             return CallNextHookEx(_mouseHookID, nCode, wParam, lParam);
+        }
+
+        // Helper methods to identify mouse button events
+        private bool IsMouseButtonEvent(int eventType)
+        {
+            return eventType == WM_LBUTTONDOWN || eventType == WM_LBUTTONUP ||
+                   eventType == WM_RBUTTONDOWN || eventType == WM_RBUTTONUP ||
+                   eventType == WM_MBUTTONDOWN || eventType == WM_MBUTTONUP;
+        }
+
+        private bool IsMouseButtonDownEvent(int eventType)
+        {
+            return eventType == WM_LBUTTONDOWN || eventType == WM_RBUTTONDOWN || eventType == WM_MBUTTONDOWN;
         }
 
         public void Dispose()
@@ -762,7 +880,7 @@ namespace CSimple.Services
                             Timestamp = DateTime.UtcNow,
                             IsLeftButtonDown = _leftMouseDown,
                             IsRightButtonDown = _rightMouseDown,
-                            IsMiddleButtonDown = _middleMouseDown,
+                            IsMiddleButtonDown = _middleButtonDown,
                             TimeSinceLastMove = DateTime.UtcNow - _lastMouseMoveSent,
                             VelocityX = velocityX,
                             VelocityY = velocityY
@@ -1164,6 +1282,51 @@ namespace CSimple.Services
             // Sample the current state
             var activeKeys = string.Join(", ", _activeKeyPresses.Keys);
             LogDebug($"Currently tracked keys: {activeKeys}");
+        }
+
+        // Add a diagnostic method to test if recording is working properly
+        public void TestInputRecording()
+        {
+            LogDebug("DIAGNOSTIC TEST: Checking input recording system");
+
+            // Check hook status
+            if (_keyboardHookID == IntPtr.Zero)
+                LogDebug("WARNING: Keyboard hook is not active!");
+            else
+                LogDebug("Keyboard hook is active");
+
+            if (_mouseHookID == IntPtr.Zero)
+                LogDebug("WARNING: Mouse hook is not active!");
+            else
+                LogDebug("Mouse hook is active");
+
+            // Log current state tracking
+            LogDebug($"Current active key count: {_activeKeyPresses.Count}");
+            LogDebug($"Current mouse button states: Left={_leftMouseDown}, Right={_rightMouseDown}, Middle={_middleButtonDown}");
+            LogDebug($"Input queue size: {(_inputQueue?.Count ?? 0)}");
+
+            // Test event by directly adding a test action
+            var testAction = new ActionItem
+            {
+                EventType = 0xFFFF, // Test event code
+                KeyCode = 0,
+                Timestamp = DateTime.UtcNow,
+                IsLeftButtonDown = _leftMouseDown,
+                IsRightButtonDown = _rightMouseDown,
+                IsMiddleButtonDown = _middleButtonDown
+            };
+
+            GetCursorPos(out POINT curPos);
+            testAction.Coordinates = new Coordinates
+            {
+                X = curPos.X,
+                Y = curPos.Y,
+                AbsoluteX = curPos.X,
+                AbsoluteY = curPos.Y
+            };
+
+            AddToInputQueue(testAction);
+            LogDebug("Added test action to input queue");
         }
     }
 }
