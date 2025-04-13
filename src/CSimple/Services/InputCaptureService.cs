@@ -576,64 +576,98 @@ namespace CSimple.Services
         {
             if (nCode >= 0)
             {
-                // ...existing mouse handling code...
-                var actionItem = new ActionItem
+                try
                 {
-                    Timestamp = DateTime.UtcNow,
-                    IsLeftButtonDown = _leftMouseDown,
-                    IsRightButtonDown = _rightMouseDown,
-                    IsMiddleButtonDown = _middleMouseDown
-                };
+                    int wParamInt = wParam.ToInt32();
 
-                // Handle mouse events
-                if (wParam == (IntPtr)WM_MOUSEMOVE ||
-                    wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_LBUTTONUP ||
-                    wParam == (IntPtr)WM_RBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONUP ||
-                    wParam == (IntPtr)WM_MBUTTONDOWN || wParam == (IntPtr)WM_MBUTTONUP ||
-                    wParam == (IntPtr)WM_MOUSEWHEEL)
-                {
+                    // Create action item with current button state
+                    var actionItem = new ActionItem
+                    {
+                        Timestamp = DateTime.UtcNow,
+                        EventType = (ushort)wParamInt,
+                        IsLeftButtonDown = _leftMouseDown,
+                        IsRightButtonDown = _rightMouseDown,
+                        IsMiddleButtonDown = _middleMouseDown
+                    };
+
                     MSLLHOOKSTRUCT mouseHookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
 
-                    // Use raw deltas for mouse movement
-                    int deltaX = _accumulatedDeltaX;
-                    int deltaY = _accumulatedDeltaY;
-
-                    if (wParam == (IntPtr)WM_MOUSEMOVE)
-                    {
-                        deltaX = mouseHookStruct.pt.X - _lastMousePos.X;
-                        deltaY = mouseHookStruct.pt.Y - _lastMousePos.Y;
-                        _accumulatedDeltaX = deltaX;
-                        _accumulatedDeltaY = deltaY;
-                    }
-
+                    // Create coordinates regardless of event type
                     actionItem.Coordinates = new Coordinates
                     {
                         X = mouseHookStruct.pt.X,
                         Y = mouseHookStruct.pt.Y,
-                        RelativeX = deltaX,
-                        RelativeY = deltaY
+                        AbsoluteX = mouseHookStruct.pt.X,
+                        AbsoluteY = mouseHookStruct.pt.Y,
+                        RelativeX = mouseHookStruct.pt.X - _startMousePos.X,
+                        RelativeY = mouseHookStruct.pt.Y - _startMousePos.Y
                     };
-                    actionItem.DeltaX = deltaX;
-                    actionItem.DeltaY = deltaY;
-                    actionItem.EventType = (ushort)wParam.ToInt32();
 
-                    // Update button states
-                    if (wParam == (IntPtr)WM_LBUTTONDOWN) _leftMouseDown = true;
-                    else if (wParam == (IntPtr)WM_LBUTTONUP) _leftMouseDown = false;
-                    else if (wParam == (IntPtr)WM_RBUTTONDOWN) _rightMouseDown = true;
-                    else if (wParam == (IntPtr)WM_RBUTTONUP) _rightMouseDown = false;
-                    else if (wParam == (IntPtr)WM_MBUTTONDOWN) _middleMouseDown = true;
-                    else if (wParam == (IntPtr)WM_MBUTTONUP) _middleMouseDown = false;
+                    // Process mouse events by type
+                    switch (wParamInt)
+                    {
+                        case WM_LBUTTONDOWN:
+                            _leftMouseDown = true;
+                            actionItem.IsLeftButtonDown = true;
+                            Debug.WriteLine("Left button DOWN detected in hook");
+                            break;
 
-                    actionItem.IsLeftButtonDown = _leftMouseDown;
-                    actionItem.IsRightButtonDown = _rightMouseDown;
-                    actionItem.IsMiddleButtonDown = _middleMouseDown;
+                        case WM_LBUTTONUP:
+                            _leftMouseDown = false;
+                            actionItem.IsLeftButtonDown = false;
+                            Debug.WriteLine("Left button UP detected in hook");
+                            break;
 
+                        case WM_RBUTTONDOWN:
+                            _rightMouseDown = true;
+                            actionItem.IsRightButtonDown = true;
+                            Debug.WriteLine("Right button DOWN detected in hook");
+                            break;
+
+                        case WM_RBUTTONUP:
+                            _rightMouseDown = false;
+                            actionItem.IsRightButtonDown = false;
+                            Debug.WriteLine("Right button UP detected in hook");
+                            break;
+
+                        case WM_MBUTTONDOWN:
+                            _middleMouseDown = true;
+                            actionItem.IsMiddleButtonDown = true;
+                            Debug.WriteLine("Middle button DOWN detected in hook");
+                            break;
+
+                        case WM_MBUTTONUP:
+                            _middleMouseDown = false;
+                            actionItem.IsMiddleButtonDown = false;
+                            Debug.WriteLine("Middle button UP detected in hook");
+                            break;
+
+                        case WM_MOUSEMOVE:
+                            int deltaX = mouseHookStruct.pt.X - _lastMousePos.X;
+                            int deltaY = mouseHookStruct.pt.Y - _lastMousePos.Y;
+                            actionItem.DeltaX = deltaX;
+                            actionItem.DeltaY = deltaY;
+
+                            _lastMousePos = mouseHookStruct.pt;
+                            _accumulatedDeltaX = deltaX;
+                            _accumulatedDeltaY = deltaY;
+                            break;
+
+                        case WM_MOUSEWHEEL:
+                            actionItem.MouseData = mouseHookStruct.mouseData;
+                            break;
+                    }
+
+                    // Add to input queue for processing
                     AddToInputQueue(actionItem);
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"Error in mouse hook: {ex.Message}");
                 }
             }
 
-            return CallNextHookEx(_mouseHookID, nCode, wParam, lParam); // Use proper hook ID
+            return CallNextHookEx(_mouseHookID, nCode, wParam, lParam);
         }
 
         public void Dispose()

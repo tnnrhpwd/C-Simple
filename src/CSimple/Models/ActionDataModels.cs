@@ -232,6 +232,17 @@ namespace CSimple.Models
         public float VelocityX { get; set; }
         public float VelocityY { get; set; }
 
+        // Additional properties to track button state changes 
+        public bool IsButtonStateChange { get; set; }
+        public bool IsPrimaryButtonEvent =>
+            EventType == 0x0201 || EventType == 0x0202; // WM_LBUTTONDOWN or WM_LBUTTONUP
+
+        public bool IsSecondaryButtonEvent =>
+            EventType == 0x0204 || EventType == 0x0205; // WM_RBUTTONDOWN or WM_RBUTTONUP
+
+        public bool IsMiddleButtonEvent =>
+            EventType == 0x0207 || EventType == 0x0208; // WM_MBUTTONDOWN or WM_MBUTTONUP
+
         // Touch input properties
         public bool IsTouch { get; set; }
         public int TouchId { get; set; }

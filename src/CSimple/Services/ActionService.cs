@@ -528,7 +528,7 @@ namespace CSimple.Services
                         }
 
                         totalActionsExecuted++;
-                        Debug.WriteLine($"### Processing Action {totalActionsExecuted}/{actionGroup.ActionArray.Count} - Event Type: 0x{action.EventType:X4}");
+                        //Debug.WriteLine($"### Processing Action {totalActionsExecuted}/{actionGroup.ActionArray.Count} - Event Type: 0x{action.EventType:X4}");
 
                         DateTime currentActionTime;
                         if (!DateTime.TryParse(action.Timestamp.ToString(), null, System.Globalization.DateTimeStyles.RoundtripKind, out currentActionTime))
@@ -573,71 +573,9 @@ namespace CSimple.Services
                                 int targetY = action.Coordinates?.Y ?? currentY;
 
                                 // DEBUG INFO: Log button states for this move
-                                Debug.WriteLine($"Move to ({targetX},{targetY}), Button States: L:{action.IsLeftButtonDown} R:{action.IsRightButtonDown} M:{action.IsMiddleButtonDown}");
-                                Debug.WriteLine($"Previous Button States: L:{prevLeftButtonDown} R:{prevRightButtonDown} M:{prevMiddleButtonDown}");
-
-                                // HANDLE LEFT BUTTON STATE CHANGE
-                                if (action.IsLeftButtonDown != prevLeftButtonDown)
-                                {
-                                    if (action.IsLeftButtonDown)
-                                    {
-                                        Debug.WriteLine($"*** LEFT BUTTON DOWN detected at ({targetX},{targetY}) ***");
-                                        SendLowLevelMouseClick(MouseButton.Left, false, targetX, targetY);
-                                        _leftButtonDown = true;
-                                        totalClicksSimulated++;
-                                    }
-                                    else
-                                    {
-                                        Debug.WriteLine($"*** LEFT BUTTON UP detected at ({targetX},{targetY}) ***");
-                                        SendLowLevelMouseClick(MouseButton.Left, true, targetX, targetY);
-                                        _leftButtonDown = false;
-                                        totalClicksSimulated++;
-                                    }
-                                }
-
-                                // HANDLE RIGHT BUTTON STATE CHANGE
-                                if (action.IsRightButtonDown != prevRightButtonDown)
-                                {
-                                    if (action.IsRightButtonDown)
-                                    {
-                                        Debug.WriteLine($"*** RIGHT BUTTON DOWN detected at ({targetX},{targetY}) ***");
-                                        SendLowLevelMouseClick(MouseButton.Right, false, targetX, targetY);
-                                        _rightButtonDown = true;
-                                        totalClicksSimulated++;
-                                    }
-                                    else
-                                    {
-                                        Debug.WriteLine($"*** RIGHT BUTTON UP detected at ({targetX},{targetY}) ***");
-                                        SendLowLevelMouseClick(MouseButton.Right, true, targetX, targetY);
-                                        _rightButtonDown = false;
-                                        totalClicksSimulated++;
-                                    }
-                                }
-
-                                // HANDLE MIDDLE BUTTON STATE CHANGE
-                                if (action.IsMiddleButtonDown != prevMiddleButtonDown)
-                                {
-                                    if (action.IsMiddleButtonDown)
-                                    {
-                                        Debug.WriteLine($"*** MIDDLE BUTTON DOWN detected at ({targetX},{targetY}) ***");
-                                        SendLowLevelMouseClick(MouseButton.Middle, false, targetX, targetY);
-                                        _middleButtonDown = true;
-                                        totalClicksSimulated++;
-                                    }
-                                    else
-                                    {
-                                        Debug.WriteLine($"*** MIDDLE BUTTON UP detected at ({targetX},{targetY}) ***");
-                                        SendLowLevelMouseClick(MouseButton.Middle, true, targetX, targetY);
-                                        _middleButtonDown = false;
-                                        totalClicksSimulated++;
-                                    }
-                                }
-
-                                // Check if any button is currently down (for drag operations)
-                                bool isDragging = action.IsLeftButtonDown || action.IsRightButtonDown || action.IsMiddleButtonDown;
-
+                                //Debug.WriteLine($"Move to ({targetX},{targetY}), Button States: L:{action.IsLeftButtonDown} R:{action.IsRightButtonDown} M:{action.IsMiddleButtonDown}");
                                 // Now perform the mouse movement
-                                Debug.WriteLine($"Moving mouse to ({targetX},{targetY}) {(isDragging ? "- DRAGGING" : "")}");
+                                //Debug.WriteLine($"Moving mouse to ({targetX},{targetY}) {(isDragging ? "- DRAGGING" : "")}");
 
                                 if (UseInterpolation)
                                 {
@@ -677,7 +615,7 @@ namespace CSimple.Services
                                 {
                                     // Direct move
                                     SendLowLevelMouseMove(targetX, targetY);
-                                    await Task.Delay(30); // Short delay to ensure position is reached
+                                    //await Task.Delay(30); // Short delay to ensure position is reached
                                 }
 
                                 // Then send explicit mouse down event
@@ -709,7 +647,7 @@ namespace CSimple.Services
                                     {
                                         // Direct move
                                         SendLowLevelMouseMove(targetX, targetY);
-                                        await Task.Delay(30); // Short delay to ensure position is reached
+                                        //await Task.Delay(30); // Short delay to ensure position is reached
                                     }
                                 }
 
@@ -741,7 +679,7 @@ namespace CSimple.Services
                                 {
                                     // Direct move
                                     SendLowLevelMouseMove(targetX, targetY);
-                                    await Task.Delay(30); // Short delay to ensure position is reached
+                                    //await Task.Delay(30); // Short delay to ensure position is reached
                                 }
 
                                 // Then send explicit mouse down event
@@ -773,7 +711,7 @@ namespace CSimple.Services
                                     {
                                         // Direct move
                                         SendLowLevelMouseMove(targetX, targetY);
-                                        await Task.Delay(30); // Short delay to ensure position is reached
+                                        //await Task.Delay(30); // Short delay to ensure position is reached
                                     }
                                 }
 
@@ -803,7 +741,7 @@ namespace CSimple.Services
                                 else
                                 {
                                     SendLowLevelMouseMove(targetX, targetY);
-                                    await Task.Delay(30); // Short delay to ensure position is reached
+                                    //await Task.Delay(30); // Short delay to ensure position is reached
                                 }
 
                                 // Then send explicit mouse down event
@@ -833,7 +771,7 @@ namespace CSimple.Services
                                     else
                                     {
                                         SendLowLevelMouseMove(targetX, targetY);
-                                        await Task.Delay(30); // Short delay to ensure position is reached
+                                        //await Task.Delay(30); // Short delay to ensure position is reached
                                     }
                                 }
 

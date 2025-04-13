@@ -57,11 +57,21 @@ namespace CSimple.Services
             public uint ulExtraInformation;
         }
 
+        // Constants for mouse button flags
+        private const ushort RI_MOUSE_LEFT_BUTTON_DOWN = 0x0001;
+        private const ushort RI_MOUSE_LEFT_BUTTON_UP = 0x0002;
+        private const ushort RI_MOUSE_RIGHT_BUTTON_DOWN = 0x0004;
+        private const ushort RI_MOUSE_RIGHT_BUTTON_UP = 0x0008;
+        private const ushort RI_MOUSE_MIDDLE_BUTTON_DOWN = 0x0010;
+        private const ushort RI_MOUSE_MIDDLE_BUTTON_UP = 0x0020;
+
         // Events for both mouse movement and buttons
         public event Action<int, int> MouseMoved;   // For relative mouse movement (3D controls)
         public event Action<string> ButtonDown; // For mouse button presses
+        public event Action<string> ButtonUp;   // Added for mouse button releases
         public event Action<TouchData> TouchEvent; // For touch events
         public event Action<TrackpadData> TrackpadEvent; // For trackpad events
+        public event Action<MouseButtonData> MouseButtonEvent; // New event for detailed mouse button state
 
         // Touch data structure
         public class TouchData
@@ -78,6 +88,28 @@ namespace CSimple.Services
             Move,
             Up,
             Cancel
+        }
+
+        // New mouse button data structure
+        public class MouseButtonData
+        {
+            public int X { get; set; }
+            public int Y { get; set; }
+            public bool IsLeftDown { get; set; }
+            public bool IsRightDown { get; set; }
+            public bool IsMiddleDown { get; set; }
+            public MouseButtonAction Action { get; set; }
+        }
+
+        public enum MouseButtonAction
+        {
+            None,
+            LeftDown,
+            LeftUp,
+            RightDown,
+            RightUp,
+            MiddleDown,
+            MiddleUp
         }
 
         // Trackpad data structure
@@ -153,32 +185,78 @@ namespace CSimple.Services
                         {
                             string buttonState = "";
 
-                            if ((raw.mouse.usButtonFlags & 0x0001) != 0)
+                            if ((raw.mouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN) != 0)
                             {
                                 buttonState = "Left button down";
+                                ButtonDown?.Invoke(buttonState);
+                                MouseButtonEvent?.Invoke(new MouseButtonData
+                                {
+                                    X = raw.mouse.lLastX,
+                                    Y = raw.mouse.lLastY,
+                                    IsLeftDown = true,
+                                    Action = MouseButtonAction.LeftDown
+                                });
                             }
-                            else if ((raw.mouse.usButtonFlags & 0x0002) != 0)
+                            else if ((raw.mouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_UP) != 0)
                             {
                                 buttonState = "Left button up";
+                                ButtonUp?.Invoke(buttonState);
+                                MouseButtonEvent?.Invoke(new MouseButtonData
+                                {
+                                    X = raw.mouse.lLastX,
+                                    Y = raw.mouse.lLastY,
+                                    IsLeftDown = false,
+                                    Action = MouseButtonAction.LeftUp
+                                });
                             }
-                            else if ((raw.mouse.usButtonFlags & 0x0004) != 0)
+                            else if ((raw.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN) != 0)
                             {
                                 buttonState = "Right button down";
+                                ButtonDown?.Invoke(buttonState);
+                                MouseButtonEvent?.Invoke(new MouseButtonData
+                                {
+                                    X = raw.mouse.lLastX,
+                                    Y = raw.mouse.lLastY,
+                                    IsRightDown = true,
+                                    Action = MouseButtonAction.RightDown
+                                });
                             }
-                            else if ((raw.mouse.usButtonFlags & 0x0008) != 0)
+                            else if ((raw.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP) != 0)
                             {
                                 buttonState = "Right button up";
+                                ButtonUp?.Invoke(buttonState);
+                                MouseButtonEvent?.Invoke(new MouseButtonData
+                                {
+                                    X = raw.mouse.lLastX,
+                                    Y = raw.mouse.lLastY,
+                                    IsRightDown = false,
+                                    Action = MouseButtonAction.RightUp
+                                });
                             }
-                            else if ((raw.mouse.usButtonFlags & 0x0010) != 0)
+                            else if ((raw.mouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN) != 0)
                             {
                                 buttonState = "Middle button down";
+                                ButtonDown?.Invoke(buttonState);
+                                MouseButtonEvent?.Invoke(new MouseButtonData
+                                {
+                                    X = raw.mouse.lLastX,
+                                    Y = raw.mouse.lLastY,
+                                    IsMiddleDown = true,
+                                    Action = MouseButtonAction.MiddleDown
+                                });
                             }
-                            else if ((raw.mouse.usButtonFlags & 0x0020) != 0)
+                            else if ((raw.mouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_UP) != 0)
                             {
                                 buttonState = "Middle button up";
+                                ButtonUp?.Invoke(buttonState);
+                                MouseButtonEvent?.Invoke(new MouseButtonData
+                                {
+                                    X = raw.mouse.lLastX,
+                                    Y = raw.mouse.lLastY,
+                                    IsMiddleDown = false,
+                                    Action = MouseButtonAction.MiddleUp
+                                });
                             }
-
-                            ButtonDown?.Invoke(buttonState);
                         }
                     }
                     else if (raw.header.dwType == RIM_TYPEHID)
