@@ -53,6 +53,8 @@ namespace CSimple.Services
         private const int WM_RBUTTONDOWN = 0x0204;
         private const int WM_MOUSEMOVE = 0x0200;
         private const uint KEYEVENTF_KEYUP = 0x0002;
+        private const int WM_KEYDOWN = 0x0100;
+        private const int WM_KEYUP = 0x0101;
 
         // Constants for SendInput
         private const int INPUT_MOUSE = 0;
@@ -78,12 +80,17 @@ namespace CSimple.Services
         private bool _middleButtonDown = false;
         private bool _isDragging = false;
 
+        // Add these constants near the top of the class
+        private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
+        private const uint KEYEVENTF_SCANCODE = 0x0008;
+        private const int INPUT_KEYBOARD = 1;
+
         // Struct definitions for SendInput
         [StructLayout(LayoutKind.Sequential)]
         private struct INPUT
         {
             public int type;
-            public MOUSEINPUT mi;
+            public InputUnion u;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -95,6 +102,25 @@ namespace CSimple.Services
             public uint dwFlags;
             public uint time;
             public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct KEYBDINPUT
+        {
+            public ushort wVk;
+            public ushort wScan;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct InputUnion
+        {
+            [FieldOffset(0)]
+            public MOUSEINPUT mi;
+            [FieldOffset(0)]
+            public KEYBDINPUT ki;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -469,6 +495,7 @@ namespace CSimple.Services
                     int totalActionsExecuted = 0;
                     int totalClicksSimulated = 0;
                     int totalMovesSimulated = 0;
+                    int totalKeystrokesSimulated = 0;
 
                     // EXECUTE ACTIONS SEQUENTIALLY
                     foreach (var action in actionGroup.ActionArray)
@@ -665,8 +692,30 @@ namespace CSimple.Services
                                 currentY = targetY;
                                 totalClicksSimulated++;
                             }
-                            // OTHER EVENT TYPES (simplified - handle middle mouse button and keyboard events)
-                            // ...existing code for other event types...
+                            // CASE 4: KEYBOARD EVENTS
+                            else if (action.EventType == 0x0100) // Key down
+                            {
+                                Debug.WriteLine($"*** KEY DOWN: {action.KeyCode} ***");
+                                SendKeyboardInput((ushort)action.KeyCode, false);
+                            }
+                            else if (action.EventType == 0x0101) // Key up
+                            {
+                                Debug.WriteLine($"*** KEY UP: {action.KeyCode} ***");
+                                SendKeyboardInput((ushort)action.KeyCode, true);
+                            }
+                            // CASE 4: KEYBOARD EVENTS
+                            else if (action.EventType == WM_KEYDOWN) // Keyboard key down
+                            {
+                                Debug.WriteLine($"*** KEY DOWN: VKCode = {action.KeyCode} (0x{action.KeyCode:X}) ***");
+                                SendKeyboardInput((ushort)action.KeyCode, false); // false for key down
+                                totalKeystrokesSimulated++;
+                            }
+                            else if (action.EventType == WM_KEYUP) // Keyboard key up
+                            {
+                                Debug.WriteLine($"*** KEY UP: VKCode = {action.KeyCode} (0x{action.KeyCode:X}) ***");
+                                SendKeyboardInput((ushort)action.KeyCode, true); // true for key up
+                                totalKeystrokesSimulated++;
+                            }
                             else
                             {
                                 Debug.WriteLine($"Unhandled action type: {action.EventType} (0x{action.EventType:X4})");
@@ -948,12 +997,12 @@ namespace CSimple.Services
             // Create INPUT structure for mouse move
             INPUT[] inputs = new INPUT[1];
             inputs[0].type = INPUT_MOUSE;
-            inputs[0].mi.dx = absoluteX;
-            inputs[0].mi.dy = absoluteY;
-            inputs[0].mi.mouseData = 0;
-            inputs[0].mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE_NOCOALESCING;
-            inputs[0].mi.time = 0;
-            inputs[0].mi.dwExtraInfo = IntPtr.Zero;
+            inputs[0].u.mi.dx = absoluteX;
+            inputs[0].u.mi.dy = absoluteY;
+            inputs[0].u.mi.mouseData = 0;
+            inputs[0].u.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE_NOCOALESCING;
+            inputs[0].u.mi.time = 0;
+            inputs[0].u.mi.dwExtraInfo = IntPtr.Zero;
 
             // Send input
             SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
@@ -976,27 +1025,45 @@ namespace CSimple.Services
             // Create INPUT structure for mouse click
             INPUT[] inputs = new INPUT[1];
             inputs[0].type = INPUT_MOUSE;
-            inputs[0].mi.dx = 0;
-            inputs[0].mi.dy = 0;
-            inputs[0].mi.mouseData = 0;
-            inputs[0].mi.time = 0;
-            inputs[0].mi.dwExtraInfo = IntPtr.Zero;
+            inputs[0].u.mi.dx = 0;
+            inputs[0].u.mi.dy = 0;
+            inputs[0].u.mi.mouseData = 0;
+            inputs[0].u.mi.time = 0;
+            inputs[0].u.mi.dwExtraInfo = IntPtr.Zero;
 
             // Set appropriate flags based on button and action
             switch (button)
             {
                 case MouseButton.Left:
-                    inputs[0].mi.dwFlags = isUp ? (uint)MOUSEEVENTF_LEFTUP : (uint)MOUSEEVENTF_LEFTDOWN;
+                    inputs[0].u.mi.dwFlags = isUp ? (uint)MOUSEEVENTF_LEFTUP : (uint)MOUSEEVENTF_LEFTDOWN;
                     break;
                 case MouseButton.Right:
-                    inputs[0].mi.dwFlags = isUp ? (uint)MOUSEEVENTF_RIGHTUP : (uint)MOUSEEVENTF_RIGHTDOWN;
+                    inputs[0].u.mi.dwFlags = isUp ? (uint)MOUSEEVENTF_RIGHTUP : (uint)MOUSEEVENTF_RIGHTDOWN;
                     break;
                 case MouseButton.Middle:
-                    inputs[0].mi.dwFlags = isUp ? (uint)MOUSEEVENTF_MIDDLEUP : (uint)MOUSEEVENTF_MIDDLEDOWN;
+                    inputs[0].u.mi.dwFlags = isUp ? (uint)MOUSEEVENTF_MIDDLEUP : (uint)MOUSEEVENTF_MIDDLEDOWN;
                     break;
             }
 
             // Send input
+            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+        }
+
+        // New method to simulate key presses
+        private void SendKeyboardInput(ushort key, bool isKeyUp)
+        {
+            INPUT[] inputs = new INPUT[1];
+            inputs[0].type = INPUT_KEYBOARD;
+            inputs[0].u.ki.wVk = 0;
+            inputs[0].u.ki.wScan = key;
+            inputs[0].u.ki.dwFlags = KEYEVENTF_SCANCODE;
+            if (isKeyUp)
+            {
+                inputs[0].u.ki.dwFlags |= KEYEVENTF_KEYUP;
+            }
+            inputs[0].u.ki.time = 0;
+            inputs[0].u.ki.dwExtraInfo = IntPtr.Zero;
+
             SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
         }
 
@@ -1053,12 +1120,12 @@ namespace CSimple.Services
         {
             INPUT[] inputs = new INPUT[1];
             inputs[0].type = INPUT_MOUSE;
-            inputs[0].mi.dx = deltaX;
-            inputs[0].mi.dy = deltaY;
-            inputs[0].mi.mouseData = 0;
-            inputs[0].mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCING; // Use more precise movement
-            inputs[0].mi.time = 0;
-            inputs[0].mi.dwExtraInfo = IntPtr.Zero;
+            inputs[0].u.mi.dx = deltaX;
+            inputs[0].u.mi.dy = deltaY;
+            inputs[0].u.mi.mouseData = 0;
+            inputs[0].u.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCING; // Use more precise movement
+            inputs[0].u.mi.time = 0;
+            inputs[0].u.mi.dwExtraInfo = IntPtr.Zero;
 
             // Send the raw input
             SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
