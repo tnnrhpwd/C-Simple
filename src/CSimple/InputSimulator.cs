@@ -119,7 +119,7 @@ namespace CSimple
         private const uint KEYEVENTF_KEYUP = 0x0002;
         private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
         private const int MOUSEEVENTF_ABSOLUTE = 0x8000;
-        private const int MOUSEEVENTF_MOVE = 0x0001;
+        private const uint MOUSEEVENTF_MOVE = 0x0001;
         private const int MOUSEEVENTF_LEFTDOWN = 0x0002;
         private const int MOUSEEVENTF_LEFTUP = 0x0004;
         private const int MOUSEEVENTF_RIGHTDOWN = 0x0008;
@@ -129,6 +129,7 @@ namespace CSimple
         private const int MOUSEEVENTF_WHEEL = 0x0800;
         private const int SM_CXSCREEN = 0;
         private const int SM_CYSCREEN = 1;
+        private const uint MOUSEEVENTF_MOVE_NOCOALESCING = 0x2000;
 
         // Structures for SendInput
         [StructLayout(LayoutKind.Sequential)]
@@ -410,6 +411,24 @@ namespace CSimple
             }
 
             // Send input
+            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+        }
+
+        /// <summary>
+        /// Sends raw mouse input using deltas
+        /// </summary>
+        public static void SendRawMouseInput(int deltaX, int deltaY)
+        {
+            INPUT[] inputs = new INPUT[1];
+            inputs[0].type = INPUT_MOUSE;
+            inputs[0].u.mi.dx = deltaX;
+            inputs[0].u.mi.dy = deltaY;
+            inputs[0].u.mi.mouseData = 0;
+            inputs[0].u.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCING;
+            inputs[0].u.mi.time = 0;
+            inputs[0].u.mi.dwExtraInfo = IntPtr.Zero;
+
+            // Send the raw input
             SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
         }
         #endregion
