@@ -114,6 +114,11 @@ namespace CSimple.Pages
             }
         }
 
+        // Summary properties
+        public int ClickCount { get; set; }
+        public int PressCount { get; set; }
+        public int MoveCount { get; set; }
+
         public ActionDetailViewModel(ActionGroup actionGroup, INavigation navigation)
         {
             try
@@ -137,6 +142,7 @@ namespace CSimple.Pages
 
                 // Initialize steps
                 InitializeSteps();
+                CalculateSummary();
 
                 // Initialize models (demo data)
                 InitializeModels();
@@ -1128,6 +1134,30 @@ namespace CSimple.Pages
             {
                 Debug.WriteLine($"Error playing audio: {ex.Message}");
             }
+        }
+
+        private void CalculateSummary()
+        {
+            ClickCount = 0;
+            PressCount = 0;
+            MoveCount = 0;
+
+            if (_actionGroup?.ActionArray != null)
+            {
+                foreach (var step in _actionGroup.ActionArray)
+                {
+                    if (IsMouseButtonEvent(step.EventType))
+                        ClickCount++;
+                    else if (step.EventType == 256 || step.EventType == 257)
+                        PressCount++;
+                    else if (step.EventType == 512 || step.EventType == 0x0200)
+                        MoveCount++;
+                }
+            }
+
+            OnPropertyChanged(nameof(ClickCount));
+            OnPropertyChanged(nameof(PressCount));
+            OnPropertyChanged(nameof(MoveCount));
         }
 
         // INotifyPropertyChanged implementation

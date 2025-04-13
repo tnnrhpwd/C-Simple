@@ -78,8 +78,43 @@
                         <Label Text="Summary"
                                FontAttributes="Bold"
                                FontSize="18" />
-                        <Label Text="{Binding Description}"
-                               TextColor="{AppThemeBinding Light=#616161, Dark=#b0bec5}" />
+                        <!-- Action Steps Summary -->
+                        <Grid ColumnDefinitions="*,*"
+                              RowDefinitions="Auto,Auto,Auto,Auto"
+                              ColumnSpacing="8">
+                            <Label Text="Total Steps:"
+                                   Grid.Row="0"
+                                   Grid.Column="0"
+                                   TextColor="{AppThemeBinding Light=#616161, Dark=#b0bec5}" />
+                            <Label Text="{Binding StepCount}"
+                                   Grid.Row="0"
+                                   Grid.Column="1"
+                                   FontAttributes="Bold" />
+                            <Label Text="Mouse Clicks:"
+                                   Grid.Row="1"
+                                   Grid.Column="0"
+                                   TextColor="{AppThemeBinding Light=#616161, Dark=#b0bec5}" />
+                            <Label Text="{Binding ClickCount}"
+                                   Grid.Row="1"
+                                   Grid.Column="1"
+                                   FontAttributes="Bold" />
+                            <Label Text="Key Presses:"
+                                   Grid.Row="2"
+                                   Grid.Column="0"
+                                   TextColor="{AppThemeBinding Light=#616161, Dark=#b0bec5}" />
+                            <Label Text="{Binding PressCount}"
+                                   Grid.Row="2"
+                                   Grid.Column="1"
+                                   FontAttributes="Bold" />
+                            <Label Text="Mouse Moves:"
+                                   Grid.Row="3"
+                                   Grid.Column="0"
+                                   TextColor="{AppThemeBinding Light=#616161, Dark=#b0bec5}" />
+                            <Label Text="{Binding MoveCount}"
+                                   Grid.Row="3"
+                                   Grid.Column="1"
+                                   FontAttributes="Bold" />
+                        </Grid>
                         <BoxView HeightRequest="1"
                                  Color="{AppThemeBinding Light=#e0e0e0, Dark=#333333}"
                                  Margin="0,8" />
