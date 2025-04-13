@@ -500,12 +500,17 @@ namespace CSimple.Pages
             _isRecording = false; // Ensure recording flag is set to false
 
             Debug.WriteLine($"Stopping touch recording. Buffer has {_currentRecordingBuffer.Count} items.");
-            Debug.WriteLine($"SaveRecord={SaveRecord}, SaveLocally={SaveLocally}");
+            Debug.WriteLine($"ActionName={ActionConfigCard?.ActionName ?? "null"}, SaveRecord={SaveRecord}, SaveLocally={SaveLocally}");
+
+            // Count keyboard events for diagnostics
+            int keyDownEvents = _currentRecordingBuffer.Count(a => a.EventType == 0x0100);
+            int keyUpEvents = _currentRecordingBuffer.Count(a => a.EventType == 0x0101);
+            Debug.WriteLine($"Keyboard events in buffer - Down: {keyDownEvents}, Up: {keyUpEvents}");
 
             try
             {
-                // Only save if we're saving records
-                if (SaveRecord)
+                // Only save if we're saving records or if we have keyboard events (always save keyboard events)
+                if (SaveRecord || keyDownEvents > 0 || keyUpEvents > 0)
                 {
                     // Process all buffered actions at once now that we're done recording
                     await SaveAllBufferedActions();
@@ -516,11 +521,100 @@ namespace CSimple.Pages
                         Debug.WriteLine("Explicitly saving to local files...");
                         await SaveDataItemsToFile();
                     }
+
+                    // Log the final state of Data collection
+                    Debug.WriteLine($"Data collection now has {Data.Count} items");
+                }
+                else
+                {
+                    Debug.WriteLine("Skipping save because SaveRecord is false and no keyboard events detected");
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error in StopUserTouch: {ex.Message}");
+                Debug.WriteLine(ex.StackTrace);
+            }
+        }
+
+        private void OnInputCaptured(string inputJson)
+        {
+            try
+            {
+                // Process immediately instead of debouncing
+                var actionItem = JsonConvert.DeserializeObject<ActionItem>(inputJson);
+
+                // Check if it's a mouse movement event
+                bool isMouseMovement = actionItem.EventType == 512 || // Mouse move
+                                       actionItem.EventType == 0x0200; // WM_MOUSEMOVE
+
+                // Always process keyboard events immediately without debouncing
+                bool isKeyboardEvent = actionItem.EventType == 0x0100 || // WM_KEYDOWN
+                                       actionItem.EventType == 0x0101;   // WM_KEYUP
+
+                if (isMouseMovement)
+                {
+                    // Process mouse movements directly without debounce
+                    ProcessMouseMovement(actionItem);
+                }
+                else if (isKeyboardEvent)
+                {
+                    // Process keyboard events immediately to ensure they're recorded
+                    ProcessKeyboardEvent(actionItem);
+                }
+                else
+                {
+                    // Only debounce non-mouse, non-keyboard inputs
+                    _debounceTimer?.Dispose();
+                    _debounceTimer = new Timer(DebouncedInputCaptured, inputJson, DebounceInterval, Timeout.Infinite);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error processing input: {ex.Message}");
+            }
+        }
+
+        // New method to process keyboard events directly to ensure they're recorded
+        private void ProcessKeyboardEvent(ActionItem actionItem)
+        {
+            if (_isRecording)
+            {
+                // Never consider keyboard events as duplicates - always record them
+                _currentRecordingBuffer.Add(actionItem);
+                _lastRecordedAction = actionItem;
+
+                bool isKeyDown = actionItem.EventType == 0x0100; // WM_KEYDOWN
+
+                // Update UI
+                Dispatcher.Dispatch(() =>
+                {
+                    // Update touch level based on active key count
+                    int activeKeyCount = _inputService.GetActiveKeyCount();
+                    UserTouchLevel = Math.Min(activeKeyCount / 5.0f, 1.0f);
+
+                    if (CapturePreviewCard != null)
+                    {
+                        CapturePreviewCard.UpdateInputActivity((ushort)actionItem.KeyCode, isKeyDown);
+                    }
+
+                    // Debug logging
+                    Debug.WriteLine($"Directly recorded keyboard event: {(isKeyDown ? "DOWN" : "UP")} KeyCode: {actionItem.KeyCode}");
+                });
+
+                // For important key events, force save more frequently
+                if (_currentRecordingBuffer.Count % 10 == 0 &&
+                    IsKeyboardEvent(actionItem.EventType))
+                {
+                    // Consider periodic auto-saving for keyboard events
+                    // This is optional but can help ensure keyboard events are saved
+                    Dispatcher.Dispatch(async () =>
+                    {
+                        // We can optionally save periodically during recording
+                        // but it might impact performance
+                        // await SaveAllBufferedActions();
+                    });
+                }
             }
         }
 
@@ -528,10 +622,29 @@ namespace CSimple.Pages
         private async Task SaveAllBufferedActions()
         {
             string actionName = ActionConfigCard?.ActionName;
-            if (string.IsNullOrEmpty(actionName) || _currentRecordingBuffer.Count == 0)
-                return;
+            if (string.IsNullOrEmpty(actionName))
+            {
+                // Add a default name if none is provided
+                actionName = $"Action-{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+                Debug.WriteLine($"No action name provided, using default: {actionName}");
+                // Update the ActionConfigCard if available
+                if (ActionConfigCard != null)
+                {
+                    ActionConfigCard.ActionName = actionName;
+                }
+            }
 
-            Debug.WriteLine($"Saving {_currentRecordingBuffer.Count} actions for: {actionName}");
+            if (_currentRecordingBuffer.Count == 0)
+            {
+                Debug.WriteLine("Recording buffer is empty, nothing to save");
+                return;
+            }
+
+            // Diagnostic information
+            int keyDownEvents = _currentRecordingBuffer.Count(a => a.EventType == 0x0100);
+            int keyUpEvents = _currentRecordingBuffer.Count(a => a.EventType == 0x0101);
+            int mouseEvents = _currentRecordingBuffer.Count(a => a.EventType == 0x0200 || a.EventType == 512);
+            Debug.WriteLine($"Event breakdown - KeyDown: {keyDownEvents}, KeyUp: {keyUpEvents}, Mouse: {mouseEvents}");
 
             // Create priority and modifier configuration
             int priority = 0;
@@ -549,8 +662,8 @@ namespace CSimple.Pages
 
             // Ensure unique identifier for the action group
             var newActionGroupId = Guid.NewGuid();
-
-            var existingGroup = Data.FirstOrDefault(ag => ag.Data.ActionGroupObject.ActionName == actionName);
+            var existingGroup = Data.FirstOrDefault(ag =>
+                ag.Data?.ActionGroupObject?.ActionName == actionName);
 
             if (existingGroup != null)
             {
@@ -593,6 +706,7 @@ namespace CSimple.Pages
                 };
 
                 Data.Add(newItem);
+
                 Debug.WriteLine($"Created New Action Group: {actionName} with {_currentRecordingBuffer.Count} items");
 
                 // Save the new action to files - only when explicitly stopping
@@ -739,40 +853,10 @@ namespace CSimple.Pages
             });
         }
 
-        private void OnInputCaptured(string inputJson)
-        {
-            try
-            {
-                // Process immediately instead of debouncing
-                var actionItem = JsonConvert.DeserializeObject<ActionItem>(inputJson);
-
-                // Check if it's a mouse movement event
-                bool isMouseMovement = actionItem.EventType == 512 || // Mouse move
-                                      actionItem.EventType == 0x0200; // WM_MOUSEMOVE
-
-                if (isMouseMovement)
-                {
-                    // Process mouse movements directly without debounce
-                    ProcessMouseMovement(actionItem);
-                }
-                else
-                {
-                    // Only debounce non-mouse movement inputs
-                    _debounceTimer?.Dispose();
-                    _debounceTimer = new Timer(DebouncedInputCaptured, inputJson, DebounceInterval, Timeout.Infinite);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error processing input: {ex.Message}");
-            }
-        }
-
-        // New helper for determining if an action is a mouse click event (down or up)
         private bool IsMouseClickEvent(int eventType)
         {
             return eventType == 0x0201 || // WM_LBUTTONDOWN
-                   eventType == 0x0202 || // WM_LBUTTONUP 
+                   eventType == 0x0202 || // WM_LBUTTONUP
                    eventType == 0x0204 || // WM_RBUTTONDOWN
                    eventType == 0x0205 || // WM_RBUTTONUP
                    eventType == 0x0207 || // WM_MBUTTONDOWN
@@ -1118,7 +1202,6 @@ namespace CSimple.Pages
                 // Step 2: Also save to local data store (localdataitems.json)
                 // Make a new list with just the action we want to save
                 var localItems = new List<DataItem> { newItem };
-
                 await _dataService.SaveLocalRichDataAsync(localItems);
                 Debug.WriteLine("Saved action to localdataitems.json");
             }

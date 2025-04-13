@@ -69,6 +69,18 @@ namespace CSimple.Services
                     {
                         // If this is called from ObservePage, assume it's a local action
                         item.Data.ActionGroupObject.IsLocal = true;
+
+                        // Log keyboard events for debugging purposes
+                        if (item.Data.ActionGroupObject.ActionArray != null)
+                        {
+                            int keyDownEvents = item.Data.ActionGroupObject.ActionArray.Count(a => a.EventType == 0x0100);
+                            int keyUpEvents = item.Data.ActionGroupObject.ActionArray.Count(a => a.EventType == 0x0101);
+
+                            if (keyDownEvents > 0 || keyUpEvents > 0)
+                            {
+                                LogDebug($"Action '{item.Data.ActionGroupObject.ActionName}' contains {keyDownEvents} DOWN and {keyUpEvents} UP keyboard events");
+                            }
+                        }
                     }
                 }
 
@@ -112,6 +124,21 @@ namespace CSimple.Services
                 // Log some details about what we're saving
                 var actionNames = itemsList.Select(i => i.Data?.ActionGroupObject?.ActionName).ToList();
                 LogDebug($"Saving {itemsList.Count} items to local rich data: {string.Join(", ", actionNames)}");
+
+                // Verify keyboard events are included before saving
+                foreach (var item in itemsList)
+                {
+                    if (item?.Data?.ActionGroupObject?.ActionArray != null)
+                    {
+                        int keyDownEvents = item.Data.ActionGroupObject.ActionArray.Count(a => a.EventType == 0x0100);
+                        int keyUpEvents = item.Data.ActionGroupObject.ActionArray.Count(a => a.EventType == 0x0101);
+
+                        if (keyDownEvents > 0 || keyUpEvents > 0)
+                        {
+                            LogDebug($"Action '{item.Data.ActionGroupObject.ActionName}' contains {keyDownEvents} DOWN and {keyUpEvents} UP keyboard events");
+                        }
+                    }
+                }
 
                 // Use the updated SaveLocalDataItemsAsync method to append data
                 await _fileService.SaveLocalDataItemsAsync(itemsList);
