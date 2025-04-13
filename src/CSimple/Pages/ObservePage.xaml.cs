@@ -856,9 +856,15 @@ namespace CSimple.Pages
             }
         }
 
+        private bool IsKeyboardEvent(int eventType)
+        {
+            // WM_KEYDOWN = 0x0100 (256)
+            // WM_KEYUP = 0x0101 (257)
+            return eventType == 256 || eventType == 257;
+        }
+
         private async void DebouncedInputCaptured(object state)
         {
-            // Only process non-mouse movement inputs (keyboard, buttons, etc.)
             string inputJson = (string)state;
             Dispatcher.Dispatch(async () =>
             {
@@ -866,46 +872,42 @@ namespace CSimple.Pages
 
                 try
                 {
-                    // Deserialize action item
                     var actionItem = JsonConvert.DeserializeObject<ActionItem>(inputJson);
 
-                    // Process non-mouse events normally
-                    if (actionItem.EventType != 512 && actionItem.EventType != 0x0200)
+                    // Always process keyboard events and non-mouse-move events
+                    if (IsKeyboardEvent(actionItem.EventType) || actionItem.EventType != 512)
                     {
                         // Update touch level based on active key count
                         int activeKeyCount = _inputService.GetActiveKeyCount();
-                        UserTouchLevel = Math.Min(activeKeyCount / 5.0f, 1.0f); // Scale: 5 keys = 100%
+                        UserTouchLevel = Math.Min(activeKeyCount / 5.0f, 1.0f);
 
-                        // Update visualization for keyboard events
                         if (CapturePreviewCard != null)
                         {
-                            // Determine if key is being pressed or released
-                            var isPressed = actionItem.EventType == 0x0100 || // Key down (WM_KEYDOWN)
-                                           actionItem.EventType == 0x0201 || // Left mouse down
-                                           actionItem.EventType == 0x0204;   // Right mouse down
-
-                            // Update the key display with keycode and press state
+                            bool isPressed = actionItem.EventType == 256; // WM_KEYDOWN
                             CapturePreviewCard.UpdateInputActivity((ushort)actionItem.KeyCode, isPressed);
                         }
 
-                        // Add to recording buffer if recording and not a duplicate
+                        // Add to recording buffer
                         if (_isRecording)
                         {
                             bool isDuplicate = IsDuplicateAction(actionItem, _lastRecordedAction);
-
-                            // For mouse clicks and key events, make sure we don't miss any
-                            if (!isDuplicate || IsMouseClickEvent(actionItem.EventType))
+                            if (!isDuplicate)
                             {
                                 _currentRecordingBuffer.Add(actionItem);
                                 _lastRecordedAction = actionItem;
 
-                                // Log click events for debugging
-                                if (IsMouseClickEvent(actionItem.EventType))
+                                // Debug logging
+                                if (IsKeyboardEvent(actionItem.EventType))
                                 {
-                                    Debug.WriteLine($"Recorded mouse click: {actionItem.EventType} at ({actionItem.Coordinates?.X ?? 0}, {actionItem.Coordinates?.Y ?? 0})");
+                                    Debug.WriteLine($"Recorded keyboard event: {(actionItem.EventType == 256 ? "DOWN" : "UP")} KeyCode: {actionItem.KeyCode}");
                                 }
                             }
                         }
+                    }
+                    // Handle mouse events
+                    else if (actionItem.EventType == 512) // Mouse move
+                    {
+                        // ... existing mouse handling code ...
                     }
                 }
                 catch (Exception ex)

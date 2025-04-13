@@ -553,10 +553,28 @@ namespace CSimple.Services
                     int vkCode = Marshal.ReadInt32(lParam);
                     actionItem.KeyCode = vkCode;
                     actionItem.EventType = (ushort)wParam;
-                }
 
-                // Add the action item to the queue for processing
-                AddToInputQueue(actionItem);
+                    // Track key state
+                    if (wParam == (IntPtr)WM_KEYDOWN)
+                    {
+                        if (!_activeKeyPresses.ContainsKey((ushort)vkCode))
+                        {
+                            _activeKeyPresses[(ushort)vkCode] = actionItem;
+                            _keyPressDownTimestamps[(ushort)vkCode] = DateTime.UtcNow;
+                        }
+                    }
+                    else if (wParam == (IntPtr)WM_KEYUP)
+                    {
+                        _activeKeyPresses.Remove((ushort)vkCode);
+                        _keyPressDownTimestamps.Remove((ushort)vkCode);
+                    }
+
+                    // Add to input queue
+                    AddToInputQueue(actionItem);
+
+                    // Log for debugging
+                    LogDebug($"Keyboard event: {(wParam == (IntPtr)WM_KEYDOWN ? "DOWN" : "UP")} Key: {vkCode}");
+                }
             }
 
             return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
