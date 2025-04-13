@@ -1348,7 +1348,7 @@ namespace CSimple.Services
                    vkCode == 0xA5;   // Right Alt
         }
 
-        // New method to simulate raw mouse movement using deltas instead of absolute coordinates
+        // method to simulate raw mouse movement using deltas instead of absolute coordinates
         private async Task SimulateRawMouseMovement(int deltaX, int deltaY, long timeSinceLastMoveMs, float velocityX, float velocityY)
         {
             const int maxMicroMove = 5; // Maximum micro-movement per step
@@ -1396,7 +1396,7 @@ namespace CSimple.Services
             sw.Stop();
         }
 
-        // Add this new method to send raw mouse movement using INPUT structure
+        // method to send raw mouse movement using INPUT structure
         private void SendRawMouseInput(int deltaX, int deltaY)
         {
             INPUT[] inputs = new INPUT[1];
@@ -1515,12 +1515,10 @@ namespace CSimple.Services
             Debug.WriteLine($"Executed Volume Command: {(volumeCommand == VK_VOLUME_MUTE ? "Mute" : volumeCommand == VK_VOLUME_DOWN ? "Volume Down" : "Volume Up")}");
         }
 
-        // Update method to accept any ID type
         public async Task<List<ActionFile>> GetActionFilesAsync(string actionId)
         {
             try
             {
-                // Handle null or empty actionId
                 if (string.IsNullOrEmpty(actionId))
                 {
                     actionId = "unknown";
@@ -1544,7 +1542,6 @@ namespace CSimple.Services
             }
         }
 
-        // Fully revised method to ensure NO backend loading in offline mode
         public async Task<List<DataItem>> LoadAllDataItemsAsync()
         {
             var result = new Dictionary<string, DataItem>();
