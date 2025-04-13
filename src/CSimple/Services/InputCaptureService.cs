@@ -229,6 +229,9 @@ namespace CSimple.Services
         // Add ActionService dependency
         private readonly ActionService _actionService;
 
+        // Static flag to indicate cancellation via CTRL+SHIFT+ESC
+        public static bool SimulationCancelledByTaskManager { get; internal set; } = false;
+
         public InputCaptureService(ActionService actionService)
         {
             // Initialize the queue
@@ -543,6 +546,9 @@ namespace CSimple.Services
                         // Cancel the simulation
                         _actionService?.CancelSimulation();
                         LogDebug("CTRL+SHIFT+ESC detected - Simulation cancelled.");
+
+                        // Set the static flag
+                        SimulationCancelledByTaskManager = true;
                     }
 
                     // Skip recording if this is a duplicate key event (key is already in desired state)

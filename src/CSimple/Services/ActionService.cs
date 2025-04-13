@@ -424,6 +424,9 @@ namespace CSimple.Services
             {
                 try
                 {
+                    // Reset the static flag at the start of a new simulation
+                    InputCaptureService.SimulationCancelledByTaskManager = false;
+
                     // Reset mouse button states at the start of execution
                     _leftButtonDown = false;
                     _rightButtonDown = false;
@@ -452,7 +455,7 @@ namespace CSimple.Services
                     // Execute each action sequentially
                     foreach (var action in actionGroup.ActionArray)
                     {
-                        if (cancel_simulation)
+                        if (cancel_simulation || InputCaptureService.SimulationCancelledByTaskManager)
                             break;
 
                         DateTime currentActionTime;
