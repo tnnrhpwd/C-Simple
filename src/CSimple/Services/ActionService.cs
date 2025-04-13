@@ -1134,15 +1134,15 @@ namespace CSimple.Services
         // method to simulate raw mouse movement using deltas instead of absolute coordinates
         private async Task SimulateRawMouseMovement(int deltaX, int deltaY, long timeSinceLastMoveMs, float velocityX, float velocityY)
         {
-            const int maxMicroMove = 5; // Maximum micro-movement per step
+            const int maxMicroMove = 3; // Maximum micro-movement per step - reduced for smoother movement
             const int minDelayMs = 1;  // Minimum delay between steps
-            const int maxDelayMs = 10; // Maximum delay between steps
+            const int maxDelayMs = 8; // Maximum delay between steps - reduced for responsiveness
 
             // Calculate total distance
             double totalDistance = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
 
             // Determine number of steps based on distance and velocity
-            int numSteps = (int)Math.Max(1, Math.Min(totalDistance / maxMicroMove, 20));
+            int numSteps = (int)Math.Max(5, Math.Min(totalDistance / maxMicroMove, 30)); // Increased min steps, reduced max steps
 
             // Calculate step size
             double stepX = (double)deltaX / numSteps;
@@ -1157,15 +1157,20 @@ namespace CSimple.Services
 
             for (int i = 0; i < numSteps; i++)
             {
-                // Calculate actual delay
-                double actualDelayMs = stepDelayMs - elapsedMs;
-                if (actualDelayMs > 0)
-                {
-                    await Task.Delay(TimeSpan.FromMilliseconds(actualDelayMs));
-                }
+                // Calculate micro-movement for this step
+                int microDeltaX = (int)Math.Round(stepX);
+                int microDeltaY = (int)Math.Round(stepY);
 
                 // Send raw mouse input
-                SendRawMouseInput((int)stepX, (int)stepY);
+                SendRawMouseInput(microDeltaX, microDeltaY);
+
+                // Calculate actual delay
+                double targetElapsedMs = stepDelayMs * (i + 1);
+                double actualDelayMs = targetElapsedMs - elapsedMs;
+
+                // Delay for the calculated time
+                if (actualDelayMs > 0)
+                    await Task.Delay(TimeSpan.FromMilliseconds(actualDelayMs));
 
                 // Update elapsed time
                 elapsedMs = sw.Elapsed.TotalMilliseconds;
