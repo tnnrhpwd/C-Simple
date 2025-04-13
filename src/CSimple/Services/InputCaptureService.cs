@@ -872,6 +872,17 @@ namespace CSimple.Services
             if (actionGroup == null || capturedInputs == null || capturedInputs.Length == 0)
                 return;
 
+            // Log the number of captured inputs for diagnostics
+            LogDebug($"Processing {capturedInputs.Length} captured inputs to action group");
+
+            // Count mouse button events for debugging
+            int mouseButtonEvents = capturedInputs.Count(i =>
+                i.EventType == WM_LBUTTONDOWN || i.EventType == WM_LBUTTONUP ||
+                i.EventType == WM_RBUTTONDOWN || i.EventType == WM_RBUTTONUP ||
+                i.EventType == WM_MBUTTONDOWN || i.EventType == WM_MBUTTONUP);
+
+            LogDebug($"Found {mouseButtonEvents} mouse button events to process");
+
             // Convert the captured inputs to model items
             var modelItems = ConvertToModelActionItems(capturedInputs);
 
@@ -894,6 +905,7 @@ namespace CSimple.Services
                 TimeSinceLastMoveMs = item.TimeSinceLastMoveMs,
                 VelocityX = item.VelocityX,
                 VelocityY = item.VelocityY,
+                // Ensure coordinates are properly copied
                 Coordinates = item.Coordinates != null ? new CSimple.Models.Coordinates
                 {
                     X = item.Coordinates.X,
@@ -902,8 +914,18 @@ namespace CSimple.Services
                     AbsoluteY = item.Coordinates.AbsoluteY,
                     RelativeX = item.Coordinates.RelativeX,
                     RelativeY = item.Coordinates.RelativeY
-                } : null
+                } : null,
+                // Ensure touch data is properly copied
+                IsTouch = item.IsTouch,
+                TouchId = item.TouchId,
+                TouchAction = item.TouchAction,
+                TouchWidth = item.TouchWidth,
+                TouchHeight = item.TouchHeight,
+                Pressure = item.Pressure
             }));
+
+            // Log confirmation that events were added
+            LogDebug($"Added {modelItems.Count} items to action group");
         }
 
         #endregion
@@ -942,6 +964,20 @@ namespace CSimple.Services
                                 else if (item.EventType == WM_KEYUP || item.EventType == WM_SYSKEYUP)
                                 {
                                     LogDebug($"Recorded keyboard event: UP KeyCode: {item.KeyCode}");
+                                }
+                                // Add explicit logging for mouse button events
+                                else if (item.EventType == WM_LBUTTONDOWN)
+                                {
+                                    LogDebug($"Recorded left mouse DOWN event at ({item.Coordinates?.X}, {item.Coordinates?.Y})");
+                                }
+                                else if (item.EventType == WM_LBUTTONUP)
+                                {
+                                    LogDebug($"Recorded left mouse UP event at ({item.Coordinates?.X}, {item.Coordinates?.Y})");
+                                }
+                                else if (item.EventType == WM_RBUTTONDOWN || item.EventType == WM_RBUTTONUP ||
+                                         item.EventType == WM_MBUTTONDOWN || item.EventType == WM_MBUTTONUP)
+                                {
+                                    LogDebug($"Recorded mouse button event: {item.EventType} at ({item.Coordinates?.X}, {item.Coordinates?.Y})");
                                 }
                             }
                         }
