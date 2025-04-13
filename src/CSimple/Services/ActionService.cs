@@ -52,6 +52,7 @@ namespace CSimple.Services
         private const int WM_LBUTTONDOWN = 0x0201;
         private const int WM_RBUTTONDOWN = 0x0204;
         private const int WM_MOUSEMOVE = 0x0200;
+        private const uint KEYEVENTF_KEYDOWN = 0x0000;
         private const uint KEYEVENTF_KEYUP = 0x0002;
         private const int WM_KEYDOWN = 0x0100;
         private const int WM_KEYUP = 0x0101;
@@ -439,7 +440,7 @@ namespace CSimple.Services
                     int currentX = startPoint.X;
                     int currentY = startPoint.Y;
 
-                    // PRE-PROCESS: Analyze the action group and log mouse button events
+                    // PRE-PROCESS: Analyze the action group and log keyboard events
                     Debug.WriteLine("============= ACTION GROUP ANALYSIS =============");
                     Debug.WriteLine($"Total actions in group: {actionGroup.ActionArray?.Count ?? 0}");
 
@@ -449,6 +450,8 @@ namespace CSimple.Services
                     int keyPressCount = 0;
                     int directClickEvents = 0;
                     int moveWithButtonStateChange = 0;
+                    int keyDownEvents = 0;
+                    int keyUpEvents = 0;
 
                     foreach (var action in actionGroup.ActionArray)
                     {
@@ -472,16 +475,22 @@ namespace CSimple.Services
                             directClickEvents++;
                             mouseClickCount++;
                         }
-                        else if (action.EventType == 256 || action.EventType == 257)
+                        else if (action.EventType == 0x0100) // WM_KEYDOWN
                         {
                             keyPressCount++;
+                            keyDownEvents++;
+                        }
+                        else if (action.EventType == 0x0101) // WM_KEYUP
+                        {
+                            keyPressCount++;
+                            keyUpEvents++;
                         }
                     }
 
                     Debug.WriteLine($"Action Statistics:");
                     Debug.WriteLine($"- Mouse moves: {mouseMoveCount}");
                     Debug.WriteLine($"- Mouse clicks: {mouseClickCount}");
-                    Debug.WriteLine($"- Key presses: {keyPressCount}");
+                    Debug.WriteLine($"- Key presses: {keyPressCount} (DOWN: {keyDownEvents}, UP: {keyUpEvents})");
                     Debug.WriteLine($"- Direct click events: {directClickEvents}");
                     Debug.WriteLine($"- Move+button state changes: {moveWithButtonStateChange}");
                     Debug.WriteLine("===============================================");
@@ -491,11 +500,23 @@ namespace CSimple.Services
                     prevRightButtonDown = false;
                     prevMiddleButtonDown = false;
 
+                    // Track pressed keys to ensure all are released at the end
+                    Dictionary<int, bool> pressedKeys = new Dictionary<int, bool>();
+
                     // Debug tracking variables for execution
                     int totalActionsExecuted = 0;
                     int totalClicksSimulated = 0;
                     int totalMovesSimulated = 0;
                     int totalKeystrokesSimulated = 0;
+                    int actualKeyDownsExecuted = 0;
+                    int actualKeyUpsExecuted = 0;
+
+                    // Set up realistic keyboard timing
+                    Random random = new Random();
+                    const int MIN_KEY_DOWN_DURATION = 50;  // Minimum time to hold a key down (ms)
+                    const int MAX_KEY_DOWN_DURATION = 150; // Maximum time to hold a key down (ms)
+                    const int MIN_KEY_DELAY = 20;          // Minimum delay between keys (ms)
+                    const int MAX_KEY_DELAY = 80;          // Maximum delay between keys (ms)
 
                     // EXECUTE ACTIONS SEQUENTIALLY
                     foreach (var action in actionGroup.ActionArray)
@@ -525,7 +546,19 @@ namespace CSimple.Services
                                 Debug.WriteLine($"Warning: Skipping action due to negative delay: {delay.TotalMilliseconds} ms");
                                 continue;
                             }
-                            await Task.Delay(delay);
+
+                            // For keyboard events, use a more natural timing
+                            if (action.EventType == 0x0100 || action.EventType == 0x0101)
+                            {
+                                // Add humanized delay for realistic typing with some randomness
+                                int typeDelay = random.Next(MIN_KEY_DELAY, MAX_KEY_DELAY);
+                                await Task.Delay(typeDelay);
+                            }
+                            else
+                            {
+                                // Use timestamp delay for non-keyboard events
+                                await Task.Delay(delay);
+                            }
                         }
                         previousActionTime = currentActionTime;
 
@@ -692,29 +725,63 @@ namespace CSimple.Services
                                 currentY = targetY;
                                 totalClicksSimulated++;
                             }
-                            // CASE 4: KEYBOARD EVENTS
-                            else if (action.EventType == 0x0100) // Key down
-                            {
-                                Debug.WriteLine($"*** KEY DOWN: {action.KeyCode} ***");
-                                SendKeyboardInput((ushort)action.KeyCode, false);
-                            }
-                            else if (action.EventType == 0x0101) // Key up
-                            {
-                                Debug.WriteLine($"*** KEY UP: {action.KeyCode} ***");
-                                SendKeyboardInput((ushort)action.KeyCode, true);
-                            }
-                            // CASE 4: KEYBOARD EVENTS
-                            else if (action.EventType == WM_KEYDOWN) // Keyboard key down
+                            // CASE 4: KEYBOARD EVENTS - Enhanced human-like execution
+                            else if (action.EventType == 0x0100) // WM_KEYDOWN
                             {
                                 Debug.WriteLine($"*** KEY DOWN: VKCode = {action.KeyCode} (0x{action.KeyCode:X}) ***");
-                                SendKeyboardInput((ushort)action.KeyCode, false); // false for key down
+                                // Track this key as being pressed down
+                                pressedKeys[action.KeyCode] = true;
+
+                                // Send the key down event
+                                SendKeyboardInput((ushort)action.KeyCode, false);
                                 totalKeystrokesSimulated++;
+                                actualKeyDownsExecuted++;
+
+                                // For keys without explicit UP events, add a realistic hold duration
+                                bool hasMatchingUpEventSoon = false;
+
+                                // Look ahead in the next few actions to check if there's a matching UP event
+                                int currentIndex = actionGroup.ActionArray.IndexOf(action);
+                                if (currentIndex >= 0)
+                                {
+                                    for (int i = currentIndex + 1; i < Math.Min(currentIndex + 15, actionGroup.ActionArray.Count); i++)
+                                    {
+                                        var futureAction = actionGroup.ActionArray[i];
+                                        if (futureAction.EventType == 0x0101 && futureAction.KeyCode == action.KeyCode)
+                                        {
+                                            hasMatchingUpEventSoon = true;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                // If no matching UP event is coming soon, add a realistic key hold duration
+                                if (!hasMatchingUpEventSoon)
+                                {
+                                    int holdDuration = random.Next(MIN_KEY_DOWN_DURATION, MAX_KEY_DOWN_DURATION);
+                                    await Task.Delay(holdDuration);
+
+                                    // Auto-release the key for a more natural simulation
+                                    SendKeyboardInput((ushort)action.KeyCode, true);
+                                    pressedKeys.Remove(action.KeyCode);
+                                    Debug.WriteLine($"*** Auto-releasing KEY UP: VKCode = {action.KeyCode} (0x{action.KeyCode:X}) after {holdDuration}ms ***");
+                                    actualKeyUpsExecuted++;
+                                }
                             }
-                            else if (action.EventType == WM_KEYUP) // Keyboard key up
+                            else if (action.EventType == 0x0101) // WM_KEYUP
                             {
                                 Debug.WriteLine($"*** KEY UP: VKCode = {action.KeyCode} (0x{action.KeyCode:X}) ***");
-                                SendKeyboardInput((ushort)action.KeyCode, true); // true for key up
+
+                                // Release the key
+                                SendKeyboardInput((ushort)action.KeyCode, true);
                                 totalKeystrokesSimulated++;
+                                actualKeyUpsExecuted++;
+
+                                // Remove from pressed keys tracking
+                                if (pressedKeys.ContainsKey(action.KeyCode))
+                                {
+                                    pressedKeys.Remove(action.KeyCode);
+                                }
                             }
                             else
                             {
@@ -732,7 +799,20 @@ namespace CSimple.Services
                     Debug.WriteLine($"Total actions executed: {totalActionsExecuted}");
                     Debug.WriteLine($"Total clicks simulated: {totalClicksSimulated}");
                     Debug.WriteLine($"Total moves simulated: {totalMovesSimulated}");
+                    Debug.WriteLine($"Total keystrokes simulated: {totalKeystrokesSimulated}");
+                    Debug.WriteLine($"Keyboard breakdown - DOWN: {actualKeyDownsExecuted}, UP: {actualKeyUpsExecuted}");
                     Debug.WriteLine("====================================================");
+
+                    // SAFETY: Ensure all pressed keys are released at the end
+                    if (pressedKeys.Count > 0)
+                    {
+                        Debug.WriteLine($"Safety: Releasing {pressedKeys.Count} keys that were still pressed at end of simulation");
+                        foreach (var keyCode in pressedKeys.Keys)
+                        {
+                            SendKeyboardInput((ushort)keyCode, true);
+                            Debug.WriteLine($"Force releasing key: {keyCode:X}");
+                        }
+                    }
 
                     // Ensure all buttons are released at the end
                     if (_leftButtonDown)
@@ -1049,22 +1129,75 @@ namespace CSimple.Services
             SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
         }
 
-        // New method to simulate key presses
+        // Enhanced keyboard input method with more human-like behavior
         private void SendKeyboardInput(ushort key, bool isKeyUp)
         {
-            INPUT[] inputs = new INPUT[1];
-            inputs[0].type = INPUT_KEYBOARD;
-            inputs[0].u.ki.wVk = 0;
-            inputs[0].u.ki.wScan = key;
-            inputs[0].u.ki.dwFlags = KEYEVENTF_SCANCODE;
-            if (isKeyUp)
+            try
             {
-                inputs[0].u.ki.dwFlags |= KEYEVENTF_KEYUP;
-            }
-            inputs[0].u.ki.time = 0;
-            inputs[0].u.ki.dwExtraInfo = IntPtr.Zero;
+                // Create INPUT structure
+                INPUT[] inputs = new INPUT[1];
+                inputs[0].type = INPUT_KEYBOARD;
+                inputs[0].u.ki.wVk = key;
+                inputs[0].u.ki.wScan = 0;
 
-            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+                // Add extended key flag for special keys
+                if (IsExtendedKey(key))
+                {
+                    inputs[0].u.ki.dwFlags = isKeyUp ?
+                        KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY :
+                        KEYEVENTF_KEYDOWN | KEYEVENTF_EXTENDEDKEY;
+                }
+                else
+                {
+                    inputs[0].u.ki.dwFlags = isKeyUp ? KEYEVENTF_KEYUP : KEYEVENTF_KEYDOWN;
+                }
+
+                inputs[0].u.ki.time = 0;
+                inputs[0].u.ki.dwExtraInfo = IntPtr.Zero;
+
+                // Send the input
+                uint result = SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+
+                if (result != 1)
+                {
+                    Debug.WriteLine($"⚠️ SendInput failed for key {key}, error code: {Marshal.GetLastWin32Error()}");
+                }
+                else
+                {
+                    Debug.WriteLine($"Successfully sent key {(isKeyUp ? "UP" : "DOWN")} event for key code {key}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in SendKeyboardInput: {ex.Message}");
+            }
+        }
+
+        // Add or update the IsExtendedKey method to properly identify extended keys
+        private bool IsExtendedKey(ushort vkCode)
+        {
+            // List of extended keys that require the extended flag
+            return vkCode == 0x5B || // Left Windows
+                   vkCode == 0x5C || // Right Windows
+                   vkCode == 0x5D || // Apps
+                   vkCode == 0x23 || // End
+                   vkCode == 0x24 || // Home
+                   vkCode == 0x25 || // Left Arrow
+                   vkCode == 0x26 || // Up Arrow
+                   vkCode == 0x27 || // Right Arrow
+                   vkCode == 0x28 || // Down Arrow
+                   vkCode == 0x2D || // Insert
+                   vkCode == 0x2E || // Delete
+                   vkCode == 0x21 || // Page Up
+                   vkCode == 0x22 || // Page Down
+                   vkCode == 0x90 || // Num Lock
+                   vkCode == 0x91 || // Scroll Lock
+                   vkCode == 0xA0 || // Left Shift
+                   vkCode == 0xA1 || // Right Shift
+                   vkCode == 0xA2 || // Left Control
+                   vkCode == 0xA3 || // Right Control
+                   vkCode == 0xA4 || // Left Alt
+                   vkCode == 0xA5;   // Right Alt
         }
 
         // New method to simulate raw mouse movement using deltas instead of absolute coordinates
