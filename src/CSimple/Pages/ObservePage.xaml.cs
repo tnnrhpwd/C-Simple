@@ -552,6 +552,9 @@ namespace CSimple.Pages
                 bool isKeyboardEvent = actionItem.EventType == 0x0100 || // WM_KEYDOWN
                                        actionItem.EventType == 0x0101;   // WM_KEYUP
 
+                // Check if it's a mouse button event
+                bool isMouseButtonEvent = IsMouseClickEvent(actionItem.EventType);
+
                 if (isMouseMovement)
                 {
                     // Process mouse movements directly without debounce
@@ -561,6 +564,11 @@ namespace CSimple.Pages
                 {
                     // Process keyboard events immediately to ensure they're recorded
                     ProcessKeyboardEvent(actionItem);
+                }
+                else if (isMouseButtonEvent)
+                {
+                    // Process mouse button events immediately to ensure they're recorded
+                    ProcessMouseButtonEvent(actionItem);
                 }
                 else
                 {
@@ -572,6 +580,33 @@ namespace CSimple.Pages
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error processing input: {ex.Message}");
+            }
+        }
+
+        // New method to process mouse button events directly
+        private void ProcessMouseButtonEvent(ActionItem actionItem)
+        {
+            if (_isRecording)
+            {
+                // Always record mouse button events (never consider them duplicates)
+                _currentRecordingBuffer.Add(actionItem);
+                _lastRecordedAction = actionItem;
+
+                // Update UI
+                Dispatcher.Dispatch(() =>
+                {
+                    // Update touch level for visual feedback only
+                    UserTouchLevel = 0.8f; // Show activity
+
+                    if (CapturePreviewCard != null)
+                    {
+                        // Update input activity on the preview card
+                        CapturePreviewCard.UpdateInputActivity((ushort)actionItem.EventType, true);
+                    }
+
+                    // Debug logging
+                    Debug.WriteLine($"Directly recorded mouse button event: EventType: {actionItem.EventType}");
+                });
             }
         }
 

@@ -604,12 +604,13 @@ namespace CSimple.Services
                 {
                     int wParamInt = wParam.ToInt32();
                     bool isButtonEvent = IsMouseButtonEvent(wParamInt);
+                    bool isMouseMove = wParamInt == WM_MOUSEMOVE;
                     DateTime now = DateTime.UtcNow;
 
-                    // Parse mouse data
+                    // Process mouse data
                     MSLLHOOKSTRUCT mouseHookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
 
-                    // Create action item with current button state
+                    // Create action item with the current mouse state
                     var actionItem = new ActionItem
                     {
                         Timestamp = now,
@@ -642,6 +643,7 @@ namespace CSimple.Services
                             if (_leftMouseDown)
                             {
                                 actionNeeded = false;
+                                LogDebug($"Skipping duplicate Left button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             else
                             {
@@ -657,6 +659,7 @@ namespace CSimple.Services
                             if (!_leftMouseDown)
                             {
                                 actionNeeded = false;
+                                LogDebug($"Skipping duplicate Left button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             else
                             {
@@ -675,6 +678,7 @@ namespace CSimple.Services
                             if (_rightMouseDown)
                             {
                                 actionNeeded = false;
+                                LogDebug($"Skipping duplicate Right button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             else
                             {
@@ -689,6 +693,7 @@ namespace CSimple.Services
                             if (!_rightMouseDown)
                             {
                                 actionNeeded = false;
+                                LogDebug($"Skipping duplicate Right button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             else
                             {
@@ -707,6 +712,7 @@ namespace CSimple.Services
                             if (_middleButtonDown)
                             {
                                 actionNeeded = false;
+                                LogDebug($"Skipping duplicate Middle button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             else
                             {
@@ -721,6 +727,7 @@ namespace CSimple.Services
                             if (!_middleButtonDown)
                             {
                                 actionNeeded = false;
+                                LogDebug($"Skipping duplicate Middle button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             else
                             {
@@ -756,6 +763,11 @@ namespace CSimple.Services
                     if (actionNeeded)
                     {
                         AddToInputQueue(actionItem);
+                        LogDebug($"Adding to queue: Mouse EventType={wParamInt}, ActionNeeded={actionNeeded}");
+                    }
+                    else
+                    {
+                        LogDebug($"Skipping queue add: Mouse EventType={wParamInt}, ActionNeeded={actionNeeded}");
                     }
                 }
                 catch (Exception ex)
