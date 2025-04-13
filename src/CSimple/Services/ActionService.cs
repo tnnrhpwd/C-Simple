@@ -137,6 +137,7 @@ namespace CSimple.Services
         public int MovementDelayMs { get; set; } = 1; // Default minimum delay
         public float GameSensitivityMultiplier { get; set; } = 1.0f; // 1.0 for original speed
         public bool UltraSmoothMode { get; set; } = true; // Use ultra-smooth movement
+        public bool UseRawInput { get; set; } = true; // Use raw input for mouse movements
 
         // Add position tracking to prevent backward jumps
         private POINT _lastMousePosition;
@@ -685,17 +686,27 @@ namespace CSimple.Services
                                 // Only move if the position has changed
                                 if (targetX != currentX || targetY != currentY)
                                 {
-                                    if (UseInterpolation)
+                                    if (UseRawInput && action.DeltaX != 0 || action.DeltaY != 0)
                                     {
-                                        await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, MovementSteps, MovementDelayMs,
-                                            TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps));
+                                        // Use raw input for mouse movement
+                                        await SimulateRawMouseMovement(action.DeltaX, action.DeltaY, (long)action.TimeSinceLastMoveMs, action.VelocityX, action.VelocityY);
+                                        currentX += action.DeltaX;
+                                        currentY += action.DeltaY;
                                     }
                                     else
                                     {
-                                        SendLowLevelMouseMove(targetX, targetY);
+                                        if (UseInterpolation)
+                                        {
+                                            await TimedSmoothMouseMove(currentX, currentY, targetX, targetY, MovementSteps, MovementDelayMs,
+                                                TimeSpan.FromMilliseconds(MovementDelayMs * MovementSteps));
+                                        }
+                                        else
+                                        {
+                                            SendLowLevelMouseMove(targetX, targetY);
+                                        }
+                                        currentX = targetX;
+                                        currentY = targetY;
                                     }
-                                    currentX = targetX;
-                                    currentY = targetY;
                                 }
                             }
                         }
@@ -1146,20 +1157,15 @@ namespace CSimple.Services
 
             for (int i = 0; i < numSteps; i++)
             {
-                // Calculate micro-movement for this step
-                int microDeltaX = (int)Math.Round(stepX);
-                int microDeltaY = (int)Math.Round(stepY);
+                // Calculate actual delay
+                double actualDelayMs = stepDelayMs - elapsedMs;
+                if (actualDelayMs > 0)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(actualDelayMs));
+                }
 
                 // Send raw mouse input
-                SendRawMouseInput(microDeltaX, microDeltaY);
-
-                // Calculate actual delay
-                double targetElapsedMs = stepDelayMs * (i + 1);
-                double actualDelayMs = targetElapsedMs - elapsedMs;
-
-                // Delay for the calculated time
-                if (actualDelayMs > 0)
-                    await Task.Delay(TimeSpan.FromMilliseconds(actualDelayMs));
+                SendRawMouseInput((int)stepX, (int)stepY);
 
                 // Update elapsed time
                 elapsedMs = sw.Elapsed.TotalMilliseconds;

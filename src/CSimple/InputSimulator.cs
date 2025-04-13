@@ -555,5 +555,47 @@ namespace CSimple
         private static extern bool SetCursorPos(int X, int Y);
 
         #endregion
+
+        // Direct movement with no curves - useful for straight line movements
+        public static async Task MoveDirectlyAsync(int startX, int startY, int endX, int endY, int steps = 20)
+        {
+            // Calculate the step increments
+            int stepX = (endX - startX) / steps;
+            int stepY = (endY - startY) / steps;
+
+            for (int i = 0; i < steps; i++)
+            {
+                // Move the mouse by the step increments
+                MoveMouse(startX + stepX * i, startY + stepY * i);
+                await Task.Delay(10); // Small delay between steps
+            }
+
+            // Ensure the final position is reached
+            MoveMouse(endX, endY);
+        }
+
+        public static bool BringWindowToForeground(IntPtr hWnd)
+        {
+            // Check if the window is minimized
+            if (IsIconic(hWnd))
+            {
+                // Restore the window if it is minimized
+                ShowWindow(hWnd, SW_RESTORE);
+            }
+
+            // Bring the window to the foreground
+            return SetForegroundWindow(hWnd);
+        }
+
+        [DllImport("user32.dll")]
+        private static extern bool IsIconic(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        private const int SW_RESTORE = 9;
     }
 }
