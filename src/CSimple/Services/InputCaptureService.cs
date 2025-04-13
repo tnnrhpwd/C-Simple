@@ -64,6 +64,8 @@ namespace CSimple.Services
         private const int WM_MOUSEWHEEL = 0x020A; // Mouse wheel
         private const int WM_KEYDOWN = 0x0100;
         private const int WM_KEYUP = 0x0101;
+        private const int WM_SYSKEYDOWN = 0x0104; // Added for system keys (ALT, etc.)
+        private const int WM_SYSKEYUP = 0x0105; // Added for system keys release
 
         // Touch input constants
         private const int WM_TOUCH = 0x0240;
@@ -247,14 +249,22 @@ namespace CSimple.Services
                 _activeTouches.Clear();
                 _lastTouchEventTime = DateTime.MinValue;
 
-                _keyboardProc = HookCallback;
-                _mouseProc = HookCallback;
+                // Create distinct delegates to avoid GC issues
+                _keyboardProc = KeyboardHookCallback;
+                _mouseProc = MouseHookCallback;
+
+                // Set hooks with explicit error handling
                 _keyboardHookID = SetHook(_keyboardProc, WH_KEYBOARD_LL);
+                if (_keyboardHookID == IntPtr.Zero)
+                {
+                    LogDebug($"Failed to set keyboard hook. Error: {Marshal.GetLastWin32Error()}");
+                }
+
                 _mouseHookID = SetHook(_mouseProc, WH_MOUSE_LL);
                 GetCursorPos(out _lastMousePos);
                 _startMousePos = _lastMousePos; // Save start position for relative tracking
                 _isActive = true;
-                LogDebug("Input capture started");
+                LogDebug("Input capture started - Keyboard hook status: " + (_keyboardHookID != IntPtr.Zero ? "Active" : "Failed"));
 
                 // Start a high-frequency mouse movement tracker
                 Task.Run(() => TrackMouseMovements());
@@ -489,10 +499,84 @@ namespace CSimple.Services
             }
         }
 
-        private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+        private IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
             if (nCode >= 0)
             {
+                try
+                {
+                    // Immediately grab event details
+                    int wParamInt = wParam.ToInt32();
+                    int vkCode = Marshal.ReadInt32(lParam);
+
+                    // Create the action item regardless of event type
+                    var actionItem = new ActionItem
+                    {
+                        Timestamp = DateTime.UtcNow,
+                        KeyCode = vkCode,
+                        EventType = (ushort)wParamInt,
+                        IsLeftButtonDown = _leftMouseDown,
+                        IsRightButtonDown = _rightMouseDown,
+                        IsMiddleButtonDown = _middleMouseDown
+                    };
+
+                    // Enhanced logging to trace every keyboard event
+                    string eventName = "UNKNOWN";
+                    bool isKeyEvent = false;
+
+                    if (wParamInt == WM_KEYDOWN) { eventName = "WM_KEYDOWN"; isKeyEvent = true; }
+                    else if (wParamInt == WM_KEYUP) { eventName = "WM_KEYUP"; isKeyEvent = true; }
+                    else if (wParamInt == WM_SYSKEYDOWN) { eventName = "WM_SYSKEYDOWN"; isKeyEvent = true; }
+                    else if (wParamInt == WM_SYSKEYUP) { eventName = "WM_SYSKEYUP"; isKeyEvent = true; }
+
+                    if (isKeyEvent)
+                    {
+                        LogDebug($"KEYBOARD: {eventName} Key: {vkCode} (0x{vkCode:X2})");
+
+                        // Track key state - important for maintaining accurate active keys list
+                        bool isKeyDown = wParamInt == WM_KEYDOWN || wParamInt == WM_SYSKEYDOWN;
+
+                        // Log an additional explicit message to confirm we're handling this key correctly
+                        LogDebug($">>> PROCESSING {(isKeyDown ? "DOWN" : "UP")} EVENT for key {vkCode} <<<");
+
+                        if (isKeyDown)
+                        {
+                            _activeKeyPresses[(ushort)vkCode] = actionItem;
+                            _keyPressDownTimestamps[(ushort)vkCode] = DateTime.UtcNow;
+                        }
+                        else
+                        {
+                            _activeKeyPresses.Remove((ushort)vkCode);
+                            _keyPressDownTimestamps.Remove((ushort)vkCode);
+                        }
+
+                        // Add to input queue - ensure this happens for both down and up events
+                        AddToInputQueue(actionItem);
+
+                        // Process the keyboard event directly - bypass queue for testing
+                        // Note: This is for diagnostic purposes and can be removed once fixed
+                        if (isKeyDown)
+                        {
+                            LogDebug($"Direct processing of key DOWN: {vkCode}");
+                            // If this logs but the queue processing doesn't, we know it's a queue issue
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"Error in keyboard hook: {ex.Message}");
+                }
+            }
+
+            // Always pass the event to the next hook
+            return CallNextHookEx(_keyboardHookID, nCode, wParam, lParam);
+        }
+
+        private IntPtr MouseHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+        {
+            if (nCode >= 0)
+            {
+                // ...existing mouse handling code...
                 var actionItem = new ActionItem
                 {
                     Timestamp = DateTime.UtcNow,
@@ -531,7 +615,7 @@ namespace CSimple.Services
                     };
                     actionItem.DeltaX = deltaX;
                     actionItem.DeltaY = deltaY;
-                    actionItem.EventType = (ushort)wParam;
+                    actionItem.EventType = (ushort)wParam.ToInt32();
 
                     // Update button states
                     if (wParam == (IntPtr)WM_LBUTTONDOWN) _leftMouseDown = true;
@@ -547,37 +631,21 @@ namespace CSimple.Services
 
                     AddToInputQueue(actionItem);
                 }
-                // Handle keyboard events
-                else if (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_KEYUP)
-                {
-                    int vkCode = Marshal.ReadInt32(lParam);
-                    actionItem.KeyCode = vkCode;
-                    actionItem.EventType = (ushort)wParam;
-
-                    // Track key state
-                    if (wParam == (IntPtr)WM_KEYDOWN)
-                    {
-                        if (!_activeKeyPresses.ContainsKey((ushort)vkCode))
-                        {
-                            _activeKeyPresses[(ushort)vkCode] = actionItem;
-                            _keyPressDownTimestamps[(ushort)vkCode] = DateTime.UtcNow;
-                        }
-                    }
-                    else if (wParam == (IntPtr)WM_KEYUP)
-                    {
-                        _activeKeyPresses.Remove((ushort)vkCode);
-                        _keyPressDownTimestamps.Remove((ushort)vkCode);
-                    }
-
-                    // Add to input queue
-                    AddToInputQueue(actionItem);
-
-                    // Log for debugging
-                    LogDebug($"Keyboard event: {(wParam == (IntPtr)WM_KEYDOWN ? "DOWN" : "UP")} Key: {vkCode}");
-                }
             }
 
-            return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+            return CallNextHookEx(_mouseHookID, nCode, wParam, lParam); // Use proper hook ID
+        }
+
+        public void Dispose()
+        {
+            StopCapturing();
+            _queueProcessingCts?.Cancel();
+            _inputQueue?.Dispose();
+            _inputQueue = null;
+            _queueProcessingCts?.Dispose();
+            _queueProcessingCts = null;
+            _previewCts?.Dispose();
+            _previewCts = null;
         }
 
         private void AddToInputQueue(ActionItem actionItem)
@@ -586,6 +654,17 @@ namespace CSimple.Services
             {
                 try
                 {
+                    bool isKeyboardEvent = actionItem.EventType == WM_KEYDOWN ||
+                                           actionItem.EventType == WM_KEYUP ||
+                                           actionItem.EventType == WM_SYSKEYDOWN ||
+                                           actionItem.EventType == WM_SYSKEYUP;
+
+                    if (isKeyboardEvent)
+                    {
+                        bool isKeyDown = actionItem.EventType == WM_KEYDOWN || actionItem.EventType == WM_SYSKEYDOWN;
+                        LogDebug($"Queue: Adding key {(isKeyDown ? "DOWN" : "UP")} event for key {actionItem.KeyCode}");
+                    }
+
                     _inputQueue.Add(actionItem);
                 }
                 catch (InvalidOperationException)
@@ -593,6 +672,10 @@ namespace CSimple.Services
                     // The collection has been marked as complete
                     LogDebug("Queue is marked complete and cannot accept new items.");
                 }
+            }
+            else
+            {
+                LogDebug("Queue is null or completed - could not add item.");
             }
         }
 
@@ -816,6 +899,16 @@ namespace CSimple.Services
                             {
                                 batch.Add(item);
                                 count++;
+
+                                // Debug log for key events to track what's being processed
+                                if (item.EventType == WM_KEYDOWN || item.EventType == WM_SYSKEYDOWN)
+                                {
+                                    LogDebug($"Recorded keyboard event: DOWN KeyCode: {item.KeyCode}");
+                                }
+                                else if (item.EventType == WM_KEYUP || item.EventType == WM_SYSKEYUP)
+                                {
+                                    LogDebug($"Recorded keyboard event: UP KeyCode: {item.KeyCode}");
+                                }
                             }
                         }
 
@@ -873,6 +966,20 @@ namespace CSimple.Services
             }
         }
 
+        // Add a dedicated keyboard event handler method for clarity 
+        public void ProcessKeyboardEvent(ActionItem keyboardEvent)
+        {
+            // Ensure we properly record both key down and key up events
+            bool isKeyDown = keyboardEvent.EventType == WM_KEYDOWN || keyboardEvent.EventType == WM_SYSKEYDOWN;
+            string eventType = isKeyDown ? "DOWN" : "UP";
+
+            LogDebug($"Processing keyboard event: {eventType} KeyCode: {keyboardEvent.KeyCode}");
+
+            // Convert to JSON and invoke the event
+            string inputJson = JsonConvert.SerializeObject(keyboardEvent);
+            InputCaptured?.Invoke(inputJson);
+        }
+
         private void LogDebug(string message)
         {
             DebugMessageLogged?.Invoke(message);
@@ -921,18 +1028,6 @@ namespace CSimple.Services
             }
         }
 
-        public void Dispose()
-        {
-            StopCapturing();
-            _queueProcessingCts?.Cancel();
-            _inputQueue?.Dispose();
-            _inputQueue = null;
-            _queueProcessingCts?.Dispose();
-            _queueProcessingCts = null;
-            _previewCts?.Dispose();
-            _previewCts = null;
-        }
-
         public string GetActiveInputsDisplay()
         {
             var activeInputsDisplay = new StringBuilder();
@@ -949,6 +1044,56 @@ namespace CSimple.Services
         public int GetActiveKeyCount()
         {
             return _activeKeyPresses.Count;
+        }
+
+        // Add diagnostic method to help troubleshoot key capture issues
+        public void DiagnoseKeyboardCapture()
+        {
+            LogDebug($"Keyboard hook status: {(_keyboardHookID != IntPtr.Zero ? "Active" : "Inactive")}");
+            LogDebug($"Mouse hook status: {(_mouseHookID != IntPtr.Zero ? "Active" : "Inactive")}");
+            LogDebug($"Active key count: {_activeKeyPresses.Count}");
+            LogDebug($"Is capturing active: {_isActive}");
+
+            // Force refresh keyboard hook
+            if (_isActive && _keyboardHookID != IntPtr.Zero)
+            {
+                LogDebug("Refreshing keyboard hook...");
+                try
+                {
+                    UnhookWindowsHookEx(_keyboardHookID);
+                    _keyboardHookID = SetHook(_keyboardProc, WH_KEYBOARD_LL);
+                    LogDebug($"Keyboard hook refreshed: {(_keyboardHookID != IntPtr.Zero ? "Success" : "Failed")}");
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"Error refreshing keyboard hook: {ex.Message}");
+                }
+            }
+        }
+
+        // Add method to test if keyboard input is being captured correctly
+        public void TestKeyboardCapture()
+        {
+            LogDebug("Running keyboard capture test...");
+
+            // Force keyboard hook to be properly set
+            if (_keyboardHookID == IntPtr.Zero && _isActive)
+            {
+                _keyboardProc = KeyboardHookCallback;
+                _keyboardHookID = SetHook(_keyboardProc, WH_KEYBOARD_LL);
+                LogDebug($"Reinstalled keyboard hook: {(_keyboardHookID != IntPtr.Zero ? "Success" : "Failed")}");
+            }
+
+            // Verify Windows messages are being processed correctly
+            LogDebug("Key event constants check:");
+            LogDebug($"WM_KEYDOWN: {WM_KEYDOWN} (0x{WM_KEYDOWN:X4})");
+            LogDebug($"WM_KEYUP: {WM_KEYUP} (0x{WM_KEYUP:X4})");
+            LogDebug($"WM_SYSKEYDOWN: {WM_SYSKEYDOWN} (0x{WM_SYSKEYDOWN:X4})");
+            LogDebug($"WM_SYSKEYUP: {WM_SYSKEYUP} (0x{WM_SYSKEYUP:X4})");
+
+            // Sample the current state
+            var activeKeys = string.Join(", ", _activeKeyPresses.Keys);
+            LogDebug($"Currently tracked keys: {activeKeys}");
         }
     }
 }
