@@ -2,16 +2,54 @@
 using System.Diagnostics;
 using System.Windows.Input;
 using Microsoft.Maui.Graphics;
+using CSimple.Services;
+using System.ComponentModel;
 
 namespace CSimple.Pages;
 
-public partial class HomePage : ContentPage
+public partial class HomePage : ContentPage, INotifyPropertyChanged
 {
     private readonly DataService _dataService; // AuthService instance for login/logout
     private readonly AppModeService _appModeService;
+    private readonly VoiceAssistantService _voiceAssistantService;
+    private bool _isVoiceAssistantActive = false;
+    private float _voiceLevel = 0;
     static bool isSetup = false;
     public ICommand NavigateCommand { get; set; }
     public ICommand LogoutCommand { get; }
+    public ICommand ToggleVoiceAssistantCommand { get; }
+
+    // Voice assistant properties
+    public bool IsVoiceAssistantActive
+    {
+        get => _isVoiceAssistantActive;
+        set
+        {
+            if (_isVoiceAssistantActive != value)
+            {
+                _isVoiceAssistantActive = value;
+                OnPropertyChanged(nameof(IsVoiceAssistantActive));
+                OnPropertyChanged(nameof(VoiceAssistantStatus));
+                OnPropertyChanged(nameof(VoiceAssistantIcon));
+            }
+        }
+    }
+
+    public float VoiceLevel
+    {
+        get => _voiceLevel;
+        set
+        {
+            if (_voiceLevel != value)
+            {
+                _voiceLevel = value;
+                OnPropertyChanged(nameof(VoiceLevel));
+            }
+        }
+    }
+
+    public string VoiceAssistantStatus => IsVoiceAssistantActive ? "Voice Assistant Active" : "Voice Assistant Inactive";
+    public string VoiceAssistantIcon => IsVoiceAssistantActive ? "mic_active.png" : "mic_inactive.png";
 
     // New properties to showcase AI capabilities
     public bool IsAIEnabled { get; set; } = true;
@@ -28,7 +66,11 @@ public partial class HomePage : ContentPage
     public bool IsOnlineMode
     {
         get => _appModeService.CurrentMode == AppMode.Online;
-        set => _appModeService.CurrentMode = value ? AppMode.Online : AppMode.Offline;
+        set
+        {
+            _appModeService.CurrentMode = value ? AppMode.Online : AppMode.Offline;
+            OnPropertyChanged(nameof(AppModeLabel));
+        }
     }
 
     public string AppModeLabel => IsOnlineMode ? "Online Mode" : "Offline Mode";
@@ -40,41 +82,156 @@ public partial class HomePage : ContentPage
     public ICommand TrainModelCommand { get; }
     public ICommand DiscoverSharedGoalsCommand { get; }
 
-    // Constructor with AuthService injection
-    public HomePage(HomeViewModel vm, DataService dataService, AppModeService appModeService)
+    // Constructor with service injection
+    public HomePage(HomeViewModel vm, DataService dataService, AppModeService appModeService, VoiceAssistantService voiceAssistantService)
     {
-        InitializeComponent();
-        _dataService = dataService;
-        _appModeService = appModeService;
-        LogoutCommand = new Command(ExecuteLogout);
-
-        // Bind to AppModeService changes
-        _appModeService.PropertyChanged += (s, e) =>
+        try
         {
-            if (e.PropertyName == nameof(AppModeService.CurrentMode))
+            InitializeComponent();
+            _dataService = dataService;
+            _appModeService = appModeService;
+            _voiceAssistantService = voiceAssistantService;
+            LogoutCommand = new Command(ExecuteLogout);
+            ToggleVoiceAssistantCommand = new Command(ExecuteToggleVoiceAssistant);
+
+            // Bind to AppModeService changes
+            _appModeService.PropertyChanged += (s, e) =>
             {
-                OnPropertyChanged(nameof(IsOnlineMode));
-                OnPropertyChanged(nameof(AppModeLabel));
+                if (e.PropertyName == nameof(AppModeService.CurrentMode))
+                {
+                    OnPropertyChanged(nameof(IsOnlineMode));
+                    OnPropertyChanged(nameof(AppModeLabel));
+                }
+            };
+
+            // Subscribe to voice assistant events
+            _voiceAssistantService.AudioLevelChanged += OnVoiceAssistantAudioLevelChanged;
+            _voiceAssistantService.ListeningStateChanged += OnVoiceAssistantListeningStateChanged;
+            _voiceAssistantService.DebugMessageLogged += OnVoiceAssistantDebugMessage;
+            _voiceAssistantService.TranscriptionCompleted += OnVoiceAssistantTranscriptionCompleted;
+            _voiceAssistantService.ActionExecuted += OnVoiceAssistantActionExecuted;
+
+            // Initialize commands
+            RefreshDashboardCommand = new Command(RefreshDashboard);
+            CreateNewGoalCommand = new Command(async () => await Shell.Current.GoToAsync("///goal"));
+            NavigateToObserveCommand = new Command(async () => await Shell.Current.GoToAsync("///observe"));
+            TrainModelCommand = new Command(async () => await Shell.Current.GoToAsync("///orient"));
+            DiscoverSharedGoalsCommand = new Command(ShowSharedGoalsPopup);
+
+            BindingContext = this;
+            if (!isSetup)
+            {
+                isSetup = true;
+                SetupAppActions();
+                SetupTrayIcon();
             }
-        };
-
-        // Initialize new commands
-        RefreshDashboardCommand = new Command(RefreshDashboard);
-        CreateNewGoalCommand = new Command(async () => await Shell.Current.GoToAsync("///goal"));
-        NavigateToObserveCommand = new Command(async () => await Shell.Current.GoToAsync("///observe"));
-        TrainModelCommand = new Command(async () => await Shell.Current.GoToAsync("///orient"));
-        DiscoverSharedGoalsCommand = new Command(ShowSharedGoalsPopup);
-
-        BindingContext = this;
-        if (!isSetup)
+        }
+        catch (Exception ex)
         {
-            isSetup = true;
-            SetupAppActions();
-            SetupTrayIcon();
+            Debug.WriteLine($"Error in HomePage constructor: {ex.Message}");
         }
     }
 
-    // New methods for AI features
+    private void ExecuteToggleVoiceAssistant()
+    {
+        if (_voiceAssistantService != null)
+        {
+            // When AI is toggled, enable/disable voice assistant
+            _voiceAssistantService.ToggleEnabled(IsAIEnabled);
+
+            if (IsAIEnabled && !IsVoiceAssistantActive)
+            {
+                // If AI is enabled and voice assistant is not active, start listening
+                _voiceAssistantService.StartListening();
+            }
+            else if (IsVoiceAssistantActive)
+            {
+                // If voice assistant is active, stop listening
+                _voiceAssistantService.StopListening();
+            }
+        }
+    }
+
+    private void OnVoiceAssistantAudioLevelChanged(float level)
+    {
+        // Update UI on main thread
+        Dispatcher.Dispatch(() =>
+        {
+            VoiceLevel = level;
+        });
+    }
+
+    private void OnVoiceAssistantListeningStateChanged(bool isListening)
+    {
+        // Update UI on main thread
+        Dispatcher.Dispatch(() =>
+        {
+            IsVoiceAssistantActive = isListening;
+        });
+    }
+
+    private void OnVoiceAssistantDebugMessage(string message)
+    {
+        Debug.WriteLine($"[VoiceAssistant] {message}");
+
+        // Update status detail
+        Dispatcher.Dispatch(() =>
+        {
+            AIStatusDetail = message;
+        });
+    }
+
+    private void OnVoiceAssistantTranscriptionCompleted(string text)
+    {
+        Dispatcher.Dispatch(() =>
+        {
+            // Update UI to show transcription
+            AIStatusDetail = $"Transcription: {text}";
+        });
+    }
+
+    private void OnVoiceAssistantActionExecuted(string action, bool success)
+    {
+        Dispatcher.Dispatch(() =>
+        {
+            // Update UI to show action result
+            AIStatusDetail = success ? $"Action executed: {action}" : $"Action failed: {action}";
+        });
+    }
+
+    // Existing methods...
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await Initialize();
+
+        // Refresh dashboard stats on appearing
+        RefreshDashboard();
+
+        // Watch for AI toggle changes
+        OnPropertyChanged(nameof(IsAIEnabled));
+    }
+
+    // Watch for AI toggle changes
+    protected override void OnPropertyChanged(string propertyName)
+    {
+        base.OnPropertyChanged(propertyName);
+
+        if (propertyName == nameof(IsAIEnabled))
+        {
+            // When AI is toggled, enable/disable voice assistant
+            if (_voiceAssistantService != null)
+            {
+                _voiceAssistantService.ToggleEnabled(IsAIEnabled);
+
+                // Update UI
+                ActiveAIStatus = IsAIEnabled ? "AI Assistant Active" : "AI Assistant Inactive";
+                OnPropertyChanged(nameof(ActiveAIStatus));
+            }
+        }
+    }
+
     private void RefreshDashboard()
     {
         // Simulate refreshing system stats
@@ -109,14 +266,6 @@ public partial class HomePage : ContentPage
             //     NavigateLogin();
             // }
         });
-    }
-    protected override async void OnAppearing()
-    {
-        base.OnAppearing();
-        await Initialize();
-
-        // Refresh dashboard stats on appearing
-        RefreshDashboard();
     }
     async void NavigateLogin()
     {

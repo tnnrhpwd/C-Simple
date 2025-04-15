@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using NAudio.Wave;
 using NWaves.FeatureExtractors;
 using NWaves.FeatureExtractors.Options;
+using NAudio.Wave.SampleProviders;
+using System.Collections.Generic;
 
 namespace CSimple.Services
 {
@@ -29,6 +31,13 @@ namespace CSimple.Services
         private string _tempWebcamFilePath;
         #endregion
 
+        #region Voice Processing Features
+        private const float NOISE_GATE_THRESHOLD = 0.05f;
+        private const float VOICE_BOOST_FACTOR = 2.0f;
+        private readonly Queue<float> _levelHistory = new Queue<float>();
+        private const int LEVEL_HISTORY_SIZE = 20;
+        #endregion
+
         public AudioCaptureService()
         {
             InitDirectories();
@@ -36,12 +45,14 @@ namespace CSimple.Services
 
         private void InitDirectories()
         {
-            string baseDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources");
-            _pcAudioDirectory = Path.Combine(baseDirectory, "PCAudio");
-            _webcamAudioDirectory = Path.Combine(baseDirectory, "WebcamAudio");
+            // Create directories for audio captures
+            _pcAudioDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "AudioCaptures", "PC");
+            _webcamAudioDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "AudioCaptures", "Webcam");
 
             Directory.CreateDirectory(_pcAudioDirectory);
             Directory.CreateDirectory(_webcamAudioDirectory);
+
+            LogDebug($"Audio directories initialized: {_pcAudioDirectory}, {_webcamAudioDirectory}");
         }
 
         public void StartPCAudioRecording(bool saveRecording = true)

@@ -30,7 +30,7 @@
         </MenuBarItem>
     </ContentPage.MenuBarItems>
     <Grid RowDefinitions="Auto,*">
-        <!-- AI Assistant Status Bar - Improved Text Visibility -->
+        <!-- AI Assistant Status Bar - Enhanced with Voice Assistant UI -->
         <Frame Grid.Row="0"
                Padding="10"
                BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
@@ -52,152 +52,180 @@
                     <Label Text="{Binding AIStatusDetail}"
                            FontSize="Micro"
                            TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                    <!-- Voice Level Indicator -->
+                    <Grid IsVisible="{Binding IsVoiceAssistantActive}"
+                          HeightRequest="12"
+                          Margin="0,5,0,0">
+                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
+                               Padding="0"
+                               CornerRadius="6"
+                               HasShadow="False"
+                               HorizontalOptions="Fill" />
+                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
+                               Padding="0"
+                               CornerRadius="6"
+                               HasShadow="False"
+                               HorizontalOptions="Start"
+                               WidthRequest="{Binding VoiceLevel, Converter={StaticResource FloatToWidthConverter}, ConverterParameter=200}" />
+                    </Grid>
                 </VerticalStackLayout>
                 <VerticalStackLayout Grid.Column="2"
                                      Spacing="2">
-                    <Switch IsToggled="{Binding IsAIEnabled}"
-                            OnColor="{StaticResource Primary}"
-                            ThumbColor="{AppThemeBinding Light=White, Dark=White}"
-                            VerticalOptions="Center" />
-                    <Label Text="AI Assistant"
-                           FontSize="10"
-                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
-                           HorizontalOptions="Center" />
-                    <Switch IsToggled="{Binding IsOnlineMode}"
-                            OnColor="{StaticResource Primary}"
-                            ThumbColor="{AppThemeBinding Light=White, Dark=White}"
-                            VerticalOptions="Center" />
-                    <Label Text="{Binding AppModeLabel}"
-                           FontSize="10"
-                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
-                           HorizontalOptions="Center" />
+                    <Grid RowDefinitions="Auto,Auto,Auto"
+                          ColumnDefinitions="Auto,Auto">
+                        <!-- AI Assistant Toggle -->
+                        <Switch Grid.Row="0"
+                                Grid.Column="0"
+                                IsToggled="{Binding IsAIEnabled}"
+                                OnColor="{StaticResource Primary}"
+                                ThumbColor="{AppThemeBinding Light=White, Dark=White}"
+                                VerticalOptions="Center" />
+                        <Label Grid.Row="1"
+                               Grid.Column="0"
+                               Text="AI Assistant"
+                               FontSize="10"
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                               HorizontalOptions="Center" />
+                        <!-- Voice Assistant Button -->
+                        <Button Grid.Row="0"
+                                Grid.Column="1"
+                                ImageSource="{Binding VoiceAssistantIcon}"
+                                BackgroundColor="Transparent"
+                                BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                BorderWidth="1"
+                                CornerRadius="20"
+                                HeightRequest="40"
+                                VerticalOptions="Center" />
+                        <Label Grid.Row="1"
+                               Grid.Column="1"
+                               Text="Voice"
+                               FontSize="10"
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                               HorizontalOptions="Center" />
+                        <!-- Online Mode Toggle (Re-added) -->
+                        <Switch Grid.Row="2"
+                                Grid.Column="0"
+                                Grid.ColumnSpan="2"
+                                IsToggled="{Binding IsOnlineMode}"
+                                OnColor="{StaticResource Accent}"
+                                ThumbColor="{AppThemeBinding Light=White, Dark=White}"
+                                VerticalOptions="Center"
+                                HorizontalOptions="Center"
+                                Margin="0,10,0,0" />
+                        <Label Grid.Row="3"
+                               Grid.Column="0"
+                               Grid.ColumnSpan="2"
+                               Text="{Binding AppModeLabel}"
+                               FontSize="10"
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                               HorizontalOptions="Center" />
+                    </Grid>
                 </VerticalStackLayout>
             </Grid>
         </Frame>
-        <ScrollView Grid.Row="1"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource BackgroundDark}}">
-            <VerticalStackLayout Padding="15"
-                                 Spacing="20">
-                <Label Text="Welcome to CSimple AI"
-                       FontSize="Title"
-                       TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
-                       HorizontalOptions="Center" />
-                <!-- System Status Dashboard -->
-                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
-                       CornerRadius="10"
-                       Padding="15">
-                    <VerticalStackLayout Spacing="10">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="System Dashboard"
-                                   FontAttributes="Bold"
-                                   FontSize="Medium"
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="15"
+                                 Padding="15">
+                <Button Text="Refresh"
+                        FontSize="Caption"
+                        BackgroundColor="Transparent"
+                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
+                        Command="{Binding RefreshDashboardCommand}" />
+                <Grid ColumnDefinitions="*,*,*"
+                      RowDefinitions="Auto,Auto"
+                      ColumnSpacing="10"
+                      RowSpacing="10">
+                    <!-- Active Models -->
+                    <Frame Grid.Column="0"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
+                           Padding="10"
+                           CornerRadius="5">
+                        <VerticalStackLayout HorizontalOptions="Center">
+                            <Label Text="Active Models"
+                                   FontSize="Caption"
                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                   HorizontalOptions="Center" />
+                            <Label Text="{Binding ActiveModelsCount}"
+                                   FontSize="Title"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
+                                   HorizontalOptions="Center" />
+                        </VerticalStackLayout>
+                    </Frame>
+                    <!-- Today's Actions -->
+                    <Frame Grid.Column="1"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource TertiaryLight}, Dark={StaticResource TertiaryDark}}"
+                           Padding="10"
+                           CornerRadius="5">
+                        <VerticalStackLayout HorizontalOptions="Center">
+                            <Label Text="Today's Actions"
+                                   FontSize="Caption"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                   HorizontalOptions="Center" />
+                            <Label Text="{Binding TodayActionsCount}"
+                                   FontSize="Title"
+                                   TextColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryLight}}"
+                                   HorizontalOptions="Center" />
+                        </VerticalStackLayout>
+                    </Frame>
+                    <!-- Success Rate -->
+                    <Frame Grid.Column="2"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryExtraLight}, Dark={StaticResource SecondaryDark}}"
+                           Padding="10"
+                           CornerRadius="5">
+                        <VerticalStackLayout HorizontalOptions="Center">
+                            <Label Text="Success Rate"
+                                   FontSize="Caption"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                   HorizontalOptions="Center" />
+                            <Label Text="{Binding SuccessRate, StringFormat='{0:P0}'}"
+                                   FontSize="Title"
+                                   TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource AccentLight}}"
+                                   HorizontalOptions="Center" />
+                        </VerticalStackLayout>
+                    </Frame>
+                    <!-- System Health -->
+                    <Frame Grid.Row="1"
+                           Grid.Column="0"
+                           Grid.ColumnSpan="2"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
+                           Padding="10"
+                           CornerRadius="5">
+                        <Grid ColumnDefinitions="*,Auto"
+                              RowDefinitions="Auto,Auto">
+                            <Label Text="System Health"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                            <Label Grid.Row="1"
+                                   Text="{Binding SystemHealthStatus}"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                                   FontSize="Caption" />
+                            <Label Grid.Column="1"
+                                   Text="{Binding SystemHealthPercentage, StringFormat='{0:P0}'}"
+                                   TextColor="{Binding SystemHealthColor}"
+                                   FontSize="Title"
                                    VerticalOptions="Center" />
-                            <Button Grid.Column="1"
-                                    Text="Refresh"
-                                    FontSize="Caption"
-                                    BackgroundColor="Transparent"
-                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
-                                    Command="{Binding RefreshDashboardCommand}" />
                         </Grid>
-                        <Grid ColumnDefinitions="*,*,*"
-                              RowDefinitions="Auto,Auto"
-                              ColumnSpacing="10"
-                              RowSpacing="10">
-                            <!-- Active Models -->
-                            <Frame Grid.Column="0"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
-                                   Padding="10"
-                                   CornerRadius="5">
-                                <VerticalStackLayout HorizontalOptions="Center">
-                                    <Label Text="Active Models"
-                                           FontSize="Caption"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
-                                           HorizontalOptions="Center" />
-                                    <Label Text="{Binding ActiveModelsCount}"
-                                           FontSize="Title"
-                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
-                                           HorizontalOptions="Center" />
-                                </VerticalStackLayout>
-                            </Frame>
-                            <!-- Today's Actions -->
-                            <Frame Grid.Column="1"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource TertiaryLight}, Dark={StaticResource TertiaryDark}}"
-                                   Padding="10"
-                                   CornerRadius="5">
-                                <VerticalStackLayout HorizontalOptions="Center">
-                                    <Label Text="Today's Actions"
-                                           FontSize="Caption"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
-                                           HorizontalOptions="Center" />
-                                    <Label Text="{Binding TodayActionsCount}"
-                                           FontSize="Title"
-                                           TextColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryLight}}"
-                                           HorizontalOptions="Center" />
-                                </VerticalStackLayout>
-                            </Frame>
-                            <!-- Success Rate -->
-                            <Frame Grid.Column="2"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryExtraLight}, Dark={StaticResource SecondaryDark}}"
-                                   Padding="10"
-                                   CornerRadius="5">
-                                <VerticalStackLayout HorizontalOptions="Center">
-                                    <Label Text="Success Rate"
-                                           FontSize="Caption"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
-                                           HorizontalOptions="Center" />
-                                    <Label Text="{Binding SuccessRate, StringFormat='{0:P0}'}"
-                                           FontSize="Title"
-                                           TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource AccentLight}}"
-                                           HorizontalOptions="Center" />
-                                </VerticalStackLayout>
-                            </Frame>
-                            <!-- System Health -->
-                            <Frame Grid.Row="1"
-                                   Grid.Column="0"
-                                   Grid.ColumnSpan="2"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
-                                   Padding="10"
-                                   CornerRadius="5">
-                                <Grid ColumnDefinitions="*,Auto"
-                                      RowDefinitions="Auto,Auto">
-                                    <Label Text="System Health"
-                                           FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
-                                    <Label Grid.Row="1"
-                                           Text="{Binding SystemHealthStatus}"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
-                                           FontSize="Caption" />
-                                    <Label Grid.Column="1"
-                                           Text="{Binding SystemHealthPercentage, StringFormat='{0:P0}'}"
-                                           TextColor="{Binding SystemHealthColor}"
-                                           FontSize="Title"
-                                           VerticalOptions="Center" />
-                                </Grid>
-                            </Frame>
-                            <!-- AI Accuracy -->
-                            <Frame Grid.Row="1"
-                                   Grid.Column="2"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
-                                   Padding="10"
-                                   CornerRadius="5">
-                                <VerticalStackLayout>
-                                    <Label Text="AI Accuracy"
-                                           FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
-                                           HorizontalOptions="Center" />
-                                    <ProgressBar Progress="{Binding AverageAIAccuracy}"
-                                                 ProgressColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}" />
-                                    <Label Text="{Binding AverageAIAccuracy, StringFormat='{0:P0}'}"
-                                           HorizontalOptions="Center"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
-                                           FontSize="Caption" />
-                                </VerticalStackLayout>
-                            </Frame>
-                        </Grid>
-                    </VerticalStackLayout>
-                </Frame>
+                    </Frame>
+                    <!-- AI Accuracy -->
+                    <Frame Grid.Row="1"
+                           Grid.Column="2"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
+                           Padding="10"
+                           CornerRadius="5">
+                        <VerticalStackLayout>
+                            <Label Text="AI Accuracy"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                   HorizontalOptions="Center" />
+                            <ProgressBar Progress="{Binding AverageAIAccuracy}"
+                                         ProgressColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}" />
+                            <Label Text="{Binding AverageAIAccuracy, StringFormat='{0:P0}'}"
+                                   HorizontalOptions="Center"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                                   FontSize="Caption" />
+                        </VerticalStackLayout>
+                    </Frame>
+                </Grid>
                 <!-- Active Goals Summary Card -->
                 <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                        BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"

@@ -108,6 +108,17 @@ public static class MauiProgram
             sp.GetRequiredService<ActionService>()
         ));
 
+        // Register VoiceAssistantService
+        services.AddSingleton<VoiceAssistantService>();
+
+        // Update HomePage registration to include VoiceAssistantService
+        services.AddSingleton(sp => new HomePage(
+            sp.GetRequiredService<HomeViewModel>(),
+            sp.GetRequiredService<DataService>(),
+            sp.GetRequiredService<AppModeService>(),
+            sp.GetRequiredService<VoiceAssistantService>()
+        ));
+
 #if WINDOWS
         services.AddSingleton<ITrayService, WinUI.TrayService>();
         services.AddSingleton<INotificationService, WinUI.NotificationService>();

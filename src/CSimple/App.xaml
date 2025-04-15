@@ -13,6 +13,7 @@
             <converters:IntToBoolConverter x:Key="IntToBoolConverter" />
             <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
             <converters:NotNullOrEmptyConverter x:Key="NotNullOrEmptyConverter" />
+            <converters:FloatToWidthConverter x:Key="FloatToWidthConverter" />
             <!-- Color Resources -->
             <ResourceDictionary.MergedDictionaries>
                 <!-- Default Theme -->
