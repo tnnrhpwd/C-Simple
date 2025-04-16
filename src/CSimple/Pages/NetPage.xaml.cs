@@ -658,39 +658,65 @@ public partial class NetPage : ContentPage
 
     private async void ImportModel()
     {
+        OnImportModelClicked(this, EventArgs.Empty);
+    }
+
+    private async void OnImportModelClicked(object sender, EventArgs e)
+    {
+        Debug.WriteLine("Import Model button clicked");
         try
         {
-            CurrentModelStatus = "Importing model...";
+            CurrentModelStatus = "Opening file picker...";
             OnPropertyChanged(nameof(CurrentModelStatus));
 
-            // Open file picker to allow user to select a model file
-            var customFileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+            // Try using the simplest form of FilePicker
+            try
             {
-                { DevicePlatform.WinUI, new[] { ".model", ".onnx", ".bin", ".pt", ".h5", ".pb" } },
-                { DevicePlatform.Android, new[] { "application/octet-stream", "application/*" } },
-                { DevicePlatform.iOS, new[] { "public.data", "public.content" } },
-                { DevicePlatform.macOS, new[] { "public.data", "public.content" } },
-            });
+                // Use FilePickerImplementation directly for debugging
+                var fileResult = await FilePicker.Default.PickAsync();
 
-            var options = new PickOptions
-            {
-                PickerTitle = "Select a model file to import",
-                FileTypes = customFileTypes
-            };
+                if (fileResult == null)
+                {
+                    Debug.WriteLine("File selection canceled");
+                    CurrentModelStatus = "Model import canceled";
+                    OnPropertyChanged(nameof(CurrentModelStatus));
+                    return;
+                }
 
-            var fileResult = await FilePicker.PickAsync(options);
+                Debug.WriteLine($"File selected: {fileResult.FileName}");
+                IsLoading = true;
+                OnPropertyChanged(nameof(IsLoading));
 
-            if (fileResult == null)
-            {
-                // User canceled the operation
-                CurrentModelStatus = "Model import canceled";
-                OnPropertyChanged(nameof(CurrentModelStatus));
-                return;
+                try
+                {
+                    // Process the selected file
+                    await ProcessSelectedModelFile(fileResult);
+                }
+                finally
+                {
+                    IsLoading = false;
+                    OnPropertyChanged(nameof(IsLoading));
+                }
             }
+            catch (Exception pickerEx)
+            {
+                Debug.WriteLine($"Error with FilePicker: {pickerEx}");
+                await DisplayAlert("Error", $"Could not open file picker: {pickerEx.Message}", "OK");
+                CurrentModelStatus = "Error opening file picker";
+                OnPropertyChanged(nameof(CurrentModelStatus));
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"OnImportModelClicked exception: {ex}");
+            await DisplayAlert("Error", $"An error occurred: {ex.Message}", "OK");
+        }
+    }
 
-            IsLoading = true;
-            OnPropertyChanged(nameof(IsLoading));
-
+    private async Task ProcessSelectedModelFile(FileResult fileResult)
+    {
+        try
+        {
             // Display file details
             await DisplayAlert("File Selected",
                 $"Name: {fileResult.FileName}\nSize: {await GetFileSizeAsync(fileResult)} KB",
@@ -702,20 +728,24 @@ public partial class NetPage : ContentPage
             if (string.IsNullOrEmpty(modelDestinationPath))
             {
                 CurrentModelStatus = "Failed to copy model file";
-                IsLoading = false;
                 OnPropertyChanged(nameof(CurrentModelStatus));
-                OnPropertyChanged(nameof(IsLoading));
                 return;
             }
 
-            // Determine the model type based on file extension or ask user
+            // Determine the model type
             var modelTypeResult = await DisplayActionSheet(
                 "Select Model Type",
                 "Cancel", null,
                 "General", "Input Specific", "Goal Specific");
 
-            ModelType modelType = ModelType.General; // Default
+            if (modelTypeResult == "Cancel" || string.IsNullOrEmpty(modelTypeResult))
+            {
+                CurrentModelStatus = "Model import canceled - no type selected";
+                OnPropertyChanged(nameof(CurrentModelStatus));
+                return;
+            }
 
+            ModelType modelType = ModelType.General;
             switch (modelTypeResult)
             {
                 case "Input Specific":
@@ -726,18 +756,19 @@ public partial class NetPage : ContentPage
                     break;
             }
 
-            // Add a new imported model
+            // Create the model object
             var modelName = Path.GetFileNameWithoutExtension(fileResult.FileName);
             var importedModel = new NeuralNetworkModel
             {
                 Id = Guid.NewGuid().ToString(),
-                Name = $"{modelName}",
+                Name = modelName,
                 Description = $"Imported model from {fileResult.FileName}",
                 Type = modelType,
-                AccuracyScore = 0.8, // Default value
+                AccuracyScore = 0.8,
                 LastTrainedDate = DateTime.Now
             };
 
+            // Add to available models
             AvailableModels.Add(importedModel);
             CurrentModelStatus = $"Model '{importedModel.Name}' imported successfully";
             OnPropertyChanged(nameof(CurrentModelStatus));
@@ -748,17 +779,12 @@ public partial class NetPage : ContentPage
         }
         catch (Exception ex)
         {
+            Debug.WriteLine($"ProcessSelectedModelFile error: {ex}");
             await DisplayAlert("Import Failed",
                 $"Error importing model: {ex.Message}",
                 "OK");
-            CurrentModelStatus = "Error importing model";
+            CurrentModelStatus = "Error processing model file";
             OnPropertyChanged(nameof(CurrentModelStatus));
-            Debug.WriteLine($"ImportModel error: {ex}");
-        }
-        finally
-        {
-            IsLoading = false;
-            OnPropertyChanged(nameof(IsLoading));
         }
     }
 

@@ -243,8 +243,8 @@
                                     BackgroundColor="{StaticResource Tertiary}"
                                     TextColor="{StaticResource TextOnPrimary}" />
                             <Button Grid.Column="1"
-                                    Text="{Binding IsLoading, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Importing...|Import Model'}"
-                                    Command="{Binding ImportModelCommand}"
+                                    Text="Import Model"
+                                    Clicked="OnImportModelClicked"
                                     IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}"
                                     BackgroundColor="{StaticResource Primary}"
                                     TextColor="{StaticResource TextOnPrimary}" />
