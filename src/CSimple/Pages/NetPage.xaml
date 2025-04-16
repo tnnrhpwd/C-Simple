@@ -76,12 +76,12 @@
                         </Frame>
                     </VerticalStackLayout>
                 </Frame>
-                <!-- Neural Network Activity Dashboard -->
+                <!-- COMBINED COMPONENT: Model Management Center -->
                 <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                        CornerRadius="{StaticResource CornerRadiusLarge}"
                        Padding="{StaticResource CardPadding}">
                     <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
-                        <Label Text="Network Activity"
+                        <Label Text="Model Management Center"
                                FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold" />
                         <!-- Network Stats -->
@@ -132,7 +132,6 @@
                         </Grid>
                         <!-- Active Models List -->
                         <Label Text="Currently Active Models"
-                               FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold"
                                Margin="{StaticResource MarginTopMedium}" />
                         <CollectionView ItemsSource="{Binding ActiveModels}"
@@ -161,17 +160,7 @@
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
                         </CollectionView>
-                    </VerticalStackLayout>
-                </Frame>
-                <!-- Available Models Section -->
-                <Frame BorderColor="{StaticResource Primary}"
-                       CornerRadius="{StaticResource CornerRadiusLarge}"
-                       Padding="{StaticResource CardPadding}">
-                    <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                        <Label Text="Available Models"
-                               FontSize="{StaticResource FontSizeSubtitle}"
-                               FontAttributes="Bold" />
-                        <!-- Filtered by mode -->
+                        <!-- Available Models Section -->
                         <Label Text="General Purpose Models"
                                FontAttributes="Bold"
                                IsVisible="{Binding IsGeneralModeActive}" />
@@ -237,6 +226,36 @@
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
                         </CollectionView>
+                        <!-- Model Sharing Controls -->
+                        <Label Text="Model Sharing"
+                               FontAttributes="Bold"
+                               Margin="{StaticResource MarginTopMedium}" />
+                        <Picker Title="Select Model to Share"
+                                ItemDisplayBinding="{Binding Name}"
+                                ItemsSource="{Binding AvailableModels}"
+                                x:Name="ShareModelPicker" />
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="{StaticResource SpacingSmall}">
+                            <Button Grid.Column="0"
+                                    Text="Share Model"
+                                    Command="{Binding ShareModelCommand}"
+                                    CommandParameter="{Binding Source={x:Reference ShareModelPicker}, Path=SelectedItem}"
+                                    BackgroundColor="{StaticResource Tertiary}"
+                                    TextColor="{StaticResource TextOnPrimary}" />
+                            <Button Grid.Column="1"
+                                    Text="{Binding IsLoading, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Importing...|Import Model'}"
+                                    Command="{Binding ImportModelCommand}"
+                                    IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}"
+                                    BackgroundColor="{StaticResource Primary}"
+                                    TextColor="{StaticResource TextOnPrimary}" />
+                        </Grid>
+                        <ActivityIndicator IsRunning="{Binding IsLoading}"
+                                           IsVisible="{Binding IsLoading}"
+                                           HorizontalOptions="Center"
+                                           Margin="{StaticResource MarginTopSmall}" />
+                        <Entry Placeholder="Enter share code to import model"
+                               Margin="{StaticResource MarginTopMedium}"
+                               IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}" />
                     </VerticalStackLayout>
                 </Frame>
                 <!-- AI Assistant Chat -->
@@ -301,38 +320,6 @@
                                        FontSize="{StaticResource FontSizeSmall}" />
                             </VerticalStackLayout>
                         </Frame>
-                    </VerticalStackLayout>
-                </Frame>
-                <!-- Model Sharing Controls -->
-                <Frame BorderColor="{StaticResource Primary}"
-                       CornerRadius="{StaticResource CornerRadiusLarge}"
-                       Padding="{StaticResource CardPadding}">
-                    <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                        <Label Text="Model Sharing"
-                               FontSize="{StaticResource FontSizeSubtitle}"
-                               FontAttributes="Bold" />
-                        <Picker Title="Select Model to Share"
-                                ItemDisplayBinding="{Binding Name}"
-                                ItemsSource="{Binding AvailableModels}"
-                                x:Name="ShareModelPicker" />
-                        <Grid ColumnDefinitions="*,*"
-                              ColumnSpacing="{StaticResource SpacingSmall}">
-                            <Button Grid.Column="0"
-                                    Text="Share Model"
-                                    Command="{Binding ShareModelCommand}"
-                                    CommandParameter="{Binding Source={x:Reference ShareModelPicker}, Path=SelectedItem}"
-                                    BackgroundColor="{StaticResource Tertiary}"
-                                    TextColor="{StaticResource TextOnPrimary}" />
-                            <Button Grid.Column="1"
-                                    Text="Import Model"
-                                    BackgroundColor="{StaticResource Primary}"
-                                    TextColor="{StaticResource TextOnPrimary}" />
-                        </Grid>
-                        <Entry Placeholder="Enter share code to import model"
-                               Margin="{StaticResource MarginTopMedium}" />
-                        <Label Text="Share with community to improve collective intelligence"
-                               FontSize="{StaticResource FontSizeSmall}"
-                               TextColor="{StaticResource TextSecondary}" />
                     </VerticalStackLayout>
                 </Frame>
                 <!-- Safety & Security -->

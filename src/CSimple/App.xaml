@@ -14,6 +14,8 @@
             <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
             <converters:NotNullOrEmptyConverter x:Key="NotNullOrEmptyConverter" />
             <converters:FloatToWidthConverter x:Key="FloatToWidthConverter" />
+            <converters:BoolToStringConverter x:Key="BoolToStringConverter"
+                                              x:Name="BoolToStringConverterResource" />
             <!-- Color Resources -->
             <ResourceDictionary.MergedDictionaries>
                 <!-- Default Theme -->

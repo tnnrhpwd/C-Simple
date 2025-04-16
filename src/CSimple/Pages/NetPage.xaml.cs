@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using System.IO; // Add this namespace for Path, Directory, and File classes
 
 namespace CSimple.Pages;
 
@@ -657,48 +658,182 @@ public partial class NetPage : ContentPage
 
     private async void ImportModel()
     {
-        CurrentModelStatus = "Importing shared model...";
-        OnPropertyChanged(nameof(CurrentModelStatus));
-
-        // Show import options dialog
-        string importChoice = await DisplayActionSheet(
-            "Import Model Source",
-            "Cancel",
-            null,
-            "From Local File",
-            "From Shared Repository",
-            "From QR Code"
-        );
-
-        if (importChoice == "Cancel" || string.IsNullOrEmpty(importChoice))
-            return;
-
-        // Simulate import
-        IsLoading = true;
         try
         {
-            await Task.Delay(1500);
+            CurrentModelStatus = "Importing model...";
+            OnPropertyChanged(nameof(CurrentModelStatus));
+
+            // Open file picker to allow user to select a model file
+            var customFileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+            {
+                { DevicePlatform.WinUI, new[] { ".model", ".onnx", ".bin", ".pt", ".h5", ".pb" } },
+                { DevicePlatform.Android, new[] { "application/octet-stream", "application/*" } },
+                { DevicePlatform.iOS, new[] { "public.data", "public.content" } },
+                { DevicePlatform.macOS, new[] { "public.data", "public.content" } },
+            });
+
+            var options = new PickOptions
+            {
+                PickerTitle = "Select a model file to import",
+                FileTypes = customFileTypes
+            };
+
+            var fileResult = await FilePicker.PickAsync(options);
+
+            if (fileResult == null)
+            {
+                // User canceled the operation
+                CurrentModelStatus = "Model import canceled";
+                OnPropertyChanged(nameof(CurrentModelStatus));
+                return;
+            }
+
+            IsLoading = true;
+            OnPropertyChanged(nameof(IsLoading));
+
+            // Display file details
+            await DisplayAlert("File Selected",
+                $"Name: {fileResult.FileName}\nSize: {await GetFileSizeAsync(fileResult)} KB",
+                "Continue");
+
+            // Copy file to app directory
+            var modelDestinationPath = await CopyModelToAppDirectoryAsync(fileResult);
+
+            if (string.IsNullOrEmpty(modelDestinationPath))
+            {
+                CurrentModelStatus = "Failed to copy model file";
+                IsLoading = false;
+                OnPropertyChanged(nameof(CurrentModelStatus));
+                OnPropertyChanged(nameof(IsLoading));
+                return;
+            }
+
+            // Determine the model type based on file extension or ask user
+            var modelTypeResult = await DisplayActionSheet(
+                "Select Model Type",
+                "Cancel", null,
+                "General", "Input Specific", "Goal Specific");
+
+            ModelType modelType = ModelType.General; // Default
+
+            switch (modelTypeResult)
+            {
+                case "Input Specific":
+                    modelType = ModelType.InputSpecific;
+                    break;
+                case "Goal Specific":
+                    modelType = ModelType.GoalSpecific;
+                    break;
+            }
 
             // Add a new imported model
+            var modelName = Path.GetFileNameWithoutExtension(fileResult.FileName);
             var importedModel = new NeuralNetworkModel
             {
                 Id = Guid.NewGuid().ToString(),
-                Name = "Imported Model - Sales Report Generator",
-                Description = "Creates weekly sales reports from data files",
-                Type = ModelType.GoalSpecific
+                Name = $"{modelName}",
+                Description = $"Imported model from {fileResult.FileName}",
+                Type = modelType,
+                AccuracyScore = 0.8, // Default value
+                LastTrainedDate = DateTime.Now
             };
 
             AvailableModels.Add(importedModel);
             CurrentModelStatus = $"Model '{importedModel.Name}' imported successfully";
+            OnPropertyChanged(nameof(CurrentModelStatus));
 
             await DisplayAlert("Import Success",
                 $"The model '{importedModel.Name}' has been imported and is ready to use.",
                 "OK");
         }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Import Failed",
+                $"Error importing model: {ex.Message}",
+                "OK");
+            CurrentModelStatus = "Error importing model";
+            OnPropertyChanged(nameof(CurrentModelStatus));
+            Debug.WriteLine($"ImportModel error: {ex}");
+        }
         finally
         {
             IsLoading = false;
+            OnPropertyChanged(nameof(IsLoading));
         }
+    }
+
+    private async Task<string> GetFileSizeAsync(FileResult fileResult)
+    {
+        try
+        {
+            var stream = await fileResult.OpenReadAsync();
+            return (stream.Length / 1024.0).ToString("F2");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error getting file size: {ex.Message}");
+            return "Unknown";
+        }
+    }
+
+    private async Task<string> CopyModelToAppDirectoryAsync(FileResult fileResult)
+    {
+        try
+        {
+            // Create models directory if it doesn't exist
+            var modelsDirectory = Path.Combine(FileSystem.AppDataDirectory, "Models");
+            if (!Directory.Exists(modelsDirectory))
+            {
+                Directory.CreateDirectory(modelsDirectory);
+            }
+
+            // Create specific directory based on model type
+            var modelTypeDirectory = Path.Combine(modelsDirectory, "ImportedModels");
+            if (!Directory.Exists(modelTypeDirectory))
+            {
+                Directory.CreateDirectory(modelTypeDirectory);
+            }
+
+            // Generate destination path with unique name to avoid overwriting
+            var fileName = Path.GetFileName(fileResult.FileName);
+            var uniqueFileName = EnsureUniqueFileName(modelTypeDirectory, fileName);
+            var destinationPath = Path.Combine(modelTypeDirectory, uniqueFileName);
+
+            // Read the file
+            using (var sourceStream = await fileResult.OpenReadAsync())
+            using (var destinationStream = File.Create(destinationPath))
+            {
+                // Copy the file 
+                await sourceStream.CopyToAsync(destinationStream);
+            }
+
+            Debug.WriteLine($"Model file copied to: {destinationPath}");
+            return destinationPath;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error copying model file: {ex}");
+            await DisplayAlert("Copy Error",
+                $"Failed to copy model file: {ex.Message}",
+                "OK");
+            return null;
+        }
+    }
+
+    private string EnsureUniqueFileName(string directory, string fileName)
+    {
+        string nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+        string extension = Path.GetExtension(fileName);
+        string finalFileName = fileName;
+        int count = 1;
+
+        while (File.Exists(Path.Combine(directory, finalFileName)))
+        {
+            finalFileName = $"{nameWithoutExtension}_{count}{extension}";
+            count++;
+        }
+
+        return finalFileName;
     }
 
     private async void ManageTraining()
