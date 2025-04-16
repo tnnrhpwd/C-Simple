@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Diagnostics;
-using CSimple.Pages; // Add reference to access ModelType enum
+using CSimple.Pages; // For ModelType enum
 
 namespace CSimple.Services
 {
@@ -14,6 +14,7 @@ namespace CSimple.Services
     {
         private readonly HttpClient _httpClient;
         private const string BaseUrl = "https://huggingface.co/api";
+        private const string RepoUrl = "https://huggingface.co";
 
         public HuggingFaceService()
         {
@@ -33,12 +34,17 @@ namespace CSimple.Services
                     url += $"&filter={Uri.EscapeDataString(category)}";
                 }
 
+                Debug.WriteLine($"Searching models with URL: {url}");
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
 
                 var content = await response.Content.ReadAsStringAsync();
+                Debug.WriteLine($"Received search response: {content.Substring(0, Math.Min(content.Length, 500))}...");
+
                 var models = JsonSerializer.Deserialize<List<HuggingFaceModel>>(content,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                Debug.WriteLine($"Parsed {models?.Count ?? 0} models from response");
 
                 return models ?? new List<HuggingFaceModel>();
             }
@@ -54,25 +60,118 @@ namespace CSimple.Services
             try
             {
                 var url = $"{BaseUrl}/models/{modelId}";
+                Debug.WriteLine($"Getting model details from URL: {url}");
+
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
 
                 var content = await response.Content.ReadAsStringAsync();
+                Debug.WriteLine($"Received details response: {content.Substring(0, Math.Min(content.Length, 500))}...");
+
                 var modelDetails = JsonSerializer.Deserialize<HuggingFaceModelDetails>(content,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                // The API doesn't provide a direct file list, so we need to get files separately
+                await GetModelFiles(modelDetails);
 
                 return modelDetails;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error getting model details: {ex.Message}");
+                Debug.WriteLine(ex.ToString());
                 return null;
             }
         }
 
+        private async Task GetModelFiles(HuggingFaceModelDetails modelDetails)
+        {
+            if (modelDetails == null) return;
+
+            try
+            {
+                // Use a separate API call to get model files through the repository tree endpoint
+                var url = $"{BaseUrl}/repos/{modelDetails.ModelId ?? modelDetails.Id}/tree/main";
+                Debug.WriteLine($"Getting model files from URL: {url}");
+
+                var response = await _httpClient.GetAsync(url);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    Debug.WriteLine($"Received files response: {content.Substring(0, Math.Min(content.Length, 500))}...");
+
+                    try
+                    {
+                        var fileTree = JsonSerializer.Deserialize<List<HuggingFaceFileInfo>>(content,
+                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                        modelDetails.Files = fileTree?
+                            .Where(f => f.Type == "blob")
+                            .Select(f => f.Path)
+                            .ToList() ?? new List<string>();
+
+                        Debug.WriteLine($"Found {modelDetails.Files.Count} files for model");
+                    }
+                    catch (JsonException jsonEx)
+                    {
+                        Debug.WriteLine($"Error parsing file tree JSON: {jsonEx.Message}");
+                        // Fallback to common model files
+                        modelDetails.Files = GetDefaultModelFiles(modelDetails.ModelId ?? modelDetails.Id);
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"Failed to get file tree: {response.StatusCode}");
+                    // Fallback to common model files
+                    modelDetails.Files = GetDefaultModelFiles(modelDetails.ModelId ?? modelDetails.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting model files: {ex.Message}");
+                // Fallback to common model files
+                modelDetails.Files = GetDefaultModelFiles(modelDetails.ModelId ?? modelDetails.Id);
+            }
+        }
+
+        private List<string> GetDefaultModelFiles(string modelId)
+        {
+            Debug.WriteLine("Using fallback default model files");
+
+            // Provide common default files based on model naming patterns
+            var files = new List<string>();
+
+            if (modelId.Contains("bert") || modelId.Contains("gpt") ||
+                modelId.Contains("llama") || modelId.Contains("t5"))
+            {
+                files.Add("pytorch_model.bin");
+                files.Add("config.json");
+                files.Add("tokenizer.json");
+                files.Add("vocab.json");
+            }
+            else if (modelId.Contains("whisper") || modelId.Contains("wav2vec"))
+            {
+                files.Add("pytorch_model.bin");
+                files.Add("model.safetensors");
+                files.Add("config.json");
+            }
+            else
+            {
+                // Generic fallbacks
+                files.Add("pytorch_model.bin");
+                files.Add("model.safetensors");
+                files.Add("model.onnx");
+                files.Add("model.bin");
+                files.Add("config.json");
+            }
+
+            return files;
+        }
+
         public string GetModelDownloadUrl(string modelId, string filename)
         {
-            return $"https://huggingface.co/{modelId}/resolve/main/{filename}";
+            return $"{RepoUrl}/{modelId}/resolve/main/{filename}";
         }
 
         public async Task<bool> DownloadModelFileAsync(string modelId, string filename, string destinationPath)
@@ -80,6 +179,8 @@ namespace CSimple.Services
             try
             {
                 var url = GetModelDownloadUrl(modelId, filename);
+                Debug.WriteLine($"Downloading file from URL: {url}");
+
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
 
@@ -108,6 +209,14 @@ namespace CSimple.Services
                 { "Text-to-Speech", "text-to-speech,text-to-audio" }
             };
         }
+    }
+
+    public class HuggingFaceFileInfo
+    {
+        public string Oid { get; set; }
+        public string Path { get; set; }
+        public string Type { get; set; } // "blob" for files, "tree" for directories
+        public int Size { get; set; }
     }
 
     public class HuggingFaceModel
@@ -143,7 +252,7 @@ namespace CSimple.Services
     {
         public List<string> Files { get; set; } = new List<string>();
         public string CardData { get; set; }
-        public new long? Downloads { get; set; } // Fixed: Added 'new' keyword to properly hide the base member
+        public new long? Downloads { get; set; }
         public List<string> SiblingModels { get; set; } = new List<string>();
         public string License { get; set; }
     }

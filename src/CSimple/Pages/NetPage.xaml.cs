@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.IO; // Add this namespace for Path, Directory, and File classes
 using CSimple.Services;
 using System.Collections.Generic;
+using System.Globalization; // Add this namespace for CultureInfo
 
 namespace CSimple.Pages;
 
@@ -1287,26 +1288,52 @@ public partial class NetPage : ContentPage
             if (modelDetails == null || modelDetails.Files == null || modelDetails.Files.Count == 0)
             {
                 modelDetails = await _huggingFaceService.GetModelDetailsAsync(model.ModelId ?? model.Id);
+                Debug.WriteLine($"Retrieved model details, files count: {modelDetails?.Files?.Count ?? 0}");
             }
 
-            // If we still don't have files, we can't proceed
+            // If we still don't have files, use fallback method
             if (modelDetails == null || modelDetails.Files == null || modelDetails.Files.Count == 0)
             {
-                await DisplayAlert("Import Error", "Could not get model files information", "OK");
-                CurrentModelStatus = "Failed to get model files";
-                OnPropertyChanged(nameof(CurrentModelStatus));
-                return;
+                Debug.WriteLine("No files found, using manual entry approach");
+
+                string filename = await DisplayPromptAsync(
+                    "Model File",
+                    "No files were found automatically. Please enter a file name to download (e.g., 'pytorch_model.bin', 'model.safetensors')",
+                    initialValue: "pytorch_model.bin");
+
+                if (string.IsNullOrEmpty(filename))
+                {
+                    CurrentModelStatus = "Model import canceled - no file specified";
+                    OnPropertyChanged(nameof(CurrentModelStatus));
+                    return;
+                }
+
+                // Create a simple model details object with the user-specified file
+                if (modelDetails == null)
+                {
+                    modelDetails = new HuggingFaceModelDetails
+                    {
+                        Id = model.Id,
+                        ModelId = model.ModelId,
+                        Author = model.Author,
+                        Description = model.Description,
+                        Pipeline_tag = model.Pipeline_tag
+                    };
+                }
+
+                modelDetails.Files = new List<string> { filename };
             }
 
-            // Ask user which files to import if there are multiple
             List<string> filesToDownload = new List<string>();
+
+            // Ask user which files to import if there are multiple
             if (modelDetails.Files.Count == 1)
             {
                 filesToDownload.Add(modelDetails.Files[0]);
             }
             else if (modelDetails.Files.Count > 1)
             {
-                // Filter to show common model file types
+                // Filter to show common model file types first
                 var modelFiles = modelDetails.Files.Where(f =>
                     f.EndsWith(".bin") ||
                     f.EndsWith(".onnx") ||
@@ -1315,11 +1342,23 @@ public partial class NetPage : ContentPage
                     f.EndsWith(".gguf") ||
                     f.EndsWith(".model")).ToList();
 
+                // If no model files found with preferred extensions, show config files
                 if (modelFiles.Count == 0)
                 {
-                    // If no model files found, show all files
+                    modelFiles = modelDetails.Files.Where(f =>
+                        f.EndsWith(".json") ||
+                        f.EndsWith(".txt") ||
+                        f.Contains("config")).ToList();
+                }
+
+                // If still no files found, show all files
+                if (modelFiles.Count == 0)
+                {
                     modelFiles = modelDetails.Files;
                 }
+
+                // Limit file list to avoid overwhelming UI
+                if (modelFiles.Count > 10) modelFiles = modelFiles.Take(10).ToList();
 
                 string selectedFile = await DisplayActionSheet(
                     "Select File to Import",
@@ -1351,7 +1390,7 @@ public partial class NetPage : ContentPage
             var modelsDirectory = Path.Combine(FileSystem.AppDataDirectory, "Models");
             var huggingFaceDirectory = Path.Combine(modelsDirectory, "HuggingFace");
             var modelDirectory = Path.Combine(huggingFaceDirectory,
-                (model.ModelId ?? model.Id).Replace("/", "_"));
+                (model.ModelId ?? model.Id).Replace("/", "_").Replace("\\", "_"));
 
             if (!Directory.Exists(modelsDirectory))
                 Directory.CreateDirectory(modelsDirectory);
@@ -1361,7 +1400,7 @@ public partial class NetPage : ContentPage
                 Directory.CreateDirectory(modelDirectory);
 
             // Download files
-            bool allDownloadsFailed = true;
+            bool anyDownloadSucceeded = false;
             foreach (var file in filesToDownload)
             {
                 CurrentModelStatus = $"Downloading {file}...";
@@ -1375,18 +1414,21 @@ public partial class NetPage : ContentPage
 
                 if (downloadSuccess)
                 {
-                    allDownloadsFailed = false;
+                    anyDownloadSucceeded = true;
+                    Debug.WriteLine($"Successfully downloaded {file}");
                 }
                 else
                 {
-                    await DisplayAlert("Download Error", $"Failed to download {file}", "OK");
+                    await DisplayAlert("Download Notice", $"Could not download {file}", "Continue");
+                    Debug.WriteLine($"Failed to download {file}");
                 }
             }
 
-            if (allDownloadsFailed)
+            if (!anyDownloadSucceeded)
             {
                 CurrentModelStatus = "All downloads failed";
                 OnPropertyChanged(nameof(CurrentModelStatus));
+                await DisplayAlert("Import Failed", "Could not download any of the model files", "OK");
                 return;
             }
 
@@ -1394,7 +1436,7 @@ public partial class NetPage : ContentPage
             var importedModel = new NeuralNetworkModel
             {
                 Id = Guid.NewGuid().ToString(),
-                Name = model.ModelId ?? model.Id,
+                Name = GetFriendlyModelName(model.ModelId ?? model.Id),
                 Description = model.Description ?? "Imported from HuggingFace",
                 Type = model.RecommendedModelType,
                 AccuracyScore = 0.85,
@@ -1403,6 +1445,7 @@ public partial class NetPage : ContentPage
 
             AvailableModels.Add(importedModel);
             CurrentModelStatus = $"Successfully imported {importedModel.Name}";
+            OnPropertyChanged(nameof(CurrentModelStatus));
 
             await DisplayAlert("Import Success",
                 $"Model '{importedModel.Name}' has been imported and is ready to use.",
@@ -1413,13 +1456,26 @@ public partial class NetPage : ContentPage
             Debug.WriteLine($"Error handling model details: {ex}");
             await DisplayAlert("Import Error", $"Failed to import model: {ex.Message}", "OK");
             CurrentModelStatus = "Error importing model";
-        }
-        finally
-        {
-            IsLoading = false;
-            OnPropertyChanged(nameof(IsLoading));
             OnPropertyChanged(nameof(CurrentModelStatus));
         }
+    }
+
+    // Helper method to create friendlier model names
+    private string GetFriendlyModelName(string modelId)
+    {
+        // Remove organization prefix if present
+        var name = modelId;
+        if (name.Contains("/"))
+        {
+            var parts = name.Split('/');
+            name = parts.Last();
+        }
+
+        // Replace dashes and underscores with spaces and title case
+        name = name.Replace("-", " ").Replace("_", " ");
+
+        // Title case the name
+        return new CultureInfo("en-US", false).TextInfo.ToTitleCase(name);
     }
 }
 
