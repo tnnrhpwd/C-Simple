@@ -256,6 +256,36 @@
                         <Entry Placeholder="Enter share code to import model"
                                Margin="{StaticResource MarginTopMedium}"
                                IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}" />
+                        <Label Text="HuggingFace Model Import"
+                               FontAttributes="Bold"
+                               Margin="{StaticResource MarginTopMedium}" />
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="{StaticResource SpacingSmall}">
+                            <Entry Grid.Column="0"
+                                   Placeholder="Search HuggingFace models..."
+                                   x:Name="HuggingFaceSearchEntry" />
+                            <Button Grid.Column="1"
+                                    Text="Search"
+                                    Clicked="OnHuggingFaceSearchClicked"
+                                    BackgroundColor="{StaticResource Secondary}"
+                                    TextColor="{StaticResource TextOnPrimary}" />
+                        </Grid>
+                        <Picker Title="Model Category"
+                                x:Name="HuggingFaceCategoryPicker"
+                                Margin="{StaticResource MarginTopSmall}">
+                            <Picker.Items>
+                                <x:String>All Categories</x:String>
+                                <x:String>Audio-to-Text</x:String>
+                                <x:String>Text-to-Text</x:String>
+                                <x:String>Image Understanding</x:String>
+                                <x:String>Text-to-Speech</x:String>
+                            </Picker.Items>
+                        </Picker>
+                        <Button Text="Import from HuggingFace"
+                                Clicked="OnImportFromHuggingFaceClicked"
+                                BackgroundColor="{StaticResource Success}"
+                                TextColor="{StaticResource TextOnPrimary}"
+                                Margin="{StaticResource MarginTopSmall}" />
                     </VerticalStackLayout>
                 </Frame>
                 <!-- AI Assistant Chat -->

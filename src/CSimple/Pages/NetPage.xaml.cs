@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using System.IO; // Add this namespace for Path, Directory, and File classes
+using CSimple.Services;
+using System.Collections.Generic;
 
 namespace CSimple.Pages;
 
@@ -43,6 +45,10 @@ public partial class NetPage : ContentPage
     public ICommand ManageTrainingCommand { get; private set; }
     public ICommand ViewModelPerformanceCommand { get; private set; }
 
+    // Add these properties to the class
+    private readonly HuggingFaceService _huggingFaceService;
+    private List<HuggingFaceModel> _searchResults = new List<HuggingFaceModel>();
+
     public NetPage()
     {
         InitializeComponent();
@@ -61,6 +67,9 @@ public partial class NetPage : ContentPage
         ImportModelCommand = new Command(ImportModel);
         ManageTrainingCommand = new Command(ManageTraining);
         ViewModelPerformanceCommand = new Command(ViewModelPerformance);
+
+        // Initialize the HuggingFace service
+        _huggingFaceService = new HuggingFaceService();
 
         CheckUserLoggedIn();
 
@@ -1125,6 +1134,291 @@ public partial class NetPage : ContentPage
         catch (Exception ex)
         {
             Debug.WriteLine($"Error checking converters: {ex.Message}");
+        }
+    }
+
+    // Add these methods for HuggingFace integration
+    private async void OnHuggingFaceSearchClicked(object sender, EventArgs e)
+    {
+        try
+        {
+            CurrentModelStatus = "Searching HuggingFace models...";
+            OnPropertyChanged(nameof(CurrentModelStatus));
+            IsLoading = true;
+            OnPropertyChanged(nameof(IsLoading));
+
+            string query = HuggingFaceSearchEntry.Text?.Trim() ?? "";
+            string category = null;
+
+            // Get selected category filter
+            if (HuggingFaceCategoryPicker.SelectedIndex > 0)
+            {
+                var categoryFilters = _huggingFaceService.GetModelCategoryFilters();
+                string selectedCategory = HuggingFaceCategoryPicker.SelectedItem?.ToString();
+                if (selectedCategory != null && categoryFilters.ContainsKey(selectedCategory))
+                {
+                    category = categoryFilters[selectedCategory];
+                }
+            }
+
+            // Search for models
+            _searchResults = await _huggingFaceService.SearchModelsAsync(query, category, 10);
+
+            if (_searchResults.Count > 0)
+            {
+                // Display results in a selection dialog
+                var modelNames = _searchResults.Select(m => m.ModelId ?? m.Id).ToArray();
+                string selectedModel = await DisplayActionSheet(
+                    "Select a HuggingFace Model",
+                    "Cancel",
+                    null,
+                    modelNames);
+
+                if (selectedModel != "Cancel" && !string.IsNullOrEmpty(selectedModel))
+                {
+                    var model = _searchResults.FirstOrDefault(m => (m.ModelId ?? m.Id) == selectedModel);
+                    if (model != null)
+                    {
+                        await ShowModelDetailsAndImport(model);
+                    }
+                }
+                else
+                {
+                    CurrentModelStatus = "Model selection canceled";
+                }
+            }
+            else
+            {
+                await DisplayAlert("No Results", "No models found matching your search criteria.", "OK");
+                CurrentModelStatus = "No HuggingFace models found";
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error searching HuggingFace: {ex}");
+            await DisplayAlert("Search Error", $"Failed to search HuggingFace: {ex.Message}", "OK");
+            CurrentModelStatus = "Error searching HuggingFace";
+        }
+        finally
+        {
+            IsLoading = false;
+            OnPropertyChanged(nameof(IsLoading));
+            OnPropertyChanged(nameof(CurrentModelStatus));
+        }
+    }
+
+    private async void OnImportFromHuggingFaceClicked(object sender, EventArgs e)
+    {
+        try
+        {
+            // Show a dialog for entering a model ID directly
+            string modelId = await DisplayPromptAsync(
+                "Import HuggingFace Model",
+                "Enter the model ID (e.g., 'openai/whisper-small')",
+                "Import",
+                "Cancel");
+
+            if (string.IsNullOrEmpty(modelId))
+            {
+                return;
+            }
+
+            CurrentModelStatus = $"Getting details for {modelId}...";
+            OnPropertyChanged(nameof(CurrentModelStatus));
+            IsLoading = true;
+            OnPropertyChanged(nameof(IsLoading));
+
+            // Get model details
+            var modelDetails = await _huggingFaceService.GetModelDetailsAsync(modelId);
+
+            if (modelDetails != null)
+            {
+                await ShowModelDetailsAndImport(modelDetails);
+            }
+            else
+            {
+                await DisplayAlert("Model Not Found", $"Could not find model with ID: {modelId}", "OK");
+                CurrentModelStatus = "Model not found";
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error importing from HuggingFace: {ex}");
+            await DisplayAlert("Import Error", $"Failed to import model: {ex.Message}", "OK");
+            CurrentModelStatus = "Error importing from HuggingFace";
+        }
+        finally
+        {
+            IsLoading = false;
+            OnPropertyChanged(nameof(IsLoading));
+            OnPropertyChanged(nameof(CurrentModelStatus));
+        }
+    }
+
+    private async Task ShowModelDetailsAndImport(HuggingFaceModel model)
+    {
+        try
+        {
+            // Show model details
+            bool importConfirmed = await DisplayAlert(
+                "Model Details",
+                $"Name: {model.ModelId ?? model.Id}\n" +
+                $"Author: {model.Author}\n" +
+                $"Type: {model.Pipeline_tag}\n" +
+                $"Downloads: {model.Downloads}\n\n" +
+                $"Description: {model.Description?.Substring(0, Math.Min(200, model.Description?.Length ?? 0))}\n\n" +
+                "Do you want to import this model?",
+                "Import",
+                "Cancel"
+            );
+
+            if (!importConfirmed)
+            {
+                CurrentModelStatus = "Import canceled";
+                OnPropertyChanged(nameof(CurrentModelStatus));
+                return;
+            }
+
+            CurrentModelStatus = $"Preparing to import {model.ModelId ?? model.Id}...";
+            OnPropertyChanged(nameof(CurrentModelStatus));
+
+            // Get model details if not already available
+            HuggingFaceModelDetails modelDetails = model as HuggingFaceModelDetails;
+            if (modelDetails == null || modelDetails.Files == null || modelDetails.Files.Count == 0)
+            {
+                modelDetails = await _huggingFaceService.GetModelDetailsAsync(model.ModelId ?? model.Id);
+            }
+
+            // If we still don't have files, we can't proceed
+            if (modelDetails == null || modelDetails.Files == null || modelDetails.Files.Count == 0)
+            {
+                await DisplayAlert("Import Error", "Could not get model files information", "OK");
+                CurrentModelStatus = "Failed to get model files";
+                OnPropertyChanged(nameof(CurrentModelStatus));
+                return;
+            }
+
+            // Ask user which files to import if there are multiple
+            List<string> filesToDownload = new List<string>();
+            if (modelDetails.Files.Count == 1)
+            {
+                filesToDownload.Add(modelDetails.Files[0]);
+            }
+            else if (modelDetails.Files.Count > 1)
+            {
+                // Filter to show common model file types
+                var modelFiles = modelDetails.Files.Where(f =>
+                    f.EndsWith(".bin") ||
+                    f.EndsWith(".onnx") ||
+                    f.EndsWith(".pt") ||
+                    f.EndsWith(".safetensors") ||
+                    f.EndsWith(".gguf") ||
+                    f.EndsWith(".model")).ToList();
+
+                if (modelFiles.Count == 0)
+                {
+                    // If no model files found, show all files
+                    modelFiles = modelDetails.Files;
+                }
+
+                string selectedFile = await DisplayActionSheet(
+                    "Select File to Import",
+                    "Cancel",
+                    null,
+                    modelFiles.ToArray());
+
+                if (selectedFile != "Cancel" && !string.IsNullOrEmpty(selectedFile))
+                {
+                    filesToDownload.Add(selectedFile);
+                }
+                else
+                {
+                    CurrentModelStatus = "File selection canceled";
+                    OnPropertyChanged(nameof(CurrentModelStatus));
+                    return;
+                }
+            }
+
+            if (filesToDownload.Count == 0)
+            {
+                await DisplayAlert("Import Error", "No files selected for download", "OK");
+                CurrentModelStatus = "No files selected";
+                OnPropertyChanged(nameof(CurrentModelStatus));
+                return;
+            }
+
+            // Create model directory
+            var modelsDirectory = Path.Combine(FileSystem.AppDataDirectory, "Models");
+            var huggingFaceDirectory = Path.Combine(modelsDirectory, "HuggingFace");
+            var modelDirectory = Path.Combine(huggingFaceDirectory,
+                (model.ModelId ?? model.Id).Replace("/", "_"));
+
+            if (!Directory.Exists(modelsDirectory))
+                Directory.CreateDirectory(modelsDirectory);
+            if (!Directory.Exists(huggingFaceDirectory))
+                Directory.CreateDirectory(huggingFaceDirectory);
+            if (!Directory.Exists(modelDirectory))
+                Directory.CreateDirectory(modelDirectory);
+
+            // Download files
+            bool allDownloadsFailed = true;
+            foreach (var file in filesToDownload)
+            {
+                CurrentModelStatus = $"Downloading {file}...";
+                OnPropertyChanged(nameof(CurrentModelStatus));
+
+                string destinationPath = Path.Combine(modelDirectory, Path.GetFileName(file));
+                bool downloadSuccess = await _huggingFaceService.DownloadModelFileAsync(
+                    model.ModelId ?? model.Id,
+                    file,
+                    destinationPath);
+
+                if (downloadSuccess)
+                {
+                    allDownloadsFailed = false;
+                }
+                else
+                {
+                    await DisplayAlert("Download Error", $"Failed to download {file}", "OK");
+                }
+            }
+
+            if (allDownloadsFailed)
+            {
+                CurrentModelStatus = "All downloads failed";
+                OnPropertyChanged(nameof(CurrentModelStatus));
+                return;
+            }
+
+            // Create and add the model
+            var importedModel = new NeuralNetworkModel
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = model.ModelId ?? model.Id,
+                Description = model.Description ?? "Imported from HuggingFace",
+                Type = model.RecommendedModelType,
+                AccuracyScore = 0.85,
+                LastTrainedDate = DateTime.Now
+            };
+
+            AvailableModels.Add(importedModel);
+            CurrentModelStatus = $"Successfully imported {importedModel.Name}";
+
+            await DisplayAlert("Import Success",
+                $"Model '{importedModel.Name}' has been imported and is ready to use.",
+                "OK");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error handling model details: {ex}");
+            await DisplayAlert("Import Error", $"Failed to import model: {ex.Message}", "OK");
+            CurrentModelStatus = "Error importing model";
+        }
+        finally
+        {
+            IsLoading = false;
+            OnPropertyChanged(nameof(IsLoading));
+            OnPropertyChanged(nameof(CurrentModelStatus));
         }
     }
 }
