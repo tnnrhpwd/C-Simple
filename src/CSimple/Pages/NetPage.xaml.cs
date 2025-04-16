@@ -1291,90 +1291,209 @@ public partial class NetPage : ContentPage
                 Debug.WriteLine($"Retrieved model details, files count: {modelDetails?.Files?.Count ?? 0}");
             }
 
-            // If we still don't have files, use fallback method
-            if (modelDetails == null || modelDetails.Files == null || modelDetails.Files.Count == 0)
-            {
-                Debug.WriteLine("No files found, using manual entry approach");
-
-                string filename = await DisplayPromptAsync(
-                    "Model File",
-                    "No files were found automatically. Please enter a file name to download (e.g., 'pytorch_model.bin', 'model.safetensors')",
-                    initialValue: "pytorch_model.bin");
-
-                if (string.IsNullOrEmpty(filename))
-                {
-                    CurrentModelStatus = "Model import canceled - no file specified";
-                    OnPropertyChanged(nameof(CurrentModelStatus));
-                    return;
-                }
-
-                // Create a simple model details object with the user-specified file
-                if (modelDetails == null)
-                {
-                    modelDetails = new HuggingFaceModelDetails
-                    {
-                        Id = model.Id,
-                        ModelId = model.ModelId,
-                        Author = model.Author,
-                        Description = model.Description,
-                        Pipeline_tag = model.Pipeline_tag
-                    };
-                }
-
-                modelDetails.Files = new List<string> { filename };
-            }
-
+            // If we still don't have files, show options
             List<string> filesToDownload = new List<string>();
 
-            // Ask user which files to import if there are multiple
-            if (modelDetails.Files.Count == 1)
+            if (modelDetails == null || modelDetails.Files == null || modelDetails.Files.Count == 0)
             {
-                filesToDownload.Add(modelDetails.Files[0]);
-            }
-            else if (modelDetails.Files.Count > 1)
-            {
-                // Filter to show common model file types first
-                var modelFiles = modelDetails.Files.Where(f =>
-                    f.EndsWith(".bin") ||
-                    f.EndsWith(".onnx") ||
-                    f.EndsWith(".pt") ||
-                    f.EndsWith(".safetensors") ||
-                    f.EndsWith(".gguf") ||
-                    f.EndsWith(".model")).ToList();
-
-                // If no model files found with preferred extensions, show config files
-                if (modelFiles.Count == 0)
-                {
-                    modelFiles = modelDetails.Files.Where(f =>
-                        f.EndsWith(".json") ||
-                        f.EndsWith(".txt") ||
-                        f.Contains("config")).ToList();
-                }
-
-                // If still no files found, show all files
-                if (modelFiles.Count == 0)
-                {
-                    modelFiles = modelDetails.Files;
-                }
-
-                // Limit file list to avoid overwhelming UI
-                if (modelFiles.Count > 10) modelFiles = modelFiles.Take(10).ToList();
-
-                string selectedFile = await DisplayActionSheet(
-                    "Select File to Import",
+                // Show options dialog first
+                string option = await DisplayActionSheet(
+                    "Model Import Options",
                     "Cancel",
                     null,
-                    modelFiles.ToArray());
+                    "Enter File Name Manually",
+                    "Import Model Configuration",
+                    "Use Python Script");
 
-                if (selectedFile != "Cancel" && !string.IsNullOrEmpty(selectedFile))
+                switch (option)
                 {
-                    filesToDownload.Add(selectedFile);
+                    case "Enter File Name Manually":
+                        string filename = await DisplayPromptAsync(
+                            "Model File",
+                            "Please enter a file name to download (e.g., 'pytorch_model.bin', 'model.safetensors')",
+                            initialValue: "pytorch_model.bin");
+
+                        if (string.IsNullOrEmpty(filename))
+                        {
+                            CurrentModelStatus = "Model import canceled - no file specified";
+                            OnPropertyChanged(nameof(CurrentModelStatus));
+                            return;
+                        }
+
+                        // Create model details with just this file
+                        if (modelDetails == null)
+                        {
+                            modelDetails = new HuggingFaceModelDetails
+                            {
+                                Id = model.Id,
+                                ModelId = model.ModelId,
+                                Author = model.Author,
+                                Description = model.Description,
+                                Pipeline_tag = model.Pipeline_tag
+                            };
+                        }
+
+                        filesToDownload.Add(filename);
+                        break;
+
+                    case "Import Model Configuration":
+                        // Just import config.json which is often enough for structure information
+                        if (modelDetails == null)
+                        {
+                            modelDetails = new HuggingFaceModelDetails
+                            {
+                                Id = model.Id,
+                                ModelId = model.ModelId,
+                                Author = model.Author,
+                                Description = model.Description,
+                                Pipeline_tag = model.Pipeline_tag
+                            };
+                        }
+
+                        filesToDownload.Add("config.json");
+
+                        // Also show the Python code for reference
+                        await DisplayAlert(
+                            "Using Python transformers",
+                            $"This model can be used in Python with:\n\n" +
+                            $"from transformers import AutoModel\n" +
+                            $"model = AutoModel.from_pretrained(\"{model.ModelId ?? model.Id}\")\n\n" +
+                            $"The app will download the configuration file only.",
+                            "OK");
+                        break;
+
+                    case "Use Python Script":
+                        await DisplayAlert(
+                            "Python Code for this Model",
+                            $"# Load model directly\n" +
+                            $"from transformers import AutoModel\n" +
+                            $"model = AutoModel.from_pretrained(\"{model.ModelId ?? model.Id}\", trust_remote_code=True)\n\n" +
+                            $"# For C#/.NET integration:\n" +
+                            $"1. Export the model to ONNX format in Python\n" +
+                            $"2. Use Microsoft.ML.OnnxRuntime in your C# app\n" +
+                            $"3. Or use ML.NET's Model Builder\n\n" +
+                            $"Would you like to download model info anyway?",
+                            "Yes", "No");
+
+                        // Create some basic model info only
+                        var infoDirectory = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace",
+                            (model.ModelId ?? model.Id).Replace("/", "_").Replace("\\", "_"));
+
+                        Directory.CreateDirectory(infoDirectory);
+                        File.WriteAllText(
+                            Path.Combine(infoDirectory, "model_info.txt"),
+                            $"Model ID: {model.ModelId ?? model.Id}\n" +
+                            $"Author: {model.Author}\n" +
+                            $"Description: {model.Description}\n" +
+                            $"Type: {model.Pipeline_tag}\n" +
+                            $"Python code:\n" +
+                            $"from transformers import AutoModel\n" +
+                            $"model = AutoModel.from_pretrained(\"{model.ModelId ?? model.Id}\", trust_remote_code=True)\n"
+                        );
+
+                        // Create and add the model reference
+                        var pythonReferenceModel = new NeuralNetworkModel
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Name = GetFriendlyModelName(model.ModelId ?? model.Id) + " (Python)",
+                            Description = model.Description ?? "Imported from HuggingFace (requires Python)",
+                            Type = model.RecommendedModelType,
+                            AccuracyScore = 0.85,
+                            LastTrainedDate = DateTime.Now
+                        };
+
+                        AvailableModels.Add(pythonReferenceModel);
+                        CurrentModelStatus = $"Added reference to {pythonReferenceModel.Name}";
+                        OnPropertyChanged(nameof(CurrentModelStatus));
+
+                        await DisplayAlert("Reference Added",
+                            $"A reference to '{pythonReferenceModel.Name}' has been added. Use Python code to access the actual model.",
+                            "OK");
+                        return;
+
+                    default:
+                        CurrentModelStatus = "Model import canceled";
+                        OnPropertyChanged(nameof(CurrentModelStatus));
+                        return;
+                }
+            }
+            else
+            {
+                // We have files, select which ones to download
+                // First get recommended files based on common patterns
+                var recommendedFiles = GetRecommendedFiles(modelDetails.Files);
+
+                if (recommendedFiles.Count > 0)
+                {
+                    // Show them for selection
+                    string option = await DisplayActionSheet(
+                        "Select File to Import",
+                        "Cancel",
+                        "Download ALL Files",
+                        recommendedFiles.ToArray());
+
+                    if (option == "Download ALL Files")
+                    {
+                        // Choose all recommended files
+                        filesToDownload.AddRange(recommendedFiles);
+                    }
+                    else if (option != "Cancel" && !string.IsNullOrEmpty(option))
+                    {
+                        filesToDownload.Add(option);
+
+                        // Also ask about config and tokenizer files if available
+                        var configFile = modelDetails.Files.FirstOrDefault(f => f.Contains("config.json"));
+                        if (configFile != null && !filesToDownload.Contains(configFile))
+                        {
+                            bool downloadConfig = await DisplayAlert("Download Configuration",
+                                $"Would you also like to download the configuration file ({configFile})?",
+                                "Yes", "No");
+                            if (downloadConfig)
+                            {
+                                filesToDownload.Add(configFile);
+                            }
+                        }
+
+                        var tokenizerFile = modelDetails.Files.FirstOrDefault(f =>
+                            f.Contains("tokenizer.") || f.Contains("vocab.") || f.Contains("merges."));
+                        if (tokenizerFile != null && !filesToDownload.Contains(tokenizerFile))
+                        {
+                            bool downloadTokenizer = await DisplayAlert("Download Tokenizer",
+                                $"Would you also like to download the tokenizer file ({tokenizerFile})?",
+                                "Yes", "No");
+                            if (downloadTokenizer)
+                            {
+                                filesToDownload.Add(tokenizerFile);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Canceled
+                        CurrentModelStatus = "File selection canceled";
+                        OnPropertyChanged(nameof(CurrentModelStatus));
+                        return;
+                    }
                 }
                 else
                 {
-                    CurrentModelStatus = "File selection canceled";
-                    OnPropertyChanged(nameof(CurrentModelStatus));
-                    return;
+                    // No recommended files found, show all files
+                    string selectedFile = await DisplayActionSheet(
+                        "Select File to Import",
+                        "Cancel",
+                        null,
+                        modelDetails.Files.ToArray());
+
+                    if (selectedFile != "Cancel" && !string.IsNullOrEmpty(selectedFile))
+                    {
+                        filesToDownload.Add(selectedFile);
+                    }
+                    else
+                    {
+                        CurrentModelStatus = "File selection canceled";
+                        OnPropertyChanged(nameof(CurrentModelStatus));
+                        return;
+                    }
                 }
             }
 
@@ -1386,6 +1505,19 @@ public partial class NetPage : ContentPage
                 return;
             }
 
+            // Show Python usage instructions for this model
+            await DisplayAlert("Model Usage Information",
+                $"This model ({model.ModelId ?? model.Id}) can be used in Python with:\n\n" +
+                $"from transformers import AutoModel, AutoTokenizer\n" +
+                $"tokenizer = AutoTokenizer.from_pretrained(\"{model.ModelId ?? model.Id}\")\n" +
+                $"model = AutoModel.from_pretrained(\"{model.ModelId ?? model.Id}\")\n\n" +
+                $"For use in .NET, consider:\n" +
+                $"- Export to ONNX format in Python then use OnnxRuntime in .NET\n" +
+                $"- Use ML.NET Model Builder with this model\n" +
+                $"- Use Python interop from your .NET application",
+                "Continue with Download");
+
+            // Continue with the download process
             // Create model directory
             var modelsDirectory = Path.Combine(FileSystem.AppDataDirectory, "Models");
             var huggingFaceDirectory = Path.Combine(modelsDirectory, "HuggingFace");
@@ -1448,7 +1580,9 @@ public partial class NetPage : ContentPage
             OnPropertyChanged(nameof(CurrentModelStatus));
 
             await DisplayAlert("Import Success",
-                $"Model '{importedModel.Name}' has been imported and is ready to use.",
+                $"Model '{importedModel.Name}' has been imported and is ready to use.\n\n" +
+                $"Saved in: {modelDirectory}\n\n" +
+                $"Use with Python transformers library or export to ONNX format for .NET integration.",
                 "OK");
         }
         catch (Exception ex)
@@ -1460,7 +1594,49 @@ public partial class NetPage : ContentPage
         }
     }
 
-    // Helper method to create friendlier model names
+    // Helper method to find recommended files from a model's file list
+    private List<string> GetRecommendedFiles(List<string> files)
+    {
+        // Priority file extensions
+        var priorityExtensions = new[] {
+            ".bin", ".safetensors", ".onnx", ".gguf", ".pt",
+            ".model", ".h5", ".ckpt", ".weights"
+        };
+
+        var priorityFilePatterns = new[] {
+            "pytorch_model", "model.", "weights.", "encoder.",
+            "decoder.", "tokenizer.", "embedding."
+        };
+
+        // First check for priority file patterns with priority extensions
+        var result = files.Where(f =>
+            priorityFilePatterns.Any(p => f.Contains(p)) &&
+            priorityExtensions.Any(e => f.EndsWith(e))
+        ).ToList();
+
+        // If none found, just get files with priority extensions
+        if (result.Count == 0)
+        {
+            result = files.Where(f => priorityExtensions.Any(e => f.EndsWith(e))).ToList();
+        }
+
+        // If still none, look for any json configuration files
+        if (result.Count == 0)
+        {
+            result = files.Where(f => f.EndsWith(".json")).ToList();
+        }
+
+        // If we have too many, limit the results
+        if (result.Count > 5)
+        {
+            // Prioritize smaller file names that are likely to be the main model weights
+            result = result.OrderBy(f => f.Length).Take(5).ToList();
+        }
+
+        return result;
+    }
+
+    // Add this method right after any other helper methods and before the model classes
     private string GetFriendlyModelName(string modelId)
     {
         // Remove organization prefix if present
@@ -1475,7 +1651,8 @@ public partial class NetPage : ContentPage
         name = name.Replace("-", " ").Replace("_", " ");
 
         // Title case the name
-        return new CultureInfo("en-US", false).TextInfo.ToTitleCase(name);
+        var textInfo = CultureInfo.CurrentCulture.TextInfo;
+        return textInfo.ToTitleCase(name);
     }
 }
 

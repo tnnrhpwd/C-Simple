@@ -84,14 +84,12 @@ namespace CSimple.Services
             }
         }
 
-        private async Task GetModelFiles(HuggingFaceModelDetails modelDetails)
+        public async Task<List<string>> GetModelFilesAsync(string modelId)
         {
-            if (modelDetails == null) return;
-
             try
             {
-                // Use a separate API call to get model files through the repository tree endpoint
-                var url = $"{BaseUrl}/repos/{modelDetails.ModelId ?? modelDetails.Id}/tree/main";
+                // Try to get files using the repository tree endpoint
+                var url = $"{BaseUrl}/repos/{modelId}/tree/main";
                 Debug.WriteLine($"Getting model files from URL: {url}");
 
                 var response = await _httpClient.GetAsync(url);
@@ -99,74 +97,131 @@ namespace CSimple.Services
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    Debug.WriteLine($"Received files response: {content.Substring(0, Math.Min(content.Length, 500))}...");
+                    Debug.WriteLine($"Received files response: {content.Length} bytes");
 
                     try
                     {
                         var fileTree = JsonSerializer.Deserialize<List<HuggingFaceFileInfo>>(content,
                             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-                        modelDetails.Files = fileTree?
+                        var files = fileTree?
                             .Where(f => f.Type == "blob")
                             .Select(f => f.Path)
                             .ToList() ?? new List<string>();
 
-                        Debug.WriteLine($"Found {modelDetails.Files.Count} files for model");
+                        if (files.Count > 0)
+                        {
+                            Debug.WriteLine($"Found {files.Count} files via repo API");
+                            return files;
+                        }
                     }
                     catch (JsonException jsonEx)
                     {
                         Debug.WriteLine($"Error parsing file tree JSON: {jsonEx.Message}");
-                        // Fallback to common model files
-                        modelDetails.Files = GetDefaultModelFiles(modelDetails.ModelId ?? modelDetails.Id);
                     }
+                }
+
+                // If we couldn't get files via the API, try a different approach
+                // For modern transformer models, suggest common configuration and weight files
+                var commonFiles = GetCommonModelFiles(modelId);
+                Debug.WriteLine($"Using {commonFiles.Count} common model files as fallback");
+                return commonFiles;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting model files: {ex}");
+                return GetCommonModelFiles(modelId);
+            }
+        }
+
+        private List<string> GetCommonModelFiles(string modelId)
+        {
+            // Detect model type from ID to suggest appropriate files
+            bool isLlama = modelId.Contains("llama", StringComparison.OrdinalIgnoreCase);
+            bool isWhisper = modelId.Contains("whisper", StringComparison.OrdinalIgnoreCase);
+            bool isBert = modelId.Contains("bert", StringComparison.OrdinalIgnoreCase);
+            bool isGpt = modelId.Contains("gpt", StringComparison.OrdinalIgnoreCase) ||
+                         modelId.Contains("llm", StringComparison.OrdinalIgnoreCase);
+            bool isSafetensors = modelId.Contains("stable", StringComparison.OrdinalIgnoreCase) ||
+                                 modelId.Contains("diffusion", StringComparison.OrdinalIgnoreCase);
+
+            var files = new List<string>();
+
+            // Config files that almost all models have
+            files.Add("config.json");
+
+            // Model weight files
+            if (isLlama || isGpt)
+            {
+                files.Add("pytorch_model.bin");
+                files.Add("model.safetensors");
+                files.Add("tokenizer.model");
+                files.Add("tokenizer.json");
+                files.Add("model.gguf"); // GGUF format for llama.cpp
+            }
+            else if (isWhisper)
+            {
+                files.Add("pytorch_model.bin");
+                files.Add("model.bin");
+                files.Add("encoder.onnx");
+                files.Add("decoder.onnx");
+            }
+            else if (isBert)
+            {
+                files.Add("pytorch_model.bin");
+                files.Add("tf_model.h5");
+                files.Add("vocab.txt");
+            }
+            else if (isSafetensors)
+            {
+                files.Add("model.safetensors");
+                files.Add("v1-inference.ckpt");
+            }
+            else
+            {
+                // Generic options
+                files.Add("pytorch_model.bin");
+                files.Add("model.safetensors");
+                files.Add("model.bin");
+                files.Add("model.onnx");
+                files.Add("weights.bin");
+            }
+
+            // Other common files
+            files.Add("tokenizer_config.json");
+            files.Add("special_tokens_map.json");
+            files.Add("vocab.json");
+            files.Add("merges.txt");
+
+            return files;
+        }
+
+        private async Task GetModelFiles(HuggingFaceModelDetails modelDetails)
+        {
+            if (modelDetails == null) return;
+
+            try
+            {
+                // Get files through the improved method
+                var files = await GetModelFilesAsync(modelDetails.ModelId ?? modelDetails.Id);
+
+                if (files != null && files.Count > 0)
+                {
+                    modelDetails.Files = files;
+                    Debug.WriteLine($"Found {files.Count} files for model {modelDetails.ModelId ?? modelDetails.Id}");
                 }
                 else
                 {
-                    Debug.WriteLine($"Failed to get file tree: {response.StatusCode}");
-                    // Fallback to common model files
-                    modelDetails.Files = GetDefaultModelFiles(modelDetails.ModelId ?? modelDetails.Id);
+                    // Empty files list as a fallback
+                    modelDetails.Files = new List<string>();
+                    Debug.WriteLine("No files found for the model");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error getting model files: {ex.Message}");
-                // Fallback to common model files
-                modelDetails.Files = GetDefaultModelFiles(modelDetails.ModelId ?? modelDetails.Id);
+                Debug.WriteLine($"Error retrieving model files: {ex}");
+                modelDetails.Files = new List<string>();
             }
-        }
-
-        private List<string> GetDefaultModelFiles(string modelId)
-        {
-            Debug.WriteLine("Using fallback default model files");
-
-            // Provide common default files based on model naming patterns
-            var files = new List<string>();
-
-            if (modelId.Contains("bert") || modelId.Contains("gpt") ||
-                modelId.Contains("llama") || modelId.Contains("t5"))
-            {
-                files.Add("pytorch_model.bin");
-                files.Add("config.json");
-                files.Add("tokenizer.json");
-                files.Add("vocab.json");
-            }
-            else if (modelId.Contains("whisper") || modelId.Contains("wav2vec"))
-            {
-                files.Add("pytorch_model.bin");
-                files.Add("model.safetensors");
-                files.Add("config.json");
-            }
-            else
-            {
-                // Generic fallbacks
-                files.Add("pytorch_model.bin");
-                files.Add("model.safetensors");
-                files.Add("model.onnx");
-                files.Add("model.bin");
-                files.Add("config.json");
-            }
-
-            return files;
         }
 
         public string GetModelDownloadUrl(string modelId, string filename)
