@@ -318,26 +318,43 @@ namespace CSimple.Pages
             {
                 Debug.WriteLine("Attempting to complete connection...");
                 NodeViewModel targetNode = null;
-                float tolerance = 5f; // Add tolerance for easier tapping
+                float tolerance = 20f; // Increased tolerance significantly for testing
 
                 // Manually check for target node instead of relying solely on ViewModel method
+                Debug.WriteLine($"--- Checking nodes at EndPoint {endPoint} with tolerance {tolerance} ---");
                 foreach (var node in _viewModel.Nodes)
                 {
                     // Create a slightly larger rectangle for hit testing
                     RectF nodeBounds = new RectF(node.Position, node.Size);
                     nodeBounds.Inflate(tolerance, tolerance);
 
+                    Debug.WriteLine($"Checking Node: {node.Name}, Bounds (Inflated): {nodeBounds}");
+
                     if (nodeBounds.Contains(endPoint))
                     {
+                        Debug.WriteLine($"   -> EndPoint {endPoint} IS within bounds of {node.Name}.");
                         // Ensure we are not connecting a node to itself (unless allowed by VM logic)
-                        if (_viewModel._temporaryConnectionState is NodeViewModel startNode && startNode.Id != node.Id)
+                        if (_viewModel._temporaryConnectionState is NodeViewModel sourceNode && sourceNode.Id != node.Id)
                         {
+                            Debug.WriteLine($"   -> Valid target found: {node.Name}.");
                             targetNode = node;
                             break; // Found a valid target node
                         }
-                        // If connecting to self is allowed, remove the ID check above
+                        else if (_viewModel._temporaryConnectionState is NodeViewModel sourceNodeSelf)
+                        {
+                            Debug.WriteLine($"   -> Hit node {node.Name}, but it's the same as the start node ({sourceNodeSelf.Name}). Skipping.");
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"   -> Hit node {node.Name}, but start node state is invalid. Skipping.");
+                        }
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"   -> EndPoint {endPoint} is NOT within bounds of {node.Name}.");
                     }
                 }
+                Debug.WriteLine($"--- Finished checking nodes ---");
 
 
                 if (targetNode != null)
@@ -347,19 +364,9 @@ namespace CSimple.Pages
                 }
                 else
                 {
-                    // Try the ViewModel method as a fallback, maybe it has specific logic
-                    var vmTargetNode = _viewModel.GetNodeAtPoint(endPoint);
-                    if (vmTargetNode != null && (_viewModel._temporaryConnectionState is NodeViewModel startNode && startNode.Id != vmTargetNode.Id))
-                    {
-                        Debug.WriteLine($"Found target node via VM method: {vmTargetNode.Name}");
-                        _viewModel.CompleteConnection(vmTargetNode);
-                        targetNode = vmTargetNode; // Mark as found
-                    }
-                    else
-                    {
-                        Debug.WriteLine("No target node found manually or via VM method at end point. Cancelling connection.");
-                        _viewModel.CancelConnection(); // Explicitly cancel if ending on empty space
-                    }
+                    // Fallback check removed for clarity, focus on manual hit test first
+                    Debug.WriteLine("No valid target node found manually at end point. Cancelling connection.");
+                    _viewModel.CancelConnection(); // Explicitly cancel if ending on empty space
                 }
                 _isDrawingConnection = false; // Reset connection drawing state *after* handling
             }
