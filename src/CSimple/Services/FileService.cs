@@ -15,6 +15,8 @@ namespace CSimple.Services
         private readonly string _plansFilePath;
         private readonly string _localDataItemsFilePath;
         private readonly string _huggingFaceModelsFilePath; // Added for HuggingFace models
+        private readonly string _pipelineDirectoryPath; // Added for pipelines
+        private readonly JsonSerializerOptions _jsonOptions;
 
         public FileService()
         {
@@ -28,6 +30,13 @@ namespace CSimple.Services
             _plansFilePath = Path.Combine(_directory, "plans.json");
             _localDataItemsFilePath = Path.Combine(_directory, "localDataItems.json");
             _huggingFaceModelsFilePath = Path.Combine(_directory, "huggingFaceModels.json"); // Path for HF models
+            _pipelineDirectoryPath = Path.Combine(_directory, "Pipelines"); // Pipeline directory
+
+            _jsonOptions = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNameCaseInsensitive = true
+            };
 
             EnsureFileExists(_dataItemsFilePath);
             EnsureFileExists(_recordedActionsFilePath);
@@ -35,6 +44,13 @@ namespace CSimple.Services
             EnsureFileExists(_plansFilePath);
             EnsureFileExists(_localDataItemsFilePath); // Ensure local data items file exists
             EnsureFileExists(_huggingFaceModelsFilePath); // Ensure HuggingFace models file exists
+
+            // Ensure pipeline directory exists
+            if (!Directory.Exists(_pipelineDirectoryPath))
+            {
+                Directory.CreateDirectory(_pipelineDirectoryPath);
+                System.Diagnostics.Debug.WriteLine($"Created directory: {_pipelineDirectoryPath}");
+            }
         }
 
         public async Task SaveDataItemsAsync(List<DataItem> dataItems)
@@ -264,6 +280,164 @@ namespace CSimple.Services
             }
         }
 
+        // --- Pipeline Methods ---
+
+        private string GetPipelineFilePath(string pipelineName)
+        {
+            // Sanitize pipeline name to create a valid filename
+            var sanitizedName = string.Join("_", pipelineName.Split(Path.GetInvalidFileNameChars()));
+            return Path.Combine(_pipelineDirectoryPath, $"{sanitizedName}.pipeline.json");
+        }
+
+        public async Task SavePipelineAsync(PipelineData pipelineData)
+        {
+            if (string.IsNullOrWhiteSpace(pipelineData?.Name))
+            {
+                System.Diagnostics.Debug.WriteLine("Error saving pipeline: Name is missing.");
+                return;
+            }
+
+            var filePath = GetPipelineFilePath(pipelineData.Name);
+            try
+            {
+                pipelineData.LastModified = DateTime.UtcNow; // Update timestamp on save
+                var jsonData = JsonSerializer.Serialize(pipelineData, _jsonOptions);
+                await File.WriteAllTextAsync(filePath, jsonData);
+                System.Diagnostics.Debug.WriteLine($"Pipeline '{pipelineData.Name}' saved to {filePath}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error saving pipeline '{pipelineData.Name}' to {filePath}: {ex.Message}");
+            }
+        }
+
+        public async Task<PipelineData> LoadPipelineAsync(string pipelineName)
+        {
+            var filePath = GetPipelineFilePath(pipelineName);
+            if (!File.Exists(filePath))
+            {
+                System.Diagnostics.Debug.WriteLine($"Pipeline file not found: {filePath}");
+                return null;
+            }
+
+            try
+            {
+                var jsonData = await File.ReadAllTextAsync(filePath);
+                var pipelineData = JsonSerializer.Deserialize<PipelineData>(jsonData, _jsonOptions);
+                System.Diagnostics.Debug.WriteLine($"Pipeline '{pipelineName}' loaded from {filePath}");
+                return pipelineData;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading pipeline '{pipelineName}' from {filePath}: {ex.Message}");
+                return null;
+            }
+        }
+
+        public async Task<List<PipelineData>> ListPipelinesAsync()
+        {
+            var pipelines = new List<PipelineData>();
+            try
+            {
+                var files = Directory.GetFiles(_pipelineDirectoryPath, "*.pipeline.json");
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        // Load the full data to get name and timestamp
+                        var jsonData = await File.ReadAllTextAsync(file);
+                        var pipelineData = JsonSerializer.Deserialize<PipelineData>(jsonData, _jsonOptions);
+                        if (pipelineData != null)
+                        {
+                            pipelines.Add(pipelineData);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error reading pipeline file {file}: {ex.Message}");
+                        // Optionally skip corrupted files
+                    }
+                }
+                // Sort by last modified date, newest first
+                return pipelines.OrderByDescending(p => p.LastModified).ToList();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error listing pipelines in {_pipelineDirectoryPath}: {ex.Message}");
+                return pipelines; // Return empty or partially filled list on error
+            }
+        }
+
+        public Task DeletePipelineAsync(string pipelineName)
+        {
+            var filePath = GetPipelineFilePath(pipelineName);
+            try
+            {
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                    System.Diagnostics.Debug.WriteLine($"Pipeline '{pipelineName}' deleted from {filePath}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"Pipeline file not found for deletion: {filePath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error deleting pipeline '{pipelineName}' from {filePath}: {ex.Message}");
+            }
+            return Task.CompletedTask; // Make async if needed
+        }
+
+        public async Task<bool> RenamePipelineAsync(string oldName, string newName)
+        {
+            var oldFilePath = GetPipelineFilePath(oldName);
+            var newFilePath = GetPipelineFilePath(newName);
+
+            if (!File.Exists(oldFilePath))
+            {
+                System.Diagnostics.Debug.WriteLine($"Error renaming: Old pipeline file not found: {oldFilePath}");
+                return false;
+            }
+            if (File.Exists(newFilePath))
+            {
+                System.Diagnostics.Debug.WriteLine($"Error renaming: New pipeline name '{newName}' already exists.");
+                return false; // Prevent overwriting
+            }
+
+            try
+            {
+                // Load the data, update the name inside, save to new file, delete old file
+                var jsonData = await File.ReadAllTextAsync(oldFilePath);
+                var pipelineData = JsonSerializer.Deserialize<PipelineData>(jsonData, _jsonOptions);
+
+                if (pipelineData != null)
+                {
+                    pipelineData.Name = newName; // Update the name within the data
+                    await SavePipelineAsync(pipelineData); // Save under the new name
+                    File.Delete(oldFilePath); // Delete the old file
+                    System.Diagnostics.Debug.WriteLine($"Pipeline '{oldName}' renamed to '{newName}'.");
+                    return true;
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error renaming: Failed to deserialize old pipeline data from {oldFilePath}");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error renaming pipeline '{oldName}' to '{newName}': {ex.Message}");
+                // Clean up potentially partially created new file if rename failed mid-way?
+                if (File.Exists(newFilePath) && !File.Exists(oldFilePath))
+                {
+                    // If old is gone but new exists, maybe try to move back? Risky.
+                    // Or just leave the new file. For simplicity, we'll just log the error.
+                }
+                return false;
+            }
+        }
 
         private async Task SaveToFileAsync(string filePath, List<DataItem> newData)
         {

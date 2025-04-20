@@ -146,7 +146,7 @@ namespace CSimple.Pages
 
         // --- UI Specific Helpers ---
 
-        private async Task<HuggingFaceModel> ShowHuggingFaceModelSelection(List<HuggingFaceModel> searchResults)
+        private async Task<CSimple.Models.HuggingFaceModel> ShowHuggingFaceModelSelection(List<CSimple.Models.HuggingFaceModel> searchResults)
         {
             if (searchResults == null || searchResults.Count == 0) return null;
 

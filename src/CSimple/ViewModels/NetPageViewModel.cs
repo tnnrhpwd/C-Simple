@@ -611,7 +611,7 @@ namespace CSimple.ViewModels
             }
         }
 
-        private async Task ShowModelDetailsAndImportAsync(HuggingFaceModel model)
+        private async Task ShowModelDetailsAndImportAsync(CSimple.Models.HuggingFaceModel model)
         {
             // Logic moved from NetPage.xaml.cs
             try
@@ -973,7 +973,7 @@ namespace CSimple.ViewModels
         public Func<string, string, string, string, string, Task<string>> ShowPrompt { get; set; } = async (t, m, a, c, iv) => { await Task.CompletedTask; return null; }; // Default no-op
         public Func<Task<FileResult>> PickFile { get; set; } = async () => { await Task.CompletedTask; return null; }; // Default no-op
         public Func<string, Task> NavigateTo { get; set; } = async (r) => { await Task.CompletedTask; }; // Default no-op
-        public Func<List<HuggingFaceModel>, Task<HuggingFaceModel>> ShowModelSelectionDialog { get; set; } = async (m) => { await Task.CompletedTask; return null; }; // Default no-op
+        public Func<List<CSimple.Models.HuggingFaceModel>, Task<CSimple.Models.HuggingFaceModel>> ShowModelSelectionDialog { get; set; } = async (m) => { await Task.CompletedTask; return null; }; // Default no-op
 
 
         // --- INotifyPropertyChanged Implementation ---

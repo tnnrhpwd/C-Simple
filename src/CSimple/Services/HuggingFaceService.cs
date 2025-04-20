@@ -208,20 +208,20 @@ namespace CSimple.Services
 
                 if (files != null && files.Count > 0)
                 {
-                    modelDetails.Files = files;
-                    Debug.WriteLine($"Found {files.Count} files for model {modelDetails.ModelId ?? modelDetails.Id}");
+                    modelDetails.Siblings = files.Select(fileName => new Sibling { Rfilename = fileName }).ToList();
+                    Debug.WriteLine($"Found {modelDetails.Siblings.Count} files for model {modelDetails.ModelId ?? modelDetails.Id}");
                 }
                 else
                 {
                     // Empty files list as a fallback
-                    modelDetails.Files = new List<string>();
+                    modelDetails.Siblings = new List<Sibling>();
                     Debug.WriteLine("No files found for the model");
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error retrieving model files: {ex}");
-                modelDetails.Files = new List<string>();
+                modelDetails.Siblings = new List<Sibling>();
             }
         }
 
@@ -265,6 +265,46 @@ namespace CSimple.Services
                 { "Text-to-Speech", "text-to-speech,text-to-audio" }
             };
         }
+
+        private async Task ProcessModelDetails(CSimple.Models.HuggingFaceModelDetails details)
+        {
+            // Assuming you have a list of filenames you want to associate with the details object
+            List<string> fileNamesFromSomewhere = await GetFileNamesForModelAsync(details.ModelId); // Example method
+
+            if (fileNamesFromSomewhere != null)
+            {
+                // Instead of: details.Files = fileNamesFromSomewhere; (INVALID)
+
+                // Do this: Create Sibling objects and assign to the Siblings list
+                details.Siblings = fileNamesFromSomewhere.Select(fileName => new Sibling { Rfilename = fileName }).ToList();
+                Debug.WriteLine($"Assigned {details.Siblings.Count} siblings based on filenames.");
+            }
+            else
+            {
+                // Handle case where filenames couldn't be retrieved, maybe initialize Siblings to empty list
+                details.Siblings = new List<Sibling>();
+                Debug.WriteLine("No filenames retrieved, initialized Siblings to empty list.");
+            }
+
+            // If you were trying to assign an empty list:
+            // Instead of: details.Files = new List<string>(); (INVALID)
+            // Do this:
+            // details.Siblings = new List<Sibling>();
+
+            // If you were trying to add a single file:
+            // Instead of: details.Files.Add("somefile.bin"); (INVALID, Files is read-only)
+            // Do this:
+            // if (details.Siblings == null) details.Siblings = new List<Sibling>();
+            // details.Siblings.Add(new Sibling { Rfilename = "somefile.bin" });
+        }
+
+        // Dummy method for example purposes
+        private async Task<List<string>> GetFileNamesForModelAsync(string modelId)
+        {
+            await Task.Delay(10); // Simulate async work
+            // Replace with actual logic to get filenames if needed
+            return new List<string> { "config.json", "pytorch_model.bin", "tokenizer.json" };
+        }
     }
 
     public class HuggingFaceFileInfo
@@ -273,43 +313,5 @@ namespace CSimple.Services
         public string Path { get; set; }
         public string Type { get; set; } // "blob" for files, "tree" for directories
         public int Size { get; set; }
-    }
-
-    public class HuggingFaceModel
-    {
-        public string Id { get; set; }
-        public string ModelId { get; set; }
-        public string Author { get; set; }
-        public List<string> Tags { get; set; } = new List<string>();
-        public string Pipeline_tag { get; set; }
-        public string Description { get; set; }
-        public string LastModified { get; set; }
-        public int Downloads { get; set; }
-        public ModelType RecommendedModelType => DetermineModelType();
-
-        private ModelType DetermineModelType()
-        {
-            if (string.IsNullOrEmpty(Pipeline_tag))
-                return ModelType.General;
-
-            return Pipeline_tag.ToLower() switch
-            {
-                var tag when tag.Contains("speech") || tag.Contains("audio") => ModelType.InputSpecific,
-                var tag when tag.Contains("text-generation") || tag.Contains("text2text") => ModelType.General,
-                var tag when tag.Contains("image") || tag.Contains("vision") => ModelType.InputSpecific,
-                _ => ModelType.General
-            };
-        }
-
-        public override string ToString() => $"{ModelId ?? Id}";
-    }
-
-    public class HuggingFaceModelDetails : HuggingFaceModel
-    {
-        public List<string> Files { get; set; } = new List<string>();
-        public string CardData { get; set; }
-        public new long? Downloads { get; set; }
-        public List<string> SiblingModels { get; set; } = new List<string>();
-        public string License { get; set; }
     }
 }

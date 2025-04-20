@@ -8,53 +8,116 @@
              x:Class="CSimple.Pages.OrientPage"
              Title="Orient - Pipeline Editor">
     <ContentPage.Resources>
-        <!-- Ensure IsNotNullConverter is defined -->
         <converters:IsNotNullConverter x:Key="IsNotNullConverter" />
+        <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
     </ContentPage.Resources>
-    <!-- Define Grid Rows: Auto for toolbar, * for canvas -->
     <Grid RowDefinitions="Auto, *">
-        <!-- Top Toolbar (in Row 0) -->
+        <!-- Top Toolbar (Row 0) -->
         <Border Grid.Row="0"
                 StrokeThickness="0"
                 BackgroundColor="{AppThemeBinding Light=#E0FFFFFF, Dark=#E0333333}"
-                Padding="10,5"
-                Margin="10,10,10,0"
+                Padding="5,5"
+                Margin="5,5,5,0"
                 VerticalOptions="Start"
                 HorizontalOptions="FillAndExpand"
-                StrokeShape="RoundRectangle 10">
-            <HorizontalStackLayout Spacing="10"
-                                   VerticalOptions="Center">
+                StrokeShape="RoundRectangle 8">
+            <!-- Use FlexLayout for wrapping -->
+            <FlexLayout Wrap="Wrap"
+                        AlignItems="Center"
+                        JustifyContent="Start">
+                <!-- Pipeline Management -->
+                <Label Text="Pipeline:"
+                       VerticalOptions="Center"
+                       FontAttributes="Bold"
+                       Margin="5,0"
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}" />
+                <Picker Title="Select Pipeline"
+                        ItemsSource="{Binding AvailablePipelineNames}"
+                        SelectedItem="{Binding SelectedPipelineName, Mode=TwoWay}"
+                        WidthRequest="180"
+                        Margin="0,0,5,0"
+                        VerticalOptions="Center"
+                        BackgroundColor="{AppThemeBinding Light=White, Dark=Gray}"
+                        TextColor="{AppThemeBinding Light=Black, Dark=White}" />
+                <Button Command="{Binding CreateNewPipelineCommand}"
+                        Text="New"
+                        BackgroundColor="{StaticResource Tertiary}"
+                        TextColor="White"
+                        CornerRadius="5"
+                        Padding="8,4"
+                        Margin="2"
+                        FontSize="12"
+                        HeightRequest="30"
+                        ToolTipProperties.Text="Create New Pipeline" />
+                <Button Command="{Binding RenamePipelineCommand}"
+                        Text="Rename"
+                        IsEnabled="{Binding SelectedPipelineName, Converter={StaticResource IsNotNullConverter}}"
+                        BackgroundColor="{StaticResource Secondary}"
+                        TextColor="White"
+                        CornerRadius="5"
+                        Padding="8,4"
+                        Margin="2"
+                        FontSize="12"
+                        HeightRequest="30"
+                        ToolTipProperties.Text="Rename Selected Pipeline" />
+                <Button Command="{Binding DeletePipelineCommand}"
+                        Text="Delete Pipeline"
+                        IsEnabled="{Binding SelectedPipelineName, Converter={StaticResource IsNotNullConverter}}"
+                        BackgroundColor="{StaticResource Error}"
+                        TextColor="White"
+                        CornerRadius="5"
+                        Padding="8,4"
+                        Margin="2"
+                        FontSize="12"
+                        HeightRequest="30"
+                        ToolTipProperties.Text="Delete Selected Pipeline" />
+                <!-- Separator -->
+                <BoxView BackgroundColor="{AppThemeBinding Light=LightGray, Dark=Gray}"
+                         WidthRequest="1"
+                         HeightRequest="25"
+                         Margin="10,0"
+                         VerticalOptions="Center" />
+                <!-- Add Model -->
                 <Label Text="Add Model:"
                        VerticalOptions="Center"
                        FontAttributes="Bold"
+                       Margin="5,0"
                        TextColor="{AppThemeBinding Light=Black, Dark=White}" />
                 <Picker Title="Select Model Type"
                         ItemsSource="{Binding AvailableModels}"
                         ItemDisplayBinding="{Binding Name}"
                         x:Name="ModelPicker"
-                        WidthRequest="200"
+                        WidthRequest="180"
+                        Margin="0,0,5,0"
                         VerticalOptions="Center"
                         BackgroundColor="{AppThemeBinding Light=White, Dark=Gray}"
                         TextColor="{AppThemeBinding Light=Black, Dark=White}" />
                 <Button Command="{Binding AddModelNodeCommand}"
                         CommandParameter="{Binding Source={x:Reference ModelPicker}, Path=SelectedItem}"
                         BackgroundColor="{StaticResource Primary}"
-                        Text="Add"
+                        Text="Add Node"
                         TextColor="White"
-                        CornerRadius="8"
-                        Padding="12,6"
+                        CornerRadius="5"
+                        Padding="8,4"
+                        Margin="2"
+                        FontSize="12"
+                        HeightRequest="30"
                         ToolTipProperties.Text="Add Selected Model Node" />
+                <!-- Delete Node -->
                 <Button Command="{Binding DeleteSelectedNodeCommand}"
                         BackgroundColor="{StaticResource Error}"
-                        Text="Delete"
+                        Text="Delete Node"
+                        IsEnabled="{Binding SelectedNode, Converter={StaticResource IsNotNullConverter}}"
                         TextColor="White"
-                        CornerRadius="8"
-                        Padding="12,6"
+                        CornerRadius="5"
+                        Padding="8,4"
+                        Margin="2"
+                        FontSize="12"
+                        HeightRequest="30"
                         ToolTipProperties.Text="Delete Selected Node" />
-                <!-- Add Zoom/Pan buttons later if needed -->
-            </HorizontalStackLayout>
+            </FlexLayout>
         </Border>
-        <!-- GraphicsView for drawing nodes and connections (in Row 1) -->
+        <!-- GraphicsView for drawing nodes and connections (Row 1) -->
         <GraphicsView Grid.Row="1"
                       x:Name="NodeCanvas"
                       Drawable="{Binding Source={RelativeSource AncestorType={x:Type local:OrientPage}}, Path=NodeDrawable}"
