@@ -48,11 +48,13 @@ public partial class NetPage : ContentPage
 
     // Add these properties to the class
     private readonly HuggingFaceService _huggingFaceService;
+    private readonly FileService _fileService; // Inject FileService
     private List<HuggingFaceModel> _searchResults = new List<HuggingFaceModel>();
 
-    public NetPage()
+    public NetPage(FileService fileService) // Modify constructor to accept FileService
     {
         InitializeComponent();
+        _fileService = fileService; // Assign injected service
         // Bind the context
         BindingContext = this;
 
@@ -74,8 +76,9 @@ public partial class NetPage : ContentPage
 
         CheckUserLoggedIn();
 
-        // Load sample models for demo
-        LoadSampleModels();
+        // Load models (including persisted ones)
+        // LoadSampleModels(); // Keep sample goals for now, but load HF models from file
+        LoadPersistedModelsAsync(); // Load HuggingFace models from file
 
         // Subscribe to global input notifications
         SubscribeToInputNotifications();
@@ -132,41 +135,61 @@ public partial class NetPage : ContentPage
         }
     }
 
-    private void LoadSampleModels()
+    private async Task LoadPersistedModelsAsync()
     {
-        // Clear existing models
-        AvailableModels.Clear();
-
-        // Add general-purpose models
-        AvailableModels.Add(new NeuralNetworkModel
+        try
         {
-            Id = Guid.NewGuid().ToString(),
-            Name = "General Assistant",
-            Description = "Monitors all inputs and suggests actions based on learned patterns",
-            Type = ModelType.General,
-            AccuracyScore = 0.92,
-            LastTrainedDate = DateTime.Now.AddDays(-5)
-        });
+            IsLoading = true;
+            OnPropertyChanged(nameof(IsLoading));
+            Debug.WriteLine("Loading persisted HuggingFace models...");
 
-        AvailableModels.Add(new NeuralNetworkModel
-        {
-            Id = Guid.NewGuid().ToString(),
-            Name = "Text Analyzer",
-            Description = "Analyzes text inputs and automates text-related tasks",
-            Type = ModelType.InputSpecific,
-            AccuracyScore = 0.89,
-            LastTrainedDate = DateTime.Now.AddDays(-12)
-        });
+            var loadedModels = await _fileService.LoadHuggingFaceModelsAsync();
 
-        AvailableModels.Add(new NeuralNetworkModel
+            // Clear existing HF models before loading
+            var hfModelsToRemove = AvailableModels.Where(m => m.Description.Contains("HuggingFace")).ToList();
+            foreach (var model in hfModelsToRemove)
+            {
+                AvailableModels.Remove(model);
+            }
+
+            if (loadedModels != null && loadedModels.Count > 0)
+            {
+                foreach (var model in loadedModels)
+                {
+                    // Avoid adding duplicates if already present (e.g., from samples)
+                    if (!AvailableModels.Any(m => m.Id == model.Id || m.Name == model.Name))
+                    {
+                        AvailableModels.Add(model);
+                    }
+                }
+                Debug.WriteLine($"Loaded {loadedModels.Count} persisted HuggingFace models.");
+            }
+            else
+            {
+                Debug.WriteLine("No persisted HuggingFace models found.");
+            }
+
+            // Load sample goals separately if needed
+            LoadSampleGoals();
+
+        }
+        catch (Exception ex)
         {
-            Id = Guid.NewGuid().ToString(),
-            Name = "Audio Assistant",
-            Description = "Processes audio inputs for voice commands and responses",
-            Type = ModelType.InputSpecific,
-            AccuracyScore = 0.85,
-            LastTrainedDate = DateTime.Now.AddDays(-8)
-        });
+            Debug.WriteLine($"Error loading persisted models: {ex.Message}");
+            HandleError("Error loading models", ex);
+        }
+        finally
+        {
+            IsLoading = false;
+            OnPropertyChanged(nameof(IsLoading));
+        }
+    }
+
+    // Extracted goal loading logic
+    private void LoadSampleGoals()
+    {
+        // Clear existing goals
+        AvailableGoals.Clear();
 
         // Add specific goal models
         AvailableGoals.Add(new SpecificGoal
@@ -195,6 +218,18 @@ public partial class NetPage : ContentPage
             Category = "Collaboration",
             DownloadCount = 653
         });
+        OnPropertyChanged(nameof(AvailableGoals)); // Notify UI about changes
+    }
+
+    private void LoadSampleModels() // Renamed to LoadSampleData or similar if only loading goals now
+    {
+        // Clear existing models (optional, depends if you want samples alongside persisted)
+        // AvailableModels.Clear();
+
+        // Add general-purpose models (Consider if these should also be persisted)
+        // ... (keep sample general models if desired) ...
+
+        LoadSampleGoals(); // Load sample goals
     }
 
     private void ToggleGeneralMode()
@@ -1093,10 +1128,13 @@ public partial class NetPage : ContentPage
     }
 
     // Add a diagnostic method to check converter registration
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
+        await CheckUserLoggedInAsync(); // Renamed for clarity
+        await LoadPersistedModelsAsync(); // Load models every time the page appears
 
+        // Check converters (existing code)
         try
         {
             // Check if converters are available through app resources
@@ -1399,12 +1437,20 @@ public partial class NetPage : ContentPage
                             Description = model.Description ?? "Imported from HuggingFace (requires Python)",
                             Type = model.RecommendedModelType,
                             AccuracyScore = 0.85,
-                            LastTrainedDate = DateTime.Now
+                            LastTrainedDate = DateTime.Now,
+                            IsHuggingFaceReference = true, // *** Explicitly set this to true ***
+                            HuggingFaceModelId = model.ModelId ?? model.Id // *** Store the original HF ID ***
                         };
 
                         AvailableModels.Add(pythonReferenceModel);
                         CurrentModelStatus = $"Added reference to {pythonReferenceModel.Name}";
                         OnPropertyChanged(nameof(CurrentModelStatus));
+                        Debug.WriteLine($"Added Python reference model '{pythonReferenceModel.Name}' to AvailableModels.");
+
+                        // Save the updated list of models locally
+                        Debug.WriteLine($"Calling SavePersistedModelsAsync. AvailableModels count: {AvailableModels.Count}");
+                        await SavePersistedModelsAsync();
+                        Debug.WriteLine($"Finished SavePersistedModelsAsync after adding Python reference: {pythonReferenceModel.Name}");
 
                         await DisplayAlert("Reference Added",
                             $"A reference to '{pythonReferenceModel.Name}' has been added. Use Python code to access the actual model.",
@@ -1572,7 +1618,9 @@ public partial class NetPage : ContentPage
                 Description = model.Description ?? "Imported from HuggingFace",
                 Type = model.RecommendedModelType,
                 AccuracyScore = 0.85,
-                LastTrainedDate = DateTime.Now
+                LastTrainedDate = DateTime.Now,
+                IsHuggingFaceReference = false, // Mark as not just a reference
+                HuggingFaceModelId = model.ModelId ?? model.Id // Store the original HF ID
             };
 
             AvailableModels.Add(importedModel);
@@ -1654,6 +1702,56 @@ public partial class NetPage : ContentPage
         var textInfo = CultureInfo.CurrentCulture.TextInfo;
         return textInfo.ToTitleCase(name);
     }
+
+    // Method to save the current state of AvailableModels (specifically HF ones)
+    private async Task SavePersistedModelsAsync()
+    {
+        try
+        {
+            Debug.WriteLine("SavePersistedModelsAsync: Starting save process.");
+            // Filter only the models that should be persisted (e.g., HuggingFace references or downloaded)
+            var modelsToSave = AvailableModels
+                .Where(m => m.IsHuggingFaceReference || !string.IsNullOrEmpty(m.HuggingFaceModelId)) // Filter should now work correctly
+                .ToList();
+
+            Debug.WriteLine($"SavePersistedModelsAsync: Found {modelsToSave.Count} models to save.");
+            foreach (var model in modelsToSave)
+            {
+                Debug.WriteLine($"  - Saving: {model.Name} (IsRef: {model.IsHuggingFaceReference}, HF_ID: {model.HuggingFaceModelId})");
+            }
+
+            if (modelsToSave.Any())
+            {
+                await _fileService.SaveHuggingFaceModelsAsync(modelsToSave);
+                Debug.WriteLine($"SavePersistedModelsAsync: Called FileService to save {modelsToSave.Count} HuggingFace models.");
+            }
+            else
+            {
+                Debug.WriteLine("SavePersistedModelsAsync: No models met the criteria to be saved.");
+                // Optionally, save an empty list if that's the desired behavior when no models match
+                // await _fileService.SaveHuggingFaceModelsAsync(new List<NeuralNetworkModel>());
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error saving persisted models: {ex.Message}");
+            // Optionally show an error to the user
+        }
+    }
+
+    // Renamed IsUserLoggedInAsync for clarity
+    private async Task CheckUserLoggedInAsync()
+    {
+        if (!await IsUserLoggedInAsync()) // Call the original logic method
+        {
+            Debug.WriteLine("User is not logged in, navigating to login...");
+            NavigateLogin();
+        }
+        else
+        {
+            Debug.WriteLine("User is logged in.");
+        }
+    }
 }
 
 // Model classes to support functionality
@@ -1664,11 +1762,15 @@ public class NeuralNetworkModel
     public string Description { get; set; }
     public ModelType Type { get; set; }
     public string AssociatedGoalId { get; set; }
-    public bool IsActive { get; set; }
+    public bool IsActive { get; set; } // Note: This state might not persist correctly without more logic
     public double AccuracyScore { get; set; } = 0.75;
     public DateTime LastTrainedDate { get; set; } = DateTime.Now.AddDays(-10);
     public string TrainingStatus => AccuracyScore > 0.9 ? "Excellent" : AccuracyScore > 0.8 ? "Good" : "Needs Training";
     public string AccuracyDisplay => $"{AccuracyScore:P0}";
+
+    // Added properties for HuggingFace persistence
+    public bool IsHuggingFaceReference { get; set; } = false; // Is this just a reference (Python needed)?
+    public string HuggingFaceModelId { get; set; } // Store the original HF model ID
 }
 
 public enum ModelType

@@ -73,7 +73,6 @@ public static class MauiProgram
         services.AddSingleton<HomePage>();
         services.AddSingleton<LoginViewModel>();
         services.AddSingleton<LoginPage>();
-        services.AddSingleton<NetPage>();
         services.AddSingleton<SettingsPage>();
         services.AddSingleton<DataService>();
         services.AddSingleton<SettingsService>();
@@ -118,6 +117,12 @@ public static class MauiProgram
             sp.GetRequiredService<AppModeService>(),
             sp.GetRequiredService<VoiceAssistantService>()
         ));
+
+        // Register NetPage with FileService dependency
+        services.AddSingleton(sp => new NetPage(
+            sp.GetRequiredService<FileService>()
+        ));
+
 
 #if WINDOWS
         services.AddSingleton<ITrayService, WinUI.TrayService>();
