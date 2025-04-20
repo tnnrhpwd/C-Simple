@@ -480,7 +480,37 @@ namespace CSimple.ViewModels
                 Debug.WriteLine("ViewModel: Loading persisted HuggingFace models...");
                 var loadedModels = await _fileService.LoadHuggingFaceModelsAsync();
 
-                // Use dispatcher if modifying ObservableCollection from non-UI thread (though LoadDataAsync is likely called on UI thread initially)
+                // Filter out duplicate Python references based on HuggingFaceModelId
+                var uniquePythonRefs = new Dictionary<string, NeuralNetworkModel>();
+                var otherModels = new List<NeuralNetworkModel>();
+                bool duplicatesFound = false;
+
+                if (loadedModels != null)
+                {
+                    foreach (var model in loadedModels)
+                    {
+                        if (model.IsHuggingFaceReference && !string.IsNullOrEmpty(model.HuggingFaceModelId))
+                        {
+                            if (!uniquePythonRefs.ContainsKey(model.HuggingFaceModelId))
+                            {
+                                uniquePythonRefs.Add(model.HuggingFaceModelId, model);
+                            }
+                            else
+                            {
+                                duplicatesFound = true; // Mark that we found duplicates
+                                Debug.WriteLine($"ViewModel: Duplicate Python reference found and removed for HuggingFaceModelId: {model.HuggingFaceModelId}");
+                            }
+                        }
+                        else
+                        {
+                            otherModels.Add(model);
+                        }
+                    }
+                }
+
+                var cleanedModels = otherModels.Concat(uniquePythonRefs.Values).ToList();
+
+                // Use dispatcher if modifying ObservableCollection from non-UI thread
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     // Clear existing HF models before loading
@@ -490,22 +520,32 @@ namespace CSimple.ViewModels
                         AvailableModels.Remove(model);
                     }
 
-                    if (loadedModels != null && loadedModels.Count > 0)
+                    if (cleanedModels.Count > 0)
                     {
-                        foreach (var model in loadedModels)
+                        foreach (var model in cleanedModels)
                         {
-                            if (!AvailableModels.Any(m => m.Id == model.Id || m.Name == model.Name))
+                            // Double-check uniqueness within AvailableModels before adding
+                            if (!AvailableModels.Any(m => m.Id == model.Id ||
+                                (m.IsHuggingFaceReference && m.HuggingFaceModelId == model.HuggingFaceModelId) ||
+                                (!m.IsHuggingFaceReference && m.Name == model.Name))) // Check name for non-refs
                             {
                                 AvailableModels.Add(model);
                             }
                         }
-                        Debug.WriteLine($"ViewModel: Loaded {loadedModels.Count} persisted HuggingFace models.");
+                        Debug.WriteLine($"ViewModel: Loaded {cleanedModels.Count} unique persisted HuggingFace models.");
                     }
                     else
                     {
-                        Debug.WriteLine("ViewModel: No persisted HuggingFace models found.");
+                        Debug.WriteLine("ViewModel: No persisted HuggingFace models found or loaded.");
                     }
                 });
+
+                // If duplicates were found, save the cleaned list back to the file
+                if (duplicatesFound)
+                {
+                    Debug.WriteLine("ViewModel: Saving cleaned model list back to file due to duplicates found.");
+                    await SavePersistedModelsAsync(cleanedModels); // Pass the cleaned list
+                }
             }
             catch (Exception ex)
             {
@@ -629,6 +669,15 @@ namespace CSimple.ViewModels
                 // Handle Python Reference Case
                 if (isPythonReference)
                 {
+                    // Check if a Python reference with this HuggingFaceModelId already exists
+                    if (AvailableModels.Any(m => m.IsHuggingFaceReference && m.HuggingFaceModelId == (model.ModelId ?? model.Id)))
+                    {
+                        CurrentModelStatus = $"Python reference for '{model.ModelId ?? model.Id}' already exists.";
+                        await ShowAlert("Duplicate Reference", $"A Python reference for this model ID already exists.", "OK");
+                        IsLoading = false;
+                        return; // Stop processing if duplicate
+                    }
+
                     var pythonReferenceModel = new NeuralNetworkModel
                     {
                         Id = Guid.NewGuid().ToString(),
@@ -638,13 +687,12 @@ namespace CSimple.ViewModels
                         IsHuggingFaceReference = true,
                         HuggingFaceModelId = model.ModelId ?? model.Id
                     };
-                    if (!AvailableModels.Any(m => m.Name == pythonReferenceModel.Name))
-                    {
-                        AvailableModels.Add(pythonReferenceModel);
-                        CurrentModelStatus = $"Added reference to {pythonReferenceModel.Name}";
-                        await SavePersistedModelsAsync();
-                    }
-                    else { CurrentModelStatus = $"Reference for {pythonReferenceModel.Name} already exists."; }
+
+                    // Add the unique reference
+                    AvailableModels.Add(pythonReferenceModel);
+                    CurrentModelStatus = $"Added reference to {pythonReferenceModel.Name}";
+                    await SavePersistedModelsAsync(); // Save the updated list
+
                     await ShowAlert("Reference Added", $"Reference to '{pythonReferenceModel.Name}' added.", "OK");
                     IsLoading = false;
                     return;
@@ -680,21 +728,21 @@ namespace CSimple.ViewModels
                     return;
                 }
 
-                // Add downloaded model to list
+                // Add downloaded model to list (ensure name uniqueness for non-refs)
                 var importedModel = new NeuralNetworkModel
                 {
                     Id = Guid.NewGuid().ToString(),
                     Name = GetFriendlyModelName(model.ModelId ?? model.Id),
                     Description = model.Description ?? "Imported from HuggingFace",
                     Type = model.RecommendedModelType,
-                    IsHuggingFaceReference = false,
+                    IsHuggingFaceReference = false, // This is a downloaded model, not just a reference
                     HuggingFaceModelId = model.ModelId ?? model.Id
                 };
-                if (!AvailableModels.Any(m => m.Name == importedModel.Name))
+                if (!AvailableModels.Any(m => m.Name == importedModel.Name)) // Check name for non-refs
                 {
                     AvailableModels.Add(importedModel);
                     CurrentModelStatus = $"Successfully imported {importedModel.Name}";
-                    await SavePersistedModelsAsync();
+                    await SavePersistedModelsAsync(); // Save updated list
                 }
                 else { CurrentModelStatus = $"Model {importedModel.Name} already exists."; }
 
@@ -756,24 +804,51 @@ namespace CSimple.ViewModels
             }
         }
 
+        private async Task SavePersistedModelsAsync(List<NeuralNetworkModel> modelsToSave)
+        {
+            try
+            {
+                Debug.WriteLine($"ViewModel: SavePersistedModelsAsync (specific list) starting with {modelsToSave?.Count ?? 0} models.");
+
+                // Ensure uniqueness for Python references before saving
+                var uniquePythonRefs = new Dictionary<string, NeuralNetworkModel>();
+                var otherModels = new List<NeuralNetworkModel>();
+                if (modelsToSave != null)
+                {
+                    foreach (var model in modelsToSave)
+                    {
+                        if (model.IsHuggingFaceReference && !string.IsNullOrEmpty(model.HuggingFaceModelId))
+                        {
+                            if (!uniquePythonRefs.ContainsKey(model.HuggingFaceModelId))
+                            {
+                                uniquePythonRefs.Add(model.HuggingFaceModelId, model);
+                            }
+                            // else: Skip duplicate
+                        }
+                        else
+                        {
+                            otherModels.Add(model);
+                        }
+                    }
+                }
+                var finalModelsToSave = otherModels.Concat(uniquePythonRefs.Values).ToList();
+
+                Debug.WriteLine($"ViewModel: Saving {finalModelsToSave.Count} unique models.");
+                await _fileService.SaveHuggingFaceModelsAsync(finalModelsToSave);
+                Debug.WriteLine($"ViewModel: Called FileService to save {finalModelsToSave.Count} models.");
+            }
+            catch (Exception ex) { HandleError("Error saving specific list of persisted models", ex); }
+        }
+
+        // Original method now calls the overload
         private async Task SavePersistedModelsAsync()
         {
             // Logic moved from NetPage.xaml.cs
-            try
-            {
-                Debug.WriteLine("ViewModel: SavePersistedModelsAsync starting.");
-                var modelsToSave = AvailableModels
-                    .Where(m => m.IsHuggingFaceReference || !string.IsNullOrEmpty(m.HuggingFaceModelId))
-                    .ToList();
-                Debug.WriteLine($"ViewModel: Found {modelsToSave.Count} models to save.");
-                if (modelsToSave.Any())
-                {
-                    await _fileService.SaveHuggingFaceModelsAsync(modelsToSave);
-                    Debug.WriteLine($"ViewModel: Called FileService to save {modelsToSave.Count} models.");
-                }
-                else { Debug.WriteLine("ViewModel: No models met criteria for saving."); }
-            }
-            catch (Exception ex) { HandleError("Error saving persisted models", ex); }
+            Debug.WriteLine("ViewModel: SavePersistedModelsAsync (default) starting.");
+            var modelsToSave = AvailableModels
+                .Where(m => m.IsHuggingFaceReference || !string.IsNullOrEmpty(m.HuggingFaceModelId))
+                .ToList();
+            await SavePersistedModelsAsync(modelsToSave); // Call the overload
         }
 
         private List<string> GetRecommendedFiles(List<string> files)
