@@ -78,7 +78,14 @@ namespace CSimple.ViewModels
             // Initialize Commands
             AddModelNodeCommand = new Command<HuggingFaceModel>(async (model) => await AddModelNode(model));
             DeleteSelectedNodeCommand = new Command(async () => await DeleteSelectedNode());
-            CreateNewPipelineCommand = new Command(async () => await CreateNewPipeline());
+            // Modify CreateNewPipelineCommand to handle save and select sequence
+            CreateNewPipelineCommand = new Command(async () =>
+            {
+                await CreateNewPipeline(); // Create in memory, add default nodes, add name to list
+                await SaveCurrentPipelineAsync(); // Save the new empty pipeline with default nodes
+                SelectedPipelineName = CurrentPipelineName; // Select it, triggering LoadPipelineAsync (which should now find the file)
+                Debug.WriteLine($"Executed CreateNewPipelineCommand: Created, saved, and selected '{CurrentPipelineName}'");
+            });
             RenamePipelineCommand = new Command(async () => await RenameCurrentPipeline());
             DeletePipelineCommand = new Command(async () => await DeleteCurrentPipeline());
 
@@ -104,16 +111,13 @@ namespace CSimple.ViewModels
             }
             else
             {
-                // No pipelines exist, create a new one
-                Debug.WriteLine("No existing pipelines found. Creating a new one.");
-                // 1. Create the pipeline in memory (sets CurrentPipelineName, adds to list)
+                // No pipelines exist, create a new one using the command's logic
+                Debug.WriteLine("No existing pipelines found. Creating a new one via command logic.");
+                // Execute the command logic directly
                 await CreateNewPipeline();
-                // 2. Save the newly created empty pipeline immediately so the file exists
                 await SaveCurrentPipelineAsync();
-                // 3. Now select it in the picker. This will trigger LoadPipelineAsync via the setter,
-                //    but the file should exist now.
                 SelectedPipelineName = CurrentPipelineName;
-                Debug.WriteLine($"Created, saved, and selected new pipeline: {CurrentPipelineName}");
+                Debug.WriteLine($"Initialized with new pipeline: '{CurrentPipelineName}'");
             }
             await LoadAvailableModelsAsync(); // Load models for the picker
         }
@@ -420,30 +424,32 @@ namespace CSimple.ViewModels
             if (!AvailablePipelineNames.Contains(CurrentPipelineName))
             {
                 AvailablePipelineNames.Insert(0, CurrentPipelineName); // Add to top
-                // DO NOT set SelectedPipelineName here. It will be set after saving.
+                OnPropertyChanged(nameof(AvailablePipelineNames)); // Notify UI about the change
             }
-            // No need for await here as it's synchronous now
-            await Task.CompletedTask; // Keep async signature if needed elsewhere, otherwise make sync
+            // No saving or selecting here - handled by the command or initialization logic
+            await Task.CompletedTask;
         }
 
+        // --- Private Helper Methods --- (Moved AddDefaultInputNodes here)
         private void AddDefaultInputNodes()
         {
             float startX = 50;
             float startY = 50;
-            float spacingY = 80; // Vertical spacing between nodes
+            // float spacingY = 80; // Vertical spacing between nodes - No longer needed
+            float spacingX = 170; // Horizontal spacing between nodes (Node Width + Gap)
             SizeF defaultSize = new SizeF(150, 50); // Slightly smaller default size for inputs
 
             var keyboardNode = new NodeViewModel(Guid.NewGuid().ToString(), "Keyboard Input", NodeType.Input, new PointF(startX, startY)) { Size = defaultSize };
-            var mouseNode = new NodeViewModel(Guid.NewGuid().ToString(), "Mouse Input", NodeType.Input, new PointF(startX, startY + spacingY)) { Size = defaultSize };
-            var cameraNode = new NodeViewModel(Guid.NewGuid().ToString(), "Camera Input", NodeType.Input, new PointF(startX, startY + 2 * spacingY)) { Size = defaultSize };
-            var audioNode = new NodeViewModel(Guid.NewGuid().ToString(), "Audio Input", NodeType.Input, new PointF(startX, startY + 3 * spacingY)) { Size = defaultSize };
+            var mouseNode = new NodeViewModel(Guid.NewGuid().ToString(), "Mouse Input", NodeType.Input, new PointF(startX + spacingX, startY)) { Size = defaultSize };
+            var cameraNode = new NodeViewModel(Guid.NewGuid().ToString(), "Camera Input", NodeType.Input, new PointF(startX + 2 * spacingX, startY)) { Size = defaultSize };
+            var audioNode = new NodeViewModel(Guid.NewGuid().ToString(), "Audio Input", NodeType.Input, new PointF(startX + 3 * spacingX, startY)) { Size = defaultSize };
 
             Nodes.Add(keyboardNode);
             Nodes.Add(mouseNode);
             Nodes.Add(cameraNode);
             Nodes.Add(audioNode);
 
-            Debug.WriteLine($"Added default input nodes to '{CurrentPipelineName}'.");
+            Debug.WriteLine($"Added default input nodes horizontally to '{CurrentPipelineName}'.");
         }
 
 
@@ -503,15 +509,23 @@ namespace CSimple.ViewModels
                 string nameToDelete = SelectedPipelineName;
                 await _fileService.DeletePipelineAsync(nameToDelete);
                 AvailablePipelineNames.Remove(nameToDelete);
+                OnPropertyChanged(nameof(AvailablePipelineNames)); // Notify UI
 
                 // Load the next available pipeline or create a new one
                 if (AvailablePipelineNames.Any())
                 {
-                    SelectedPipelineName = AvailablePipelineNames.First(); // Load the most recent remaining
+                    // Select the most recent remaining pipeline
+                    SelectedPipelineName = AvailablePipelineNames.First();
+                    Debug.WriteLine($"Deleted '{nameToDelete}'. Loaded next pipeline: '{SelectedPipelineName}'");
                 }
                 else
                 {
-                    await CreateNewPipeline(); // Create new if list is empty
+                    // No pipelines left, create a new default one
+                    Debug.WriteLine($"Deleted '{nameToDelete}'. No pipelines left. Creating a new one.");
+                    await CreateNewPipeline(); // Create in memory
+                    await SaveCurrentPipelineAsync(); // Save it
+                    SelectedPipelineName = CurrentPipelineName; // Select it
+                    Debug.WriteLine($"Created and selected new default pipeline: '{CurrentPipelineName}'");
                 }
                 await ShowAlert?.Invoke("Success", $"Pipeline '{nameToDelete}' deleted.", "OK");
             }
