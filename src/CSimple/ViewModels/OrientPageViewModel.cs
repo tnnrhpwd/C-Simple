@@ -408,6 +408,10 @@ namespace CSimple.ViewModels
             // SelectedPipelineName = null; // Keep deselected initially
 
             Debug.WriteLine($"Created new pipeline placeholder: {CurrentPipelineName}");
+
+            // Add default input nodes
+            AddDefaultInputNodes();
+
             // Add to list immediately so it can be selected later
             if (!AvailablePipelineNames.Contains(CurrentPipelineName))
             {
@@ -417,6 +421,27 @@ namespace CSimple.ViewModels
             // No need for await here as it's synchronous now
             await Task.CompletedTask; // Keep async signature if needed elsewhere, otherwise make sync
         }
+
+        private void AddDefaultInputNodes()
+        {
+            float startX = 50;
+            float startY = 50;
+            float spacingY = 80; // Vertical spacing between nodes
+            SizeF defaultSize = new SizeF(150, 50); // Slightly smaller default size for inputs
+
+            var keyboardNode = new NodeViewModel(Guid.NewGuid().ToString(), "Keyboard Input", NodeType.Input, new PointF(startX, startY)) { Size = defaultSize };
+            var mouseNode = new NodeViewModel(Guid.NewGuid().ToString(), "Mouse Input", NodeType.Input, new PointF(startX, startY + spacingY)) { Size = defaultSize };
+            var cameraNode = new NodeViewModel(Guid.NewGuid().ToString(), "Camera Input", NodeType.Input, new PointF(startX, startY + 2 * spacingY)) { Size = defaultSize };
+            var audioNode = new NodeViewModel(Guid.NewGuid().ToString(), "Audio Input", NodeType.Input, new PointF(startX, startY + 3 * spacingY)) { Size = defaultSize };
+
+            Nodes.Add(keyboardNode);
+            Nodes.Add(mouseNode);
+            Nodes.Add(cameraNode);
+            Nodes.Add(audioNode);
+
+            Debug.WriteLine($"Added default input nodes to '{CurrentPipelineName}'.");
+        }
+
 
         private async Task RenameCurrentPipeline()
         {
