@@ -11,20 +11,14 @@
         <!-- Ensure IsNotNullConverter is defined -->
         <converters:IsNotNullConverter x:Key="IsNotNullConverter" />
     </ContentPage.Resources>
-    <Grid>
-        <!-- GraphicsView for drawing nodes and connections -->
-        <GraphicsView x:Name="NodeCanvas"
-                      Drawable="{Binding Source={RelativeSource AncestorType={x:Type local:OrientPage}}, Path=NodeDrawable}"
-                      StartInteraction="OnCanvasStartInteraction"
-                      DragInteraction="OnCanvasDragInteraction"
-                      EndInteraction="OnCanvasEndInteraction"
-                      CancelInteraction="OnCanvasCancelInteraction"
-                      BackgroundColor="{AppThemeBinding Light=WhiteSmoke, Dark=#1e1e1e}" />
-        <!-- Top Toolbar -->
-        <Border StrokeThickness="0"
+    <!-- Define Grid Rows: Auto for toolbar, * for canvas -->
+    <Grid RowDefinitions="Auto, *">
+        <!-- Top Toolbar (in Row 0) -->
+        <Border Grid.Row="0"
+                StrokeThickness="0"
                 BackgroundColor="{AppThemeBinding Light=#E0FFFFFF, Dark=#E0333333}"
                 Padding="10,5"
-                Margin="10"
+                Margin="10,10,10,0"
                 VerticalOptions="Start"
                 HorizontalOptions="FillAndExpand"
                 StrokeShape="RoundRectangle 10">
@@ -45,39 +39,33 @@
                 <Button Command="{Binding AddModelNodeCommand}"
                         CommandParameter="{Binding Source={x:Reference ModelPicker}, Path=SelectedItem}"
                         BackgroundColor="{StaticResource Primary}"
-                        WidthRequest="40"
-                        HeightRequest="40"
-                        CornerRadius="20"
-                        Padding="0"
-                        ToolTipProperties.Text="Add Selected Model Node">
-                    <!-- Use ImageSource with FontImageSource -->
-                    <Button.ImageSource>
-                        <FontImageSource FontFamily="FontAwesome"
-                                         Glyph="?" 
-                                         Color="White"
-                                         Size="18" />
-                    </Button.ImageSource>
-                </Button>
+                        Text="Add"
+                        TextColor="White"
+                        CornerRadius="8"
+                        Padding="12,6"
+                        ToolTipProperties.Text="Add Selected Model Node" />
                 <Button Command="{Binding DeleteSelectedNodeCommand}"
                         BackgroundColor="{StaticResource Error}"
-                        WidthRequest="40"
-                        HeightRequest="40"
-                        CornerRadius="20"
-                        Padding="0"
-                        ToolTipProperties.Text="Delete Selected Node">
-                    <!-- Use ImageSource with FontImageSource -->
-                    <Button.ImageSource>
-                        <FontImageSource FontFamily="FontAwesome"
-                                         Glyph="?"
-                                         Color="White"
-                                         Size="18" />
-                    </Button.ImageSource>
-                </Button>
+                        Text="Delete"
+                        TextColor="White"
+                        CornerRadius="8"
+                        Padding="12,6"
+                        ToolTipProperties.Text="Delete Selected Node" />
                 <!-- Add Zoom/Pan buttons later if needed -->
             </HorizontalStackLayout>
         </Border>
-        <!-- Selected Node Info Panel -->
-        <Border Stroke="{AppThemeBinding Light=Gray, Dark=LightGray}"
+        <!-- GraphicsView for drawing nodes and connections (in Row 1) -->
+        <GraphicsView Grid.Row="1"
+                      x:Name="NodeCanvas"
+                      Drawable="{Binding Source={RelativeSource AncestorType={x:Type local:OrientPage}}, Path=NodeDrawable}"
+                      StartInteraction="OnCanvasStartInteraction"
+                      DragInteraction="OnCanvasDragInteraction"
+                      EndInteraction="OnCanvasEndInteraction"
+                      CancelInteraction="OnCanvasCancelInteraction"
+                      BackgroundColor="{AppThemeBinding Light=WhiteSmoke, Dark=#1e1e1e}" />
+        <!-- Selected Node Info Panel (Overlay in Row 1) -->
+        <Border Grid.Row="1"
+                Stroke="{AppThemeBinding Light=Gray, Dark=LightGray}"
                 BackgroundColor="{AppThemeBinding Light=#F0FFFFFF, Dark=#F0444444}"
                 Padding="10"
                 Margin="10"
