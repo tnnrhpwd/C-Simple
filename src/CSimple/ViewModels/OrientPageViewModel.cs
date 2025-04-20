@@ -194,14 +194,18 @@ namespace CSimple.ViewModels
                 // Note: Saving on every move update might be too frequent.
                 // Consider saving only on DragEnd interaction in the view,
                 // or implement debouncing here. For simplicity, saving here for now.
-                // await SaveCurrentPipelineAsync(); // Consider moving this call
+                // await SaveCurrentPipelineAsync(); // Commented out again
             }
         }
 
         // Call this from EndInteraction in the view after a drag completes
         public async Task FinalizeNodeMove()
         {
-            await SaveCurrentPipelineAsync();
+            // This method is now less critical if saving happens in UpdateNodePosition,
+            // but can be kept for potential future use (e.g., debounced saving).
+            // For now, we rely on saving within UpdateNodePosition.
+            await SaveCurrentPipelineAsync(); // Uncommented to save only on drag end
+            // await Task.CompletedTask; // Keep async signature
         }
 
 

@@ -529,7 +529,9 @@ namespace CSimple.Pages
             else if (_draggedNode != null)
             {
                 Debug.WriteLine($"Ended drag for node: {_draggedNode.Name}");
-                // Optional: Add any logic needed at the end of a drag, like snapping to grid
+                // Saving now happens during drag via UpdateNodePosition.
+                // No need to call FinalizeNodeMove here anymore.
+                await _viewModel.FinalizeNodeMove(); // Re-enabled this call
             }
 
             _draggedNode = null; // Stop dragging regardless of connection state
