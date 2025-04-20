@@ -1,6 +1,6 @@
 ﻿using CSimple.Pages;
 using CSimple.Services;
-using CSimple.ViewModels;
+using CSimple.ViewModels; // Add ViewModels namespace
 using Microsoft.Maui.LifecycleEvents;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
@@ -69,11 +69,19 @@ public static class MauiProgram
         });
 
         var services = builder.Services;
+        // --- Register ViewModels ---
         services.AddSingleton<HomeViewModel>();
-        services.AddSingleton<HomePage>();
         services.AddSingleton<LoginViewModel>();
+        services.AddSingleton<NetPageViewModel>(); // Register NetPageViewModel
+
+        // --- Register Pages ---
+        services.AddSingleton<HomePage>();
         services.AddSingleton<LoginPage>();
         services.AddSingleton<SettingsPage>();
+        // Register NetPage with ViewModel dependency
+        services.AddSingleton<NetPage>(); // Inject ViewModel automatically
+
+        // --- Register Services ---
         services.AddSingleton<DataService>();
         services.AddSingleton<SettingsService>();
         services.AddSingleton<FileService>();  // Register FileService
@@ -117,12 +125,6 @@ public static class MauiProgram
             sp.GetRequiredService<AppModeService>(),
             sp.GetRequiredService<VoiceAssistantService>()
         ));
-
-        // Register NetPage with FileService dependency
-        services.AddSingleton(sp => new NetPage(
-            sp.GetRequiredService<FileService>()
-        ));
-
 
 #if WINDOWS
         services.AddSingleton<ITrayService, WinUI.TrayService>();

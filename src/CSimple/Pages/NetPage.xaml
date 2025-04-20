@@ -1,8 +1,15 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:CSimple.Pages"
+             xmlns:viewmodels="clr-namespace:CSimple.ViewModels"
+             xmlns:models="clr-namespace:CSimple.Models"
+             x:DataType="viewmodels:NetPageViewModel"
              x:Class="CSimple.Pages.NetPage"
              Title="Net">
+    <ContentPage.Resources>
+        <!-- Ensure converters are defined, preferably in App.xaml -->
+        <!-- Example: <converters:InverseBoolConverter x:Key="InverseBoolConverter" /> -->
+    </ContentPage.Resources>
     <ContentPage.Content>
         <ScrollView>
             <VerticalStackLayout Padding="{StaticResource PagePadding}"
@@ -33,7 +40,7 @@
                                            FontSize="{StaticResource FontSizeSmall}"
                                            HorizontalOptions="Center"
                                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
-                                    <Switch IsToggled="{Binding IsGeneralModeActive}"
+                                    <Switch IsToggled="{Binding IsGeneralModeActive, Mode=TwoWay}"
                                             OnColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                             HorizontalOptions="Center"
                                             Toggled="OnGeneralModeToggled" />
@@ -51,7 +58,7 @@
                                            FontSize="{StaticResource FontSizeSmall}"
                                            HorizontalOptions="Center"
                                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
-                                    <Switch IsToggled="{Binding IsSpecificModeActive}"
+                                    <Switch IsToggled="{Binding IsSpecificModeActive, Mode=TwoWay}"
                                             OnColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
                                             HorizontalOptions="Center"
                                             Toggled="OnSpecificModeToggled" />
@@ -135,9 +142,9 @@
                                FontAttributes="Bold"
                                Margin="{StaticResource MarginTopMedium}" />
                         <CollectionView ItemsSource="{Binding ActiveModels}"
-                                        EmptyView="No active models. Activate a model below.">
+                                        EmptyView="No active models.">
                             <CollectionView.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="models:NeuralNetworkModel">
                                     <Grid Padding="{StaticResource SpacingTiny}"
                                           ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Grid.Column="0">
@@ -153,7 +160,7 @@
                                                 Text="Stop"
                                                 BackgroundColor="{StaticResource Error}"
                                                 TextColor="{StaticResource TextOnPrimary}"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type local:NetPage}}, Path=DeactivateModelCommand}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeactivateModelCommand}"
                                                 CommandParameter="{Binding .}"
                                                 VerticalOptions="Center" />
                                     </Grid>
@@ -172,7 +179,7 @@
                                                    ItemSpacing="{StaticResource SpacingSmall}" />
                             </CollectionView.ItemsLayout>
                             <CollectionView.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="models:NeuralNetworkModel">
                                     <Frame BorderColor="LightGray"
                                            Padding="{StaticResource CardContentPadding}"
                                            Margin="{StaticResource MarginTiny}"
@@ -203,7 +210,7 @@
                                         IsVisible="{Binding IsSpecificModeActive}"
                                         EmptyView="No goals available.">
                             <CollectionView.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="models:SpecificGoal">
                                     <Frame BorderColor="LightGray"
                                            Padding="{StaticResource CardContentPadding}"
                                            Margin="{StaticResource MarginTiny}"
@@ -263,7 +270,7 @@
                               ColumnSpacing="{StaticResource SpacingSmall}">
                             <Entry Grid.Column="0"
                                    Placeholder="Search HuggingFace models..."
-                                   x:Name="HuggingFaceSearchEntry" />
+                                   Text="{Binding HuggingFaceSearchQuery}" />
                             <Button Grid.Column="1"
                                     Text="Search"
                                     Clicked="OnHuggingFaceSearchClicked"
@@ -271,17 +278,10 @@
                                     TextColor="{StaticResource TextOnPrimary}" />
                         </Grid>
                         <Picker Title="Model Category"
-                                x:Name="HuggingFaceCategoryPicker"
-                                Margin="{StaticResource MarginTopSmall}">
-                            <Picker.Items>
-                                <x:String>All Categories</x:String>
-                                <x:String>Audio-to-Text</x:String>
-                                <x:String>Text-to-Text</x:String>
-                                <x:String>Image Understanding</x:String>
-                                <x:String>Text-to-Speech</x:String>
-                            </Picker.Items>
-                        </Picker>
-                        <Button Text="Import from HuggingFace"
+                                ItemsSource="{Binding HuggingFaceCategories}"
+                                SelectedItem="{Binding SelectedHuggingFaceCategory}"
+                                Margin="{StaticResource MarginTopSmall}" />
+                        <Button Text="Import from HuggingFace by ID"
                                 Clicked="OnImportFromHuggingFaceClicked"
                                 BackgroundColor="{StaticResource Success}"
                                 TextColor="{StaticResource TextOnPrimary}"

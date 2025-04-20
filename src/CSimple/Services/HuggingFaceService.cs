@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using CSimple.Pages; // For ModelType enum
+using CSimple.Models; // Add this using directive
 
 namespace CSimple.Services
 {

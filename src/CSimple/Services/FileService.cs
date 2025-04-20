@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
 using CSimple.Pages; // Add this to access NeuralNetworkModel
+using CSimple.Models; // Add this using directive
 
 namespace CSimple.Services
 {
