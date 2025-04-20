@@ -1,717 +1,77 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:CSimple.ViewModels"
+             xmlns:models="clr-namespace:CSimple.Models"
+             x:DataType="viewmodels:OrientPageViewModel"
              x:Class="CSimple.Pages.OrientPage"
-             Title="Orient">
+             Title="Orient &amp; Refine Model">
+
     <ScrollView>
-        <VerticalStackLayout Padding="15"
-                             Spacing="20">
-            <Label Text="Neural Network Training Center"
-                   FontSize="Title"
+        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpacingLarge}">
+
+            <Label Text="Model Orientation &amp; Training"
+                   FontSize="{StaticResource FontSizeTitle}"
+                   FontAttributes="Bold"
                    HorizontalOptions="Center" />
-            <!-- Dashboard Card -->
-            <Frame BorderColor="{StaticResource Primary}"
-                   CornerRadius="10"
-                   Padding="15">
-                <VerticalStackLayout>
-                    <Label Text="Neural Network Models"
-                           FontSize="Subtitle"
-                           FontAttributes="Bold" />
-                    <!-- Quick Stats -->
-                    <Grid ColumnDefinitions="*,*,*"
-                          RowDefinitions="Auto"
-                          Margin="0,10,0,10">
-                        <Frame Grid.Column="0"
-                               BackgroundColor="#f0f0f0"
-                               Padding="10"
-                               Margin="5"
-                               CornerRadius="8">
-                            <VerticalStackLayout>
-                                <Label Text="Active Models"
-                                       FontSize="Caption"
-                                       TextColor="Gray" />
-                                <Label x:Name="ActiveModelsLabel"
-                                       Text="0"
-                                       FontSize="Title"
-                                       TextColor="{StaticResource Primary}"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Frame>
-                        <Frame Grid.Column="1"
-                               BackgroundColor="#f0f0f0"
-                               Padding="10"
-                               Margin="5"
-                               CornerRadius="8">
-                            <VerticalStackLayout>
-                                <Label Text="Average Accuracy"
-                                       FontSize="Caption"
-                                       TextColor="Gray" />
-                                <Label x:Name="AccuracyLabel"
-                                       Text="0.0%"
-                                       FontSize="Title"
-                                       TextColor="{StaticResource Primary}"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Frame>
-                        <Frame Grid.Column="2"
-                               BackgroundColor="#f0f0f0"
-                               Padding="10"
-                               Margin="5"
-                               CornerRadius="8">
-                            <VerticalStackLayout>
-                                <Label Text="Training Data"
-                                       FontSize="Caption"
-                                       TextColor="Gray" />
-                                <Label x:Name="DataPointsLabel"
-                                       Text="0"
-                                       FontSize="Title"
-                                       TextColor="{StaticResource Primary}"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Frame>
-                    </Grid>
-                    <!-- Performance Chart -->
-                    <Frame HeightRequest="200"
-                           BackgroundColor="#f8f8f8"
-                           CornerRadius="8"
-                           Padding="5"
-                           Margin="0,5,0,10">
-                        <Grid>
-                            <Label Text="Model Performance Visualization"
-                                   VerticalOptions="Center"
-                                   HorizontalOptions="Center"
-                                   TextColor="Gray" />
-                            <Ellipse x:Name="Check"
-                                     WidthRequest="80"
-                                     HeightRequest="80"
-                                     Stroke="{StaticResource Primary}"
-                                     Fill="Transparent"
-                                     VerticalOptions="Center"
-                                     HorizontalOptions="Center" />
-                        </Grid>
-                    </Frame>
-                    <!-- System Status -->
-                    <Grid ColumnDefinitions="Auto,*"
-                          RowDefinitions="Auto,Auto"
-                          ColumnSpacing="15"
-                          RowSpacing="10">
-                        <Label Grid.Row="0"
-                               Grid.Column="0"
-                               Text="System Status:"
-                               FontAttributes="Bold" />
-                        <Label x:Name="SystemStatusLabel"
-                               Grid.Row="0"
-                               Grid.Column="1"
-                               Text="Ready"
-                               TextColor="Green" />
-                        <Label Grid.Row="1"
-                               Grid.Column="0"
-                               Text="Processing Power:"
-                               FontAttributes="Bold" />
-                        <ProgressBar x:Name="ProcessingPowerBar"
-                                     Grid.Row="1"
-                                     Grid.Column="1"
-                                     Progress="0.7"
-                                     ProgressColor="{StaticResource Primary}" />
+
+            <!-- Model Details Section -->
+            <Frame CornerRadius="{StaticResource CornerRadiusMedium}" Padding="{StaticResource CardPadding}" BorderColor="{StaticResource Primary}">
+                <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                    <Label Text="Selected Model Details" FontSize="{StaticResource FontSizeSubtitle}" FontAttributes="Bold" />
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="{StaticResource SpacingTiny}" ColumnSpacing="{StaticResource SpacingMedium}">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Name:" FontAttributes="Bold" />
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding SelectedModel.Name, FallbackValue='Loading...'}" />
+
+                        <Label Grid.Row="1" Grid.Column="0" Text="Description:" FontAttributes="Bold" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding SelectedModel.Description, FallbackValue='-'}" />
+
+                        <Label Grid.Row="2" Grid.Column="0" Text="Type:" FontAttributes="Bold" />
+                        <Label Grid.Row="2" Grid.Column="1" Text="{Binding SelectedModel.Type, FallbackValue='-'}" />
+
+                        <Label Grid.Row="3" Grid.Column="0" Text="ID:" FontAttributes="Bold" />
+                        <Label Grid.Row="3" Grid.Column="1" Text="{Binding SelectedModel.Id, FallbackValue='-'}" FontSize="{StaticResource FontSizeCaption}" />
                     </Grid>
                 </VerticalStackLayout>
             </Frame>
-            <!-- Data Source Selection - NEW -->
-            <Frame BorderColor="{StaticResource Primary}"
-                   CornerRadius="10"
-                   Padding="15">
-                <VerticalStackLayout Spacing="15">
-                    <Label Text="Training Data Sources"
-                           FontSize="Subtitle"
-                           FontAttributes="Bold" />
-                    <Label Text="Select data sources for your model:" />
-                    <Grid ColumnDefinitions="*,*,*"
-                          RowDefinitions="Auto"
-                          ColumnSpacing="10">
-                        <!-- Screen Data -->
-                        <Frame Grid.Column="0"
-                               BackgroundColor="#E3F2FD"
-                               Padding="10"
-                               CornerRadius="8">
-                            <VerticalStackLayout>
-                                <CheckBox IsChecked="True"
-                                          CheckedChanged="OnDataSourceSelected" />
-                                <Label Text="Screen Data"
-                                       FontAttributes="Bold"
-                                       HorizontalOptions="Center" />
-                                <Label Text="1,240"
-                                       FontSize="Large"
-                                       TextColor="#2196F3"
-                                       HorizontalOptions="Center" />
-                                <Label Text="samples"
-                                       FontSize="Micro"
-                                       HorizontalOptions="Center" />
-                                <Label Text="Quality: 85%"
-                                       FontSize="Caption"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Frame>
-                        <!-- Audio Data -->
-                        <Frame Grid.Column="1"
-                               BackgroundColor="#FFF3E0"
-                               Padding="10"
-                               CornerRadius="8">
-                            <VerticalStackLayout>
-                                <CheckBox IsChecked="True"
-                                          CheckedChanged="OnDataSourceSelected" />
-                                <Label Text="Audio Data"
-                                       FontAttributes="Bold"
-                                       HorizontalOptions="Center" />
-                                <Label Text="856"
-                                       FontSize="Large"
-                                       TextColor="#FF9800"
-                                       HorizontalOptions="Center" />
-                                <Label Text="samples"
-                                       FontSize="Micro"
-                                       HorizontalOptions="Center" />
-                                <Label Text="Quality: 78%"
-                                       FontSize="Caption"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Frame>
-                        <!-- Text Data -->
-                        <Frame Grid.Column="2"
-                               BackgroundColor="#E8F5E9"
-                               Padding="10"
-                               CornerRadius="8">
-                            <VerticalStackLayout>
-                                <CheckBox IsChecked="True"
-                                          CheckedChanged="OnDataSourceSelected" />
-                                <Label Text="Text Data"
-                                       FontAttributes="Bold"
-                                       HorizontalOptions="Center" />
-                                <Label Text="2,405"
-                                       FontSize="Large"
-                                       TextColor="#4CAF50"
-                                       HorizontalOptions="Center" />
-                                <Label Text="samples"
-                                       FontSize="Micro"
-                                       HorizontalOptions="Center" />
-                                <Label Text="Quality: 92%"
-                                       FontSize="Caption"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Frame>
-                    </Grid>
-                    <!-- Data preprocessing options -->
-                    <Label Text="Data Preprocessing Options:"
-                           FontAttributes="Bold"
-                           Margin="0,10,0,0" />
-                    <Grid ColumnDefinitions="Auto,*"
-                          ColumnSpacing="10"
-                          RowSpacing="8">
-                        <Label Grid.Row="0"
-                               Grid.Column="0"
-                               Text="Normalize Data:"
-                               VerticalOptions="Center" />
-                        <Switch Grid.Row="0"
-                                Grid.Column="1"
-                                IsToggled="True"
-                                OnColor="{StaticResource Primary}" />
-                        <Label Grid.Row="1"
-                               Grid.Column="0"
-                               Text="Feature Extraction:"
-                               VerticalOptions="Center" />
-                        <Switch Grid.Row="1"
-                                Grid.Column="1"
-                                IsToggled="True"
-                                OnColor="{StaticResource Primary}" />
-                        <Label Grid.Row="2"
-                               Grid.Column="0"
-                               Text="Cross-Validation:"
-                               VerticalOptions="Center" />
-                        <Switch Grid.Row="2"
-                                Grid.Column="1"
-                                IsToggled="True"
-                                OnColor="{StaticResource Primary}" />
-                    </Grid>
-                    <Button Text="Curate Training Data"
-                            BackgroundColor="#607D8B"
-                            TextColor="White"
-                            Clicked="OnManageDataClicked" />
+
+            <!-- Training Control Section -->
+            <Frame CornerRadius="{StaticResource CornerRadiusMedium}" Padding="{StaticResource CardPadding}" BorderColor="{StaticResource Secondary}">
+                <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
+                    <Label Text="Training Controls" FontSize="{StaticResource FontSizeSubtitle}" FontAttributes="Bold" />
+
+                    <Label Text="{Binding TrainingStatus}" FontSize="{StaticResource FontSizeBody}" />
+                    <ProgressBar Progress="{Binding TrainingProgress}" />
+
+                    <Button Text="Start Training"
+                            Command="{Binding StartTrainingCommand}"
+                            BackgroundColor="{StaticResource Success}"
+                            TextColor="{StaticResource TextOnPrimary}" />
+
+                    <Button Text="Manage Training Data"
+                            Command="{Binding ManageTrainingDataCommand}"
+                            BackgroundColor="{StaticResource Tertiary}"
+                            TextColor="{StaticResource TextOnPrimary}" />
                 </VerticalStackLayout>
             </Frame>
-            <!-- Training Controls -->
-            <Frame BorderColor="{StaticResource Primary}"
-                   CornerRadius="10"
-                   Padding="15">
-                <VerticalStackLayout Spacing="15">
-                    <Label Text="Model Training Controls"
-                           FontSize="Subtitle"
-                           FontAttributes="Bold" />
-                    <!-- Model Type Selection - UPDATED -->
-                    <Label Text="Select Neural Network Type:" />
-                    <Picker x:Name="ModelTypePicker"
-                            Title="Select Model Type">
-                        <Picker.Items>
-                            <x:String>General Assistant</x:String>
-                            <x:String>Specialized Task</x:String>
-                            <x:String>Command Automation</x:String>
-                            <x:String>Image Recognition</x:String>
-                            <x:String>Voice Assistant</x:String>
-                        </Picker.Items>
-                        <Picker.SelectedIndex>0</Picker.SelectedIndex>
-                    </Picker>
-                    <!-- Model Configuration Tab Buttons -->
-                    <HorizontalStackLayout HorizontalOptions="Center"
-                                           Spacing="0">
-                        <Button x:Name="BasicTabButton"
-                                Text="Basic"
-                                Clicked="OnBasicTabClicked"
-                                BackgroundColor="{StaticResource Primary}"
-                                TextColor="White"
-                                CornerRadius="5"
-                                WidthRequest="100" />
-                        <Button x:Name="AdvancedTabButton"
-                                Text="Advanced"
-                                Clicked="OnAdvancedTabClicked"
-                                BackgroundColor="Gray"
-                                TextColor="White"
-                                CornerRadius="5"
-                                WidthRequest="100" />
-                    </HorizontalStackLayout>
-                    <!-- Basic Settings (Default visible) -->
-                    <StackLayout x:Name="BasicSettingsPanel"
-                                 IsVisible="true"
-                                 Spacing="15">
-                        <Label Text="Training Epochs" />
-                        <Grid ColumnDefinitions="*,Auto"
-                              ColumnSpacing="10">
-                            <Slider x:Name="EpochsSlider"
-                                    Grid.Column="0"
-                                    Minimum="1"
-                                    Maximum="100"
-                                    Value="10"
-                                    ThumbColor="{StaticResource Primary}"
-                                    MinimumTrackColor="{StaticResource Primary}"
-                                    ValueChanged="OnEpochsSliderValueChanged" />
-                            <Label x:Name="EpochsValueLabel"
-                                   Grid.Column="1"
-                                   Text="10"
-                                   WidthRequest="40"
-                                   HorizontalTextAlignment="End" />
-                        </Grid>
-                        <!-- ML.NET Integration Options - NEW -->
-                        <Label Text="ML.NET Integration Options"
-                               FontAttributes="Bold"
-                               Margin="0,10,0,0" />
-                        <Grid ColumnDefinitions="Auto,*"
-                              RowSpacing="8">
-                            <Label Grid.Row="0"
-                                   Grid.Column="0"
-                                   Text="Use GPU Acceleration:"
-                                   VerticalOptions="Center" />
-                            <Switch Grid.Row="0"
-                                    Grid.Column="1"
-                                    IsToggled="True"
-                                    OnColor="{StaticResource Primary}" />
-                            <Label Grid.Row="1"
-                                   Grid.Column="0"
-                                   Text="Use AutoML:"
-                                   VerticalOptions="Center" />
-                            <Switch Grid.Row="1"
-                                    Grid.Column="1"
-                                    IsToggled="False"
-                                    OnColor="{StaticResource Primary}" />
-                        </Grid>
-                    </StackLayout>
-                    <!-- Advanced Settings (Initially hidden) -->
-                    <StackLayout x:Name="AdvancedSettingsPanel"
-                                 IsVisible="false"
-                                 Spacing="15">
-                        <Grid ColumnDefinitions="Auto,*,Auto"
-                              RowDefinitions="Auto,Auto,Auto,Auto"
-                              ColumnSpacing="10"
-                              RowSpacing="15">
-                            <Label Grid.Row="0"
-                                   Grid.Column="0"
-                                   Text="Learning Rate:"
-                                   VerticalOptions="Center" />
-                            <Slider x:Name="LearningRateSlider"
-                                    Grid.Row="0"
-                                    Grid.Column="1"
-                                    Minimum="0.001"
-                                    Maximum="0.1"
-                                    Value="0.01"
-                                    ThumbColor="{StaticResource Primary}"
-                                    MinimumTrackColor="{StaticResource Primary}"
-                                    ValueChanged="OnLearningRateSliderValueChanged" />
-                            <Label x:Name="LearningRateValueLabel"
-                                   Grid.Row="0"
-                                   Grid.Column="2"
-                                   Text="0.01"
-                                   WidthRequest="60"
-                                   HorizontalTextAlignment="End" />
-                            <Label Grid.Row="1"
-                                   Grid.Column="0"
-                                   Text="Batch Size:"
-                                   VerticalOptions="Center" />
-                            <Slider x:Name="BatchSizeSlider"
-                                    Grid.Row="1"
-                                    Grid.Column="1"
-                                    Minimum="8"
-                                    Maximum="128"
-                                    Value="32"
-                                    ThumbColor="{StaticResource Primary}"
-                                    MinimumTrackColor="{StaticResource Primary}"
-                                    ValueChanged="OnBatchSizeSliderValueChanged" />
-                            <Label x:Name="BatchSizeValueLabel"
-                                   Grid.Row="1"
-                                   Grid.Column="2"
-                                   Text="32"
-                                   WidthRequest="60"
-                                   HorizontalTextAlignment="End" />
-                            <Label Grid.Row="2"
-                                   Grid.Column="0"
-                                   Text="Dropout Rate:"
-                                   VerticalOptions="Center" />
-                            <Slider x:Name="DropoutSlider"
-                                    Grid.Row="2"
-                                    Grid.Column="1"
-                                    Minimum="0"
-                                    Maximum="0.5"
-                                    Value="0.2"
-                                    ThumbColor="{StaticResource Primary}"
-                                    MinimumTrackColor="{StaticResource Primary}"
-                                    ValueChanged="OnDropoutSliderValueChanged" />
-                            <Label x:Name="DropoutValueLabel"
-                                   Grid.Row="2"
-                                   Grid.Column="2"
-                                   Text="0.2"
-                                   WidthRequest="60"
-                                   HorizontalTextAlignment="End" />
-                            <Label Grid.Row="3"
-                                   Grid.Column="0"
-                                   Text="Architecture:"
-                                   VerticalOptions="Center" />
-                            <Picker x:Name="ArchitecturePicker"
-                                    Grid.Row="3"
-                                    Grid.Column="1"
-                                    Grid.ColumnSpan="2"
-                                    Title="Neural Network Architecture">
-                                <Picker.Items>
-                                    <x:String>Convolutional Neural Network</x:String>
-                                    <x:String>Recurrent Neural Network</x:String>
-                                    <x:String>Transformer</x:String>
-                                    <x:String>LSTM Network</x:String>
-                                    <x:String>GAN</x:String>
-                                    <x:String>Autoencoder</x:String>
-                                </Picker.Items>
-                                <Picker.SelectedIndex>2</Picker.SelectedIndex>
-                            </Picker>
-                        </Grid>
-                        <Label Text="Advanced Data Processing"
-                               FontAttributes="Bold"
-                               Margin="0,10,0,0" />
-                        <Grid ColumnDefinitions="Auto,*"
-                              RowDefinitions="Auto,Auto,Auto"
-                              ColumnSpacing="10"
-                              RowSpacing="10">
-                            <Label Grid.Row="0"
-                                   Grid.Column="0"
-                                   Text="Data Augmentation:"
-                                   VerticalOptions="Center" />
-                            <Switch x:Name="DataAugmentationSwitch"
-                                    Grid.Row="0"
-                                    Grid.Column="1"
-                                    IsToggled="true"
-                                    OnColor="{StaticResource Primary}" />
-                            <Label Grid.Row="1"
-                                   Grid.Column="0"
-                                   Text="Normalization:"
-                                   VerticalOptions="Center" />
-                            <Switch x:Name="NormalizationSwitch"
-                                    Grid.Row="1"
-                                    Grid.Column="1"
-                                    IsToggled="true"
-                                    OnColor="{StaticResource Primary}" />
-                            <Label Grid.Row="2"
-                                   Grid.Column="0"
-                                   Text="Transfer Learning:"
-                                   VerticalOptions="Center" />
-                            <Switch x:Name="TransferLearningSwitch"
-                                    Grid.Row="2"
-                                    Grid.Column="1"
-                                    IsToggled="false"
-                                    OnColor="{StaticResource Primary}" />
-                        </Grid>
-                    </StackLayout>
-                    <!-- Training Buttons -->
-                    <Grid ColumnDefinitions="*,*"
-                          ColumnSpacing="10">
-                        <Button Text="Train Model"
-                                Grid.Column="0"
-                                BackgroundColor="{StaticResource Primary}"
-                                TextColor="White"
-                                Clicked="OnTrainModelClicked" />
-                        <Button Text="Validate Model"
-                                Grid.Column="1"
-                                BackgroundColor="#4CAF50"
-                                TextColor="White"
-                                Clicked="OnValidateModelClicked" />
-                    </Grid>
-                    <Grid ColumnDefinitions="*,*"
-                          ColumnSpacing="10">
-                        <Button Text="Export Model"
-                                Grid.Column="0"
-                                BackgroundColor="#2196F3"
-                                TextColor="White"
-                                Clicked="OnExportModelClicked" />
-                        <Button Text="Import Model"
-                                Grid.Column="1"
-                                BackgroundColor="#9C27B0"
-                                TextColor="White"
-                                Clicked="OnImportModelClicked" />
-                    </Grid>
-                    <!-- Cancel Training Button - NEW -->
-                    <Button Text="Cancel Training"
-                            BackgroundColor="#F44336"
-                            TextColor="White"
-                            IsVisible="{Binding IsTraining}"
-                            Clicked="OnCancelTrainingClicked" />
+
+            <!-- Performance Section -->
+            <Frame CornerRadius="{StaticResource CornerRadiusMedium}" Padding="{StaticResource CardPadding}" BorderColor="{StaticResource Tertiary}">
+                <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
+                    <Label Text="Performance Metrics" FontSize="{StaticResource FontSizeSubtitle}" FontAttributes="Bold" />
+
+                    <Label Text="{Binding PerformanceMetrics}" LineBreakMode="WordWrap" />
+
+                    <Button Text="View/Refresh Performance Details"
+                            Command="{Binding ViewPerformanceCommand}"
+                            BackgroundColor="{StaticResource Info}"
+                            TextColor="{StaticResource TextOnPrimary}" />
+                    <!-- Potential Placeholder for Charts/Graphs -->
+                    <BoxView HeightRequest="100" Color="{StaticResource BackgroundSecondary}" CornerRadius="{StaticResource CornerRadiusSmall}" />
+                    <Label Text="(Performance charts placeholder)" HorizontalOptions="Center" TextColor="{StaticResource TextSecondary}" FontSize="{StaticResource FontSizeCaption}" />
                 </VerticalStackLayout>
             </Frame>
-            <!-- Goals and Tasks Integration - NEW -->
-            <Frame BorderColor="{StaticResource Primary}"
-                   CornerRadius="10"
-                   Padding="15">
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Goal-Based Models"
-                           FontSize="Subtitle"
-                           FontAttributes="Bold" />
-                    <Label Text="Create and manage models that execute specific user goals:"
-                           FontSize="Caption" />
-                    <Grid RowDefinitions="Auto,Auto,Auto"
-                          ColumnDefinitions="*,Auto"
-                          RowSpacing="15"
-                          ColumnSpacing="10">
-                        <Label Grid.Row="0"
-                               Grid.Column="0"
-                               Text="Task Type:"
-                               VerticalOptions="Center" />
-                        <Picker Grid.Row="0"
-                                Grid.Column="1"
-                                WidthRequest="200"
-                                Title="Select Task Type">
-                            <Picker.Items>
-                                <x:String>General Assistance</x:String>
-                                <x:String>Document Processing</x:String>
-                                <x:String>Image Analysis</x:String>
-                                <x:String>Business Process Automation</x:String>
-                                <x:String>Voice Command Processing</x:String>
-                            </Picker.Items>
-                            <Picker.SelectedIndex>0</Picker.SelectedIndex>
-                        </Picker>
-                        <Label Grid.Row="1"
-                               Grid.Column="0"
-                               Text="Goal Name:"
-                               VerticalOptions="Center" />
-                        <Entry Grid.Row="1"
-                               Grid.Column="1"
-                               Placeholder="Enter specific goal name"
-                               Text="Create Sales Report" />
-                        <Label Grid.Row="2"
-                               Grid.Column="0"
-                               Text="Make Shareable:"
-                               VerticalOptions="Center" />
-                        <Switch Grid.Row="2"
-                                Grid.Column="1"
-                                IsToggled="false"
-                                OnColor="{StaticResource Primary}" />
-                    </Grid>
-                    <Button Text="Create Goal-Based Model"
-                            BackgroundColor="#673AB7"
-                            TextColor="White"
-                            Margin="0,10,0,0" />
-                </VerticalStackLayout>
-            </Frame>
-            <!-- Models List -->
-            <Frame BorderColor="{StaticResource Primary}"
-                   CornerRadius="10"
-                   Padding="15">
-                <VerticalStackLayout Spacing="10">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Label Grid.Column="0"
-                               Text="Available Models"
-                               FontSize="Subtitle"
-                               FontAttributes="Bold" />
-                        <Button Grid.Column="1"
-                                Text="Refresh"
-                                BackgroundColor="Transparent"
-                                TextColor="{StaticResource Primary}"
-                                FontSize="Caption"
-                                Clicked="OnRefreshModelsClicked" />
-                    </Grid>
-                    <!-- Search bar for models -->
-                    <SearchBar x:Name="ModelSearchBar"
-                               Placeholder="Search models..."
-                               TextChanged="OnModelSearchTextChanged" />
-                    <!-- Sample models list - to be replaced with real data -->
-                    <Frame BorderColor="LightGray"
-                           CornerRadius="5"
-                           Padding="10"
-                           Margin="0,5">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <VerticalStackLayout Grid.Column="0"
-                                                 Spacing="3">
-                                <Label Text="General Assistant v1.0"
-                                       FontAttributes="Bold" />
-                                <Label Text="Basic model for general purpose assistance"
-                                       FontSize="Micro"
-                                       TextColor="Gray" />
-                                <ProgressBar Progress="0.85"
-                                             ProgressColor="#4CAF50" />
-                                <HorizontalStackLayout Spacing="10">
-                                    <Label Text="Accuracy: 85%"
-                                           FontSize="Micro"
-                                           TextColor="Gray" />
-                                    <Label Text="Last trained: Today"
-                                           FontSize="Micro"
-                                           TextColor="Gray" />
-                                </HorizontalStackLayout>
-                            </VerticalStackLayout>
-                            <Button Grid.Column="1"
-                                    Text="Activate"
-                                    BackgroundColor="{StaticResource Primary}"
-                                    TextColor="White"
-                                    VerticalOptions="Center"
-                                    Clicked="OnActivateModelClicked"
-                                    CommandParameter="model1" />
-                        </Grid>
-                    </Frame>
-                    <Frame BorderColor="LightGray"
-                           CornerRadius="5"
-                           Padding="10"
-                           Margin="0,5">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <VerticalStackLayout Grid.Column="0"
-                                                 Spacing="3">
-                                <Label Text="Image Recognition Model"
-                                       FontAttributes="Bold" />
-                                <Label Text="Specialized for image pattern recognition"
-                                       FontSize="Micro"
-                                       TextColor="Gray" />
-                                <ProgressBar Progress="0.78"
-                                             ProgressColor="#4CAF50" />
-                                <HorizontalStackLayout Spacing="10">
-                                    <Label Text="Accuracy: 78%"
-                                           FontSize="Micro"
-                                           TextColor="Gray" />
-                                    <Label Text="Last trained: Yesterday"
-                                           FontSize="Micro"
-                                           TextColor="Gray" />
-                                </HorizontalStackLayout>
-                            </VerticalStackLayout>
-                            <Button Grid.Column="1"
-                                    Text="Activate"
-                                    BackgroundColor="Gray"
-                                    TextColor="White"
-                                    VerticalOptions="Center"
-                                    Clicked="OnActivateModelClicked"
-                                    CommandParameter="model2" />
-                        </Grid>
-                    </Frame>
-                    <!-- New model: Sales Report Automation - NEW -->
-                    <Frame BorderColor="LightGray"
-                           CornerRadius="5"
-                           Padding="10"
-                           Margin="0,5">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <VerticalStackLayout Grid.Column="0"
-                                                 Spacing="3">
-                                <Label Text="Sales Report Automation"
-                                       FontAttributes="Bold" />
-                                <Label Text="Goal-specific model for automating sales report creation"
-                                       FontSize="Micro"
-                                       TextColor="Gray" />
-                                <ProgressBar Progress="0.92"
-                                             ProgressColor="#4CAF50" />
-                                <HorizontalStackLayout Spacing="10">
-                                    <Label Text="Accuracy: 92%"
-                                           FontSize="Micro"
-                                           TextColor="Gray" />
-                                    <Label Text="Shareable: Yes"
-                                           FontSize="Micro"
-                                           TextColor="#2196F3" />
-                                </HorizontalStackLayout>
-                            </VerticalStackLayout>
-                            <Button Grid.Column="1"
-                                    Text="Activate"
-                                    BackgroundColor="Gray"
-                                    TextColor="White"
-                                    VerticalOptions="Center"
-                                    Clicked="OnActivateModelClicked"
-                                    CommandParameter="model3" />
-                        </Grid>
-                    </Frame>
-                    <!-- Model Evaluation Button - NEW -->
-                    <Button Text="Compare Model Performance"
-                            BackgroundColor="#00BCD4"
-                            TextColor="White"
-                            Clicked="OnModelComparisionClicked" />
-                </VerticalStackLayout>
-            </Frame>
-            <!-- Model Exchange - NEW -->
-            <Frame BorderColor="{StaticResource Primary}"
-                   CornerRadius="10"
-                   Padding="15">
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Model Exchange Platform"
-                           FontSize="Subtitle"
-                           FontAttributes="Bold" />
-                    <Label Text="Share and discover models created by other users"
-                           FontSize="Caption" />
-                    <SearchBar Placeholder="Search public models..." />
-                    <Grid ColumnDefinitions="*,*,*"
-                          RowSpacing="10"
-                          ColumnSpacing="10">
-                        <!-- Popular Categories -->
-                        <Frame Grid.Column="0"
-                               BackgroundColor="#E0F2F1"
-                               Padding="10"
-                               CornerRadius="5">
-                            <VerticalStackLayout HorizontalOptions="Center">
-                                <Label Text="Office Documents"
-                                       FontAttributes="Bold"
-                                       HorizontalOptions="Center" />
-                                <Label Text="153 models"
-                                       FontSize="Caption"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Frame>
-                        <Frame Grid.Column="1"
-                               BackgroundColor="#E1F5FE"
-                               Padding="10"
-                               CornerRadius="5">
-                            <VerticalStackLayout HorizontalOptions="Center">
-                                <Label Text="Web Automation"
-                                       FontAttributes="Bold"
-                                       HorizontalOptions="Center" />
-                                <Label Text="89 models"
-                                       FontSize="Caption"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Frame>
-                        <Frame Grid.Column="2"
-                               BackgroundColor="#F3E5F5"
-                               Padding="10"
-                               CornerRadius="5">
-                            <VerticalStackLayout HorizontalOptions="Center">
-                                <Label Text="Data Analytics"
-                                       FontAttributes="Bold"
-                                       HorizontalOptions="Center" />
-                                <Label Text="72 models"
-                                       FontSize="Caption"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Frame>
-                    </Grid>
-                </VerticalStackLayout>
-            </Frame>
+
         </VerticalStackLayout>
     </ScrollView>
+
 </ContentPage>

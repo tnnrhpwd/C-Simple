@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Shell x:Class="CSimple.AppShell"
+       xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:local="clr-namespace:CSimple"
+       xmlns:pages="clr-namespace:CSimple.Pages"
+       Shell.FlyoutBehavior="Disabled"
+       Shell.NavBarIsVisible="True">
+    <!-- Initial Content (Login Page) -->
+    <ShellContent Title="Login"
+                  ContentTemplate="{DataTemplate pages:LoginPage}"
+                  Route="login" />
+    <!-- Flyout Items / Tabs (Define structure after login) -->
+    <FlyoutItem Title="Main Menu"
+                FlyoutDisplayOptions="AsMultipleItems">
+        <ShellContent Title="Home"
+                      Icon="{StaticResource IconHome}"
+                      ContentTemplate="{DataTemplate pages:HomePage}"
+                      Route="home" />
+        <ShellContent Title="Observe"
+                      Icon="{StaticResource IconObserve}"
+                      ContentTemplate="{DataTemplate pages:ObservePage}"
+                      Route="observe" />
+        <ShellContent Title="Net"
+                      Icon="{StaticResource IconNet}"
+                      ContentTemplate="{DataTemplate pages:NetPage}"
+                      Route="net" />
+        <ShellContent Title="Orient"
+                      Icon="{StaticResource IconOrient}"
+                      ContentTemplate="{DataTemplate pages:OrientPage}"
+                      Route="orient" />
+        <!-- Add other main pages like Goal, Plan, Action here -->
+        <ShellContent Title="Settings"
+                      Icon="{StaticResource IconSettings}"
+                      ContentTemplate="{DataTemplate pages:SettingsPage}"
+                      Route="settings" />
+    </FlyoutItem>
+    <!-- Define Icons if not already in ResourceDictionary -->
+    <Shell.Resources>
+        <ResourceDictionary>
+            <FontImageSource x:Key="IconHome"
+                             Glyph="?"
+                             FontFamily="FontAwesome"
+                             Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            <FontImageSource x:Key="IconObserve"
+                             Glyph="?"
+                             FontFamily="FontAwesome"
+                             Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            <FontImageSource x:Key="IconNet"
+                             Glyph="?"
+                             FontFamily="FontAwesome"
+                             Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            <FontImageSource x:Key="IconOrient"
+                             Glyph="?"
+                             FontFamily="FontAwesome"
+                             Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            <!-- Example icon for Orient -->
+            <FontImageSource x:Key="IconSettings"
+                             Glyph="?"
+                             FontFamily="FontAwesome"
+                             Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            <!-- Add other icons -->
+        </ResourceDictionary>
+    </Shell.Resources>
+</Shell>

@@ -184,19 +184,35 @@
                                            Padding="{StaticResource CardContentPadding}"
                                            Margin="{StaticResource MarginTiny}"
                                            CornerRadius="{StaticResource CornerRadiusSmall}">
-                                        <Grid ColumnDefinitions="*,Auto">
+                                        <!-- Use Grid for better button layout -->
+                                        <Grid ColumnDefinitions="*,Auto,Auto"
+                                              ColumnSpacing="{StaticResource SpacingSmall}">
                                             <VerticalStackLayout Grid.Column="0">
                                                 <Label Text="{Binding Name}"
                                                        FontAttributes="Bold" />
                                                 <Label Text="{Binding Description}"
                                                        FontSize="{StaticResource FontSizeSmall}" />
+                                                <!-- Optional: Display brief status -->
+                                                <Label Text="{Binding TrainingStatus, StringFormat='Status: {0}'}"
+                                                       FontSize="{StaticResource FontSizeCaption}"
+                                                       TextColor="{StaticResource TextSecondary}" />
                                             </VerticalStackLayout>
+                                            <!-- Train/Refine Button -->
                                             <Button Grid.Column="1"
+                                                    Text="Train"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=GoToOrientCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    BackgroundColor="{StaticResource Tertiary}"
+                                                    TextColor="{StaticResource TextOnPrimary}"
+                                                    VerticalOptions="Center" />
+                                            <!-- Activate Button -->
+                                            <Button Grid.Column="2"
                                                     Text="Activate"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ActivateModelCommand}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ActivateModelCommand}"
                                                     CommandParameter="{Binding .}"
                                                     BackgroundColor="{StaticResource Primary}"
-                                                    TextColor="{StaticResource TextOnPrimary}" />
+                                                    TextColor="{StaticResource TextOnPrimary}"
+                                                    VerticalOptions="Center" />
                                         </Grid>
                                     </Frame>
                                 </DataTemplate>

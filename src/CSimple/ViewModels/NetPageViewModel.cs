@@ -92,10 +92,9 @@ namespace CSimple.ViewModels
         public ICommand CommunicateWithModelCommand { get; }
         public ICommand ExportModelCommand { get; }
         public ICommand ImportModelCommand { get; } // Triggered by View
-        public ICommand ManageTrainingCommand { get; } // Triggered by View
-        public ICommand ViewModelPerformanceCommand { get; }
         public ICommand HuggingFaceSearchCommand { get; } // Triggered by View
         public ICommand ImportFromHuggingFaceCommand { get; } // Triggered by View
+        public ICommand GoToOrientCommand { get; } // ADDED: Command to navigate
 
         // --- Constructor ---
         public NetPageViewModel(FileService fileService)
@@ -113,10 +112,9 @@ namespace CSimple.ViewModels
             CommunicateWithModelCommand = new Command<string>(CommunicateWithModel);
             ExportModelCommand = new Command<NeuralNetworkModel>(async (model) => await ExportModel(model)); // Wrapper for async
             ImportModelCommand = new Command(async () => await ImportModelAsync()); // Wrapper for async
-            ManageTrainingCommand = new Command(async () => await ManageTrainingAsync()); // Wrapper for async
-            ViewModelPerformanceCommand = new Command(ViewModelPerformance);
             HuggingFaceSearchCommand = new Command(async () => await SearchHuggingFaceAsync()); // Wrapper for async
             ImportFromHuggingFaceCommand = new Command(async () => await ImportDirectFromHuggingFaceAsync()); // Wrapper for async
+            GoToOrientCommand = new Command<NeuralNetworkModel>(async (model) => await GoToOrientAsync(model)); // ADDED
 
             // Populate categories
             HuggingFaceCategories = new List<string> { "All Categories" };
@@ -450,23 +448,23 @@ namespace CSimple.ViewModels
             finally { IsLoading = false; }
         }
 
-        private async Task ManageTrainingAsync()
+        private async Task GoToOrientAsync(NeuralNetworkModel model)
         {
-            // Logic moved from NetPage.xaml.cs
-            await ShowAlert("Manage Training Data", "This would open an interface to manage training data.", "OK");
-            // Navigate via service or message
-            await NavigateTo("///orient");
-        }
-
-        private void ViewModelPerformance()
-        {
-            // Logic moved from NetPage.xaml.cs
-            if (ActiveModels.Count == 0)
+            if (model == null)
             {
-                ShowAlert("No Active Models", "Activate a model to view performance.", "OK");
+                await ShowAlert("Navigation Error", "No model selected to orient/train.", "OK");
                 return;
             }
-            ShowAlert("Model Performance", "Simulated performance data: 92.7% accuracy, 12% CPU.", "OK");
+            try
+            {
+                // Navigate to OrientPage, passing the model ID as a query parameter
+                await NavigateTo($"///orient?modelId={model.Id}");
+            }
+            catch (Exception ex)
+            {
+                HandleError($"Error navigating to Orient page for model {model.Name}", ex);
+                await ShowAlert("Navigation Error", $"Could not navigate to training page: {ex.Message}", "OK");
+            }
         }
 
         // --- Private Helper Methods ---
