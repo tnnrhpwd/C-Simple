@@ -250,29 +250,64 @@ namespace CSimple.Pages
         // Helper to determine node color based on inferred data type
         private Color GetNodeColor(NodeViewModel node)
         {
-            // Infer data type (simple example, might need refinement or a dedicated property)
             string nameLower = node.Name.ToLower();
-            if (nameLower.Contains("keyboard") || nameLower.Contains("mouse") || nameLower.Contains("text"))
+
+            // Handle Input Nodes first
+            if (node.Type == NodeType.Input)
             {
-                return TextDataColor;
+                if (nameLower.Contains("keyboard") || nameLower.Contains("mouse") || nameLower.Contains("text"))
+                {
+                    return TextDataColor;
+                }
+                else if (nameLower.Contains("camera") || nameLower.Contains("image") || nameLower.Contains("png"))
+                {
+                    return ImageDataColor;
+                }
+                else if (nameLower.Contains("audio") || nameLower.Contains("wav") || nameLower.Contains("mfcc"))
+                {
+                    return AudioDataColor;
+                }
+                else
+                {
+                    return UnknownDataColor; // Fallback for unknown input types
+                }
             }
-            else if (nameLower.Contains("camera") || nameLower.Contains("image") || nameLower.Contains("png"))
+            // Handle Model Nodes
+            else if (node.Type == NodeType.Model)
             {
-                return ImageDataColor;
+                // Infer model's primary INPUT data type based on name keywords
+                // Text Models
+                if (nameLower.Contains("llm") || nameLower.Contains("language") || nameLower.Contains("text") ||
+                    nameLower.Contains("gpt") || nameLower.Contains("bert") || nameLower.Contains("deepseek") ||
+                    nameLower.Contains("llama") || nameLower.Contains("mistral"))
+                {
+                    return TextDataColor;
+                }
+                // Image Models
+                else if (nameLower.Contains("vision") || nameLower.Contains("image") || nameLower.Contains("cnn") ||
+                         nameLower.Contains("resnet") || nameLower.Contains("yolo") || nameLower.Contains("clip") ||
+                         nameLower.Contains("segmentation") || nameLower.Contains("detection"))
+                {
+                    return ImageDataColor;
+                }
+                // Audio Models
+                else if (nameLower.Contains("audio") || nameLower.Contains("speech") || nameLower.Contains("whisper") ||
+                         nameLower.Contains("wav2vec") || nameLower.Contains("sound"))
+                {
+                    return AudioDataColor;
+                }
+                // Add more specific model type checks here if needed...
+
+                // Fallback for models if type not inferred from name
+                else
+                {
+                    return DefaultModelColor;
+                }
             }
-            else if (nameLower.Contains("audio") || nameLower.Contains("wav") || nameLower.Contains("mfcc"))
-            {
-                return AudioDataColor;
-            }
-            else if (node.Type == NodeType.Model) // Fallback for models if type not inferred
-            {
-                // Try to infer model input type based on name? Or use a default.
-                // This part is tricky without more info on model naming conventions.
-                return DefaultModelColor;
-            }
+            // Fallback for any other node types (if they exist)
             else
             {
-                return UnknownDataColor; // Fallback for unknown types
+                return UnknownDataColor;
             }
         }
 
