@@ -89,8 +89,15 @@ namespace CSimple.Pages
             Color handleColor = Colors.Green; // Color for the '+' handle
             Color handleStrokeColor = isDarkTheme ? Colors.LightGreen : Colors.DarkGreen;
 
+            // Log node positions for comparison
+            // Debug.WriteLine("--- Drawing Nodes ---");
+            // foreach(var node in _viewModel.Nodes) { Debug.WriteLine($"Node: {node.Name}, Pos: {node.Position}, Size: {node.Size}"); }
+            // Debug.WriteLine("--- End Drawing Nodes ---");
+
+
             // 1. Draw Connections
             canvas.StrokeSize = 2;
+            // Debug.WriteLine($"--- Drawing {_viewModel.Connections.Count} Connections ---");
             foreach (var connection in _viewModel.Connections)
             {
                 var sourceNode = _viewModel.Nodes.FirstOrDefault(n => n.Id == connection.SourceNodeId);
@@ -98,12 +105,13 @@ namespace CSimple.Pages
 
                 if (sourceNode != null && targetNode != null)
                 {
+                    // Debug.WriteLine($"Drawing connection from {sourceNode.Name} to {targetNode.Name}");
                     bool isHighlighted = _viewModel.SelectedNode != null &&
                                          (_viewModel.SelectedNode.Id == sourceNode.Id || _viewModel.SelectedNode.Id == targetNode.Id);
 
                     Color lineColor = isHighlighted ? highlightedConnectionColor : connectionColor;
                     canvas.StrokeColor = lineColor;
-                    canvas.FillColor = lineColor;
+                    canvas.FillColor = lineColor; // For arrowhead fill
 
                     PointF start = GetConnectionPoint(sourceNode, targetNode.Position);
                     PointF end = GetConnectionPoint(targetNode, sourceNode.Position);
@@ -111,14 +119,18 @@ namespace CSimple.Pages
                     // Draw line
                     canvas.DrawLine(start, end);
 
-                    // Draw Arrowhead
+                    // Draw Simplified Arrowhead
                     DrawArrowhead(canvas, start, end);
                 }
+                // else { Debug.WriteLine($"Connection skipped: Source or Target node not found (SourceId: {connection.SourceNodeId}, TargetId: {connection.TargetNodeId})"); }
             }
+            // Debug.WriteLine($"--- Finished Drawing Connections ---");
+
 
             // 2. Draw Temporary Connection Line (if drawing)
             if (_isDrawingConnection && _viewModel._temporaryConnectionState is NodeViewModel startNode)
             {
+                // Debug.WriteLine($"Drawing temporary line from {startNode.Name} to {_connectionEndPoint}");
                 canvas.StrokeColor = tempConnectionColor;
                 canvas.FillColor = tempConnectionColor; // Set fill for arrowhead
                 canvas.StrokeDashPattern = new float[] { 4, 4 };
@@ -180,29 +192,31 @@ namespace CSimple.Pages
             }
         }
 
-        // Helper to draw an arrowhead at the end of a line
+        // Helper to draw a simplified arrowhead (triangle)
         private void DrawArrowhead(ICanvas canvas, PointF start, PointF end)
         {
             float arrowLength = 10;
-            // float arrowWidth = 5; // Removed unused variable
+            float arrowAngleDegrees = 30; // Angle of the arrowhead sides relative to the line
 
             double angle = Math.Atan2(end.Y - start.Y, end.X - start.X);
+            double angleRad1 = angle + Math.PI - (arrowAngleDegrees * Math.PI / 180.0); // Angle for point 1
+            double angleRad2 = angle + Math.PI + (arrowAngleDegrees * Math.PI / 180.0); // Angle for point 2
 
-            // Calculate points for the arrowhead triangle
-            PointF p1 = new PointF(end.X - arrowLength * (float)Math.Cos(angle - Math.PI / 6),
-                                   end.Y - arrowLength * (float)Math.Sin(angle - Math.PI / 6));
-            PointF p2 = new PointF(end.X - arrowLength * (float)Math.Cos(angle + Math.PI / 6),
-                                   end.Y - arrowLength * (float)Math.Sin(angle + Math.PI / 6));
+            // Calculate points for the arrowhead triangle relative to the end point
+            PointF p1 = new PointF(end.X + arrowLength * (float)Math.Cos(angleRad1),
+                                   end.Y + arrowLength * (float)Math.Sin(angleRad1));
+            PointF p2 = new PointF(end.X + arrowLength * (float)Math.Cos(angleRad2),
+                                   end.Y + arrowLength * (float)Math.Sin(angleRad2));
 
             // Create path for the arrowhead
             PathF arrowPath = new PathF();
-            arrowPath.MoveTo(end);
-            arrowPath.LineTo(p1);
-            arrowPath.LineTo(p2);
-            arrowPath.Close();
+            arrowPath.MoveTo(end); // Tip of the arrow
+            arrowPath.LineTo(p1);  // One base point
+            arrowPath.LineTo(p2);  // Other base point
+            arrowPath.Close();     // Close back to the tip (forms a triangle)
 
-            // Fill the arrowhead
-            canvas.FillPath(arrowPath); // Fill color will be the current stroke color
+            // Fill the arrowhead (FillColor should be set before calling this)
+            canvas.FillPath(arrowPath);
         }
 
         // Helper to get center point for connections (can be improved)
@@ -283,11 +297,15 @@ namespace CSimple.Pages
             }
 
             NodeCanvas.Invalidate(); // Redraw for selection/connection feedback
+            // Add log for start point
+            Debug.WriteLine($"StartInteraction at {e.Touches[0]}");
         }
 
         void OnCanvasDragInteraction(object sender, TouchEventArgs e)
         {
             PointF currentPoint = e.Touches[0];
+            // Add log for drag point
+            // Debug.WriteLine($"DragInteraction at {currentPoint}");
 
             if (_draggedNode != null)
             {
@@ -304,7 +322,7 @@ namespace CSimple.Pages
             else if (_isDrawingConnection)
             {
                 _connectionEndPoint = currentPoint;
-                _viewModel.UpdatePotentialConnection(currentPoint); // Update VM state if needed
+                // _viewModel.UpdatePotentialConnection(currentPoint); // Keep if VM uses it
                 NodeCanvas.Invalidate(); // Redraw temporary line
             }
         }
@@ -359,8 +377,10 @@ namespace CSimple.Pages
 
                 if (targetNode != null)
                 {
-                    Debug.WriteLine($"Found target node manually: {targetNode.Name}");
-                    _viewModel.CompleteConnection(targetNode); // VM handles connection logic (add/remove from collection)
+                    Debug.WriteLine($"Found target node manually: {targetNode.Name}. Calling CompleteConnection.");
+                    // *** IMPORTANT: Add logging INSIDE _viewModel.CompleteConnection ***
+                    // *** to confirm it adds the connection to the ObservableCollection ***
+                    _viewModel.CompleteConnection(targetNode);
                 }
                 else
                 {
