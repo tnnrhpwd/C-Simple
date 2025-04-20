@@ -81,7 +81,7 @@ namespace CSimple.ViewModels
             Nodes.Add(new NodeViewModel("input_audio", "Audio Input", NodeType.Input, new PointF(500, 50)));
         }
 
-        private async Task LoadAvailableModelsAsync()
+        public async Task LoadAvailableModelsAsync()
         {
             try
             {
