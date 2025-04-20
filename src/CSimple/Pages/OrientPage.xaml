@@ -2,76 +2,62 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:CSimple.ViewModels"
              xmlns:models="clr-namespace:CSimple.Models"
+             xmlns:local="clr-namespace:CSimple.Pages"
              x:DataType="viewmodels:OrientPageViewModel"
              x:Class="CSimple.Pages.OrientPage"
-             Title="Orient &amp; Refine Model">
-
-    <ScrollView>
-        <VerticalStackLayout Padding="{StaticResource PagePadding}" Spacing="{StaticResource SpacingLarge}">
-
-            <Label Text="Model Orientation &amp; Training"
-                   FontSize="{StaticResource FontSizeTitle}"
-                   FontAttributes="Bold"
-                   HorizontalOptions="Center" />
-
-            <!-- Model Details Section -->
-            <Frame CornerRadius="{StaticResource CornerRadiusMedium}" Padding="{StaticResource CardPadding}" BorderColor="{StaticResource Primary}">
-                <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                    <Label Text="Selected Model Details" FontSize="{StaticResource FontSizeSubtitle}" FontAttributes="Bold" />
-                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="{StaticResource SpacingTiny}" ColumnSpacing="{StaticResource SpacingMedium}">
-                        <Label Grid.Row="0" Grid.Column="0" Text="Name:" FontAttributes="Bold" />
-                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding SelectedModel.Name, FallbackValue='Loading...'}" />
-
-                        <Label Grid.Row="1" Grid.Column="0" Text="Description:" FontAttributes="Bold" />
-                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding SelectedModel.Description, FallbackValue='-'}" />
-
-                        <Label Grid.Row="2" Grid.Column="0" Text="Type:" FontAttributes="Bold" />
-                        <Label Grid.Row="2" Grid.Column="1" Text="{Binding SelectedModel.Type, FallbackValue='-'}" />
-
-                        <Label Grid.Row="3" Grid.Column="0" Text="ID:" FontAttributes="Bold" />
-                        <Label Grid.Row="3" Grid.Column="1" Text="{Binding SelectedModel.Id, FallbackValue='-'}" FontSize="{StaticResource FontSizeCaption}" />
-                    </Grid>
-                </VerticalStackLayout>
-            </Frame>
-
-            <!-- Training Control Section -->
-            <Frame CornerRadius="{StaticResource CornerRadiusMedium}" Padding="{StaticResource CardPadding}" BorderColor="{StaticResource Secondary}">
-                <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
-                    <Label Text="Training Controls" FontSize="{StaticResource FontSizeSubtitle}" FontAttributes="Bold" />
-
-                    <Label Text="{Binding TrainingStatus}" FontSize="{StaticResource FontSizeBody}" />
-                    <ProgressBar Progress="{Binding TrainingProgress}" />
-
-                    <Button Text="Start Training"
-                            Command="{Binding StartTrainingCommand}"
-                            BackgroundColor="{StaticResource Success}"
-                            TextColor="{StaticResource TextOnPrimary}" />
-
-                    <Button Text="Manage Training Data"
-                            Command="{Binding ManageTrainingDataCommand}"
-                            BackgroundColor="{StaticResource Tertiary}"
-                            TextColor="{StaticResource TextOnPrimary}" />
-                </VerticalStackLayout>
-            </Frame>
-
-            <!-- Performance Section -->
-            <Frame CornerRadius="{StaticResource CornerRadiusMedium}" Padding="{StaticResource CardPadding}" BorderColor="{StaticResource Tertiary}">
-                <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
-                    <Label Text="Performance Metrics" FontSize="{StaticResource FontSizeSubtitle}" FontAttributes="Bold" />
-
-                    <Label Text="{Binding PerformanceMetrics}" LineBreakMode="WordWrap" />
-
-                    <Button Text="View/Refresh Performance Details"
-                            Command="{Binding ViewPerformanceCommand}"
-                            BackgroundColor="{StaticResource Info}"
-                            TextColor="{StaticResource TextOnPrimary}" />
-                    <!-- Potential Placeholder for Charts/Graphs -->
-                    <BoxView HeightRequest="100" Color="{StaticResource BackgroundSecondary}" CornerRadius="{StaticResource CornerRadiusSmall}" />
-                    <Label Text="(Performance charts placeholder)" HorizontalOptions="Center" TextColor="{StaticResource TextSecondary}" FontSize="{StaticResource FontSizeCaption}" />
-                </VerticalStackLayout>
-            </Frame>
-
+             Title="Orient - Pipeline Editor">
+    <Grid>
+        <!-- GraphicsView for drawing nodes and connections -->
+        <GraphicsView x:Name="NodeCanvas"
+                      Drawable="{Binding Source={RelativeSource AncestorType={x:Type local:OrientPage}}, Path=NodeDrawable}"
+                      StartInteraction="OnCanvasStartInteraction"
+                      DragInteraction="OnCanvasDragInteraction"
+                      EndInteraction="OnCanvasEndInteraction"
+                      CancelInteraction="OnCanvasCancelInteraction"
+                      BackgroundColor="{AppThemeBinding Light=WhiteSmoke, Dark=Black}" />
+        <!-- Overlay for Controls -->
+        <VerticalStackLayout VerticalOptions="Start"
+                             HorizontalOptions="End"
+                             Padding="10"
+                             Spacing="5"
+                             BackgroundColor="#80FFFFFF">
+            <Label Text="Add Model:"
+                   FontAttributes="Bold" />
+            <Picker Title="Select Model Type"
+                    ItemsSource="{Binding AvailableModels}"
+                    ItemDisplayBinding="{Binding Name}"
+                    x:Name="ModelPicker"
+                    WidthRequest="180" />
+            <Button Text="Add Node"
+                    Command="{Binding AddModelNodeCommand}"
+                    CommandParameter="{Binding Source={x:Reference ModelPicker}, Path=SelectedItem}"
+                    BackgroundColor="{StaticResource Primary}"
+                    TextColor="White" />
+            <Button Text="Delete Selected"
+                    Command="{Binding DeleteSelectedNodeCommand}"
+                    BackgroundColor="{StaticResource Error}"
+                    TextColor="White"
+                    Margin="0,10,0,0" />
         </VerticalStackLayout>
-    </ScrollView>
-
+        <!-- Optional: Display Selected Node Info -->
+        <Frame VerticalOptions="End"
+               HorizontalOptions="Start"
+               Padding="10"
+               Margin="10"
+               BackgroundColor="#A0EEEEEE"
+               BorderColor="Gray"
+               CornerRadius="5"
+               IsVisible="{Binding SelectedNode, Converter={StaticResource IsNotNullConverter}}">
+            <VerticalStackLayout>
+                <Label Text="Selected Node:"
+                       FontSize="10"
+                       FontAttributes="Bold" />
+                <Label Text="{Binding SelectedNode.Name}"
+                       FontSize="12" />
+                <Label Text="{Binding SelectedNode.Type}"
+                       FontSize="10"
+                       TextColor="Gray" />
+            </VerticalStackLayout>
+        </Frame>
+    </Grid>
 </ContentPage>
