@@ -114,7 +114,20 @@ namespace CSimple.ViewModels
             ImportModelCommand = new Command(async () => await ImportModelAsync()); // Wrapper for async
             HuggingFaceSearchCommand = new Command(async () => await SearchHuggingFaceAsync()); // Wrapper for async
             ImportFromHuggingFaceCommand = new Command(async () => await ImportDirectFromHuggingFaceAsync()); // Wrapper for async
-            GoToOrientCommand = new Command<NeuralNetworkModel>(async (model) => await GoToOrientAsync(model)); // ADDED
+            GoToOrientCommand = new Command<NeuralNetworkModel>(async (model) =>
+            {
+                if (model != null && !string.IsNullOrEmpty(model.Id))
+                {
+                    Debug.WriteLine($"Navigating to Orient page for model: {model.Name} (ID: {model.Id})");
+                    // Navigate to the 'orient' route and pass the model ID as a query parameter
+                    await NavigateTo($"///orient?modelId={model.Id}");
+                }
+                else
+                {
+                    Debug.WriteLine("Cannot navigate to Orient page: Model or Model ID is null/empty.");
+                    await ShowAlert("Navigation Error", "Cannot navigate without a valid model selected.", "OK");
+                }
+            });
 
             // Populate categories
             HuggingFaceCategories = new List<string> { "All Categories" };
