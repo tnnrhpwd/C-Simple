@@ -226,49 +226,62 @@ namespace CSimple.Pages
         void OnCanvasStartInteraction(object sender, TouchEventArgs e)
         {
             PointF touchPoint = e.Touches[0];
-            var tappedNode = _viewModel.GetNodeAtPoint(touchPoint);
+            NodeViewModel nodeUnderHandle = null;
+            bool handleTapped = false;
 
-            bool startedConnection = false;
-            if (tappedNode != null)
+            // 1. Check if a connection handle was tapped FIRST
+            foreach (var node in _viewModel.Nodes)
             {
-                // Check if the tap is on the connection handle (+)
-                if (tappedNode.Type == NodeType.Input || tappedNode.Type == NodeType.Model)
+                if (node.Type == NodeType.Input || node.Type == NodeType.Model)
                 {
-                    RectF handleRect = GetConnectionHandleRect(tappedNode);
-                    // Add a small tolerance for easier tapping
-                    handleRect.Inflate(2, 2);
+                    RectF handleRect = GetConnectionHandleRect(node);
+                    handleRect.Inflate(2, 2); // Add tolerance
 
                     if (handleRect.Contains(touchPoint))
                     {
-                        // Start connection drawing from the handle
-                        _viewModel.StartConnection(tappedNode);
-                        _isDrawingConnection = true;
-                        _connectionEndPoint = touchPoint; // Initial end point
-                        _draggedNode = null; // Don't drag if starting connection
-                        startedConnection = true;
-                        Debug.WriteLine($"Started connection from handle of {tappedNode.Name}");
+                        nodeUnderHandle = node;
+                        handleTapped = true;
+                        break; // Found the tapped handle
                     }
                 }
+            }
 
-                // If connection wasn't started, proceed with node selection/drag
-                if (!startedConnection)
+            if (handleTapped)
+            {
+                // Start connection drawing from the handle
+                _viewModel.StartConnection(nodeUnderHandle);
+                _isDrawingConnection = true;
+                _connectionEndPoint = touchPoint; // Initial end point
+                _draggedNode = null; // Don't drag if starting connection
+                _viewModel.SelectedNode = nodeUnderHandle; // Select the node whose handle was tapped
+                Debug.WriteLine($"Started connection from handle of {nodeUnderHandle.Name}");
+                _draggedNode = null; // Explicitly ensure no dragging when starting connection
+            }
+            else
+            {
+                // 2. If no handle tapped, check if a node body was tapped
+                var tappedNode = _viewModel.GetNodeAtPoint(touchPoint); // This should only check node body now
+
+                if (tappedNode != null)
                 {
-                    _viewModel.SelectedNode = tappedNode; // Select the node
+                    // Select/Drag the node
+                    _viewModel.SelectedNode = tappedNode;
                     _draggedNode = tappedNode;
                     _dragStartPoint = touchPoint;
                     _isDrawingConnection = false; // Ensure connection drawing is off
                     Debug.WriteLine($"Selected/Dragging node {tappedNode.Name}");
                 }
+                else
+                {
+                    // 3. Tapped empty space
+                    _viewModel.SelectedNode = null;
+                    _draggedNode = null;
+                    _viewModel.CancelConnection();
+                    _isDrawingConnection = false;
+                    Debug.WriteLine("Tapped empty space.");
+                }
             }
-            else
-            {
-                // Tapped empty space
-                _viewModel.SelectedNode = null; // Deselect if tapping empty space
-                _draggedNode = null;
-                _viewModel.CancelConnection(); // Cancel any pending connection
-                _isDrawingConnection = false;
-                Debug.WriteLine("Tapped empty space.");
-            }
+
             NodeCanvas.Invalidate(); // Redraw for selection/connection feedback
         }
 
@@ -299,24 +312,78 @@ namespace CSimple.Pages
         void OnCanvasEndInteraction(object sender, TouchEventArgs e)
         {
             PointF endPoint = e.Touches[0]; // Use the first touch point
+            Debug.WriteLine($"EndInteraction at {endPoint}. IsDrawingConnection: {_isDrawingConnection}");
 
             if (_isDrawingConnection)
             {
-                var targetNode = _viewModel.GetNodeAtPoint(endPoint);
-                _viewModel.CompleteConnection(targetNode); // VM handles connection logic
-                _isDrawingConnection = false;
+                Debug.WriteLine("Attempting to complete connection...");
+                NodeViewModel targetNode = null;
+                float tolerance = 5f; // Add tolerance for easier tapping
+
+                // Manually check for target node instead of relying solely on ViewModel method
+                foreach (var node in _viewModel.Nodes)
+                {
+                    // Create a slightly larger rectangle for hit testing
+                    RectF nodeBounds = new RectF(node.Position, node.Size);
+                    nodeBounds.Inflate(tolerance, tolerance);
+
+                    if (nodeBounds.Contains(endPoint))
+                    {
+                        // Ensure we are not connecting a node to itself (unless allowed by VM logic)
+                        if (_viewModel._temporaryConnectionState is NodeViewModel startNode && startNode.Id != node.Id)
+                        {
+                            targetNode = node;
+                            break; // Found a valid target node
+                        }
+                        // If connecting to self is allowed, remove the ID check above
+                    }
+                }
+
+
+                if (targetNode != null)
+                {
+                    Debug.WriteLine($"Found target node manually: {targetNode.Name}");
+                    _viewModel.CompleteConnection(targetNode); // VM handles connection logic (add/remove from collection)
+                }
+                else
+                {
+                    // Try the ViewModel method as a fallback, maybe it has specific logic
+                    var vmTargetNode = _viewModel.GetNodeAtPoint(endPoint);
+                    if (vmTargetNode != null && (_viewModel._temporaryConnectionState is NodeViewModel startNode && startNode.Id != vmTargetNode.Id))
+                    {
+                        Debug.WriteLine($"Found target node via VM method: {vmTargetNode.Name}");
+                        _viewModel.CompleteConnection(vmTargetNode);
+                        targetNode = vmTargetNode; // Mark as found
+                    }
+                    else
+                    {
+                        Debug.WriteLine("No target node found manually or via VM method at end point. Cancelling connection.");
+                        _viewModel.CancelConnection(); // Explicitly cancel if ending on empty space
+                    }
+                }
+                _isDrawingConnection = false; // Reset connection drawing state *after* handling
+            }
+            else if (_draggedNode != null)
+            {
+                Debug.WriteLine($"Ended drag for node: {_draggedNode.Name}");
+                // Optional: Add any logic needed at the end of a drag, like snapping to grid
             }
 
-            _draggedNode = null; // Stop dragging
-            NodeCanvas.Invalidate(); // Final redraw
+            _draggedNode = null; // Stop dragging regardless of connection state
+            // Invalidation should happen automatically due to CollectionChanged,
+            // but an explicit call ensures redraw after state changes.
+            NodeCanvas.Invalidate();
+            Debug.WriteLine("EndInteraction finished.");
         }
 
         void OnCanvasCancelInteraction(object sender, EventArgs e)
         {
+            Debug.WriteLine("CancelInteraction triggered.");
             // Handle cancellation (e.g., touch moved off screen)
             _draggedNode = null;
             if (_isDrawingConnection)
             {
+                Debug.WriteLine("Cancelling connection drawing due to CancelInteraction.");
                 _viewModel.CancelConnection();
                 _isDrawingConnection = false;
                 NodeCanvas.Invalidate();
