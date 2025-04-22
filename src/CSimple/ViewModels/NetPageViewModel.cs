@@ -145,6 +145,16 @@ namespace CSimple.ViewModels
         // ADDED: List of available input types for binding to dropdown
         public Array ModelInputTypes => Enum.GetValues(typeof(ModelInputType));
 
+        // Add an event for model input type changes
+        public class ModelInputTypeChangedEventArgs : EventArgs
+        {
+            public string ModelId { get; set; }
+            public ModelInputType OldInputType { get; set; }
+            public ModelInputType NewInputType { get; set; }
+        }
+
+        public event EventHandler<ModelInputTypeChangedEventArgs> ModelInputTypeChanged;
+
         // --- Public Methods (called from View or Commands) ---
 
         public async Task LoadDataAsync()
@@ -500,17 +510,26 @@ namespace CSimple.ViewModels
                 // Check if the input type is actually changing
                 bool isChanged = model.InputType != inputType;
 
-                model.InputType = inputType;
-
-                // Save the updated model to persistent storage
-                _ = SavePersistedModelsAsync();
-
-                // Explicitly notify that AvailableModels collection has changed
-                // This will trigger the OrientPageViewModel's PropertyChanged handler
                 if (isChanged)
                 {
+                    var oldInputType = model.InputType;
+                    model.InputType = inputType;
+
+                    // Save the updated model to persistent storage
+                    _ = SavePersistedModelsAsync();
+
+                    // Notify about AvailableModels change
                     OnPropertyChanged(nameof(AvailableModels));
-                    Debug.WriteLine($"Notified PropertyChanged for AvailableModels after updating input type");
+
+                    // Explicitly raise the new event for input type changes
+                    ModelInputTypeChanged?.Invoke(this, new ModelInputTypeChangedEventArgs
+                    {
+                        ModelId = model.Id,
+                        OldInputType = oldInputType,
+                        NewInputType = inputType
+                    });
+
+                    Debug.WriteLine($"Notified about input type change for model {model.Name} from {oldInputType} to {inputType}");
                 }
 
                 CurrentModelStatus = $"Updated input type for '{model.Name}' to {inputType}";
@@ -662,7 +681,7 @@ namespace CSimple.ViewModels
                 // Log loaded input types for debugging
                 foreach (var model in cleanedModels)
                 {
-                    Debug.WriteLine($"Loaded model: {model.Name}, Input Type: {model.InputType}");
+                    Debug.WriteLine($"Loaded model: {model.Name}, Persisted Input Type: {model.InputType}");
                 }
 
                 // Use dispatcher if modifying ObservableCollection from non-UI thread
@@ -684,25 +703,13 @@ namespace CSimple.ViewModels
                                 (m.IsHuggingFaceReference && m.HuggingFaceModelId == model.HuggingFaceModelId) ||
                                 (!m.IsHuggingFaceReference && m.Name == model.Name))) // Check name for non-refs
                             {
-                                // Ensure InputType is properly set
-                                if (model.InputType == ModelInputType.Unknown)
-                                {
-                                    if (model.IsHuggingFaceReference && !string.IsNullOrEmpty(model.HuggingFaceModelId))
-                                    {
-                                        // Try to guess if it's unknown
-                                        var hfModel = new HuggingFaceModel
-                                        {
-                                            ModelId = model.HuggingFaceModelId,
-                                            Description = model.Description,
-                                            Pipeline_tag = null // We don't have this info anymore
-                                        };
-                                        model.InputType = GuessInputType(hfModel);
-                                        Debug.WriteLine($"Re-guessed input type for {model.Name}: {model.InputType}");
-                                    }
-                                }
+                                // *** REMOVED GUESSING LOGIC HERE ***
+                                // The InputType loaded from the file is now trusted.
+                                // Guessing only happens during the initial import.
+                                // if (model.InputType == ModelInputType.Unknown) { ... } // Removed this block
 
                                 AvailableModels.Add(model);
-                                Debug.WriteLine($"Added model to UI: {model.Name}, Input Type: {model.InputType}");
+                                Debug.WriteLine($"Added model to UI: {model.Name}, Using Persisted Input Type: {model.InputType}");
                             }
                         }
                         Debug.WriteLine($"ViewModel: Loaded {cleanedModels.Count} unique persisted HuggingFace models.");
@@ -711,6 +718,11 @@ namespace CSimple.ViewModels
                     {
                         Debug.WriteLine("ViewModel: No persisted HuggingFace models found or loaded.");
                     }
+
+                    // Explicitly notify that AvailableModels collection has changed after loading
+                    OnPropertyChanged(nameof(AvailableModels));
+                    Debug.WriteLine($"Notified PropertyChanged for AvailableModels after loading persisted models.");
+
                 });
 
                 // If duplicates were found, save the cleaned list back to the file
@@ -859,7 +871,7 @@ namespace CSimple.ViewModels
                         Type = model.RecommendedModelType,
                         IsHuggingFaceReference = true,
                         HuggingFaceModelId = model.ModelId ?? model.Id,
-                        InputType = GuessInputType(model) // Set initial input type based on guess
+                        InputType = GuessInputType(model) // *** GUESSING HAPPENS HERE ON INITIAL IMPORT ***
                     };
 
                     // Add the unique reference
@@ -910,8 +922,8 @@ namespace CSimple.ViewModels
                     Description = model.Description ?? "Imported from HuggingFace",
                     Type = model.RecommendedModelType,
                     IsHuggingFaceReference = false, // This is a downloaded model, not just a reference
-                    HuggingFaceModelId = model.ModelId ?? model.Id,
-                    InputType = GuessInputType(model) // Set initial input type based on guess
+                    HuggingFaceModelId = model.ModelId ?? model.Id, // Keep HF ID for reference
+                    InputType = GuessInputType(model) // *** GUESSING HAPPENS HERE ON INITIAL IMPORT ***
                 };
                 if (!AvailableModels.Any(m => m.Name == importedModel.Name)) // Check name for non-refs
                 {

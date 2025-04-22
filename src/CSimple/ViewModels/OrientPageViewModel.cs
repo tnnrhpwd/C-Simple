@@ -95,6 +95,9 @@ namespace CSimple.ViewModels
             // Subscribe to NetPageViewModel's PropertyChanged event
             netPageViewModel.PropertyChanged += NetPageViewModel_PropertyChanged;
 
+            // Add a new subscription to model input type changes
+            netPageViewModel.ModelInputTypeChanged += OnNetPageModelInputTypeChanged;
+
             // Load initial data (pipelines and default/last pipeline)
             // Moved to OnAppearing in code-behind to ensure services are ready
         }
@@ -107,6 +110,13 @@ namespace CSimple.ViewModels
                 Debug.WriteLine("NetPageViewModel.AvailableModels changed, updating node classifications");
                 await UpdateNodeClassificationsAsync();
             }
+        }
+
+        // New handler for model input type changes
+        private async void OnNetPageModelInputTypeChanged(object sender, NetPageViewModel.ModelInputTypeChangedEventArgs e)
+        {
+            Debug.WriteLine($"NetPageViewModel reported InputType change for model {e.ModelId}: {e.NewInputType}");
+            await UpdateNodeClassificationsAsync();
         }
 
         // --- Public Methods (Called from View or Commands) ---
