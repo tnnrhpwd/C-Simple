@@ -10,6 +10,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input; // Required for ICommand
+using CSimple.Pages; // Add this for OrientPage
 
 namespace CSimple.ViewModels
 {
@@ -72,7 +73,7 @@ namespace CSimple.ViewModels
         public Func<string, string, string, string[], Task<string>> ShowActionSheet { get; set; }
 
         // --- Constructor ---
-        public OrientPageViewModel(FileService fileService) // Inject FileService
+        public OrientPageViewModel(FileService fileService, NetPageViewModel netPageViewModel) // Inject NetPageViewModel
         {
             _fileService = fileService;
             _huggingFaceService = new HuggingFaceService(); // Initialize HuggingFaceService
@@ -91,15 +92,38 @@ namespace CSimple.ViewModels
             RenamePipelineCommand = new Command(async () => await RenameCurrentPipeline());
             DeletePipelineCommand = new Command(async () => await DeleteCurrentPipeline());
 
+            // Subscribe to NetPageViewModel's PropertyChanged event
+            netPageViewModel.PropertyChanged += NetPageViewModel_PropertyChanged;
 
             // Load initial data (pipelines and default/last pipeline)
             // Moved to OnAppearing in code-behind to ensure services are ready
+        }
+
+        // --- Event Handlers ---
+        private async void NetPageViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(NetPageViewModel.AvailableModels))
+            {
+                Debug.WriteLine("NetPageViewModel.AvailableModels changed, updating node classifications");
+                await UpdateNodeClassificationsAsync();
+            }
         }
 
         // --- Public Methods (Called from View or Commands) ---
 
         public async Task InitializeAsync()
         {
+            // Get the NetPageViewModel and ensure it loads its models
+            var netPageVM = ((App)Application.Current).NetPageViewModel;
+            Debug.WriteLine($"InitializeAsync: Checking NetPageViewModel, HasModels: {netPageVM?.AvailableModels?.Count > 0}");
+
+            if (netPageVM != null && (netPageVM.AvailableModels == null || netPageVM.AvailableModels.Count == 0))
+            {
+                Debug.WriteLine("InitializeAsync: NetPageViewModel has no models yet, loading them first");
+                await netPageVM.LoadDataAsync();
+                Debug.WriteLine($"InitializeAsync: After LoadDataAsync, NetPageViewModel has {netPageVM.AvailableModels?.Count ?? 0} models");
+            }
+
             await LoadAvailablePipelinesAsync();
             if (AvailablePipelineNames.Any())
             {
@@ -122,6 +146,10 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"Initialized with new pipeline: '{CurrentPipelineName}'");
             }
             await LoadAvailableModelsAsync(); // Load models for the picker
+
+            // Add this line to explicitly call UpdateNodeClassificationsAsync during initialization
+            await UpdateNodeClassificationsAsync();
+            Debug.WriteLine("InitializeAsync: Explicitly called UpdateNodeClassificationsAsync");
         }
 
         public async Task LoadAvailableModelsAsync()
@@ -674,20 +702,208 @@ namespace CSimple.ViewModels
         // Helper to determine data type from node name (can be used for UI styling)
         public string DetermineDataType(string nodeName)
         {
-            string lowerName = nodeName.ToLower();
+            // Get the NetPageViewModel from App
+            var netPageVM = ((App)Application.Current).NetPageViewModel;
+            if (netPageVM == null)
+            {
+                Debug.WriteLine("DetermineDataType: NetPageViewModel is null. Defaulting to 'unknown'.");
+                return "unknown";
+            }
 
+            // Check if this name exists in any models in NetPageViewModel
+            var matchingModel = netPageVM.AvailableModels.FirstOrDefault(m =>
+                m.Name.Equals(nodeName, StringComparison.OrdinalIgnoreCase) ||
+                (m.HuggingFaceModelId != null && m.HuggingFaceModelId.Contains(nodeName, StringComparison.OrdinalIgnoreCase)));
+
+            if (matchingModel != null)
+            {
+                // Use the model's actual InputType
+                return matchingModel.InputType switch
+                {
+                    ModelInputType.Text => "text",
+                    ModelInputType.Image => "image",
+                    ModelInputType.Audio => "audio",
+                    _ => "unknown"
+                };
+            }
+
+            // For input node names that might not be in the models collection
+            string lowerName = nodeName.ToLowerInvariant();
             if (lowerName.Contains("image") || lowerName.Contains("webcam") || lowerName.Contains("screen"))
                 return "image";
-
-            if (lowerName.Contains("audio") || lowerName.Contains("sound"))
+            if (lowerName.Contains("audio") || lowerName.Contains("sound") || lowerName.Contains("speech"))
                 return "audio";
-
             if (lowerName.Contains("text") || lowerName.Contains("keyboard") || lowerName.Contains("mouse"))
                 return "text";
 
             return "unknown";
         }
 
+        public async Task UpdateNodeClassificationsAsync()
+        {
+            bool pipelineChanged = false;
+
+            // Access NetPageViewModel directly from App class
+            var netPageVM = ((App)Application.Current).NetPageViewModel;
+
+            if (netPageVM == null || netPageVM.AvailableModels == null)
+            {
+                Debug.WriteLine("UpdateNodeClassificationsAsync: NetPageViewModel or AvailableModels is null. Cannot update.");
+                return;
+            }
+
+            Debug.WriteLine($"UpdateNodeClassificationsAsync: Found {netPageVM.AvailableModels.Count} models in NetPageViewModel.");
+
+            // Iterate through the nodes in the current pipeline
+            foreach (var node in Nodes)
+            {
+                // Only update nodes that represent models (not Input/Output nodes)
+                if (node.Type == NodeType.Model)
+                {
+                    // Improved model matching logic with better debugging
+                    var correspondingNetModel = FindCorrespondingModel(netPageVM, node);
+
+                    if (correspondingNetModel != null)
+                    {
+                        Debug.WriteLine($"Found corresponding NetModel '{correspondingNetModel.Name}' for Node '{node.Name}' (ModelPath: {node.ModelPath})");
+
+                        // Get InputType directly from the model - this is the key part we want to ensure is working
+                        var inputType = correspondingNetModel.InputType;
+                        Debug.WriteLine($"Model '{correspondingNetModel.Name}' has InputType: {inputType}");
+
+                        // Convert ModelInputType enum to string for DataType
+                        string newDataType = inputType switch
+                        {
+                            ModelInputType.Text => "text",
+                            ModelInputType.Image => "image",
+                            ModelInputType.Audio => "audio",
+                            _ => "unknown" // Default or Unknown
+                        };
+
+                        Debug.WriteLine($"Converted InputType {inputType} to DataType '{newDataType}'");
+
+                        // Check if the DataType needs updating
+                        if (node.DataType != newDataType)
+                        {
+                            Debug.WriteLine($"Updating DataType for Node '{node.Name}' from '{node.DataType}' to '{newDataType}' based on NetModel InputType '{correspondingNetModel.InputType}'.");
+                            node.DataType = newDataType;
+                            pipelineChanged = true; // Mark that a change occurred
+                        }
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Could not find corresponding NetModel for Node '{node.Name}' with ModelPath '{node.ModelPath}'.");
+                        // Try to determine data type based on node name as fallback
+                        string inferredDataType = DetermineDataTypeFromName(node.Name);
+                        if (inferredDataType != "unknown" && node.DataType != inferredDataType)
+                        {
+                            Debug.WriteLine($"Using inferred data type '{inferredDataType}' for node '{node.Name}' based on name");
+                            node.DataType = inferredDataType;
+                            pipelineChanged = true;
+                        }
+                    }
+                }
+            }
+
+            // Save the pipeline only if any node's DataType was actually changed
+            if (pipelineChanged)
+            {
+                Debug.WriteLine("UpdateNodeClassificationsAsync: Pipeline data changed, saving...");
+                await SaveCurrentPipelineAsync();
+
+                // Force redraw of the canvas to reflect potential color changes
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    InvalidateCanvas?.Invoke();
+                    Debug.WriteLine("Requested canvas invalidation via InvalidateCanvas action.");
+                });
+            }
+            else
+            {
+                Debug.WriteLine("UpdateNodeClassificationsAsync: No pipeline data changed, skipping save.");
+            }
+        }
+
+        // New helper method for finding corresponding model with better matching logic
+        private NeuralNetworkModel FindCorrespondingModel(NetPageViewModel netPageVM, NodeViewModel node)
+        {
+            // First try exact match by ID (most precise)
+            var exactIdMatch = netPageVM.AvailableModels.FirstOrDefault(m =>
+                (!string.IsNullOrEmpty(m.Id) && m.Id == node.ModelPath) ||
+                (!string.IsNullOrEmpty(m.HuggingFaceModelId) && m.HuggingFaceModelId == node.ModelPath));
+
+            if (exactIdMatch != null)
+            {
+                Debug.WriteLine($"Found exact ID match for node {node.Name}");
+                return exactIdMatch;
+            }
+
+            // Try matching by name (second best)
+            var nameMatch = netPageVM.AvailableModels.FirstOrDefault(m =>
+                string.Equals(m.Name, node.Name, StringComparison.OrdinalIgnoreCase));
+
+            if (nameMatch != null)
+            {
+                Debug.WriteLine($"Found name match for node {node.Name}");
+                return nameMatch;
+            }
+
+            // Try fuzzy name matching (as a last resort)
+            string nodeName = node.Name.ToLowerInvariant();
+            var fuzzyMatch = netPageVM.AvailableModels.FirstOrDefault(m =>
+                (m.Name != null && m.Name.ToLowerInvariant().Contains(nodeName)) ||
+                (nodeName.Length > 5 && m.Name != null && nodeName.Contains(m.Name.ToLowerInvariant())));
+
+            if (fuzzyMatch != null)
+            {
+                Debug.WriteLine($"Found fuzzy name match for node {node.Name} -> {fuzzyMatch.Name}");
+            }
+
+            return fuzzyMatch; // May be null if no match found
+        }
+
+        // Helper to infer data type from node name as a fallback
+        private string DetermineDataTypeFromName(string nodeName)
+        {
+            string lowerName = nodeName.ToLowerInvariant();
+
+            // Text models
+            if (lowerName.Contains("text") ||
+                lowerName.Contains("gpt") ||
+                lowerName.Contains("llama") ||
+                lowerName.Contains("llm") ||
+                lowerName.Contains("bert") ||
+                lowerName.Contains("token") ||
+                lowerName.Contains("deepseek") ||
+                lowerName.Contains("mistral") ||
+                lowerName.Contains("chat"))
+                return "text";
+
+            // Image models
+            if (lowerName.Contains("image") ||
+                lowerName.Contains("vision") ||
+                lowerName.Contains("yolo") ||
+                lowerName.Contains("resnet") ||
+                lowerName.Contains("clip") ||
+                lowerName.Contains("diffusion") ||
+                lowerName.Contains("stable") ||
+                lowerName.Contains("gan"))
+                return "image";
+
+            // Audio models
+            if (lowerName.Contains("audio") ||
+                lowerName.Contains("speech") ||
+                lowerName.Contains("whisper") ||
+                lowerName.Contains("wav2vec") ||
+                lowerName.Contains("sound") ||
+                lowerName.Contains("voice"))
+                return "audio";
+
+            return "unknown";
+        }
+
+        // Add an action that the view can register to invalidate the canvas
+        public Action InvalidateCanvas { get; set; }
 
         // --- INotifyPropertyChanged Implementation ---
         public event PropertyChangedEventHandler PropertyChanged;

@@ -10,6 +10,8 @@ using CSimple.Views;
 using Microsoft.Maui.Controls.PlatformConfiguration;
 using CSimple.Services;
 using Microsoft.Maui.Platform;
+// Add this using statement
+using CSimple.ViewModels;
 
 [assembly: XamlCompilation(XamlCompilationOptions.Compile)]
 
@@ -37,6 +39,9 @@ public partial class App : Application
 
     public ICommand ToggleFlyoutCommand { get; }
 
+    // Add this property
+    public NetPageViewModel NetPageViewModel { get; private set; }
+
     public App()
     {
         try
@@ -52,6 +57,11 @@ public partial class App : Application
             InitializeComponent();
 
             Debug.WriteLine("App constructor: InitializeComponent completed");
+
+            // Instantiate NetPageViewModel and FileService
+            var fileService = new FileService(); // Assuming FileService has a parameterless constructor or is registered elsewhere
+            NetPageViewModel = new NetPageViewModel(fileService);
+            Debug.WriteLine("App constructor: NetPageViewModel instantiated");
 
             // Register converters directly after initialization to ensure they're available
             try

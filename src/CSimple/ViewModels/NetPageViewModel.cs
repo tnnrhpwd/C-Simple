@@ -496,10 +496,22 @@ namespace CSimple.ViewModels
             try
             {
                 Debug.WriteLine($"Updating input type for model {model.Name} to {inputType}");
+
+                // Check if the input type is actually changing
+                bool isChanged = model.InputType != inputType;
+
                 model.InputType = inputType;
 
                 // Save the updated model to persistent storage
                 _ = SavePersistedModelsAsync();
+
+                // Explicitly notify that AvailableModels collection has changed
+                // This will trigger the OrientPageViewModel's PropertyChanged handler
+                if (isChanged)
+                {
+                    OnPropertyChanged(nameof(AvailableModels));
+                    Debug.WriteLine($"Notified PropertyChanged for AvailableModels after updating input type");
+                }
 
                 CurrentModelStatus = $"Updated input type for '{model.Name}' to {inputType}";
             }
@@ -510,7 +522,8 @@ namespace CSimple.ViewModels
         }
 
         // Method to guess the input type based on model information
-        private ModelInputType GuessInputType(HuggingFaceModel model)
+        // Changed from private to public to allow access from OrientPageViewModel
+        public ModelInputType GuessInputType(HuggingFaceModel model)
         {
             if (model == null) return ModelInputType.Unknown;
 
@@ -578,8 +591,7 @@ namespace CSimple.ViewModels
                 // Check description as a fallback
                 if (description.Contains("text") ||
                     description.Contains("language") ||
-                    description.Contains("chat") ||
-                    description.Contains("gpt"))
+                    description.Contains("chat"))
                 {
                     return ModelInputType.Text;
                 }
