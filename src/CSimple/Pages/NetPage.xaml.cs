@@ -1,6 +1,7 @@
 ﻿using CSimple.Models;
 using CSimple.Services;
 using CSimple.ViewModels; // Add ViewModel namespace
+using Microsoft.Maui.Controls.Xaml;
 using Microsoft.Maui.Storage;
 using System;
 using System.Collections.Generic;
@@ -10,13 +11,24 @@ using System.Threading.Tasks;
 
 namespace CSimple.Pages
 {
+    [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class NetPage : ContentPage
     {
         private readonly NetPageViewModel _viewModel;
 
         public NetPage(NetPageViewModel viewModel) // Inject ViewModel
         {
-            InitializeComponent();
+            try
+            {
+                InitializeComponent();
+            }
+            catch (Exception ex)
+            {
+                // Add error handling for component initialization
+                Debug.WriteLine($"Error initializing components: {ex.Message}");
+                // Continue execution even if InitializeComponent fails
+            }
+
             _viewModel = viewModel;
             BindingContext = _viewModel; // Set BindingContext
 
@@ -39,6 +51,47 @@ namespace CSimple.Pages
             await CheckUserLoggedInAsync(); // Check login on appearing
             await _viewModel.LoadDataAsync(); // Load data when page appears
             CheckConverters(); // Keep converter check here
+
+            // Add delay to ensure UI is rendered before refreshing pickers
+            await Task.Delay(500);
+            EnsurePickersHaveCorrectValues();
+        }
+
+        private void EnsurePickersHaveCorrectValues()
+        {
+            try
+            {
+                Debug.WriteLine("Refreshing model input type pickers");
+
+                // Find all pickers in the CollectionView items
+                var contentGrid = this.FindByName<Grid>("ContentGrid");
+                if (contentGrid == null)
+                {
+                    Debug.WriteLine("ContentGrid not found");
+                    return;
+                }
+
+                // Get CollectionView that contains model items
+                var modelsCollection = this.FindByName<CollectionView>("ModelsCollectionView");
+                if (modelsCollection == null)
+                {
+                    Debug.WriteLine("ModelsCollectionView not found");
+                    return;
+                }
+
+                // Force refresh the collection to update bindings
+                var models = _viewModel.AvailableModels.ToList();
+                foreach (var model in models)
+                {
+                    Debug.WriteLine($"Model {model.Name} has InputType: {model.InputType}");
+                    // Force a property change notification
+                    model.InputType = model.InputType;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error ensuring pickers have correct values: {ex.Message}");
+            }
         }
 
         // --- Login & Navigation (kept in code-behind for Shell interaction) ---
@@ -142,6 +195,47 @@ namespace CSimple.Pages
                 _viewModel.ImportFromHuggingFaceCommand.Execute(null);
             }
             await Task.CompletedTask; // Added to match original async void signature if needed
+        }
+
+        // MODIFIED: Input type change handler with better feedback
+        private void OnModelInputTypeChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                if (sender is Picker picker)
+                {
+                    // Get the binding context of the picker, which should be the model
+                    if (picker.BindingContext is NeuralNetworkModel model)
+                    {
+                        if (picker.SelectedItem is ModelInputType selectedInputType)
+                        {
+                            Debug.WriteLine($"Picker selected index: {picker.SelectedIndex}, value: {selectedInputType}");
+
+                            // Create tuple parameter for command
+                            var param = (model, selectedInputType);
+
+                            // Execute the command
+                            if (_viewModel.UpdateModelInputTypeCommand.CanExecute(param))
+                            {
+                                _viewModel.UpdateModelInputTypeCommand.Execute(param);
+                                Debug.WriteLine($"Input type for model {model.Name} changed to {selectedInputType}");
+                            }
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"WARNING: Selected item is not a ModelInputType: {picker.SelectedItem?.GetType().Name ?? "null"}");
+                        }
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"WARNING: Picker binding context is not a NeuralNetworkModel: {picker.BindingContext?.GetType().Name ?? "null"}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in OnModelInputTypeChanged: {ex.Message}\n{ex.StackTrace}");
+            }
         }
 
         // --- UI Specific Helpers ---

@@ -95,6 +95,7 @@ namespace CSimple.ViewModels
         public ICommand HuggingFaceSearchCommand { get; } // Triggered by View
         public ICommand ImportFromHuggingFaceCommand { get; } // Triggered by View
         public ICommand GoToOrientCommand { get; } // ADDED: Command to navigate
+        public ICommand UpdateModelInputTypeCommand { get; } // ADDED: Command to update input type
 
         // --- Constructor ---
         public NetPageViewModel(FileService fileService)
@@ -129,6 +130,10 @@ namespace CSimple.ViewModels
                 }
             });
 
+            // Add new command for updating model input type
+            UpdateModelInputTypeCommand = new Command<(NeuralNetworkModel, ModelInputType)>(
+                param => UpdateModelInputType(param.Item1, param.Item2));
+
             // Populate categories
             HuggingFaceCategories = new List<string> { "All Categories" };
             HuggingFaceCategories.AddRange(_huggingFaceService.GetModelCategoryFilters().Keys);
@@ -136,6 +141,9 @@ namespace CSimple.ViewModels
             // Load initial data
             // Note: Loading is triggered by OnAppearing in the View
         }
+
+        // ADDED: List of available input types for binding to dropdown
+        public Array ModelInputTypes => Enum.GetValues(typeof(ModelInputType));
 
         // --- Public Methods (called from View or Commands) ---
 
@@ -480,6 +488,124 @@ namespace CSimple.ViewModels
             }
         }
 
+        // ADDED: New method to update model input type
+        private void UpdateModelInputType(NeuralNetworkModel model, ModelInputType inputType)
+        {
+            if (model == null) return;
+
+            try
+            {
+                Debug.WriteLine($"Updating input type for model {model.Name} to {inputType}");
+                model.InputType = inputType;
+
+                // Save the updated model to persistent storage
+                _ = SavePersistedModelsAsync();
+
+                CurrentModelStatus = $"Updated input type for '{model.Name}' to {inputType}";
+            }
+            catch (Exception ex)
+            {
+                HandleError($"Error updating input type for model: {model?.Name}", ex);
+            }
+        }
+
+        // Method to guess the input type based on model information
+        private ModelInputType GuessInputType(HuggingFaceModel model)
+        {
+            if (model == null) return ModelInputType.Unknown;
+
+            try
+            {
+                string pipelineTag = model.Pipeline_tag?.ToLowerInvariant() ?? "";
+                string modelId = (model.ModelId ?? model.Id ?? "").ToLowerInvariant();
+                string description = (model.Description ?? "").ToLowerInvariant();
+
+                // Check for text-related models
+                if (pipelineTag.Contains("text") ||
+                    pipelineTag.Contains("token") ||
+                    pipelineTag.Contains("sentence") ||
+                    pipelineTag.Contains("question") ||
+                    pipelineTag.Contains("summarization") ||
+                    pipelineTag.Contains("conversational") ||
+                    pipelineTag == "text-generation" ||
+                    pipelineTag == "text-classification" ||
+                    pipelineTag == "text2text-generation" ||
+                    pipelineTag == "translation" ||
+                    pipelineTag == "summarization" ||
+                    pipelineTag == "conversational" ||
+                    modelId.Contains("gpt") ||
+                    modelId.Contains("bert") ||
+                    modelId.Contains("t5") ||
+                    modelId.Contains("llama") ||
+                    modelId.Contains("bloom") ||
+                    modelId.Contains("bart") ||
+                    modelId.Contains("roberta"))
+                {
+                    return ModelInputType.Text;
+                }
+
+                // Check for image-related models
+                if (pipelineTag.Contains("image") ||
+                    pipelineTag.Contains("vision") ||
+                    pipelineTag == "image-classification" ||
+                    pipelineTag == "object-detection" ||
+                    pipelineTag == "image-segmentation" ||
+                    pipelineTag == "depth-estimation" ||
+                    modelId.Contains("vit") ||
+                    modelId.Contains("clip") ||
+                    modelId.Contains("resnet") ||
+                    modelId.Contains("diffusion") ||
+                    modelId.Contains("stable-diffusion") ||
+                    modelId.Contains("yolo"))
+                {
+                    return ModelInputType.Image;
+                }
+
+                // Check for audio-related models
+                if (pipelineTag.Contains("audio") ||
+                    pipelineTag.Contains("speech") ||
+                    pipelineTag == "automatic-speech-recognition" ||
+                    pipelineTag == "audio-classification" ||
+                    pipelineTag == "text-to-speech" ||
+                    modelId.Contains("wav2vec") ||
+                    modelId.Contains("whisper") ||
+                    modelId.Contains("hubert") ||
+                    modelId.Contains("audio"))
+                {
+                    return ModelInputType.Audio;
+                }
+
+                // Check description as a fallback
+                if (description.Contains("text") ||
+                    description.Contains("language") ||
+                    description.Contains("chat") ||
+                    description.Contains("gpt"))
+                {
+                    return ModelInputType.Text;
+                }
+                else if (description.Contains("image") ||
+                         description.Contains("vision") ||
+                         description.Contains("picture") ||
+                         description.Contains("photo"))
+                {
+                    return ModelInputType.Image;
+                }
+                else if (description.Contains("audio") ||
+                         description.Contains("speech") ||
+                         description.Contains("voice") ||
+                         description.Contains("sound"))
+                {
+                    return ModelInputType.Audio;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error guessing input type: {ex.Message}");
+            }
+
+            return ModelInputType.Unknown;
+        }
+
         // --- Private Helper Methods ---
 
         private async Task LoadPersistedModelsAsync()
@@ -521,6 +647,12 @@ namespace CSimple.ViewModels
 
                 var cleanedModels = otherModels.Concat(uniquePythonRefs.Values).ToList();
 
+                // Log loaded input types for debugging
+                foreach (var model in cleanedModels)
+                {
+                    Debug.WriteLine($"Loaded model: {model.Name}, Input Type: {model.InputType}");
+                }
+
                 // Use dispatcher if modifying ObservableCollection from non-UI thread
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
@@ -540,7 +672,25 @@ namespace CSimple.ViewModels
                                 (m.IsHuggingFaceReference && m.HuggingFaceModelId == model.HuggingFaceModelId) ||
                                 (!m.IsHuggingFaceReference && m.Name == model.Name))) // Check name for non-refs
                             {
+                                // Ensure InputType is properly set
+                                if (model.InputType == ModelInputType.Unknown)
+                                {
+                                    if (model.IsHuggingFaceReference && !string.IsNullOrEmpty(model.HuggingFaceModelId))
+                                    {
+                                        // Try to guess if it's unknown
+                                        var hfModel = new HuggingFaceModel
+                                        {
+                                            ModelId = model.HuggingFaceModelId,
+                                            Description = model.Description,
+                                            Pipeline_tag = null // We don't have this info anymore
+                                        };
+                                        model.InputType = GuessInputType(hfModel);
+                                        Debug.WriteLine($"Re-guessed input type for {model.Name}: {model.InputType}");
+                                    }
+                                }
+
                                 AvailableModels.Add(model);
+                                Debug.WriteLine($"Added model to UI: {model.Name}, Input Type: {model.InputType}");
                             }
                         }
                         Debug.WriteLine($"ViewModel: Loaded {cleanedModels.Count} unique persisted HuggingFace models.");
@@ -696,7 +846,8 @@ namespace CSimple.ViewModels
                         Description = model.Description ?? "Imported from HuggingFace (requires Python)",
                         Type = model.RecommendedModelType,
                         IsHuggingFaceReference = true,
-                        HuggingFaceModelId = model.ModelId ?? model.Id
+                        HuggingFaceModelId = model.ModelId ?? model.Id,
+                        InputType = GuessInputType(model) // Set initial input type based on guess
                     };
 
                     // Add the unique reference
@@ -747,7 +898,8 @@ namespace CSimple.ViewModels
                     Description = model.Description ?? "Imported from HuggingFace",
                     Type = model.RecommendedModelType,
                     IsHuggingFaceReference = false, // This is a downloaded model, not just a reference
-                    HuggingFaceModelId = model.ModelId ?? model.Id
+                    HuggingFaceModelId = model.ModelId ?? model.Id,
+                    InputType = GuessInputType(model) // Set initial input type based on guess
                 };
                 if (!AvailableModels.Any(m => m.Name == importedModel.Name)) // Check name for non-refs
                 {

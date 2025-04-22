@@ -20,6 +20,8 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 fonts.AddFont("OpenSans-SemiBold.ttf", "OpenSansSemiBold");
             })
+            // Add the namespace here
+            .ConfigureMauiAppWithBehaviors()
             .ConfigureMauiHandlers(handlers =>
             {
                 // Add any handler configuration here
@@ -139,5 +141,21 @@ public static class MauiProgram
         services.AddTransient<App>();
 
         return builder.Build();
+    }
+}
+
+// Add extension method for configuring behaviors
+public static class MauiAppBuilderExtensions
+{
+    public static MauiAppBuilder ConfigureMauiAppWithBehaviors(this MauiAppBuilder builder)
+    {
+        // Make sure behaviors are included in the assembly
+        builder.ConfigureEffects(effects =>
+        {
+            // This is just to ensure the behaviors assembly is loaded
+            var behaviorType = typeof(CSimple.Behaviors.EnumBindingBehavior);
+        });
+
+        return builder;
     }
 }

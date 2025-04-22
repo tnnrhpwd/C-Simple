@@ -4,6 +4,7 @@
              xmlns:page="clr-namespace:CSimple.Pages"
              xmlns:converters="clr-namespace:CSimple.Converters"
              xmlns:controls="clr-namespace:CSimple.Controls"
+             xmlns:behaviors="clr-namespace:CSimple.Behaviors"
              x:Class="CSimple.App">
     <Application.Resources>
         <ResourceDictionary>

@@ -3,6 +3,7 @@
              xmlns:local="clr-namespace:CSimple.Pages"
              xmlns:viewmodels="clr-namespace:CSimple.ViewModels"
              xmlns:models="clr-namespace:CSimple.Models"
+             xmlns:behaviors="clr-namespace:CSimple.Behaviors"
              x:DataType="viewmodels:NetPageViewModel"
              x:Class="CSimple.Pages.NetPage"
              Title="Net">
@@ -184,8 +185,8 @@
                                            Padding="{StaticResource CardContentPadding}"
                                            Margin="{StaticResource MarginTiny}"
                                            CornerRadius="{StaticResource CornerRadiusSmall}">
-                                        <!-- Use Grid for better button layout -->
-                                        <Grid ColumnDefinitions="*,Auto,Auto"
+                                        <!-- Use Grid for better layout with the new dropdown -->
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto"
                                               ColumnSpacing="{StaticResource SpacingSmall}">
                                             <VerticalStackLayout Grid.Column="0">
                                                 <Label Text="{Binding Name}"
@@ -197,8 +198,26 @@
                                                        FontSize="{StaticResource FontSizeCaption}"
                                                        TextColor="{StaticResource TextSecondary}" />
                                             </VerticalStackLayout>
+                                            <!-- Input Type Dropdown -->
+                                            <VerticalStackLayout Grid.Column="1"
+                                                                 VerticalOptions="Center">
+                                                <Label Text="Input Type:"
+                                                       FontSize="{StaticResource FontSizeCaption}"
+                                                       TextColor="{StaticResource TextSecondary}"
+                                                       Margin="{StaticResource MarginBottomTiny}"
+                                                       HorizontalOptions="Center" />
+                                                <Picker Title="Input Type"
+                                                        SelectedItem="{Binding InputType, Mode=TwoWay}"
+                                                        ItemsSource="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ModelInputTypes}"
+                                                        SelectedIndexChanged="OnModelInputTypeChanged"
+                                                        WidthRequest="120">
+                                                    <Picker.Behaviors>
+                                                        <behaviors:EnumBindingBehavior />
+                                                    </Picker.Behaviors>
+                                                </Picker>
+                                            </VerticalStackLayout>
                                             <!-- Train/Refine Button -->
-                                            <Button Grid.Column="1"
+                                            <Button Grid.Column="2"
                                                     Text="Train"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=GoToOrientCommand}"
                                                     CommandParameter="{Binding .}"
@@ -206,7 +225,7 @@
                                                     TextColor="{StaticResource TextOnPrimary}"
                                                     VerticalOptions="Center" />
                                             <!-- Activate Button -->
-                                            <Button Grid.Column="2"
+                                            <Button Grid.Column="3"
                                                     Text="Activate"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ActivateModelCommand}"
                                                     CommandParameter="{Binding .}"
