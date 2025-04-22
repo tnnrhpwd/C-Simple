@@ -508,25 +508,64 @@ namespace CSimple.ViewModels
         // --- Private Helper Methods --- (Moved AddDefaultInputNodes here)
         private void AddDefaultInputNodes()
         {
+            // Create more organized default layout
             float startX = 50;
             float startY = 50;
-            // float spacingY = 80; // Vertical spacing between nodes - No longer needed
+            float spacingY = 80; // Vertical spacing between nodes
             float spacingX = 170; // Horizontal spacing between nodes (Node Width + Gap)
-            SizeF defaultSize = new SizeF(150, 50); // Slightly smaller default size for inputs
+            SizeF defaultSize = new SizeF(150, 50); // Default size for input nodes
 
-            var keyboardNode = new NodeViewModel(Guid.NewGuid().ToString(), "Keyboard Input", NodeType.Input, new PointF(startX, startY)) { Size = defaultSize };
-            var mouseNode = new NodeViewModel(Guid.NewGuid().ToString(), "Mouse Input", NodeType.Input, new PointF(startX + spacingX, startY)) { Size = defaultSize };
-            var cameraNode = new NodeViewModel(Guid.NewGuid().ToString(), "Camera Input", NodeType.Input, new PointF(startX + 2 * spacingX, startY)) { Size = defaultSize };
-            var audioNode = new NodeViewModel(Guid.NewGuid().ToString(), "Audio Input", NodeType.Input, new PointF(startX + 3 * spacingX, startY)) { Size = defaultSize };
+            // Group by type: Visual inputs, Audio inputs, Text inputs
 
-            Nodes.Add(keyboardNode);
-            Nodes.Add(mouseNode);
-            Nodes.Add(cameraNode);
-            Nodes.Add(audioNode);
+            // Visual inputs (top row)
+            var webcamImageNode = new NodeViewModel(Guid.NewGuid().ToString(), "Webcam Image", NodeType.Input, new PointF(startX, startY))
+            {
+                Size = defaultSize,
+                DataType = "image" // Add data type for better classification
+            };
 
-            Debug.WriteLine($"Added default input nodes horizontally to '{CurrentPipelineName}'.");
+            var screenImageNode = new NodeViewModel(Guid.NewGuid().ToString(), "Screen Image", NodeType.Input, new PointF(startX + spacingX, startY))
+            {
+                Size = defaultSize,
+                DataType = "image" // Add data type for better classification
+            };
+
+            // Audio inputs (middle row)
+            var pcAudioNode = new NodeViewModel(Guid.NewGuid().ToString(), "PC Audio", NodeType.Input, new PointF(startX, startY + spacingY))
+            {
+                Size = defaultSize,
+                DataType = "audio" // Add data type for better classification
+            };
+
+            var webcamAudioNode = new NodeViewModel(Guid.NewGuid().ToString(), "Webcam Audio", NodeType.Input, new PointF(startX + spacingX, startY + spacingY))
+            {
+                Size = defaultSize,
+                DataType = "audio" // Add data type for better classification
+            };
+
+            // Text inputs (bottom row)
+            var keyboardTextNode = new NodeViewModel(Guid.NewGuid().ToString(), "Keyboard Text", NodeType.Input, new PointF(startX, startY + 2 * spacingY))
+            {
+                Size = defaultSize,
+                DataType = "text" // Add data type for better classification
+            };
+
+            var mouseTextNode = new NodeViewModel(Guid.NewGuid().ToString(), "Mouse Text", NodeType.Input, new PointF(startX + spacingX, startY + 2 * spacingY))
+            {
+                Size = defaultSize,
+                DataType = "text" // Add data type for better classification
+            };
+
+            // Add all nodes to the collection
+            Nodes.Add(webcamImageNode);
+            Nodes.Add(screenImageNode);
+            Nodes.Add(pcAudioNode);
+            Nodes.Add(webcamAudioNode);
+            Nodes.Add(keyboardTextNode);
+            Nodes.Add(mouseTextNode);
+
+            Debug.WriteLine($"Added specialized input nodes to '{CurrentPipelineName}'.");
         }
-
 
         private async Task RenameCurrentPipeline()
         {
@@ -619,13 +658,34 @@ namespace CSimple.ViewModels
         private NodeType InferNodeTypeFromName(string name)
         {
             string lowerName = name.ToLower();
-            // Use Contains (uppercase C)
-            if (lowerName.Contains("input") || lowerName.Contains("keyboard") || lowerName.Contains("mouse") || lowerName.Contains("camera") || lowerName.Contains("audio"))
+
+            // Input node detection with more specific categories
+            if (lowerName.Contains("webcam") || lowerName.Contains("screen") ||
+                lowerName.Contains("keyboard") || lowerName.Contains("mouse") ||
+                lowerName.Contains("audio") || lowerName.Contains("input"))
                 return NodeType.Input;
+
             if (lowerName.Contains("output") || lowerName.Contains("display") || lowerName.Contains("speaker"))
-                return NodeType.Output; // Use Output type
-            // Add more specific checks if needed
+                return NodeType.Output;
+
             return NodeType.Model; // Default to Model
+        }
+
+        // Helper to determine data type from node name (can be used for UI styling)
+        public string DetermineDataType(string nodeName)
+        {
+            string lowerName = nodeName.ToLower();
+
+            if (lowerName.Contains("image") || lowerName.Contains("webcam") || lowerName.Contains("screen"))
+                return "image";
+
+            if (lowerName.Contains("audio") || lowerName.Contains("sound"))
+                return "audio";
+
+            if (lowerName.Contains("text") || lowerName.Contains("keyboard") || lowerName.Contains("mouse"))
+                return "text";
+
+            return "unknown";
         }
 
 

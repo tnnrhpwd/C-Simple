@@ -21,6 +21,7 @@ namespace CSimple.ViewModels
         private SizeF _size;
         private bool _isSelected;
         private string _modelPath; // Add ModelPath property
+        private string _dataType; // Add DataType property
 
         public string Id
         {
@@ -56,6 +57,11 @@ namespace CSimple.ViewModels
         {
             get => _modelPath;
             set => SetProperty(ref _modelPath, value);
+        }
+        public string DataType // Add DataType property for input classification
+        {
+            get => _dataType;
+            set => SetProperty(ref _dataType, value);
         }
 
         // Constructor matching expected arguments (adjust if needed)
