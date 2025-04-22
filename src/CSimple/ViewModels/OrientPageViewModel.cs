@@ -17,6 +17,7 @@ namespace CSimple.ViewModels
     {
         // --- Services ---
         private readonly FileService _fileService; // Inject FileService
+        private readonly HuggingFaceService _huggingFaceService; // Add HuggingFaceService
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -74,6 +75,7 @@ namespace CSimple.ViewModels
         public OrientPageViewModel(FileService fileService) // Inject FileService
         {
             _fileService = fileService;
+            _huggingFaceService = new HuggingFaceService(); // Initialize HuggingFaceService
 
             // Initialize Commands
             AddModelNodeCommand = new Command<HuggingFaceModel>(async (model) => await AddModelNode(model));
@@ -122,21 +124,74 @@ namespace CSimple.ViewModels
             await LoadAvailableModelsAsync(); // Load models for the picker
         }
 
-
         public async Task LoadAvailableModelsAsync()
         {
-            // Simulate loading models (replace with actual logic)
-            await Task.Delay(100); // Simulate async work
-            if (!AvailableModels.Any()) // Avoid reloading if already populated
+            try
             {
-                // Assuming HuggingFaceModel has 'Id' and 'ModelId' properties
-                AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "gpt2", ModelId = "Text Generator (GPT-2)" });
-                AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "resnet-50", ModelId = "Image Classifier (ResNet)" });
-                AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "openai/whisper-base", ModelId = "Audio Recognizer (Whisper)" });
-                AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "deepseek-ai/deepseek-coder-1.3b-instruct", ModelId = "DeepSeek Coder" });
-                AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "meta-llama/Meta-Llama-3-8B-Instruct", ModelId = "Llama 3 8B Instruct" });
+                Debug.WriteLine("Loading available HuggingFace models...");
+                AvailableModels.Clear();
+
+                // Load models from FileService like NetPageViewModel does
+                var persistedModels = await _fileService.LoadHuggingFaceModelsAsync();
+
+                if (persistedModels != null && persistedModels.Count > 0)
+                {
+                    // Filter to just get unique HuggingFace models
+                    var uniqueHfModels = new Dictionary<string, NeuralNetworkModel>();
+
+                    foreach (var model in persistedModels)
+                    {
+                        string key = model.IsHuggingFaceReference && !string.IsNullOrEmpty(model.HuggingFaceModelId)
+                            ? model.HuggingFaceModelId
+                            : model.Id;
+
+                        if (!uniqueHfModels.ContainsKey(key))
+                        {
+                            uniqueHfModels.Add(key, model);
+                        }
+                    }
+
+                    // Convert NeuralNetworkModel to HuggingFaceModel and add to collection
+                    foreach (var model in uniqueHfModels.Values)
+                    {
+                        var hfModel = new CSimple.Models.HuggingFaceModel
+                        {
+                            Id = model.Id,
+                            ModelId = model.IsHuggingFaceReference ? model.HuggingFaceModelId : model.Name,
+                            Description = model.Description ?? "No description available",
+                            Author = "Imported Model" // Default author if not available
+                        };
+
+                        AvailableModels.Add(hfModel);
+                    }
+
+                    Debug.WriteLine($"Loaded {AvailableModels.Count} available models from persisted data.");
+                }
+
+                // If no models were loaded from persistence, add some defaults as fallback
+                if (AvailableModels.Count == 0)
+                {
+                    Debug.WriteLine("No persisted models found. Adding default examples.");
+                    AddDefaultModelExamples();
+                }
             }
-            Debug.WriteLine($"Loaded {AvailableModels.Count} available models for picker.");
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading models: {ex.Message}");
+                // Fall back to default examples if loading fails
+                AvailableModels.Clear();
+                AddDefaultModelExamples();
+            }
+        }
+
+        // Helper method to add default examples as a fallback
+        private void AddDefaultModelExamples()
+        {
+            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "gpt2", ModelId = "Text Generator (GPT-2)" });
+            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "resnet-50", ModelId = "Image Classifier (ResNet)" });
+            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "openai/whisper-base", ModelId = "Audio Recognizer (Whisper)" });
+            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "deepseek-ai/deepseek-coder-1.3b-instruct", ModelId = "DeepSeek Coder" });
+            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "meta-llama/Meta-Llama-3-8B-Instruct", ModelId = "Llama 3 8B Instruct" });
         }
 
         public async Task AddModelNode(CSimple.Models.HuggingFaceModel model)
@@ -147,22 +202,42 @@ namespace CSimple.ViewModels
                 return;
             }
 
+            // Improve model node creation with HuggingFace info
+            var modelId = model.ModelId ?? model.Id;
+            var modelType = InferNodeTypeFromName(modelId);
+            var modelName = GetFriendlyModelName(modelId);
+
+            // Generate a reasonable position for the new node
+            // Find a vacant spot in the middle area of the canvas
+            float x = 300 + (Nodes.Count % 3) * 180;
+            float y = 200 + (Nodes.Count / 3) * 100;
+
             // Use the NodeViewModel constructor
             var newNode = new NodeViewModel(
                 Guid.NewGuid().ToString(), // Generate string ID
-                model.ModelId ?? model.Id, // Use ModelId or Id
-                InferNodeTypeFromName(model.ModelId ?? model.Id), // Infer type
-                new PointF(100, 100) // Default position
+                modelName, // Use a friendly name
+                modelType, // Infer type
+                new PointF(x, y) // Calculated position
             )
             {
                 // Set properties not in constructor
-                Size = new SizeF(150, 60), // Default size
-                ModelPath = model.Id // Store the HuggingFace ID (or ModelId)
+                Size = new SizeF(180, 60), // Size based on name length if needed
+                ModelPath = model.Id // Store the HuggingFace ID
+                // ModelDetails property doesn't exist in NodeViewModel, removing it
             };
 
             Nodes.Add(newNode);
-            Debug.WriteLine($"Added node: {newNode.Name}");
+            Debug.WriteLine($"Added node: {newNode.Name} at position {x},{y}");
             await SaveCurrentPipelineAsync(); // Save after adding
+        }
+
+        // Helper to determine a more friendly model name
+        private string GetFriendlyModelName(string modelId)
+        {
+            // Similar to NetPageViewModel implementation
+            var name = modelId.Contains('/') ? modelId.Split('/').Last() : modelId;
+            name = name.Replace("-", " ").Replace("_", " ");
+            return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name.ToLower());
         }
 
         public async Task DeleteSelectedNode()
