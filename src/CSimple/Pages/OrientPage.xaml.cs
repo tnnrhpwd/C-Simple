@@ -98,7 +98,40 @@ namespace CSimple.Pages
             Color selectedStrokeColor = Colors.OrangeRed; // Keep selection color consistent
             Color connectionColor = isDarkTheme ? Color.FromArgb("#9E9E9E") : Colors.Gray;
             Color highlightedConnectionColor = Colors.Orange; // Keep highlight color consistent
-            Color nodeTextColor = isDarkTheme ? Colors.WhiteSmoke : Colors.Black;
+
+            // Get theme-aware text colors from application resources
+            Color nodeTextColor;
+            if (Application.Current.Resources.TryGetValue(isDarkTheme ? "TextPrimaryDark" : "TextPrimaryLight", out object textColorObj))
+            {
+                nodeTextColor = (Color)textColorObj;
+            }
+            else
+            {
+                // Fallback if resource not found
+                nodeTextColor = isDarkTheme ? Colors.WhiteSmoke : Colors.Black;
+            }
+
+            // Get theme-aware background colors
+            Color cardBackground;
+            if (Application.Current.Resources.TryGetValue(isDarkTheme ? "CardBackgroundDark" : "CardBackgroundLight", out object cardBgObj))
+            {
+                cardBackground = (Color)cardBgObj;
+            }
+            else
+            {
+                cardBackground = isDarkTheme ? Color.FromArgb("#1e1e1e") : Colors.White;
+            }
+
+            Color surfaceBackground;
+            if (Application.Current.Resources.TryGetValue(isDarkTheme ? "SurfaceBackgroundDark" : "SurfaceBackgroundLight", out object surfaceBgObj))
+            {
+                surfaceBackground = (Color)surfaceBgObj;
+            }
+            else
+            {
+                surfaceBackground = isDarkTheme ? Color.FromArgb("#2a2a2a") : Color.FromArgb("#f0f0f0");
+            }
+
             // Use colors that contrast well in both themes
             Color shadowColor = Colors.Black.WithAlpha(isDarkTheme ? 0.6f : 0.4f); // Darker shadow in dark mode? Or lighter? Adjust as needed.
             Color tempConnectionColor = Colors.DodgerBlue; // Keep temp connection color consistent
@@ -166,8 +199,8 @@ namespace CSimple.Pages
             {
                 RectF nodeRect = new RectF(node.Position, node.Size);
 
-                // Determine Node Fill Color based on Data Type
-                Color nodeFillColor = GetNodeColor(node);
+                // Determine Node Fill Color based on Data Type and Theme
+                Color nodeFillColor = GetNodeColor(node, isDarkTheme, cardBackground, surfaceBackground);
 
                 // Apply shadow
                 canvas.SetShadow(offset: new SizeF(2, 2), blur: 5, color: shadowColor);
@@ -259,8 +292,29 @@ namespace CSimple.Pages
         }
 
         // Helper to determine node color based on inferred data type
-        private Color GetNodeColor(NodeViewModel node)
+        private Color GetNodeColor(NodeViewModel node, bool isDarkTheme, Color cardBackground, Color surfaceBackground)
         {
+            // Create theme-aware versions of node type colors
+            Color textDataColor = isDarkTheme ?
+                Color.FromArgb("#253545") : // Dark blue background for dark theme
+                Color.FromArgb("#E6F0FF"); // Light blue background for light theme
+
+            Color imageDataColor = isDarkTheme ?
+                Color.FromArgb("#253525") : // Dark green background for dark theme
+                Color.FromArgb("#E6FFE6"); // Light green background for light theme
+
+            Color audioDataColor = isDarkTheme ?
+                Color.FromArgb("#352535") : // Dark pink/purple background for dark theme
+                Color.FromArgb("#FFE6F0"); // Light pink background for light theme
+
+            Color defaultModelColor = isDarkTheme ?
+                Color.FromArgb("#3A3A2A") : // Dark yellow/gold background for dark theme
+                Color.FromArgb("#FFFFEC"); // Light yellow background for light theme
+
+            Color unknownDataColor = isDarkTheme ?
+                surfaceBackground.WithLuminosity(surfaceBackground.GetLuminosity() * 1.2f) : // Slightly lighter than surface
+                surfaceBackground.WithLuminosity(surfaceBackground.GetLuminosity() * 0.9f); // Slightly darker than surface
+
             string nameLower = node.Name.ToLower();
 
             // Handle Input Nodes first
@@ -268,19 +322,19 @@ namespace CSimple.Pages
             {
                 if (nameLower.Contains("keyboard") || nameLower.Contains("mouse") || nameLower.Contains("text"))
                 {
-                    return TextDataColor;
+                    return textDataColor;
                 }
                 else if (nameLower.Contains("camera") || nameLower.Contains("image") || nameLower.Contains("png"))
                 {
-                    return ImageDataColor;
+                    return imageDataColor;
                 }
                 else if (nameLower.Contains("audio") || nameLower.Contains("wav") || nameLower.Contains("mfcc"))
                 {
-                    return AudioDataColor;
+                    return audioDataColor;
                 }
                 else
                 {
-                    return UnknownDataColor; // Fallback for unknown input types
+                    return unknownDataColor; // Fallback for unknown input types
                 }
             }
             // Handle Model Nodes
@@ -292,33 +346,41 @@ namespace CSimple.Pages
                     nameLower.Contains("gpt") || nameLower.Contains("bert") || nameLower.Contains("deepseek") ||
                     nameLower.Contains("llama") || nameLower.Contains("mistral"))
                 {
-                    return TextDataColor;
+                    return textDataColor;
                 }
                 // Image Models
                 else if (nameLower.Contains("vision") || nameLower.Contains("image") || nameLower.Contains("cnn") ||
                          nameLower.Contains("resnet") || nameLower.Contains("yolo") || nameLower.Contains("clip") ||
                          nameLower.Contains("segmentation") || nameLower.Contains("detection"))
                 {
-                    return ImageDataColor;
+                    return imageDataColor;
                 }
                 // Audio Models
                 else if (nameLower.Contains("audio") || nameLower.Contains("speech") || nameLower.Contains("whisper") ||
                          nameLower.Contains("wav2vec") || nameLower.Contains("sound"))
                 {
-                    return AudioDataColor;
+                    return audioDataColor;
                 }
                 // Add more specific model type checks here if needed...
 
                 // Fallback for models if type not inferred from name
                 else
                 {
-                    return DefaultModelColor;
+                    return defaultModelColor;
                 }
+            }
+            // Output nodes or other types
+            else if (node.Type == NodeType.Output)
+            {
+                // Give output nodes a distinct color
+                return isDarkTheme ?
+                    Color.FromArgb("#35252A") : // Dark reddish background for dark theme
+                    Color.FromArgb("#FFF0F0"); // Light reddish background for light theme
             }
             // Fallback for any other node types (if they exist)
             else
             {
-                return UnknownDataColor;
+                return unknownDataColor;
             }
         }
 
@@ -346,26 +408,46 @@ namespace CSimple.Pages
             canvas.FontColor = textColor;
             canvas.FontSize = 10;
 
+            // Get theme-aware colors
+            bool isDarkTheme = Application.Current.RequestedTheme == AppTheme.Dark;
+            Color cardBg = Colors.Transparent;
+            Color surfaceBg = Colors.Transparent;
+
+            if (Application.Current.Resources.TryGetValue(isDarkTheme ? "CardBackgroundDark" : "CardBackgroundLight", out object cardBgObj))
+            {
+                cardBg = (Color)cardBgObj;
+            }
+            if (Application.Current.Resources.TryGetValue(isDarkTheme ? "SurfaceBackgroundDark" : "SurfaceBackgroundLight", out object surfaceBgObj))
+            {
+                surfaceBg = (Color)surfaceBgObj;
+            }
+
+            // Create a dummy node to get the colors for the legend
+            var dummyTextNode = new NodeViewModel("", "text", NodeType.Input, new PointF());
+            var dummyImageNode = new NodeViewModel("", "image", NodeType.Input, new PointF());
+            var dummyAudioNode = new NodeViewModel("", "audio", NodeType.Input, new PointF());
+            var dummyModelNode = new NodeViewModel("", "model", NodeType.Model, new PointF());
+
             // Text Item
-            canvas.FillColor = TextDataColor;
+            canvas.FillColor = GetNodeColor(dummyTextNode, isDarkTheme, cardBg, surfaceBg);
             canvas.FillRectangle(legendX + legendPadding / 2, currentY, colorBoxSize, colorBoxSize);
             canvas.DrawString("Text Data", legendX + legendPadding / 2 + colorBoxSize + 5, currentY, legendWidth - colorBoxSize - legendPadding, itemHeight, HorizontalAlignment.Left, VerticalAlignment.Center);
             currentY += itemHeight;
 
             // Image Item
-            canvas.FillColor = ImageDataColor;
+            canvas.FillColor = GetNodeColor(dummyImageNode, isDarkTheme, cardBg, surfaceBg);
             canvas.FillRectangle(legendX + legendPadding / 2, currentY, colorBoxSize, colorBoxSize);
             canvas.DrawString("Image Data", legendX + legendPadding / 2 + colorBoxSize + 5, currentY, legendWidth - colorBoxSize - legendPadding, itemHeight, HorizontalAlignment.Left, VerticalAlignment.Center);
             currentY += itemHeight;
 
             // Audio Item
-            canvas.FillColor = AudioDataColor;
+            canvas.FillColor = GetNodeColor(dummyAudioNode, isDarkTheme, cardBg, surfaceBg);
             canvas.FillRectangle(legendX + legendPadding / 2, currentY, colorBoxSize, colorBoxSize);
             canvas.DrawString("Audio Data", legendX + legendPadding / 2 + colorBoxSize + 5, currentY, legendWidth - colorBoxSize - legendPadding, itemHeight, HorizontalAlignment.Left, VerticalAlignment.Center);
             currentY += itemHeight;
 
-            // Model Item (Default)
-            canvas.FillColor = DefaultModelColor;
+            // Model Item
+            canvas.FillColor = GetNodeColor(dummyModelNode, isDarkTheme, cardBg, surfaceBg);
             canvas.FillRectangle(legendX + legendPadding / 2, currentY, colorBoxSize, colorBoxSize);
             canvas.DrawString("Model (Default)", legendX + legendPadding / 2 + colorBoxSize + 5, currentY, legendWidth - colorBoxSize - legendPadding, itemHeight, HorizontalAlignment.Left, VerticalAlignment.Center);
         }

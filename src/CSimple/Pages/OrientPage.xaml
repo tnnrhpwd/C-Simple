@@ -10,12 +10,36 @@
     <ContentPage.Resources>
         <converters:IsNotNullConverter x:Key="IsNotNullConverter" />
         <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
+        <!-- Add styles for Pickers with proper theming -->
+        <Style x:Key="ThemedPickerStyle"
+               TargetType="Picker">
+            <Setter Property="BackgroundColor"
+                    Value="{AppThemeBinding 
+&#xA;                Light={StaticResource CardBackgroundLight},
+&#xA;                Dark={StaticResource CardBackgroundDark}}" />
+            <Setter Property="TextColor"
+                    Value="{AppThemeBinding 
+&#xA;                Light={StaticResource TextPrimaryLight},
+&#xA;                Dark={StaticResource TextPrimaryDark}}" />
+            <Setter Property="TitleColor"
+                    Value="{AppThemeBinding 
+&#xA;                Light={StaticResource TextSecondaryLight},
+&#xA;                Dark={StaticResource TextSecondaryDark}}" />
+            <Setter Property="WidthRequest"
+                    Value="180" />
+            <Setter Property="VerticalOptions"
+                    Value="Center" />
+            <Setter Property="Margin"
+                    Value="0,0,5,0" />
+        </Style>
     </ContentPage.Resources>
     <Grid RowDefinitions="Auto, *">
         <!-- Top Toolbar (Row 0) -->
         <Border Grid.Row="0"
                 StrokeThickness="0"
-                BackgroundColor="{AppThemeBinding Light=#E0FFFFFF, Dark=#E0333333}"
+                BackgroundColor="{AppThemeBinding 
+&#xA;                    Light={StaticResource SurfaceBackgroundLight},
+&#xA;                    Dark={StaticResource SurfaceBackgroundDark}}"
                 Padding="5,5"
                 Margin="5,5,5,0"
                 VerticalOptions="Start"
@@ -30,19 +54,19 @@
                        VerticalOptions="Center"
                        FontAttributes="Bold"
                        Margin="5,0"
-                       TextColor="{AppThemeBinding Light=Black, Dark=White}" />
+                       TextColor="{AppThemeBinding 
+&#xA;                           Light={StaticResource TextPrimaryLight}, 
+&#xA;                           Dark={StaticResource TextPrimaryDark}}" />
                 <Picker Title="Select Pipeline"
                         ItemsSource="{Binding AvailablePipelineNames}"
                         SelectedItem="{Binding SelectedPipelineName, Mode=TwoWay}"
-                        WidthRequest="180"
-                        Margin="0,0,5,0"
-                        VerticalOptions="Center"
-                        BackgroundColor="{AppThemeBinding Light=White, Dark=Gray}"
-                        TextColor="{AppThemeBinding Light=Black, Dark=White}" />
+                        Style="{StaticResource ThemedPickerStyle}" />
                 <Button Command="{Binding CreateNewPipelineCommand}"
                         Text="New"
                         BackgroundColor="{StaticResource Tertiary}"
-                        TextColor="White"
+                        TextColor="{AppThemeBinding 
+&#xA;                            Light={StaticResource TextOnPrimary}, 
+&#xA;                            Dark={StaticResource TextOnPrimary}}"
                         CornerRadius="5"
                         Padding="8,4"
                         Margin="2"
@@ -53,7 +77,9 @@
                         Text="Rename"
                         IsEnabled="{Binding SelectedPipelineName, Converter={StaticResource IsNotNullConverter}}"
                         BackgroundColor="{StaticResource Secondary}"
-                        TextColor="White"
+                        TextColor="{AppThemeBinding 
+&#xA;                            Light={StaticResource TextOnPrimary}, 
+&#xA;                            Dark={StaticResource TextOnPrimary}}"
                         CornerRadius="5"
                         Padding="8,4"
                         Margin="2"
@@ -64,7 +90,9 @@
                         Text="Delete Pipeline"
                         IsEnabled="{Binding SelectedPipelineName, Converter={StaticResource IsNotNullConverter}}"
                         BackgroundColor="{StaticResource Error}"
-                        TextColor="White"
+                        TextColor="{AppThemeBinding 
+&#xA;                            Light={StaticResource TextOnPrimary}, 
+&#xA;                            Dark={StaticResource TextOnPrimary}}"
                         CornerRadius="5"
                         Padding="8,4"
                         Margin="2"
@@ -72,7 +100,9 @@
                         HeightRequest="30"
                         ToolTipProperties.Text="Delete Selected Pipeline" />
                 <!-- Separator -->
-                <BoxView BackgroundColor="{AppThemeBinding Light=LightGray, Dark=Gray}"
+                <BoxView BackgroundColor="{AppThemeBinding 
+&#xA;                             Light={StaticResource BorderColor},
+&#xA;                             Dark={StaticResource NeutralDark}}"
                          WidthRequest="1"
                          HeightRequest="25"
                          Margin="10,0"
@@ -82,21 +112,21 @@
                        VerticalOptions="Center"
                        FontAttributes="Bold"
                        Margin="5,0"
-                       TextColor="{AppThemeBinding Light=Black, Dark=White}" />
+                       TextColor="{AppThemeBinding 
+&#xA;                           Light={StaticResource TextPrimaryLight}, 
+&#xA;                           Dark={StaticResource TextPrimaryDark}}" />
                 <Picker Title="Select Model Type"
                         ItemsSource="{Binding AvailableModels}"
                         ItemDisplayBinding="{Binding Name}"
                         x:Name="ModelPicker"
-                        WidthRequest="180"
-                        Margin="0,0,5,0"
-                        VerticalOptions="Center"
-                        BackgroundColor="{AppThemeBinding Light=White, Dark=Gray}"
-                        TextColor="{AppThemeBinding Light=Black, Dark=White}" />
+                        Style="{StaticResource ThemedPickerStyle}" />
                 <Button Command="{Binding AddModelNodeCommand}"
                         CommandParameter="{Binding Source={x:Reference ModelPicker}, Path=SelectedItem}"
                         BackgroundColor="{StaticResource Primary}"
                         Text="Add Node"
-                        TextColor="White"
+                        TextColor="{AppThemeBinding 
+&#xA;                            Light={StaticResource TextOnPrimary}, 
+&#xA;                            Dark={StaticResource TextOnPrimary}}"
                         CornerRadius="5"
                         Padding="8,4"
                         Margin="2"
@@ -108,7 +138,9 @@
                         BackgroundColor="{StaticResource Error}"
                         Text="Delete Node"
                         IsEnabled="{Binding SelectedNode, Converter={StaticResource IsNotNullConverter}}"
-                        TextColor="White"
+                        TextColor="{AppThemeBinding 
+&#xA;                            Light={StaticResource TextOnPrimary}, 
+&#xA;                            Dark={StaticResource TextOnPrimary}}"
                         CornerRadius="5"
                         Padding="8,4"
                         Margin="2"
@@ -125,11 +157,18 @@
                       DragInteraction="OnCanvasDragInteraction"
                       EndInteraction="OnCanvasEndInteraction"
                       CancelInteraction="OnCanvasCancelInteraction"
-                      BackgroundColor="{AppThemeBinding Light=WhiteSmoke, Dark=#1e1e1e}" />
+                      BackgroundColor="{AppThemeBinding 
+&#xA;                          Light={StaticResource BackgroundLight}, 
+&#xA;                          Dark={StaticResource BackgroundDark}}" />
         <!-- Selected Node Info Panel (Overlay in Row 1) -->
         <Border Grid.Row="1"
-                Stroke="{AppThemeBinding Light=Gray, Dark=LightGray}"
-                BackgroundColor="{AppThemeBinding Light=#F0FFFFFF, Dark=#F0444444}"
+                Stroke="{AppThemeBinding 
+&#xA;                    Light={StaticResource BorderColor}, 
+&#xA;                    Dark={StaticResource NeutralDark}}"
+                BackgroundColor="{AppThemeBinding 
+&#xA;                    Light={StaticResource CardBackgroundLight}, 
+&#xA;                    Dark={StaticResource CardBackgroundDark}}"
+                Opacity="0.9"
                 Padding="10"
                 Margin="10"
                 VerticalOptions="End"
@@ -141,14 +180,20 @@
                 <Label Text="Selected Node"
                        FontSize="12"
                        FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light=Black, Dark=WhiteSmoke}" />
+                       TextColor="{AppThemeBinding 
+&#xA;                           Light={StaticResource TextPrimaryLight}, 
+&#xA;                           Dark={StaticResource TextPrimaryDark}}" />
                 <Label Text="{Binding SelectedNode.Name}"
                        FontSize="14"
                        LineBreakMode="TailTruncation"
-                       TextColor="{AppThemeBinding Light=Black, Dark=WhiteSmoke}" />
+                       TextColor="{AppThemeBinding 
+&#xA;                           Light={StaticResource TextPrimaryLight}, 
+&#xA;                           Dark={StaticResource TextPrimaryDark}}" />
                 <Label Text="{Binding SelectedNode.Type, StringFormat='Type: {0}'}"
                        FontSize="10"
-                       TextColor="{AppThemeBinding Light=DarkSlateGray, Dark=LightGray}" />
+                       TextColor="{AppThemeBinding 
+&#xA;                           Light={StaticResource TextSecondaryLight}, 
+&#xA;                           Dark={StaticResource TextSecondaryDark}}" />
                 <!-- Add more details here if needed -->
             </VerticalStackLayout>
         </Border>
