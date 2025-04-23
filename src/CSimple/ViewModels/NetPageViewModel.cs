@@ -10,6 +10,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
@@ -110,7 +111,7 @@ namespace CSimple.ViewModels
             DeactivateModelCommand = new Command<NeuralNetworkModel>(DeactivateModel);
             LoadSpecificGoalCommand = new Command<SpecificGoal>(LoadSpecificGoal);
             ShareModelCommand = new Command<NeuralNetworkModel>(ShareModel);
-            CommunicateWithModelCommand = new Command<string>(CommunicateWithModel);
+            CommunicateWithModelCommand = new Command<string>(async (message) => await CommunicateWithModelAsync(message)); // Make async
             ExportModelCommand = new Command<NeuralNetworkModel>(async (model) => await ExportModel(model)); // Wrapper for async
             ImportModelCommand = new Command(async () => await ImportModelAsync()); // Wrapper for async
             HuggingFaceSearchCommand = new Command(async () => await SearchHuggingFaceAsync()); // Wrapper for async
@@ -144,6 +145,10 @@ namespace CSimple.ViewModels
 
         // ADDED: List of available input types for binding to dropdown
         public Array ModelInputTypes => Enum.GetValues(typeof(ModelInputType));
+
+        // Configuration for Python execution (Consider moving to a config file/service)
+        private const string PythonExecutablePath = "python"; // Or full path e.g., @"C:\Python311\python.exe"
+        private const string HuggingFaceScriptPath = @"path\to\your\run_hf_model.py"; // IMPORTANT: Update this path
 
         // --- Public Methods (called from View or Commands) ---
 
@@ -420,33 +425,94 @@ namespace CSimple.ViewModels
             }
         }
 
-        private void CommunicateWithModel(string message)
+        private async Task CommunicateWithModelAsync(string message)
         {
-            // Logic moved from NetPage.xaml.cs
-            if (string.IsNullOrEmpty(message) || ActiveModels.Count == 0)
+            if (string.IsNullOrWhiteSpace(message))
             {
-                CurrentModelStatus = ActiveModels.Count == 0 ? "No active models to communicate with" : CurrentModelStatus;
+                CurrentModelStatus = "Cannot send empty message.";
                 return;
             }
+
+            // Find the first active HuggingFace reference model
+            var activeHfModel = ActiveModels.FirstOrDefault(m => m.IsHuggingFaceReference && !string.IsNullOrEmpty(m.HuggingFaceModelId));
+
+            if (activeHfModel == null)
+            {
+                CurrentModelStatus = "No active HuggingFace reference model found.";
+                LastModelOutput = "No active HuggingFace model to communicate with.";
+                return;
+            }
+
+            CurrentModelStatus = $"Sending message to {activeHfModel.Name}...";
+            LastModelOutput = $"Processing '{message}' with {activeHfModel.Name}...";
+            IsModelCommunicating = true;
+
             try
             {
-                LastModelOutput = $"Response to '{message}': Processing your request...";
-                IsModelCommunicating = true; // Simulate start
-
-                // Simulate async response
-                Task.Delay(TimeSpan.FromSeconds(1)).ContinueWith(_ =>
-                {
-                    MainThread.BeginInvokeOnMainThread(() =>
-                    {
-                        LastModelOutput = $"Response to '{message}': I'll assist with that task right away.";
-                        IsModelCommunicating = false; // Simulate end
-                    });
-                });
+                // Execute the Python script
+                string result = await ExecuteHuggingFaceModelAsync(activeHfModel.HuggingFaceModelId, message);
+                LastModelOutput = $"Response from {activeHfModel.Name}:\n{result}";
+                CurrentModelStatus = $"Received response from {activeHfModel.Name}";
             }
             catch (Exception ex)
             {
-                HandleError("Error communicating with model", ex);
+                HandleError($"Error communicating with model {activeHfModel.Name}", ex);
+                LastModelOutput = $"Error processing message with {activeHfModel.Name}: {ex.Message}";
+            }
+            finally
+            {
                 IsModelCommunicating = false;
+            }
+        }
+
+        // Helper method to execute the Python script
+        private async Task<string> ExecuteHuggingFaceModelAsync(string modelId, string inputText)
+        {
+            if (!File.Exists(HuggingFaceScriptPath))
+            {
+                throw new FileNotFoundException($"HuggingFace helper script not found at: {HuggingFaceScriptPath}");
+            }
+
+            // Consider adding checks for Python executable existence
+
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = PythonExecutablePath,
+                Arguments = $"\"{HuggingFaceScriptPath}\" --model_id \"{modelId}\" --input \"{inputText.Replace("\"", "\\\"")}\"", // Basic escaping for input
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8, // Ensure correct encoding
+                StandardErrorEncoding = Encoding.UTF8
+            };
+
+            Debug.WriteLine($"Executing: {processStartInfo.FileName} {processStartInfo.Arguments}");
+
+            using (var process = new Process { StartInfo = processStartInfo })
+            {
+                var outputBuilder = new StringBuilder();
+                var errorBuilder = new StringBuilder();
+
+                process.OutputDataReceived += (sender, args) => { if (args.Data != null) outputBuilder.AppendLine(args.Data); };
+                process.ErrorDataReceived += (sender, args) => { if (args.Data != null) errorBuilder.AppendLine(args.Data); };
+
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                await process.WaitForExitAsync(); // Use async wait
+
+                if (process.ExitCode != 0)
+                {
+                    string errorOutput = errorBuilder.ToString().Trim();
+                    Debug.WriteLine($"Python script error output:\n{errorOutput}");
+                    throw new Exception($"Python script failed with exit code {process.ExitCode}. Error: {errorOutput}");
+                }
+
+                string result = outputBuilder.ToString().Trim();
+                Debug.WriteLine($"Python script output:\n{result}");
+                return result;
             }
         }
 
