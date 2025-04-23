@@ -779,8 +779,8 @@ namespace CSimple.ViewModels
             try
             {
                 bool importConfirmed = await ShowConfirmation("Model Details",
-                    $"Name: {model.ModelId ?? model.Id}\nAuthor: {model.Author}\nType: {model.Pipeline_tag}\nDownloads: {model.Downloads}\n\nImport this model?",
-                    "Import", "Cancel");
+                    $"Name: {model.ModelId ?? model.Id}\nAuthor: {model.Author}\nType: {model.Pipeline_tag}\nDownloads: {model.Downloads}\n\nImport this model as a Python Reference?", // Modified confirmation text
+                    "Import Reference", "Cancel"); // Modified button text
 
                 if (!importConfirmed)
                 {
@@ -788,58 +788,42 @@ namespace CSimple.ViewModels
                     return;
                 }
 
-                CurrentModelStatus = $"Preparing to import {model.ModelId ?? model.Id}...";
+                CurrentModelStatus = $"Preparing Python reference for {model.ModelId ?? model.Id}...";
                 IsLoading = true;
 
+                // *** MODIFIED: Directly set to create Python reference ***
+                bool isPythonReference = true;
+                List<string> filesToDownload = new List<string>(); // Keep list, but it won't be used for download
+
+                // Optional: Still fetch details if needed for GuessInputType or other metadata
                 HuggingFaceModelDetails modelDetails = model as HuggingFaceModelDetails ?? await _huggingFaceService.GetModelDetailsAsync(model.ModelId ?? model.Id);
-                List<string> filesToDownload = new List<string>();
-                bool isPythonReference = false;
+                Debug.WriteLine($"ShowModelDetailsAndImportAsync: Importing '{model.ModelId ?? model.Id}' as Python Reference.");
 
-                if (modelDetails == null || modelDetails.Files == null || modelDetails.Files.Count == 0)
-                {
-                    string option = await ShowActionSheet("Model Import Options", "Cancel", null, new[] { "Enter File Name Manually", "Import Model Configuration", "Use Python Script" });
-                    switch (option)
-                    {
-                        case "Enter File Name Manually":
-                            string filename = await ShowPrompt("Model File", "Enter file name (e.g., 'pytorch_model.bin')", "OK", "Cancel", "pytorch_model.bin");
-                            if (!string.IsNullOrEmpty(filename)) filesToDownload.Add(filename);
-                            break;
-                        case "Import Model Configuration":
-                            filesToDownload.Add("config.json");
-                            await ShowAlert("Using Python transformers", $"Download config only. Use Python:\nfrom transformers import AutoModel\nmodel = AutoModel.from_pretrained(\"{model.ModelId ?? model.Id}\")", "OK");
-                            break;
-                        case "Use Python Script":
-                            isPythonReference = true;
-                            await ShowAlert("Python Code", $"Use:\nfrom transformers import AutoModel\nmodel = AutoModel.from_pretrained(\"{model.ModelId ?? model.Id}\", trust_remote_code=True)", "OK");
-                            // Save reference info locally (optional, could just add to VM list)
-                            await SavePythonReferenceInfo(model);
-                            break;
-                        default: CurrentModelStatus = "Import canceled"; IsLoading = false; return;
-                    }
-                }
-                else
-                {
-                    var recommendedFiles = GetRecommendedFiles(modelDetails.Files);
-                    if (recommendedFiles.Count > 0)
-                    {
-                        string option = await ShowActionSheet("Select File to Import", "Cancel", "Download ALL Recommended", recommendedFiles.ToArray());
-                        if (option == "Download ALL Recommended") filesToDownload.AddRange(recommendedFiles);
-                        else if (option != "Cancel" && !string.IsNullOrEmpty(option))
-                        {
-                            filesToDownload.Add(option);
-                            // Optionally ask about config/tokenizer
-                        }
-                        else { CurrentModelStatus = "Import canceled"; IsLoading = false; return; }
-                    }
-                    else
-                    {
-                        string selectedFile = await ShowActionSheet("Select File to Import", "Cancel", null, modelDetails.Files.ToArray());
-                        if (selectedFile != "Cancel" && !string.IsNullOrEmpty(selectedFile)) filesToDownload.Add(selectedFile);
-                        else { CurrentModelStatus = "Import canceled"; IsLoading = false; return; }
-                    }
-                }
+                // *** REMOVED/COMMENTED OUT: File selection logic ***
+                /*
+                // Prepare options for the action sheet
+                var actionSheetOptions = new List<string>();
+                actionSheetOptions.Add("Use Python Script"); // Always add this option
+                // ... (rest of the action sheet population logic removed) ...
 
-                // Handle Python Reference Case
+                // Show the combined action sheet
+                string selectedOption = await ShowActionSheet("Select Import Method or File", "Cancel", null, actionSheetOptions.ToArray());
+
+                // Handle the selected option
+                if (selectedOption == "Cancel" || string.IsNullOrEmpty(selectedOption))
+                {
+                    // ... (cancel logic) ...
+                }
+                else if (selectedOption == "Use Python Script")
+                {
+                    // ... (python ref logic - now default) ...
+                }
+                // ... (other file download options handling removed) ...
+                */
+                // *** END REMOVED/COMMENTED OUT ***
+
+
+                // Handle Python Reference Case (This will always execute now)
                 if (isPythonReference)
                 {
                     // Check if a Python reference with this HuggingFaceModelId already exists
@@ -851,15 +835,19 @@ namespace CSimple.ViewModels
                         return; // Stop processing if duplicate
                     }
 
+                    // Use modelDetails if fetched, otherwise use the basic model info
+                    var description = modelDetails?.Description ?? model.Description ?? "Imported from HuggingFace (requires Python)";
+                    var inputType = GuessInputType(modelDetails ?? model); // Guess input type
+
                     var pythonReferenceModel = new NeuralNetworkModel
                     {
                         Id = Guid.NewGuid().ToString(),
                         Name = GetFriendlyModelName(model.ModelId ?? model.Id) + " (Python Ref)",
-                        Description = model.Description ?? "Imported from HuggingFace (requires Python)",
-                        Type = model.RecommendedModelType,
+                        Description = description,
+                        Type = model.RecommendedModelType, // Keep original type guess if available
                         IsHuggingFaceReference = true,
                         HuggingFaceModelId = model.ModelId ?? model.Id,
-                        InputType = GuessInputType(model) // Set initial input type based on guess
+                        InputType = inputType
                     };
 
                     // Add the unique reference
@@ -867,66 +855,49 @@ namespace CSimple.ViewModels
                     CurrentModelStatus = $"Added reference to {pythonReferenceModel.Name}";
                     await SavePersistedModelsAsync(); // Save the updated list
 
-                    await ShowAlert("Reference Added", $"Reference to '{pythonReferenceModel.Name}' added.", "OK");
+                    // Show Python usage info
+                    await ShowAlert("Reference Added & Usage", $"Reference to '{pythonReferenceModel.Name}' added.\n\nUse in Python:\nfrom transformers import AutoModel\nmodel = AutoModel.from_pretrained(\"{pythonReferenceModel.HuggingFaceModelId}\", trust_remote_code=True)", "OK");
+
                     IsLoading = false;
-                    return;
+                    return; // Python reference added, workflow complete
                 }
 
-                // Handle File Download Case
-                if (filesToDownload.Count == 0)
+                // *** REMOVED/COMMENTED OUT: File Download Case ***
+                /*
+                // Handle File Download Case (Only if not a Python Reference)
+                if (filesToDownload.Count == 0 && !isPythonReference)
                 {
-                    CurrentModelStatus = "No files selected"; IsLoading = false;
-                    await ShowAlert("Import Error", "No files selected for download", "OK");
-                    return;
+                    // ... (no files selected logic) ...
                 }
 
-                // Show Python usage info before download
-                await ShowAlert("Model Usage Information", $"Use in Python:\nfrom transformers import AutoModel\nmodel = AutoModel.from_pretrained(\"{model.ModelId ?? model.Id}\")\n\nFor .NET, consider ONNX export.", "Continue Download");
+                // Show Python usage info before download (if downloading files)
+                if (filesToDownload.Count > 0)
+                {
+                    // ... (show alert) ...
+                }
 
                 // Download files
-                string modelDirectory = GetModelDirectoryPath(model.ModelId ?? model.Id);
-                bool anyDownloadSucceeded = false;
-                foreach (var file in filesToDownload)
-                {
-                    CurrentModelStatus = $"Downloading {file}...";
-                    string destinationPath = Path.Combine(modelDirectory, Path.GetFileName(file));
-                    bool downloadSuccess = await _huggingFaceService.DownloadModelFileAsync(model.ModelId ?? model.Id, file, destinationPath);
-                    if (downloadSuccess) anyDownloadSucceeded = true;
-                    else await ShowAlert("Download Notice", $"Could not download {file}", "Continue");
-                }
+                // ... (download loop) ...
 
                 if (!anyDownloadSucceeded)
                 {
-                    CurrentModelStatus = "All downloads failed"; IsLoading = false;
-                    await ShowAlert("Import Failed", "Could not download any model files", "OK");
-                    return;
+                   // ... (download failed logic) ...
                 }
 
-                // Add downloaded model to list (ensure name uniqueness for non-refs)
-                var importedModel = new NeuralNetworkModel
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    Name = GetFriendlyModelName(model.ModelId ?? model.Id),
-                    Description = model.Description ?? "Imported from HuggingFace",
-                    Type = model.RecommendedModelType,
-                    IsHuggingFaceReference = false, // This is a downloaded model, not just a reference
-                    HuggingFaceModelId = model.ModelId ?? model.Id,
-                    InputType = GuessInputType(model) // Set initial input type based on guess
-                };
-                if (!AvailableModels.Any(m => m.Name == importedModel.Name)) // Check name for non-refs
-                {
-                    AvailableModels.Add(importedModel);
-                    CurrentModelStatus = $"Successfully imported {importedModel.Name}";
-                    await SavePersistedModelsAsync(); // Save updated list
-                }
-                else { CurrentModelStatus = $"Model {importedModel.Name} already exists."; }
+                // Add downloaded model to list
+                // ... (add model logic) ...
 
-                await ShowAlert("Import Success", $"Model '{importedModel.Name}' imported.\nSaved in: {modelDirectory}", "OK");
+                if (anyDownloadSucceeded)
+                {
+                    // ... (show success alert) ...
+                }
+                */
+                // *** END REMOVED/COMMENTED OUT ***
             }
             catch (Exception ex)
             {
                 HandleError("Error handling model details", ex);
-                await ShowAlert("Import Error", $"Failed to import model: {ex.Message}", "OK");
+                await ShowAlert("Import Error", $"Failed to import model reference: {ex.Message}", "OK");
             }
             finally { IsLoading = false; }
         }
