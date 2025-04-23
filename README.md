@@ -9,6 +9,7 @@ Give your Windows system the intelligence to help you. It will make decisions ba
 - [Introduction](#introduction)
 - [Features](#features)
 - [Installation](#installation)
+- [End-User Installation](#end-user-installation)
 - [Usage](#usage)
 - [Project Structure](#project-structure)
 - [Data Model](#data-model)
@@ -30,6 +31,7 @@ Give your Windows system the intelligence to help you. It will make decisions ba
 
    ```bash
    git clone https://github.com/tnnrhpwd/C_Simple.git
+   ```
 2. **Open the Project:**
 
     Open the solution file (C_Simple.sln) in Visual Studio 2022.
@@ -45,6 +47,51 @@ Give your Windows system the intelligence to help you. It will make decisions ba
 5. **Run the App:**
 
     Choose your target platform (iOS, Android, Windows) and press F5 to run the app.
+
+## End-User Installation
+
+### Prerequisites
+
+- Windows 10 version 1809 or later
+- Administrator privileges on your computer
+
+### Installation Steps
+
+#### Step 1: Install the Certificate
+
+Before installing the application, you need to install our security certificate:
+
+1. Locate the `SimpleCert.cer` file in the same folder as the application
+2. Double-click on the certificate file
+3. Select "Open" if you get a security warning
+4. In the Certificate window, click "Install Certificate"
+5. Select "Local Machine" and click "Next" (this requires admin rights)
+6. Select "Place all certificates in the following store"
+7. Click "Browse" and select "Trusted Root Certification Authorities"
+8. Click "Next" and then "Finish"
+9. Confirm the security warning by clicking "Yes"
+10. You should see a message that the import was successful
+
+#### Step 2: Install the Application
+
+After installing the certificate, you can install the application:
+
+1. Locate the `Simple.msix` file
+2. Double-click on the file
+3. Click "Install"
+4. Wait for the installation to complete
+5. The application should now be available in your Start menu
+
+### Troubleshooting
+
+If you see an error about the certificate not being trusted:
+- Make sure you've completed Step 1 correctly
+- Ensure you selected "Local Machine" and "Trusted Root Certification Authorities"
+- Try restarting your computer after installing the certificate
+
+### Updates
+
+When updates are available, you can install them by following only Step 2. You don't need to reinstall the certificate for updates.
 
 ## Usage
 
@@ -192,29 +239,44 @@ powershell -ExecutionPolicy Bypass -File ./generate_structure.ps1
 
 ## Publication
 
-1. (Optional) **Publish and Upload to Google Drive**
-You can automate the publishing and upload process by running the following shell script:
-```bash
-powershell -ExecutionPolicy Bypass -File ./publish-and-upload.ps1
-```
+### For Developers
 
-2. **Open the Project:**
+1. **Automated Publishing**
 
-    Open the solution file (C_Simple.sln) in Visual Studio 2022.
+   Run the publication script to build, package, and deploy a new version:
 
-3. **Publish the Solution:**
+   ```bash
+   powershell -ExecutionPolicy Bypass -File ./publish-and-upload.ps1
+   ```
 
-    In Visual Studio, right-click on the solution in Solution Explorer and select "Publish..."
+   This script will:
+   - Increment the version number
+   - Build and publish the MAUI application
+   - Create and sign an MSIX package
+   - Deploy to the configured destination folder with version tracking
+   - Maintain an organized version history
 
-4. **Fill in forms:**
+2. **Version Management**
 
-    Fill out the forms with the required information and save location.
+   The system maintains:
+   - `/current` - Always contains the latest version
+   - `/v1.0.0.0-YYYY.MM.DD` - Version-specific folders
+   - `/archive` - Older versions automatically archived
 
-5. **Run the App:**
+3. **Manual Publishing**
 
-    Navigate to the save location to collect your published executable.
+   If you prefer to publish manually:
 
-    Code to: publish to google drive: bash publish-and-upload.sh
+   - Open the solution file (C_Simple.sln) in Visual Studio 2022
+   - Right-click on the solution in Solution Explorer and select "Publish..."
+   - Follow the publishing wizard steps
+
+### For End Users
+
+End users can always access the latest version at:
+- [Latest Simple App Download](https://drive.google.com/drive/folders/1lKQeLUHYwlrqO8P7LkMztHxSd_CpTvrx?usp=sharing)
+
+For installation instructions, see the [End-User Installation](#end-user-installation) section above.
 
 ## Contributing
 
