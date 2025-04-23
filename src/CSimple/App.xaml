@@ -17,6 +17,8 @@
             <converters:FloatToWidthConverter x:Key="FloatToWidthConverter" />
             <converters:BoolToStringConverter x:Key="BoolToStringConverter"
                                               x:Name="BoolToStringConverterResource" />
+            <converters:IsNotNullOrEmptyConverter x:Key="IsNotNullOrEmptyConverter" />
+            <!-- Add this -->
             <!-- Color Resources -->
             <ResourceDictionary.MergedDictionaries>
                 <!-- Default Theme -->

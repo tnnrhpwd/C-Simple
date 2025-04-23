@@ -1,185 +1,272 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CSimple.Pages.GoalPage"
-             Title="Goal">
+             xmlns:models="clr-namespace:CSimple.Models"
+             xmlns:converters="clr-namespace:CSimple.Converters"
+             Title="Goal"
+             BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}">
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:IsNotNullOrEmptyConverter x:Key="IsNotNullOrEmptyConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
     <ContentPage.Content>
         <ScrollView>
             <VerticalStackLayout Padding="15"
                                  Spacing="20">
                 <Label Text="Goals"
-                       FontSize="Title"
-                       FontAttributes="Bold"
+                       Style="{StaticResource HeaderStyle}"
                        HorizontalOptions="Center" />
                 <Label Text="Define your objectives and let AI help you achieve them"
                        HorizontalOptions="Center"
-                       TextColor="Gray" />
+                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                 <!-- Goal Types Tabs -->
                 <Frame CornerRadius="10"
                        Padding="5"
-                       BackgroundColor="#f0f0f0">
+                       BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackgroundLight}, Dark={StaticResource SurfaceBackgroundDark}}"
+                       BorderColor="{AppThemeBinding Light=#e0e0e0, Dark=#424242}">
                     <HorizontalStackLayout HorizontalOptions="Center">
                         <Button Text="My Goals"
                                 Command="{Binding SwitchToMyGoalsCommand}"
-                                BackgroundColor="{Binding IsMyGoalsSelected, Converter={StaticResource BoolToColorConverter}}"
-                                TextColor="White"
                                 CornerRadius="5"
-                                Margin="5" />
+                                Margin="5"
+                                Style="{StaticResource ModernButtonBaseStyle}">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button"
+                                             Binding="{Binding IsMyGoalsSelected}"
+                                             Value="True">
+                                    <Setter Property="BackgroundColor"
+                                            Value="{StaticResource PrimaryColor}" />
+                                    <Setter Property="TextColor"
+                                            Value="White" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Button"
+                                             Binding="{Binding IsMyGoalsSelected}"
+                                             Value="False">
+                                    <Setter Property="BackgroundColor"
+                                            Value="{AppThemeBinding Light={StaticResource NeutralColor}, Dark=#424242}" />
+                                    <Setter Property="TextColor"
+                                            Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
                         <Button Text="Shared Goals"
                                 Command="{Binding SwitchToSharedGoalsCommand}"
-                                BackgroundColor="{Binding IsSharedGoalsSelected, Converter={StaticResource BoolToColorConverter}}"
-                                TextColor="White"
                                 CornerRadius="5"
-                                Margin="5" />
+                                Margin="5"
+                                Style="{StaticResource ModernButtonBaseStyle}">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button"
+                                             Binding="{Binding IsSharedGoalsSelected}"
+                                             Value="True">
+                                    <Setter Property="BackgroundColor"
+                                            Value="{StaticResource PrimaryColor}" />
+                                    <Setter Property="TextColor"
+                                            Value="White" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Button"
+                                             Binding="{Binding IsSharedGoalsSelected}"
+                                             Value="False">
+                                    <Setter Property="BackgroundColor"
+                                            Value="{AppThemeBinding Light={StaticResource NeutralColor}, Dark=#424242}" />
+                                    <Setter Property="TextColor"
+                                            Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
                         <Button Text="Discover"
                                 Command="{Binding SwitchToDiscoverGoalsCommand}"
-                                BackgroundColor="{Binding IsDiscoverSelected, Converter={StaticResource BoolToColorConverter}}"
-                                TextColor="White"
                                 CornerRadius="5"
-                                Margin="5" />
+                                Margin="5"
+                                Style="{StaticResource ModernButtonBaseStyle}">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button"
+                                             Binding="{Binding IsDiscoverSelected}"
+                                             Value="True">
+                                    <Setter Property="BackgroundColor"
+                                            Value="{StaticResource PrimaryColor}" />
+                                    <Setter Property="TextColor"
+                                            Value="White" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Button"
+                                             Binding="{Binding IsDiscoverSelected}"
+                                             Value="False">
+                                    <Setter Property="BackgroundColor"
+                                            Value="{AppThemeBinding Light={StaticResource NeutralColor}, Dark=#424242}" />
+                                    <Setter Property="TextColor"
+                                            Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
                     </HorizontalStackLayout>
                 </Frame>
                 <!-- My Goals Section -->
                 <VerticalStackLayout IsVisible="{Binding IsMyGoalsSelected}"
                                      Spacing="15">
                     <Frame CornerRadius="10"
-                           Padding="0">
+                           Padding="0"
+                           BackgroundColor="Transparent"
+                           BorderColor="Transparent">
                         <Button Text="{Binding CreateGoalButtonText}"
                                 Command="{Binding ToggleCreateGoalCommand}"
-                                TextColor="White" />
+                                Style="{StaticResource PrimaryButtonStyle}" />
                     </Frame>
                     <Frame IsVisible="{Binding ShowNewGoal}"
-                           Padding="15"
-                           CornerRadius="10"
-                           BorderColor="{StaticResource Primary}">
+                           Style="{StaticResource ModernCardStyle}"
+                           BorderColor="{StaticResource PrimaryColor}">
                         <VerticalStackLayout Spacing="15">
                             <Label Text="Create New Goal"
-                                   FontSize="Medium"
-                                   FontAttributes="Bold"
+                                   Style="{StaticResource SubHeaderStyle}"
                                    HorizontalOptions="Center" />
                             <Picker Title="Goal Type"
                                     ItemsSource="{Binding GoalTypes}"
-                                    SelectedItem="{Binding SelectedGoalType}" />
+                                    SelectedItem="{Binding SelectedGoalType}"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                    TitleColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                             <Entry Placeholder="Goal Title"
-                                   Text="{Binding NewGoalTitle}" />
+                                   Text="{Binding NewGoalTitle}"
+                                   Style="{StaticResource ModernEntryStyle}" />
                             <Editor Placeholder="Enter goal details and description..."
-                                    Text="{Binding NewGoalText}"
+                                    Text="{Binding NewGoalDescription}"
                                     HeightRequest="100"
-                                    AutoSize="TextChanges" />
+                                    AutoSize="TextChanges"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                    PlaceholderColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackgroundLight}, Dark={StaticResource SurfaceBackgroundDark}}" />
                             <Grid ColumnDefinitions="Auto,*"
                                   RowDefinitions="Auto,Auto"
                                   ColumnSpacing="10">
                                 <Label Grid.Row="0"
                                        Grid.Column="0"
                                        Text="Priority:"
-                                       VerticalOptions="Center" />
+                                       VerticalOptions="Center"
+                                       Style="{StaticResource BodyTextStyle}" />
                                 <Slider Grid.Row="0"
                                         Grid.Column="1"
                                         Minimum="1"
                                         Maximum="5"
                                         Value="{Binding GoalPriority}"
-                                        ThumbColor="{StaticResource Primary}"
-                                        MinimumTrackColor="{StaticResource Primary}" />
+                                        ThumbColor="{StaticResource PrimaryColor}"
+                                        MinimumTrackColor="{StaticResource PrimaryColor}"
+                                        MaximumTrackColor="{AppThemeBinding Light={StaticResource NeutralColor}, Dark=#555555}" />
                                 <Label Grid.Row="1"
                                        Grid.Column="0"
                                        Text="Deadline:"
-                                       VerticalOptions="Center" />
+                                       VerticalOptions="Center"
+                                       Style="{StaticResource BodyTextStyle}" />
                                 <DatePicker Grid.Row="1"
                                             Grid.Column="1"
-                                            Date="{Binding GoalDeadline}" />
+                                            Date="{Binding GoalDeadline}"
+                                            TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                             </Grid>
                             <StackLayout Orientation="Horizontal">
                                 <CheckBox IsChecked="{Binding ShareGoal}"
-                                          Color="{StaticResource Primary}" />
+                                          Color="{StaticResource PrimaryColor}" />
                                 <Label Text="Share this goal publicly"
-                                       VerticalOptions="Center" />
+                                       VerticalOptions="Center"
+                                       Style="{StaticResource BodyTextStyle}" />
                             </StackLayout>
                             <Frame CornerRadius="10"
-                                   Padding="0">
-                                <Button BackgroundColor="Green"
-                                        Text="Submit Goal"
+                                   Padding="0"
+                                   BackgroundColor="Transparent"
+                                   BorderColor="Transparent">
+                                <Button Text="Submit Goal"
                                         Command="{Binding SubmitGoalCommand}"
-                                        TextColor="White" />
+                                        Style="{StaticResource SuccessButtonStyle}" />
                             </Frame>
                         </VerticalStackLayout>
                     </Frame>
                     <CollectionView ItemsSource="{Binding MyGoals}">
                         <CollectionView.ItemTemplate>
-                            <DataTemplate>
-                                <Frame CornerRadius="10"
-                                       Padding="15"
-                                       Margin="0,5"
-                                       BorderColor="{StaticResource Primary}">
+                            <DataTemplate x:DataType="models:Goal">
+                                <Frame Style="{StaticResource ModernCardStyle}"
+                                       BorderColor="{StaticResource PrimaryColor}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Grid.Column="0"
                                                              Spacing="5">
                                             <Label Text="{Binding Title}"
-                                                   FontSize="Medium"
-                                                   FontAttributes="Bold" />
+                                                   Style="{StaticResource CaptionStyle}" />
                                             <Label Text="{Binding Description}"
-                                                   FontSize="Small" />
+                                                   Style="{StaticResource BodyTextStyle}" />
                                             <ProgressBar Progress="{Binding Progress}"
-                                                         ProgressColor="{StaticResource Primary}" />
+                                                         ProgressColor="{StaticResource PrimaryColor}" />
                                             <HorizontalStackLayout Spacing="10">
                                                 <Label Text="{Binding Deadline, StringFormat='Due: {0:d}'}"
                                                        FontSize="Micro"
-                                                       TextColor="Gray" />
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                                                 <Label Text="{Binding Priority, StringFormat='Priority: {0}'}"
                                                        FontSize="Micro"
-                                                       TextColor="Gray" />
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                                <Label Text="{Binding GoalType}"
+                                                       FontSize="Micro"
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                                                       IsVisible="{Binding GoalType, Converter={StaticResource IsNotNullOrEmptyConverter}}" />
                                             </HorizontalStackLayout>
                                         </VerticalStackLayout>
                                         <VerticalStackLayout Grid.Column="1"
-                                                             Spacing="5">
+                                                             Spacing="5"
+                                                             VerticalOptions="Center">
                                             <Button Text="Edit"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditGoalCommand}"
                                                     CommandParameter="{Binding .}"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
                                                     WidthRequest="80" />
-                                            <Button Text="Share"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ShareGoalCommand}"
+                                            <Button Text="Delete"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteGoalCommand}"
                                                     CommandParameter="{Binding .}"
+                                                    BackgroundColor="{StaticResource SecondaryDarkColor}"
+                                                    TextColor="White"
+                                                    Style="{StaticResource ModernButtonBaseStyle}"
                                                     WidthRequest="80" />
                                         </VerticalStackLayout>
                                     </Grid>
                                 </Frame>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
+                        <CollectionView.EmptyView>
+                            <Label Text="No goals yet. Create one!"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center"
+                                   Style="{StaticResource BodyTextStyle}"
+                                   Margin="20" />
+                        </CollectionView.EmptyView>
                     </CollectionView>
                 </VerticalStackLayout>
                 <!-- Shared Goals Section -->
                 <VerticalStackLayout IsVisible="{Binding IsSharedGoalsSelected}"
                                      Spacing="15">
                     <SearchBar Placeholder="Search your shared goals"
-                               Text="{Binding SharedGoalSearchQuery}" />
+                               Text="{Binding SharedGoalSearchQuery}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                               PlaceholderColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                               BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackgroundLight}, Dark={StaticResource SurfaceBackgroundDark}}" />
                     <CollectionView ItemsSource="{Binding SharedGoals}">
                         <CollectionView.ItemTemplate>
                             <DataTemplate>
-                                <Frame CornerRadius="10"
-                                       Padding="15"
-                                       Margin="0,5"
-                                       BorderColor="LightGray">
+                                <Frame Style="{StaticResource ModernCardStyle}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Grid.Column="0"
                                                              Spacing="5">
                                             <Label Text="{Binding Title}"
-                                                   FontSize="Medium"
-                                                   FontAttributes="Bold" />
+                                                   Style="{StaticResource CaptionStyle}" />
                                             <Label Text="{Binding Description}"
-                                                   FontSize="Small" />
+                                                   Style="{StaticResource BodyTextStyle}" />
                                             <HorizontalStackLayout Spacing="10">
                                                 <Label Text="{Binding SharedWith, StringFormat='Shared with: {0} users'}"
                                                        FontSize="Micro"
-                                                       TextColor="Gray" />
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                                                 <Label Text="{Binding SharedDate, StringFormat='Shared on: {0:d}'}"
                                                        FontSize="Micro"
-                                                       TextColor="Gray" />
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                                             </HorizontalStackLayout>
                                         </VerticalStackLayout>
                                         <Button Grid.Column="1"
                                                 Text="Unshare"
                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.UnshareGoalCommand}"
                                                 CommandParameter="{Binding .}"
-                                                BackgroundColor="#FF5252"
+                                                BackgroundColor="{StaticResource SecondaryDarkColor}"
                                                 TextColor="White"
+                                                Style="{StaticResource ModernButtonBaseStyle}"
                                                 VerticalOptions="Center" />
                                     </Grid>
                                 </Frame>
@@ -191,62 +278,71 @@
                 <VerticalStackLayout IsVisible="{Binding IsDiscoverSelected}"
                                      Spacing="15">
                     <SearchBar Placeholder="Search for goals to download"
-                               Text="{Binding DiscoverSearchQuery}" />
+                               Text="{Binding DiscoverSearchQuery}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                               PlaceholderColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                               BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackgroundLight}, Dark={StaticResource SurfaceBackgroundDark}}" />
                     <Label Text="Popular Categories"
-                           FontAttributes="Bold" />
+                           Style="{StaticResource SubHeaderStyle}" />
                     <HorizontalStackLayout Spacing="10"
                                            HorizontalOptions="Center">
                         <Button Text="Productivity"
                                 Command="{Binding FilterCategoryCommand}"
-                                CommandParameter="Productivity" />
+                                CommandParameter="Productivity"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource NeutralColor}, Dark=#424242}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                         <Button Text="Business"
                                 Command="{Binding FilterCategoryCommand}"
-                                CommandParameter="Business" />
+                                CommandParameter="Business"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource NeutralColor}, Dark=#424242}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                         <Button Text="Personal"
                                 Command="{Binding FilterCategoryCommand}"
-                                CommandParameter="Personal" />
+                                CommandParameter="Personal"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource NeutralColor}, Dark=#424242}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
                     </HorizontalStackLayout>
                     <CollectionView ItemsSource="{Binding DiscoverGoals}">
                         <CollectionView.ItemTemplate>
                             <DataTemplate>
-                                <Frame CornerRadius="10"
-                                       Padding="15"
-                                       Margin="0,5">
+                                <Frame Style="{StaticResource ModernCardStyle}">
                                     <Grid ColumnDefinitions="Auto,*,Auto">
                                         <Image Grid.Column="0"
                                                Source="{Binding CreatorImage}"
                                                WidthRequest="40"
                                                HeightRequest="40"
+                                               Aspect="AspectFill"
                                                VerticalOptions="Start"
                                                Margin="0,0,10,0" />
                                         <VerticalStackLayout Grid.Column="1"
                                                              Spacing="5">
                                             <Label Text="{Binding Title}"
-                                                   FontSize="Medium"
-                                                   FontAttributes="Bold" />
+                                                   Style="{StaticResource CaptionStyle}" />
                                             <Label Text="{Binding Description}"
-                                                   FontSize="Small" />
+                                                   Style="{StaticResource BodyTextStyle}" />
                                             <HorizontalStackLayout Spacing="10">
                                                 <Image Source="star.png"
                                                        WidthRequest="12"
                                                        HeightRequest="12" />
                                                 <Label Text="{Binding Rating}"
                                                        FontSize="Micro"
-                                                       TextColor="Gray" />
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                                                 <Label Text="{Binding Downloads, StringFormat='{0} downloads'}"
                                                        FontSize="Micro"
-                                                       TextColor="Gray" />
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                                                 <Label Text="{Binding Creator}"
                                                        FontSize="Micro"
-                                                       TextColor="Gray" />
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                                             </HorizontalStackLayout>
                                         </VerticalStackLayout>
                                         <Button Grid.Column="2"
                                                 Text="Download"
                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DownloadGoalCommand}"
                                                 CommandParameter="{Binding .}"
-                                                BackgroundColor="#4CAF50"
-                                                TextColor="White"
+                                                Style="{StaticResource SuccessButtonStyle}"
                                                 VerticalOptions="Center" />
                                     </Grid>
                                 </Frame>

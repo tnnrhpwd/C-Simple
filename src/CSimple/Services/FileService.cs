@@ -53,6 +53,72 @@ namespace CSimple.Services
             }
         }
 
+        // --- Generic Save/Load Methods ---
+
+        /// <summary>
+        /// Saves generic data to a specified JSON file.
+        /// </summary>
+        /// <typeparam name="T">The type of data to save.</typeparam>
+        /// <param name="filename">The name of the file (e.g., "mydata.json").</param>
+        /// <param name="data">The data object to serialize and save.</param>
+        public async Task SaveDataAsync<T>(string filename, T data)
+        {
+            var filePath = Path.Combine(_directory, filename);
+            try
+            {
+                EnsureFileDirectoryExists(filePath); // Ensure directory exists
+                var json = JsonSerializer.Serialize(data, _jsonOptions);
+                await File.WriteAllTextAsync(filePath, json);
+                System.Diagnostics.Debug.WriteLine($"Data saved successfully to {filePath}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error saving data to {filePath}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine(ex.StackTrace);
+            }
+        }
+
+        /// <summary>
+        /// Loads generic data from a specified JSON file.
+        /// </summary>
+        /// <typeparam name="T">The type of data to load.</typeparam>
+        /// <param name="filename">The name of the file (e.g., "mydata.json").</param>
+        /// <returns>The deserialized data object, or default(T) if the file doesn't exist or an error occurs.</returns>
+        public async Task<T> LoadDataAsync<T>(string filename)
+        {
+            var filePath = Path.Combine(_directory, filename);
+            try
+            {
+                if (!File.Exists(filePath))
+                {
+                    System.Diagnostics.Debug.WriteLine($"File not found: {filePath}. Returning default value.");
+                    return default;
+                }
+
+                var json = await File.ReadAllTextAsync(filePath);
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    System.Diagnostics.Debug.WriteLine($"File {filePath} is empty. Returning default value.");
+                    return default;
+                }
+
+                var data = JsonSerializer.Deserialize<T>(json, _jsonOptions);
+                System.Diagnostics.Debug.WriteLine($"Data loaded successfully from {filePath}");
+                return data;
+            }
+            catch (JsonException jsonEx)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error deserializing JSON from {filePath}: {jsonEx.Message}. File content might be invalid.");
+                // Consider backup/recovery logic here
+                return default;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading data from {filePath}: {ex.Message}");
+                return default;
+            }
+        }
+
         public async Task SaveDataItemsAsync(List<DataItem> dataItems)
         {
             System.Diagnostics.Debug.WriteLine($"Attempting to save data to {_dataItemsFilePath}");
@@ -588,6 +654,24 @@ namespace CSimple.Services
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"Error checking/initializing existing file {filePath}: {ex.Message}");
+                }
+            }
+        }
+
+        // Helper to ensure directory exists before saving a file
+        private void EnsureFileDirectoryExists(string filePath)
+        {
+            var fileDir = Path.GetDirectoryName(filePath);
+            if (!Directory.Exists(fileDir))
+            {
+                try
+                {
+                    Directory.CreateDirectory(fileDir);
+                    System.Diagnostics.Debug.WriteLine($"Directory created at {fileDir}");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error creating directory {fileDir}: {ex.Message}");
                 }
             }
         }
