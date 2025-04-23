@@ -148,7 +148,7 @@ namespace CSimple.ViewModels
 
         // Configuration for Python execution (Consider moving to a config file/service)
         private const string PythonExecutablePath = "python"; // Or full path e.g., @"C:\Python311\python.exe"
-        private const string HuggingFaceScriptPath = @"path\to\your\run_hf_model.py"; // IMPORTANT: Update this path
+        private const string HuggingFaceScriptPath = @"c:\Users\tanne\Documents\Github\C-Simple\scripts\run_hf_model.py"; // Updated path to the script
 
         // --- Public Methods (called from View or Commands) ---
 
