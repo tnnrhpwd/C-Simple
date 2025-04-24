@@ -1,9 +1,12 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Maui.Storage;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 
 namespace CSimple.Services
 {
@@ -14,8 +17,7 @@ namespace CSimple.Services
     {
         private readonly string _appDataPath;
         private readonly string _scriptsPath;
-        private string _pythonPath;
-        private bool _useApiOnlyMode = false;
+        private string _pythonPath = null;
 
         // Events for status updates
         public event EventHandler<string> StatusChanged;
@@ -33,81 +35,99 @@ namespace CSimple.Services
         /// <summary>
         /// Gets the Python executable path
         /// </summary>
-        public string PythonExecutablePath => _pythonPath ?? "python";
+        public string PythonExecutablePath => _pythonPath;
 
         /// <summary>
-        /// Initializes Python environment
+        /// Initializes by finding an existing Python installation
         /// </summary>
         public async Task<bool> InitializeAsync()
         {
             try
             {
                 UpdateStatus("Checking for Python installation...");
+                UpdateProgress(0.1);
 
-                // First, try to find system Python
+                // Try to find Python in common locations
                 if (await FindSystemPythonAsync())
                 {
-                    UpdateStatus("Found system Python installation.");
+                    UpdateStatus($"Found Python at: {_pythonPath}");
+                    UpdateProgress(1.0);
                     return true;
                 }
 
-                // If no system Python, set to API-only mode
-                UpdateStatus("No Python installation found. Using API-only mode.");
-                _useApiOnlyMode = true;
-
-                // Still ensure we have the API runtime script
-                await EnsureApiRuntimeScriptAsync();
-
-                return false; // Return false to indicate we're in API-only mode
+                // No Python found
+                UpdateStatus("Python not found. Please install Python from python.org");
+                UpdateProgress(1.0);
+                return false;
             }
             catch (Exception ex)
             {
-                UpdateStatus($"Error initializing Python: {ex.Message}");
-                Debug.WriteLine($"Python bootstrapper error: {ex}");
-                _useApiOnlyMode = true;
-                await EnsureApiRuntimeScriptAsync();
+                UpdateStatus($"Error initializing Python environment: {ex.Message}");
+                Debug.WriteLine($"Error in InitializeAsync: {ex}");
                 return false;
             }
         }
 
         /// <summary>
-        /// Installs required packages for the application
+        /// Installs required packages for HuggingFace models
         /// </summary>
         public async Task<bool> InstallRequiredPackagesAsync()
         {
-            if (_useApiOnlyMode)
+            if (string.IsNullOrEmpty(_pythonPath))
             {
-                UpdateStatus("API-only mode active, no packages to install.");
-                return true; // Nothing to install in API-only mode
+                UpdateStatus("Python not found. Cannot install packages.");
+                return false;
             }
 
             try
             {
                 UpdateStatus("Installing required packages...");
+                UpdateProgress(0.2);
 
-                var process = new Process
+                // Create a process to run pip
+                var processStartInfo = new ProcessStartInfo
                 {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = PythonExecutablePath,
-                        Arguments = "-m pip install requests urllib3 --user",
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        CreateNoWindow = true
-                    }
+                    FileName = _pythonPath,
+                    Arguments = "-m pip install transformers torch --upgrade",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
                 };
 
-                StringBuilder output = new StringBuilder();
-                StringBuilder error = new StringBuilder();
+                using var process = new Process { StartInfo = processStartInfo };
+                var output = new StringBuilder();
+                var error = new StringBuilder();
 
-                process.OutputDataReceived += (sender, e) => { if (e.Data != null) output.AppendLine(e.Data); };
-                process.ErrorDataReceived += (sender, e) => { if (e.Data != null) error.AppendLine(e.Data); };
+                process.OutputDataReceived += (s, e) =>
+                {
+                    if (e.Data != null)
+                    {
+                        output.AppendLine(e.Data);
+                        UpdateStatus($"Installing: {e.Data}");
+                    }
+                };
+                process.ErrorDataReceived += (s, e) =>
+                {
+                    if (e.Data != null) error.AppendLine(e.Data);
+                };
 
                 process.Start();
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
-                await process.WaitForExitAsync();
+
+                // Add a reasonable timeout
+                var timeoutTask = Task.Delay(TimeSpan.FromMinutes(5)); // 5 minute timeout
+                var completedTask = await Task.WhenAny(process.WaitForExitAsync(), timeoutTask);
+
+                if (completedTask == timeoutTask)
+                {
+                    try { process.Kill(); } catch { }
+                    UpdateStatus("Package installation timed out. Try installing manually.");
+                    return false;
+                }
 
                 if (process.ExitCode != 0)
                 {
@@ -115,12 +135,14 @@ namespace CSimple.Services
                     return false;
                 }
 
-                UpdateStatus("Required packages installed.");
+                UpdateStatus("Required packages installed successfully.");
+                UpdateProgress(1.0);
                 return true;
             }
             catch (Exception ex)
             {
                 UpdateStatus($"Error installing packages: {ex.Message}");
+                Debug.WriteLine($"Error installing packages: {ex}");
                 return false;
             }
         }
@@ -130,12 +152,6 @@ namespace CSimple.Services
         /// </summary>
         public string GetScriptPath(string scriptName)
         {
-            // If in API-only mode, use the api_runtime.py script regardless of what's requested
-            if (_useApiOnlyMode && scriptName == "run_hf_model.py")
-            {
-                return Path.Combine(_scriptsPath, "api_runtime.py");
-            }
-
             return Path.Combine(_scriptsPath, scriptName);
         }
 
@@ -178,135 +194,369 @@ namespace CSimple.Services
         public async Task<(string Output, string Error, int ExitCode)> ExecuteScriptAsync(
             string scriptPath, string arguments, int timeoutMs = 120000)
         {
-            string pythonPath = PythonExecutablePath;
-
-            // If in API-only mode, route all executions to our api_runtime.py
-            if (_useApiOnlyMode)
+            if (string.IsNullOrEmpty(_pythonPath))
             {
-                scriptPath = GetScriptPath("api_runtime.py");
+                return ("", "Python not found. Please install Python and restart the application.", -1);
             }
 
-            Debug.WriteLine($"Executing script: {pythonPath} \"{scriptPath}\" {arguments}");
-
-            var process = new Process
+            try
             {
-                StartInfo = new ProcessStartInfo
+                var processStartInfo = new ProcessStartInfo
                 {
-                    FileName = pythonPath,
+                    FileName = _pythonPath,
                     Arguments = $"\"{scriptPath}\" {arguments}",
-                    UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
-                    CreateNoWindow = true
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                };
+
+                Debug.WriteLine($"Executing: {processStartInfo.FileName} {processStartInfo.Arguments}");
+
+                using var process = new Process { StartInfo = processStartInfo };
+                var output = new StringBuilder();
+                var error = new StringBuilder();
+
+                process.OutputDataReceived += (s, e) => { if (e.Data != null) output.AppendLine(e.Data); };
+                process.ErrorDataReceived += (s, e) => { if (e.Data != null) error.AppendLine(e.Data); };
+
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                // Add a reasonable timeout
+                var timeoutTask = Task.Delay(timeoutMs);
+                var completedTask = await Task.WhenAny(process.WaitForExitAsync(), timeoutTask);
+
+                if (completedTask == timeoutTask)
+                {
+                    try { process.Kill(); } catch { }
+                    return ("", "Script execution timed out.", -1);
                 }
-            };
 
-            var outputBuilder = new StringBuilder();
-            var errorBuilder = new StringBuilder();
-
-            process.OutputDataReceived += (s, e) =>
-            {
-                if (e.Data != null) outputBuilder.AppendLine(e.Data);
-            };
-
-            process.ErrorDataReceived += (s, e) =>
-            {
-                if (e.Data != null) errorBuilder.AppendLine(e.Data);
-            };
-
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-
-            // Use a timeout
-            bool exited = await Task.Run(() => process.WaitForExit(timeoutMs));
-
-            if (!exited)
-            {
-                try { process.Kill(); } catch { }
-                return ("", "Script execution timed out", -1);
+                return (output.ToString(), error.ToString(), process.ExitCode);
             }
-
-            return (outputBuilder.ToString(), errorBuilder.ToString(), process.ExitCode);
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error executing script: {ex.Message}");
+                return ("", $"Error executing script: {ex.Message}", -1);
+            }
         }
 
         #region Private Helper Methods
 
         private async Task<bool> FindSystemPythonAsync()
         {
-            try
-            {
-                // Try "python" and "python3" commands to see if Python is in PATH
-                string[] pythonCommands = { "python", "python3" };
+            // List of potential Python executable names by platform
+            var pythonExecutables = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? new[] { "python.exe", "python3.exe", "py.exe" }
+                : new[] { "python", "python3" };
 
-                foreach (var cmd in pythonCommands)
+            // Try all executables in PATH first
+            foreach (var executable in pythonExecutables)
+            {
+                try
+                {
+                    var result = await ExecuteCommandAsync(executable, "--version");
+                    if (result.ExitCode == 0 && result.Output.Contains("Python 3"))
+                    {
+                        // Validate Python version is in our supported range
+                        string versionOutput = result.Output.Trim();
+                        if (IsValidPythonVersion(versionOutput))
+                        {
+                            _pythonPath = executable;
+                            Debug.WriteLine($"Found Python in PATH: {executable} - {versionOutput}");
+                            UpdateStatus($"Found Python: {versionOutput}");
+                            return true;
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"Found Python but version not in supported range: {versionOutput}");
+                            UpdateStatus($"Found unsupported Python version: {versionOutput}. Please install Python 3.8-3.11.");
+                            // Continue checking for other Python installations that might meet our version requirements
+                        }
+                    }
+                }
+                catch
+                {
+                    // Continue to next executable
+                }
+            }
+
+            // If we're on Windows, check common installation paths
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                // Try common Windows install locations - newer Python versions first
+                var commonPaths = GetCommonWindowsPythonPaths();
+                foreach (var path in commonPaths)
+                {
+                    if (File.Exists(path))
+                    {
+                        try
+                        {
+                            var result = await ExecuteCommandAsync(path, "--version");
+                            if (result.ExitCode == 0 && result.Output.Contains("Python 3"))
+                            {
+                                // Validate Python version is in our supported range
+                                string versionOutput = result.Output.Trim();
+                                if (IsValidPythonVersion(versionOutput))
+                                {
+                                    _pythonPath = path;
+                                    Debug.WriteLine($"Found Python at common location: {path} - {versionOutput}");
+                                    UpdateStatus($"Found Python: {versionOutput}");
+                                    return true;
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($"Found Python but version not in supported range: {versionOutput}");
+                                    UpdateStatus($"Found unsupported Python version: {versionOutput}. Please install Python 3.8-3.11.");
+                                    // Continue checking for other Python installations that might meet our version requirements
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Continue to next path
+                        }
+                    }
+                }
+
+                // Check Windows Registry for Python installations
+                try
+                {
+                    var registryPaths = GetPythonPathsFromRegistry();
+                    foreach (var path in registryPaths)
+                    {
+                        if (File.Exists(path))
+                        {
+                            try
+                            {
+                                var result = await ExecuteCommandAsync(path, "--version");
+                                if (result.ExitCode == 0 && result.Output.Contains("Python 3"))
+                                {
+                                    // Validate Python version is in our supported range
+                                    string versionOutput = result.Output.Trim();
+                                    if (IsValidPythonVersion(versionOutput))
+                                    {
+                                        _pythonPath = path;
+                                        Debug.WriteLine($"Found Python in registry: {path} - {versionOutput}");
+                                        UpdateStatus($"Found Python: {versionOutput}");
+                                        return true;
+                                    }
+                                    else
+                                    {
+                                        Debug.WriteLine($"Found Python but version not in supported range: {versionOutput}");
+                                        UpdateStatus($"Found unsupported Python version: {versionOutput}. Please install Python 3.8-3.11.");
+                                        // Continue checking for other Python installations that might meet our version requirements
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                // Continue to next path
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error reading registry: {ex.Message}");
+                }
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                // macOS common paths
+                var commonPaths = new[]
+                {
+                    "/usr/bin/python3",
+                    "/usr/local/bin/python3",
+                    "/opt/homebrew/bin/python3"
+                };
+
+                foreach (var path in commonPaths)
+                {
+                    if (File.Exists(path))
+                    {
+                        try
+                        {
+                            var result = await ExecuteCommandAsync(path, "--version");
+                            if (result.ExitCode == 0 && result.Output.Contains("Python 3"))
+                            {
+                                // Validate Python version is in our supported range
+                                string versionOutput = result.Output.Trim();
+                                if (IsValidPythonVersion(versionOutput))
+                                {
+                                    _pythonPath = path;
+                                    Debug.WriteLine($"Found Python at common location: {path} - {versionOutput}");
+                                    UpdateStatus($"Found Python: {versionOutput}");
+                                    return true;
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($"Found Python but version not in supported range: {versionOutput}");
+                                    UpdateStatus($"Found unsupported Python version: {versionOutput}. Please install Python 3.8-3.11.");
+                                    // Continue checking for other Python installations that might meet our version requirements
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Continue to next path
+                        }
+                    }
+                }
+            }
+
+            Debug.WriteLine("No supported Python installation found.");
+            UpdateStatus("No Python 3.8-3.11 installation found. Please install from python.org.");
+            return false;
+        }
+
+        private bool IsValidPythonVersion(string versionString)
+        {
+            // Extract version number from string like "Python 3.10.2"
+            Match match = Regex.Match(versionString, @"Python\s+(\d+)\.(\d+)\.(\d+)");
+            if (match.Success)
+            {
+                int major = int.Parse(match.Groups[1].Value);
+                int minor = int.Parse(match.Groups[2].Value);
+
+                // Check if version is between 3.8 and 3.11 inclusive
+                if (major == 3 && minor >= 8 && minor <= 11)
+                {
+                    return true;
+                }
+            }
+
+            // If no match or version outside range
+            return false;
+        }
+
+        private List<string> GetCommonWindowsPythonPaths()
+        {
+            var paths = new List<string>();
+            var drives = Directory.GetLogicalDrives();
+
+            // For each drive, check common Python installation paths
+            foreach (var drive in drives)
+            {
+                // Check Python Launcher
+                paths.Add(Path.Combine(drive, "Windows", "py.exe"));
+
+                // Check Program Files
+                for (int version = 312; version >= 36; version--)
+                {
+                    // Check both 64-bit and 32-bit installations
+                    var majorVersion = version / 10;
+                    var minorVersion = version % 10;
+
+                    paths.Add(Path.Combine(drive, "Program Files", $"Python{majorVersion}{minorVersion}", "python.exe"));
+                    paths.Add(Path.Combine(drive, "Program Files (x86)", $"Python{majorVersion}{minorVersion}", "python.exe"));
+
+                    // Also check Python installed at root of drive (common for custom installations)
+                    paths.Add(Path.Combine(drive, $"Python{majorVersion}{minorVersion}", "python.exe"));
+                }
+
+                // Check Windows Store Python installations
+                var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                var programsPath = Path.Combine(localAppData, "Programs");
+                if (Directory.Exists(programsPath))
                 {
                     try
                     {
-                        var process = new Process
+                        foreach (var dir in Directory.GetDirectories(programsPath, "Python*"))
                         {
-                            StartInfo = new ProcessStartInfo
-                            {
-                                FileName = cmd,
-                                Arguments = "--version",
-                                UseShellExecute = false,
-                                RedirectStandardOutput = true,
-                                RedirectStandardError = true,
-                                CreateNoWindow = true
-                            }
-                        };
-
-                        process.Start();
-                        string output = await process.StandardOutput.ReadToEndAsync();
-                        string error = await process.StandardError.ReadToEndAsync();
-                        await process.WaitForExitAsync();
-
-                        if (process.ExitCode == 0)
-                        {
-                            // Capture combined output
-                            string version = string.IsNullOrEmpty(output) ? error : output;
-
-                            if (version.Contains("Python 3"))
-                            {
-                                _pythonPath = cmd;
-                                UpdateStatus($"Found Python: {version.Trim()}");
-                                return true;
-                            }
+                            paths.Add(Path.Combine(dir, "python.exe"));
                         }
                     }
                     catch
                     {
-                        // Try next command
+                        // Ignore directory access errors
                     }
                 }
+            }
 
-                // Try common installation paths on Windows
-                if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+            return paths;
+        }
+
+        private List<string> GetPythonPathsFromRegistry()
+        {
+            var paths = new List<string>();
+
+#if WINDOWS
+            // This section requires Microsoft.Win32 references which are only available on Windows
+            try
+            {
+                using (var baseKey = Microsoft.Win32.RegistryKey.OpenBaseKey(
+                    Microsoft.Win32.RegistryHive.LocalMachine,
+                    Microsoft.Win32.RegistryView.Registry64))
                 {
-                    string[] commonPaths = {
-                        @"C:\Python39\python.exe",
-                        @"C:\Program Files\Python39\python.exe",
-                        @"C:\Program Files (x86)\Python39\python.exe",
-                    };
-
-                    foreach (var path in commonPaths)
+                    // Check for Python installations registered in the Windows Registry
+                    using (var pythonCoreKey = baseKey.OpenSubKey(@"SOFTWARE\Python\PythonCore"))
                     {
-                        if (File.Exists(path))
+                        if (pythonCoreKey != null)
                         {
-                            _pythonPath = path;
-                            UpdateStatus($"Found Python at: {path}");
-                            return true;
+                            foreach (var versionName in pythonCoreKey.GetSubKeyNames())
+                            {
+                                using (var versionKey = pythonCoreKey.OpenSubKey(versionName))
+                                {
+                                    if (versionKey != null)
+                                    {
+                                        using (var installPathKey = versionKey.OpenSubKey("InstallPath"))
+                                        {
+                                            if (installPathKey != null)
+                                            {
+                                                var installPath = installPathKey.GetValue("")?.ToString();
+                                                if (!string.IsNullOrEmpty(installPath))
+                                                {
+                                                    var pythonPath = Path.Combine(installPath, "python.exe");
+                                                    paths.Add(pythonPath);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-
-                return false;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error finding system Python: {ex.Message}");
-                return false;
+                Debug.WriteLine($"Error reading registry: {ex.Message}");
             }
+#endif
+
+            return paths;
+        }
+
+        private async Task<(string Output, string Error, int ExitCode)> ExecuteCommandAsync(string command, string arguments)
+        {
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = command,
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = new Process { StartInfo = processStartInfo };
+            var output = new StringBuilder();
+            var error = new StringBuilder();
+
+            process.OutputDataReceived += (s, e) => { if (e.Data != null) output.AppendLine(e.Data); };
+            process.ErrorDataReceived += (s, e) => { if (e.Data != null) error.AppendLine(e.Data); };
+
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            await process.WaitForExitAsync();
+            return (output.ToString(), error.ToString(), process.ExitCode);
         }
 
         private async Task EnsureApiRuntimeScriptAsync()
@@ -350,7 +600,7 @@ def call_huggingface_api(model_id, inputs, api_key=None, timeout=30):
     payload = {""inputs"": inputs}
     data = json.dumps(payload).encode('utf-8')
     headers = {'Content-Type': 'application/json'}
-    if api_key: headers['Authorization'] = f'Bearer {api_key}'
+    if (api_key): headers['Authorization'] = f'Bearer {api_key}'
     ssl_context = ssl._create_unverified_context()
     try:
         req = urllib.request.Request(api_url, data=data, headers=headers, method='POST')

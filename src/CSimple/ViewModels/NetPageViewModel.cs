@@ -187,27 +187,32 @@ namespace CSimple.ViewModels
             try
             {
                 IsLoading = true;
-                CurrentModelStatus = "Setting up Python environment...";
+                CurrentModelStatus = "Checking for Python installation...";
 
-                // Setup Python environment with the bootstrapper - simplified approach
-                bool success = await _pythonBootstrapper.InitializeAsync();
-                if (!success)
+                // Look for Python installations on the system
+                bool pythonFound = await _pythonBootstrapper.InitializeAsync();
+
+                if (!pythonFound)
                 {
-                    CurrentModelStatus = "System Python not found. Using API-only mode...";
-                    _useFallbackScript = true;
-                    _pythonExecutablePath = "python"; // Default command 
+                    // Don't fall back to API mode - instead show clear instructions
+                    CurrentModelStatus = "Python not found. Local models require Python to run.";
+                    await ShowAlert("Python Required",
+                        "Python 3.8 to 3.11 is required to run HuggingFace models locally.\n\n" +
+                        "1. Download Python from https://python.org/downloads/\n" +
+                        "2. We recommend Python 3.10 for best compatibility with AI libraries\n" +
+                        "3. Avoid Python 3.12+ as some AI libraries may have compatibility issues\n" +
+                        "4. During installation, check 'Add Python to PATH'\n" +
+                        "5. Restart this application after installation", "OK");
 
-                    // We'll use api_runtime.py which is ensured by the bootstrapper
-                    _fallbackScriptPath = _pythonBootstrapper.GetScriptPath("api_runtime.py");
-
-                    // No need to copy scripts since the bootstrapper handles this
+                    // Set a flag that Python is not available
+                    _pythonExecutablePath = null;
                     return;
                 }
 
                 // Get the Python executable path from the bootstrapper
                 _pythonExecutablePath = _pythonBootstrapper.PythonExecutablePath;
 
-                // Copy scripts to the app data directory
+                // Copy necessary scripts to the app data directory
                 string scriptsSourceDir = Path.Combine(AppContext.BaseDirectory, "Scripts");
                 if (Directory.Exists(scriptsSourceDir))
                 {
@@ -217,16 +222,32 @@ namespace CSimple.ViewModels
                 // Set the script path
                 _huggingFaceScriptPath = _pythonBootstrapper.GetScriptPath("run_hf_model.py");
 
-                // Install required packages if needed - just simple requests package
-                await _pythonBootstrapper.InstallRequiredPackagesAsync();
+                // Install required packages
+                CurrentModelStatus = "Installing required Python packages...";
+                bool packagesInstalled = await _pythonBootstrapper.InstallRequiredPackagesAsync();
 
-                CurrentModelStatus = "Python environment ready";
+                if (!packagesInstalled)
+                {
+                    CurrentModelStatus = "Failed to install required Python packages.";
+                    await ShowAlert("Package Installation Failed",
+                        "The application failed to install the required Python packages. " +
+                        "You may need to manually install them by running:\n\n" +
+                        "pip install transformers torch", "OK");
+                }
+                else
+                {
+                    CurrentModelStatus = "Python environment ready";
+                }
             }
             catch (Exception ex)
             {
                 HandleError("Error setting up Python environment", ex);
-                CurrentModelStatus = "Failed to set up Python environment. Will use API fallback.";
-                _useFallbackScript = true;
+                CurrentModelStatus = "Failed to set up Python environment. See error log for details.";
+
+                await ShowAlert("Python Setup Error",
+                    "There was an error setting up the Python environment. " +
+                    "Please make sure Python is installed correctly and 'pip' is available.\n\n" +
+                    $"Error details: {ex.Message}", "OK");
             }
             finally
             {
@@ -518,25 +539,58 @@ namespace CSimple.ViewModels
                 return;
             }
 
+            // Check if Python is available
+            if (string.IsNullOrEmpty(_pythonExecutablePath))
+            {
+                CurrentModelStatus = "Python is not available. Cannot run models.";
+                LastModelOutput = "Python 3.8 to 3.11 is required to run HuggingFace models locally. Please install from python.org and restart the application.";
+
+                await ShowAlert("Python Required",
+                    "Python is required to run HuggingFace models locally.\n\n" +
+                    "1. Download Python 3.8 to 3.11 from https://python.org/downloads/\n" +
+                    "   * We recommend Python 3.10 for best compatibility\n" +
+                    "   * Avoid Python 3.12+ as it may have compatibility issues\n" +
+                    "2. During installation, check 'Add Python to PATH'\n" +
+                    "3. Restart this application after installation", "OK");
+
+                return;
+            }
+
             CurrentModelStatus = $"Sending message to {activeHfModel.Name}...";
             LastModelOutput = $"Processing '{message}' with {activeHfModel.Name}...";
             IsModelCommunicating = true;
 
             try
             {
-                // Ensure Python environment is set up
+                // Check if the script exists
                 if (!File.Exists(_huggingFaceScriptPath))
                 {
-                    // Try to set up the environment again
-                    await SetupPythonEnvironmentAsync();
-
-                    if (!File.Exists(_huggingFaceScriptPath))
+                    // Try to find or extract the script
+                    var scriptDir = Path.GetDirectoryName(_huggingFaceScriptPath);
+                    if (!Directory.Exists(scriptDir))
                     {
-                        throw new FileNotFoundException($"HuggingFace helper script not found. Please reinstall the application.");
+                        Directory.CreateDirectory(scriptDir);
+                    }
+
+                    // Extract scripts
+                    string scriptsSourceDir = Path.Combine(AppContext.BaseDirectory, "Scripts");
+                    if (Directory.Exists(scriptsSourceDir))
+                    {
+                        await _pythonBootstrapper.CopyScriptsAsync(scriptsSourceDir);
+
+                        // Check if script exists again after copying
+                        if (!File.Exists(_huggingFaceScriptPath))
+                        {
+                            throw new FileNotFoundException($"HuggingFace helper script not found. Please reinstall the application.");
+                        }
+                    }
+                    else
+                    {
+                        throw new DirectoryNotFoundException("Scripts directory not found in application folder.");
                     }
                 }
 
-                // Execute the Python script
+                // Execute the Python script - no fallback to API
                 string result = await ExecuteHuggingFaceModelAsync(activeHfModel.HuggingFaceModelId, message);
                 LastModelOutput = $"Response from {activeHfModel.Name}:\n{result}";
                 CurrentModelStatus = $"Received response from {activeHfModel.Name}";
@@ -549,7 +603,17 @@ namespace CSimple.ViewModels
                 // Provide specific guidance for common errors
                 if (ex.Message.Contains("ModuleNotFoundError") || ex.Message.Contains("ImportError"))
                 {
-                    LastModelOutput += "\n\nMissing Python packages. The app will try to install them automatically next time.";
+                    LastModelOutput += "\n\nMissing Python packages. Please install them with:\n" +
+                        "pip install transformers torch";
+
+                    await ShowAlert("Python Packages Required",
+                        "Required packages are missing. Would you like to install them now?\n\n" +
+                        "This will install: transformers, torch",
+                        "OK");
+
+                    // Try to install required packages
+                    CurrentModelStatus = "Installing required packages...";
+                    await _pythonBootstrapper.InstallRequiredPackagesAsync();
                 }
             }
             finally
@@ -558,18 +622,20 @@ namespace CSimple.ViewModels
             }
         }
 
-        // Helper method to execute the Python script - modified for the API fallback
+        // Helper method to execute the Python script - modified for local-only execution
         private async Task<string> ExecuteHuggingFaceModelAsync(string modelId, string inputText)
         {
-            // Use the bootstrapper's ExecuteScriptAsync method which handles both normal and API-only mode
+            // Ensure Python path is set
+            if (string.IsNullOrEmpty(_pythonExecutablePath))
+            {
+                throw new InvalidOperationException("Python is not available. Please install Python and restart the application.");
+            }
+
             try
             {
-                var scriptPath = _useFallbackScript ?
-                    _pythonBootstrapper.GetScriptPath("api_runtime.py") :
-                    _pythonBootstrapper.GetScriptPath("run_hf_model.py");
-
+                // Always use the local Python script, never fall back to API
                 var (output, error, exitCode) = await _pythonBootstrapper.ExecuteScriptAsync(
-                    scriptPath,
+                    _huggingFaceScriptPath,
                     $"--model_id \"{modelId}\" --input \"{inputText.Replace("\"", "\\\"")}\"",
                     timeoutMs: 120000);
 
@@ -581,10 +647,17 @@ namespace CSimple.ViewModels
                     if (error.Contains("ModuleNotFoundError") || error.Contains("ImportError"))
                     {
                         CurrentModelStatus = "Installing required packages...";
-                        await _pythonBootstrapper.InstallRequiredPackagesAsync();
+                        bool installed = await _pythonBootstrapper.InstallRequiredPackagesAsync();
 
-                        // Retry once
-                        return await ExecuteHuggingFaceModelAsync(modelId, inputText);
+                        if (installed)
+                        {
+                            // Retry once
+                            return await ExecuteHuggingFaceModelAsync(modelId, inputText);
+                        }
+                        else
+                        {
+                            throw new Exception("Failed to install required packages. Please install them manually with: pip install transformers torch");
+                        }
                     }
 
                     throw new Exception($"Script failed with exit code {exitCode}. Error: {error}");
@@ -603,16 +676,7 @@ namespace CSimple.ViewModels
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error running model: {ex.Message}");
-
-                // Try falling back to API-only mode if something fails
-                if (!_useFallbackScript)
-                {
-                    _useFallbackScript = true;
-                    CurrentModelStatus = "Falling back to API-only mode...";
-                    return await ExecuteHuggingFaceModelAsync(modelId, inputText);
-                }
-
-                throw; // Re-throw if we're already in fallback mode
+                throw; // Re-throw to be handled by caller
             }
         }
 
