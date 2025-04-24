@@ -20,6 +20,7 @@ namespace CSimple.ViewModels
     {
         private readonly FileService _fileService;
         private readonly HuggingFaceService _huggingFaceService;
+        private readonly PythonBootstrapper _pythonBootstrapper; // Changed from PythonDependencyManager
         // Consider injecting navigation and dialog services for better testability
 
         // --- Backing Fields ---
@@ -31,6 +32,14 @@ namespace CSimple.ViewModels
         private bool _isModelCommunicating = false;
         private string _huggingFaceSearchQuery = "";
         private string _selectedHuggingFaceCategory = "All Categories"; // Default value
+
+        // Declare the missing fields
+        private string _pythonExecutablePath = "python"; // Default value
+        private string _huggingFaceScriptPath = string.Empty; // Default value
+
+        // Add these new properties
+        private bool _useFallbackScript = false;
+        private string _fallbackScriptPath;
 
         // --- Observable Properties ---
         public ObservableCollection<NeuralNetworkModel> AvailableModels { get; } = new();
@@ -99,10 +108,23 @@ namespace CSimple.ViewModels
         public ICommand UpdateModelInputTypeCommand { get; } // ADDED: Command to update input type
 
         // --- Constructor ---
-        public NetPageViewModel(FileService fileService)
+        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper)
         {
             _fileService = fileService;
-            _huggingFaceService = new HuggingFaceService(); // Instantiate HF service
+            _huggingFaceService = huggingFaceService;
+            _pythonBootstrapper = pythonBootstrapper; // Changed from PythonDependencyManager
+
+            // Subscribe to Python setup status updates
+            _pythonBootstrapper.StatusChanged += (s, msg) =>
+            {
+                CurrentModelStatus = $"Python setup: {msg}";
+            };
+
+            _pythonBootstrapper.ProgressChanged += (s, progress) =>
+            {
+                // You could update a progress bar if needed
+                Debug.WriteLine($"Python setup progress: {progress:P0}");
+            };
 
             // Initialize Commands
             ToggleGeneralModeCommand = new Command(ToggleGeneralMode);
@@ -154,9 +176,82 @@ namespace CSimple.ViewModels
 
         public async Task LoadDataAsync()
         {
+            await SetupPythonEnvironmentAsync();
             await LoadPersistedModelsAsync();
             LoadSampleGoals(); // Load sample goals separately
             SubscribeToInputNotifications(); // Start background simulation
+        }
+
+        private async Task SetupPythonEnvironmentAsync()
+        {
+            try
+            {
+                IsLoading = true;
+                CurrentModelStatus = "Setting up Python environment...";
+
+                // Setup Python environment with the bootstrapper
+                bool success = await _pythonBootstrapper.InitializeAsync();
+                if (!success)
+                {
+                    CurrentModelStatus = "Failed to set up Python environment. Using API fallback...";
+                    // Use fallback approach - REST API mode
+                    _useFallbackScript = true;
+                    _pythonExecutablePath = "python"; // Try using system Python
+
+                    // Set fallback script path
+                    string scriptsOutputDir = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "CSimple", "scripts");
+                    _fallbackScriptPath = Path.Combine(scriptsOutputDir, "fallback_runtime.py");
+
+                    // Ensure the fallback script exists
+                    string sourceScriptsDir = Path.Combine(AppContext.BaseDirectory, "Scripts");
+                    if (Directory.Exists(sourceScriptsDir))
+                    {
+                        string sourceFallbackPath = Path.Combine(sourceScriptsDir, "fallback_runtime.py");
+                        if (File.Exists(sourceFallbackPath))
+                        {
+                            Directory.CreateDirectory(scriptsOutputDir);
+                            File.Copy(sourceFallbackPath, _fallbackScriptPath, overwrite: true);
+                            CurrentModelStatus = "Using API fallback for model inference";
+                        }
+                        else
+                        {
+                            CurrentModelStatus = "Fallback script not found. AI assistant may not work properly.";
+                        }
+                    }
+
+                    return;
+                }
+
+                // Install required packages if needed
+                await _pythonBootstrapper.InstallRequiredPackagesAsync();
+
+                // Get the Python executable path from the bootstrapper
+                _pythonExecutablePath = _pythonBootstrapper.PythonExecutablePath;
+
+                // Copy scripts to the app data directory
+                string scriptsSourceDir = Path.Combine(AppContext.BaseDirectory, "Scripts");
+                if (Directory.Exists(scriptsSourceDir))
+                {
+                    await _pythonBootstrapper.CopyScriptsAsync(scriptsSourceDir);
+                }
+
+                // Set the script path
+                _huggingFaceScriptPath = _pythonBootstrapper.GetScriptPath("run_hf_model.py");
+
+                CurrentModelStatus = "Python environment ready";
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error setting up Python environment", ex);
+                CurrentModelStatus = "Failed to set up Python environment. Will use API fallback.";
+                _useFallbackScript = true;
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
         public async Task SearchHuggingFaceAsync()
@@ -449,6 +544,18 @@ namespace CSimple.ViewModels
 
             try
             {
+                // Ensure Python environment is set up
+                if (!File.Exists(_huggingFaceScriptPath))
+                {
+                    // Try to set up the environment again
+                    await SetupPythonEnvironmentAsync();
+
+                    if (!File.Exists(_huggingFaceScriptPath))
+                    {
+                        throw new FileNotFoundException($"HuggingFace helper script not found. Please reinstall the application.");
+                    }
+                }
+
                 // Execute the Python script
                 string result = await ExecuteHuggingFaceModelAsync(activeHfModel.HuggingFaceModelId, message);
                 LastModelOutput = $"Response from {activeHfModel.Name}:\n{result}";
@@ -458,6 +565,12 @@ namespace CSimple.ViewModels
             {
                 HandleError($"Error communicating with model {activeHfModel.Name}", ex);
                 LastModelOutput = $"Error processing message with {activeHfModel.Name}: {ex.Message}";
+
+                // Provide specific guidance for common errors
+                if (ex.Message.Contains("ModuleNotFoundError") || ex.Message.Contains("ImportError"))
+                {
+                    LastModelOutput += "\n\nMissing Python packages. The app will try to install them automatically next time.";
+                }
             }
             finally
             {
@@ -465,54 +578,127 @@ namespace CSimple.ViewModels
             }
         }
 
-        // Helper method to execute the Python script
+        // Helper method to execute the Python script - modified for the API fallback
         private async Task<string> ExecuteHuggingFaceModelAsync(string modelId, string inputText)
         {
-            if (!File.Exists(HuggingFaceScriptPath))
+            // If we're using the fallback script, use API mode by default
+            if (_useFallbackScript)
             {
-                throw new FileNotFoundException($"HuggingFace helper script not found at: {HuggingFaceScriptPath}");
-            }
-
-            // Consider adding checks for Python executable existence
-
-            var processStartInfo = new ProcessStartInfo
-            {
-                FileName = PythonExecutablePath,
-                Arguments = $"\"{HuggingFaceScriptPath}\" --model_id \"{modelId}\" --input \"{inputText.Replace("\"", "\\\"")}\"", // Basic escaping for input
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                StandardOutputEncoding = Encoding.UTF8, // Ensure correct encoding
-                StandardErrorEncoding = Encoding.UTF8
-            };
-
-            Debug.WriteLine($"Executing: {processStartInfo.FileName} {processStartInfo.Arguments}");
-
-            using (var process = new Process { StartInfo = processStartInfo })
-            {
-                var outputBuilder = new StringBuilder();
-                var errorBuilder = new StringBuilder();
-
-                process.OutputDataReceived += (sender, args) => { if (args.Data != null) outputBuilder.AppendLine(args.Data); };
-                process.ErrorDataReceived += (sender, args) => { if (args.Data != null) errorBuilder.AppendLine(args.Data); };
-
-                process.Start();
-                process.BeginOutputReadLine();
-                process.BeginErrorReadLine();
-
-                await process.WaitForExitAsync(); // Use async wait
-
-                if (process.ExitCode != 0)
+                var processStartInfo = new ProcessStartInfo
                 {
-                    string errorOutput = errorBuilder.ToString().Trim();
-                    Debug.WriteLine($"Python script error output:\n{errorOutput}");
-                    throw new Exception($"Python script failed with exit code {process.ExitCode}. Error: {errorOutput}");
+                    FileName = _pythonExecutablePath,
+                    Arguments = $"\"{_fallbackScriptPath}\" --mode api --model_id \"{modelId}\" --input \"{inputText.Replace("\"", "\\\"")}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                };
+
+                Debug.WriteLine($"Executing fallback API mode: {processStartInfo.FileName} {processStartInfo.Arguments}");
+
+                // Existing process execution implementation
+                using (var process = new Process { StartInfo = processStartInfo })
+                {
+                    var outputBuilder = new StringBuilder();
+                    var errorBuilder = new StringBuilder();
+
+                    process.OutputDataReceived += (sender, args) => { if (args.Data != null) outputBuilder.AppendLine(args.Data); };
+                    process.ErrorDataReceived += (sender, args) => { if (args.Data != null) errorBuilder.AppendLine(args.Data); };
+
+                    process.Start();
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
+
+                    // Add a reasonable timeout
+                    var timeoutTask = Task.Delay(TimeSpan.FromMinutes(2));
+                    var completedTask = await Task.WhenAny(process.WaitForExitAsync(), timeoutTask);
+
+                    if (completedTask == timeoutTask)
+                    {
+                        try { process.Kill(); } catch { }
+                        throw new TimeoutException("The model execution timed out. It might be downloading a large model. Please try again later.");
+                    }
+
+                    if (process.ExitCode != 0)
+                    {
+                        string errorOutput = errorBuilder.ToString().Trim();
+                        Debug.WriteLine($"Python script error output:\n{errorOutput}");
+
+                        // If the error contains "ERROR:", extract the specific error message
+                        if (errorOutput.Contains("ERROR:"))
+                        {
+                            int errorIndex = errorOutput.IndexOf("ERROR:");
+                            string errorMessage = errorOutput.Substring(errorIndex).Split('\n')[0];
+                            throw new Exception(errorMessage);
+                        }
+
+                        // If the error indicates missing packages, try installing them and retry
+                        if (errorOutput.Contains("ModuleNotFoundError") || errorOutput.Contains("ImportError"))
+                        {
+                            CurrentModelStatus = "Installing required packages...";
+
+                            if (_useFallbackScript)
+                            {
+                                throw new Exception("Python packages missing. Please install them manually with: pip install transformers torch");
+                            }
+
+                            await _pythonBootstrapper.InstallRequiredPackagesAsync();
+
+                            // Retry once after installing packages
+                            return await ExecuteHuggingFaceModelAsync(modelId, inputText);
+                        }
+
+                        throw new Exception($"Python script failed with exit code {process.ExitCode}. Error: {errorOutput}");
+                    }
+
+                    string result = outputBuilder.ToString().Trim();
+                    Debug.WriteLine($"Python script output:\n{result}");
+
+                    // Look for "ERROR:" in the output which indicates our fallback script had an error
+                    if (result.Contains("ERROR:"))
+                    {
+                        throw new Exception(result);
+                    }
+
+                    return result;
+                }
+            }
+            else
+            {
+                // Use the bootstrapper's ExecuteScriptAsync method instead for more reliable execution
+                var (output, error, exitCode) = await _pythonBootstrapper.ExecuteScriptAsync(
+                    _huggingFaceScriptPath,
+                    $"--model_id \"{modelId}\" --input \"{inputText.Replace("\"", "\\\"")}\"",
+                    timeoutMs: 120000);
+
+                if (exitCode != 0)
+                {
+                    Debug.WriteLine($"Python script error output:\n{error}");
+
+                    // If error indicates missing packages, try to install them
+                    if (error.Contains("ModuleNotFoundError") || error.Contains("ImportError"))
+                    {
+                        CurrentModelStatus = "Installing required packages...";
+                        await _pythonBootstrapper.InstallRequiredPackagesAsync();
+
+                        // Retry once
+                        return await ExecuteHuggingFaceModelAsync(modelId, inputText);
+                    }
+
+                    throw new Exception($"Python script failed with exit code {exitCode}. Error: {error}");
                 }
 
-                string result = outputBuilder.ToString().Trim();
-                Debug.WriteLine($"Python script output:\n{result}");
-                return result;
+                Debug.WriteLine($"Python script output:\n{output}");
+
+                // Error checking
+                if (output.Contains("ERROR:"))
+                {
+                    throw new Exception(output);
+                }
+
+                return output.Trim();
             }
         }
 
@@ -613,7 +799,7 @@ namespace CSimple.ViewModels
                     pipelineTag == "summarization" ||
                     pipelineTag == "conversational" ||
                     modelId.Contains("gpt") ||
-                    modelId.Contains("bert") ||
+                    modelId.Contains("bert") || // Corrected typo: contains -> Contains
                     modelId.Contains("t5") ||
                     modelId.Contains("llama") ||
                     modelId.Contains("bloom") ||

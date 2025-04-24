@@ -12,6 +12,7 @@ using CSimple.Services;
 using Microsoft.Maui.Platform;
 // Add this using statement
 using CSimple.ViewModels;
+using System.IO; // Add this using statement
 
 [assembly: XamlCompilation(XamlCompilationOptions.Compile)]
 
@@ -42,7 +43,8 @@ public partial class App : Application
     // Add this property
     public NetPageViewModel NetPageViewModel { get; private set; }
 
-    public App()
+    // Inject services via constructor - Change PythonDependencyManager to PythonBootstrapper
+    public App(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper)
     {
         try
         {
@@ -58,10 +60,12 @@ public partial class App : Application
 
             Debug.WriteLine("App constructor: InitializeComponent completed");
 
-            // Instantiate NetPageViewModel and FileService
-            var fileService = new FileService(); // Assuming FileService has a parameterless constructor or is registered elsewhere
-            NetPageViewModel = new NetPageViewModel(fileService);
+            // Instantiate NetPageViewModel using injected services - Pass pythonBootstrapper
+            NetPageViewModel = new NetPageViewModel(fileService, huggingFaceService, pythonBootstrapper);
             Debug.WriteLine("App constructor: NetPageViewModel instantiated");
+
+            // Extract bundled scripts to app data directory
+            Task.Run(ExtractBundledScriptsAsync);
 
             // Register converters directly after initialization to ensure they're available
             try
@@ -112,6 +116,42 @@ public partial class App : Application
 
         // Register services
         DependencyService.Register<DataService>();
+    }
+
+    private async Task ExtractBundledScriptsAsync()
+    {
+        try
+        {
+            string scriptsSourceFolder = "Scripts";
+            string appDataPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "CSimple"
+            );
+            string scriptsPath = Path.Combine(appDataPath, "scripts");
+
+            // Create scripts directory if it doesn't exist
+            Directory.CreateDirectory(scriptsPath);
+
+            // Check if we have embedded scripts and copy them
+            string embeddedScriptsPath = Path.Combine(AppContext.BaseDirectory, scriptsSourceFolder);
+            if (Directory.Exists(embeddedScriptsPath))
+            {
+                foreach (var file in Directory.GetFiles(embeddedScriptsPath, "*.py"))
+                {
+                    string destPath = Path.Combine(scriptsPath, Path.GetFileName(file));
+                    File.Copy(file, destPath, overwrite: true);
+                    Debug.WriteLine($"Copied script: {Path.GetFileName(file)} to {destPath}");
+                }
+            }
+            else
+            {
+                Debug.WriteLine($"No embedded scripts found at {embeddedScriptsPath}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error extracting bundled scripts: {ex.Message}");
+        }
     }
 
     private void UpdateNavigationMode()

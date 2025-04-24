@@ -93,6 +93,8 @@ public static class MauiProgram
         services.AddSingleton<ActionService>();  // Register ActionService with DI
         services.AddSingleton<GlobalInputCapture>();
         services.AddSingleton<IOnTrainModelClickedService, OnTrainModelClickedService>();
+        services.AddSingleton<PythonBootstrapper>();  // Replace PythonDependencyManager with PythonBootstrapper
+        services.AddSingleton<HuggingFaceService>(); // Add HuggingFace service
         // Inject ActionService into InputCaptureService
         services.AddSingleton(sp =>
         {
