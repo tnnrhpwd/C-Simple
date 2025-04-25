@@ -5,17 +5,30 @@ HuggingFace Model Execution Script for C-Simple
 This script loads a model from HuggingFace and runs inference with the provided input.
 It's designed to be called from C-Simple's .NET application.
 
-Usage:
-  python run_hf_model.py --model_id "<huggingface_model_id>" --input "<input_text>"
-
-Example:
-  python run_hf_model.py --model_id "gpt2" --input "Hello, world!"
+Required Python version: 3.8-3.11
 """
 
 import argparse
 import sys
 import traceback
 from typing import Dict, Any, Optional
+
+def check_python_version():
+    """Check if the Python version is supported."""
+    import sys
+    
+    min_version = (3, 8)
+    max_version = (3, 12)  # Less than 3.12
+    
+    current_version = sys.version_info[:2]
+    
+    if current_version < min_version or current_version >= max_version:
+        print(f"ERROR: Unsupported Python version: {sys.version}", file=sys.stderr)
+        print(f"This script requires Python {min_version[0]}.{min_version[1]} to {max_version[0]}.{max_version[1]-1}", file=sys.stderr)
+        print("Please install a supported Python version from https://python.org/downloads/", file=sys.stderr)
+        return False
+    
+    return True
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
@@ -154,6 +167,10 @@ def run_model(args: argparse.Namespace) -> Optional[str]:
 def main() -> int:
     """Main entry point for the script."""
     try:
+        # Check Python version first
+        if not check_python_version():
+            return 1
+            
         # Parse arguments
         args = parse_arguments()
         
