@@ -281,14 +281,16 @@ namespace CSimple.ViewModels
                     .ToList();
                 foreach (var conn in connectionsToRemove)
                 {
-                    Connections.Remove(conn);
+                    Connections.Remove(conn); // Remove connection
                 }
 
                 // Remove the node itself
                 Nodes.Remove(SelectedNode);
                 Debug.WriteLine($"Deleted node: {SelectedNode.Name}");
                 SelectedNode = null; // Deselect
+                UpdateEnsembleCounts(); // ADDED: Update counts after removing connections
                 await SaveCurrentPipelineAsync(); // Save after deleting
+                InvalidateCanvas?.Invoke(); // ADDED: Ensure redraw after potential count update
             }
             else
             {
@@ -376,6 +378,7 @@ namespace CSimple.ViewModels
                     );
                     Connections.Add(newConnection);
                     Debug.WriteLine($"Completed connection from {_temporaryConnectionState.Name} to {targetNode.Name}");
+                    UpdateEnsembleCounts(); // ADDED: Update counts after adding
                     await SaveCurrentPipelineAsync(); // Save after adding connection
                 }
                 else
@@ -389,6 +392,7 @@ namespace CSimple.ViewModels
             }
             // Reset state regardless of success
             _temporaryConnectionState = null;
+            InvalidateCanvas?.Invoke(); // ADDED: Ensure redraw after potential count update
         }
 
         public void CancelConnection()
@@ -447,7 +451,7 @@ namespace CSimple.ViewModels
                 }
                 foreach (var connData in pipelineData.Connections)
                 {
-                    Connections.Add(connData.ToViewModel());
+                    Connections.Add(connData.ToViewModel()); // Add connection
                 }
                 CurrentPipelineName = pipelineData.Name;
                 // Manually update the picker selection if needed, though binding should handle it
@@ -457,6 +461,7 @@ namespace CSimple.ViewModels
                     OnPropertyChanged(nameof(SelectedPipelineName));
                 }
                 Debug.WriteLine($"Successfully loaded pipeline: {pipelineName}");
+                UpdateEnsembleCounts(); // ADDED: Update counts after loading all connections
                 // After loading, update classifications based on the newly loaded nodes
                 await UpdateNodeClassificationsAsync();
             }
@@ -680,6 +685,7 @@ namespace CSimple.ViewModels
 
 
         // --- Helper Methods ---
+
         private void ClearCanvas()
         {
             Nodes.Clear();
@@ -1068,5 +1074,38 @@ namespace CSimple.ViewModels
 
         public Action InvalidateCanvas { get; set; }
         // Removed duplicate PropertyChanged event declaration
+
+        // --- Helper Methods ---
+
+        // ADDED: Method to calculate and update ensemble input counts for all nodes
+        private void UpdateEnsembleCounts()
+        {
+            Debug.WriteLine("Updating ensemble counts...");
+            bool countsChanged = false;
+            var inputCounts = Connections
+                .GroupBy(c => c.TargetNodeId)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            foreach (var node in Nodes)
+            {
+                int newCount = inputCounts.TryGetValue(node.Id, out var count) ? count : 0;
+                if (node.EnsembleInputCount != newCount)
+                {
+                    node.EnsembleInputCount = newCount;
+                    countsChanged = true;
+                    Debug.WriteLine($"Node '{node.Name}' input count set to {newCount}");
+                }
+            }
+
+            if (countsChanged)
+            {
+                Debug.WriteLine("Ensemble counts changed, invalidating canvas.");
+                InvalidateCanvas?.Invoke(); // Trigger redraw if any count changed
+            }
+            else
+            {
+                Debug.WriteLine("No ensemble counts changed.");
+            }
+        }
     }
 }

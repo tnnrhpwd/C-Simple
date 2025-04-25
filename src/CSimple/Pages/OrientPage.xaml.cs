@@ -16,7 +16,6 @@ using CSimple.Models; // Needed for NodeType
 
 namespace CSimple.Pages
 {
-    // Ensure this class is partial and matches the x:Class in OrientPage.xaml
     public partial class OrientPage : ContentPage, IDrawable
     {
         private OrientPageViewModel _viewModel;
@@ -234,8 +233,15 @@ namespace CSimple.Pages
                 // Reset shadow for border and text
                 canvas.SetShadow(offset: new SizeF(0, 0), blur: 0, color: Colors.Transparent);
 
-                // Border
-                canvas.StrokeSize = node.IsSelected ? 3 : 1;
+                // --- MODIFIED Border ---
+                // Calculate base stroke size (selected or default)
+                float baseStroke = node.IsSelected ? 3f : 1f;
+                // Calculate ensemble bonus (only if input count > 1)
+                // Increased multiplier from 0.75f to 1.5f for more distinct growth
+                float ensembleBonus = node.EnsembleInputCount > 1 ? (node.EnsembleInputCount - 1) * 1.5f : 0f;
+                canvas.StrokeSize = baseStroke + ensembleBonus; // Combine base and bonus
+                // --- END MODIFIED Border ---
+
                 canvas.StrokeColor = node.IsSelected ? selectedStrokeColor : nodeStrokeColor;
                 canvas.DrawRoundedRectangle(nodeRect, 8);
 

@@ -22,6 +22,7 @@ namespace CSimple.ViewModels
         private bool _isSelected;
         private string _modelPath; // Add ModelPath property
         private string _dataType; // Add DataType property
+        private int _ensembleInputCount; // ADDED: Count of incoming connections
 
         public string Id
         {
@@ -62,6 +63,13 @@ namespace CSimple.ViewModels
         {
             get => _dataType;
             set => SetProperty(ref _dataType, value);
+        }
+
+        // ADDED: Property to track incoming connections for ensemble classification
+        public int EnsembleInputCount
+        {
+            get => _ensembleInputCount;
+            set => SetProperty(ref _ensembleInputCount, value);
         }
 
         // Constructor matching expected arguments (adjust if needed)
