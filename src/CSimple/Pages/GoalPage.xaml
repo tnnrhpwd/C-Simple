@@ -3,11 +3,14 @@
              x:Class="CSimple.Pages.GoalPage"
              xmlns:models="clr-namespace:CSimple.Models"
              xmlns:converters="clr-namespace:CSimple.Converters"
+             xmlns:local="clr-namespace:CSimple.Pages"
+             x:DataType="local:GoalPage"
              Title="Goal"
              BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}">
     <ContentPage.Resources>
         <ResourceDictionary>
             <converters:IsNotNullOrEmptyConverter x:Key="IsNotNullOrEmptyConverter" />
+            <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
         </ResourceDictionary>
     </ContentPage.Resources>
     <ContentPage.Content>
@@ -20,6 +23,30 @@
                 <Label Text="Define your objectives and let AI help you achieve them"
                        HorizontalOptions="Center"
                        TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                <!-- AI Goal Improvement Section -->
+                <Frame Style="{StaticResource ModernCardStyle}"
+                       BorderColor="{StaticResource Tertiary}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="AI Goal Improvement Suggestions"
+                               Style="{StaticResource SubHeaderStyle}"
+                               HorizontalOptions="Center" />
+                        <Editor Text="{Binding ImprovementSuggestion}"
+                                IsReadOnly="True"
+                                HeightRequest="100"
+                                AutoSize="TextChanges"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackgroundLight}, Dark={StaticResource SurfaceBackgroundDark}}" />
+                        <Button Text="Run Improvement Pipeline"
+                                Command="{Binding RunImprovementPipelineCommand}"
+                                IsEnabled="{Binding IsPipelineRunning, Converter={StaticResource InverseBoolConverter}}"
+                                Style="{StaticResource TertiaryButtonStyle}"
+                                HorizontalOptions="Fill" />
+                        <ActivityIndicator IsRunning="{Binding IsPipelineRunning}"
+                                           IsVisible="{Binding IsPipelineRunning}"
+                                           Color="{StaticResource Tertiary}"
+                                           HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </Frame>
                 <!-- Goal Types Tabs -->
                 <Frame CornerRadius="10"
                        Padding="5"
@@ -242,7 +269,7 @@
                                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackgroundLight}, Dark={StaticResource SurfaceBackgroundDark}}" />
                     <CollectionView ItemsSource="{Binding SharedGoals}">
                         <CollectionView.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="models:Goal">
                                 <Frame Style="{StaticResource ModernCardStyle}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Grid.Column="0"
@@ -274,6 +301,7 @@
                         </CollectionView.ItemTemplate>
                     </CollectionView>
                 </VerticalStackLayout>
+
                 <!-- Discover Goals Section -->
                 <VerticalStackLayout IsVisible="{Binding IsDiscoverSelected}"
                                      Spacing="15">
@@ -307,7 +335,7 @@
                     </HorizontalStackLayout>
                     <CollectionView ItemsSource="{Binding DiscoverGoals}">
                         <CollectionView.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="models:Goal">
                                 <Frame Style="{StaticResource ModernCardStyle}">
                                     <Grid ColumnDefinitions="Auto,*,Auto">
                                         <Image Grid.Column="0"

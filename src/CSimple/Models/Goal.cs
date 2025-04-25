@@ -6,82 +6,43 @@ namespace CSimple.Models
 {
     public class Goal : INotifyPropertyChanged
     {
-        private string _id;
-        private string _title;
-        private string _description;
-        private double _progress; // 0.0 to 1.0
-        private DateTime _deadline;
-        private int _priority; // 1 (Low) to 5 (High)
-        private bool _isShared;
-        private DateTime _createdAt;
-        private string _goalType; // e.g., "Personal", "Work", "Learning"
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Title { get; set; }
+        public string Description { get; set; }
+        public bool IsCompleted { get; set; }
+        public int Priority { get; set; } = 3; // 1-5 scale
+        public DateTime Deadline { get; set; } = DateTime.Today.AddDays(7);
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public string GoalType { get; set; } // Personal, Work, Learning, etc.
+        public bool IsShared { get; set; }
+        public double Progress { get; set; } // 0.0 to 1.0
 
-        public string Id
-        {
-            get => _id;
-            set => SetProperty(ref _id, value);
-        }
-        public string Title
-        {
-            get => _title;
-            set => SetProperty(ref _title, value);
-        }
-        public string Description
-        {
-            get => _description;
-            set => SetProperty(ref _description, value);
-        }
-        public double Progress
-        {
-            get => _progress;
-            set => SetProperty(ref _progress, value);
-        }
-        public DateTime Deadline
-        {
-            get => _deadline;
-            set => SetProperty(ref _deadline, value);
-        }
-        public int Priority
-        {
-            get => _priority;
-            set => SetProperty(ref _priority, value);
-        }
-        public bool IsShared
-        {
-            get => _isShared;
-            set => SetProperty(ref _isShared, value);
-        }
-        public DateTime CreatedAt
-        {
-            get => _createdAt;
-            set => SetProperty(ref _createdAt, value);
-        }
-        public string GoalType
-        {
-            get => _goalType;
-            set => SetProperty(ref _goalType, value);
-        }
+        // Properties for shared goals
+        public int SharedWith { get; set; } // Number of people shared with
+        public DateTime SharedDate { get; set; } // When it was shared
 
-        // Parameterless constructor for serialization
-        public Goal()
-        {
-            Id = Guid.NewGuid().ToString();
-            CreatedAt = DateTime.UtcNow;
-            Deadline = DateTime.UtcNow.AddDays(7); // Default deadline 1 week
-            Priority = 3; // Default priority medium
-        }
+        // Properties for discover goals
+        public string Creator { get; set; } // Who created the goal
+        public double Rating { get; set; } // User rating
+        public int Downloads { get; set; } // Number of downloads
+        public string CreatorImage { get; set; } // URL to creator's profile image
 
+        // INotifyPropertyChanged implementation
         public event PropertyChangedEventHandler PropertyChanged;
-        protected virtual bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string propertyName = null)
-        {
-            if (EqualityComparer<T>.Default.Equals(storage, value)) return false;
-            storage = value;
-            OnPropertyChanged(propertyName);
-            return true;
-        }
+
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        protected bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string propertyName = null)
+        {
+            if (Object.Equals(storage, value))
+                return false;
+
+            storage = value;
+            OnPropertyChanged(propertyName);
+            return true;
         }
     }
 }

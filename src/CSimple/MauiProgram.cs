@@ -76,6 +76,8 @@ public static class MauiProgram
         services.AddSingleton<LoginViewModel>();
         services.AddSingleton<NetPageViewModel>(); // Register NetPageViewModel
         services.AddSingleton<OrientPageViewModel>(); // Register OrientPageViewModel
+        // Register ActionPageViewModel if not already done
+        services.AddSingleton<ActionPageViewModel>();
 
         // --- Register Pages ---
         services.AddSingleton<HomePage>();
@@ -84,6 +86,11 @@ public static class MauiProgram
         // Register NetPage with ViewModel dependency
         services.AddSingleton<NetPage>(); // Inject ViewModel automatically
         services.AddSingleton<OrientPage>(); // Register OrientPage
+        // Register GoalPage with its dependencies
+        services.AddSingleton<GoalPage>();
+        // Register ActionPage if not already done
+        services.AddSingleton<ActionPage>();
+
 
         // --- Register Services ---
         services.AddSingleton<DataService>();

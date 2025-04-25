@@ -1,6 +1,7 @@
 ﻿using CSimple.Models;
 using CSimple.Services;
 using CSimple.Services.AppModeService;
+using CSimple.ViewModels; // Added for OrientPageViewModel
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -13,6 +14,7 @@ namespace CSimple.Pages
     {
         private readonly GoalService _goalService;
         private readonly CSimple.Services.AppModeService.AppModeService _appModeService;
+        private readonly OrientPageViewModel _orientPageViewModel; // Added
 
         private bool _showNewGoal = false;
         public bool ShowNewGoal
@@ -73,27 +75,263 @@ namespace CSimple.Pages
             "Personal", "Work", "Learning", "Health", "Finance", "Other"
         };
 
+        // --- AI Improvement Section ---
+        private string _improvementSuggestion = "Click 'Run Improvement Pipeline' to get AI suggestions.";
+        public string ImprovementSuggestion
+        {
+            get => _improvementSuggestion;
+            set => SetProperty(ref _improvementSuggestion, value);
+        }
+
+        private bool _isPipelineRunning = false;
+        public bool IsPipelineRunning
+        {
+            get => _isPipelineRunning;
+            set => SetProperty(ref _isPipelineRunning, value);
+        }
+        // --- End AI Improvement Section ---
+
+
         public ICommand ToggleCreateGoalCommand { get; }
         public ICommand SubmitGoalCommand { get; }
         public ICommand DeleteGoalCommand { get; }
         public ICommand EditGoalCommand { get; }
+        public ICommand RunImprovementPipelineCommand { get; } // Added
 
-        public GoalPage()
+        // --- Tab Selection Properties ---
+        private bool _isMyGoalsSelected = true; // Default to My Goals tab
+        public bool IsMyGoalsSelected
+        {
+            get => _isMyGoalsSelected;
+            set => SetProperty(ref _isMyGoalsSelected, value);
+        }
+
+        private bool _isSharedGoalsSelected;
+        public bool IsSharedGoalsSelected
+        {
+            get => _isSharedGoalsSelected;
+            set => SetProperty(ref _isSharedGoalsSelected, value);
+        }
+
+        private bool _isDiscoverSelected;
+        public bool IsDiscoverSelected
+        {
+            get => _isDiscoverSelected;
+            set => SetProperty(ref _isDiscoverSelected, value);
+        }
+
+        // Properties for search (referenced in XAML)
+        private string _sharedGoalSearchQuery;
+        public string SharedGoalSearchQuery
+        {
+            get => _sharedGoalSearchQuery;
+            set => SetProperty(ref _sharedGoalSearchQuery, value);
+        }
+
+        private string _discoverSearchQuery;
+        public string DiscoverSearchQuery
+        {
+            get => _discoverSearchQuery;
+            set => SetProperty(ref _discoverSearchQuery, value);
+        }
+
+        // Shared goals collection (referenced in XAML)
+        public ObservableCollection<Goal> SharedGoals { get; set; } = new ObservableCollection<Goal>();
+
+        // Discover goals collection (referenced in XAML)
+        public ObservableCollection<Goal> DiscoverGoals { get; set; } = new ObservableCollection<Goal>();
+
+        // --- Additional Commands ---
+        public ICommand SwitchToMyGoalsCommand { get; }
+        public ICommand SwitchToSharedGoalsCommand { get; }
+        public ICommand SwitchToDiscoverGoalsCommand { get; }
+        public ICommand FilterCategoryCommand { get; }
+        public ICommand UnshareGoalCommand { get; }
+        public ICommand DownloadGoalCommand { get; }
+
+        // Modified constructor to accept OrientPageViewModel
+        public GoalPage(GoalService goalService, CSimple.Services.AppModeService.AppModeService appModeService, OrientPageViewModel orientPageViewModel)
         {
             InitializeComponent();
 
-            _goalService = ServiceProvider.GetService<GoalService>();
-            _appModeService = ServiceProvider.GetService<CSimple.Services.AppModeService.AppModeService>();
+            _goalService = goalService; // Use injected service
+            _appModeService = appModeService; // Use injected service
+            _orientPageViewModel = orientPageViewModel; // Store injected ViewModel
 
+            // Initialize existing commands
             ToggleCreateGoalCommand = new Command(OnToggleCreateGoal);
             SubmitGoalCommand = new Command(async () => await OnSubmitGoal());
             DeleteGoalCommand = new Command<Goal>(async (goal) => await OnDeleteGoal(goal));
             EditGoalCommand = new Command<Goal>(OnEditGoal);
+            RunImprovementPipelineCommand = new Command(async () => await OnRunImprovementPipeline(), () => !IsPipelineRunning);
+
+            // Initialize new tab commands
+            SwitchToMyGoalsCommand = new Command(() => SwitchTab(TabType.MyGoals));
+            SwitchToSharedGoalsCommand = new Command(() => SwitchTab(TabType.SharedGoals));
+            SwitchToDiscoverGoalsCommand = new Command(() => SwitchTab(TabType.Discover));
+
+            // Initialize other new commands
+            FilterCategoryCommand = new Command<string>(OnFilterCategory);
+            UnshareGoalCommand = new Command<Goal>(OnUnshareGoal);
+            DownloadGoalCommand = new Command<Goal>(OnDownloadGoal);
+
+            // Add sample data for SharedGoals and DiscoverGoals for testing
+            InitializeSampleData();
 
             BindingContext = this;
 
             _ = LoadGoalsAsync();
         }
+
+        // Add this method to initialize sample data for SharedGoals and DiscoverGoals
+        private void InitializeSampleData()
+        {
+            // Add sample shared goals
+            SharedGoals.Add(new Goal
+            {
+                Title = "Team Project Milestone",
+                Description = "Complete the first milestone of our team project by end of month",
+                Priority = 4,
+                Deadline = DateTime.Today.AddDays(14),
+                GoalType = "Work",
+                SharedWith = 3,
+                SharedDate = DateTime.Today.AddDays(-5)
+            });
+
+            SharedGoals.Add(new Goal
+            {
+                Title = "Study Group Goals",
+                Description = "Weekly study sessions for upcoming certification",
+                Priority = 3,
+                Deadline = DateTime.Today.AddDays(30),
+                GoalType = "Learning",
+                SharedWith = 5,
+                SharedDate = DateTime.Today.AddDays(-2)
+            });
+
+            // Add sample discover goals
+            DiscoverGoals.Add(new Goal
+            {
+                Title = "30-Day Fitness Challenge",
+                Description = "Daily exercise routine to improve health and energy levels",
+                Priority = 5,
+                Deadline = DateTime.Today.AddDays(30),
+                GoalType = "Health",
+                Creator = "FitnessPro",
+                Rating = 4.8,
+                Downloads = 2345,
+                CreatorImage = "https://picsum.photos/200" // placeholder image URL
+            });
+
+            DiscoverGoals.Add(new Goal
+            {
+                Title = "Budget Management Plan",
+                Description = "Step-by-step plan to track and optimize personal finances",
+                Priority = 4,
+                Deadline = DateTime.Today.AddDays(90),
+                GoalType = "Finance",
+                Creator = "MoneyMentor",
+                Rating = 4.5,
+                Downloads = 1872,
+                CreatorImage = "https://picsum.photos/201" // placeholder image URL
+            });
+
+            DiscoverGoals.Add(new Goal
+            {
+                Title = "Daily Productivity System",
+                Description = "Framework for maximizing your daily productivity",
+                Priority = 3,
+                Deadline = DateTime.Today.AddDays(1),
+                GoalType = "Productivity",
+                Creator = "ProductivityGuru",
+                Rating = 4.9,
+                Downloads = 3105,
+                CreatorImage = "https://picsum.photos/202" // placeholder image URL
+            });
+        }
+
+        // Tab switching enum and method
+        private enum TabType { MyGoals, SharedGoals, Discover }
+
+        private void SwitchTab(TabType tab)
+        {
+            IsMyGoalsSelected = tab == TabType.MyGoals;
+            IsSharedGoalsSelected = tab == TabType.SharedGoals;
+            IsDiscoverSelected = tab == TabType.Discover;
+        }
+
+        // Command implementations for new commands
+        private void OnFilterCategory(string category)
+        {
+            if (string.IsNullOrEmpty(category)) return;
+
+            Debug.WriteLine($"Filtering goals by category: {category}");
+            // TODO: Implement category filtering for discover goals
+        }
+
+        private void OnUnshareGoal(Goal goal)
+        {
+            if (goal == null) return;
+
+            Debug.WriteLine($"Unsharing goal: {goal.Title}");
+            // TODO: Implement unsharing functionality
+            SharedGoals.Remove(goal);
+        }
+
+        private void OnDownloadGoal(Goal goal)
+        {
+            if (goal == null) return;
+
+            Debug.WriteLine($"Downloading goal: {goal.Title}");
+            // TODO: Implement download functionality
+
+            // Simplified example - copy to MyGoals
+            var downloadedGoal = new Goal
+            {
+                Title = goal.Title,
+                Description = goal.Description,
+                Priority = goal.Priority,
+                Deadline = goal.Deadline,
+                GoalType = goal.GoalType,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            MyGoals.Add(downloadedGoal);
+            _ = SaveGoalsAsync();
+        }
+
+        // --- AI Improvement Method ---
+        private async Task OnRunImprovementPipeline()
+        {
+            if (IsPipelineRunning) return;
+
+            IsPipelineRunning = true;
+            ImprovementSuggestion = "Running pipeline, please wait...";
+            ((Command)RunImprovementPipelineCommand).ChangeCanExecute(); // Update button state
+
+            try
+            {
+                // The specific prompt to inject
+                string prompt = "predict what should be improved given the inputs";
+
+                // Execute the pipeline from OrientPageViewModel
+                string result = await _orientPageViewModel.ExecuteCurrentPipelineAsync(prompt);
+
+                ImprovementSuggestion = result; // Display the result
+            }
+            catch (Exception ex)
+            {
+                ImprovementSuggestion = $"Error running pipeline: {ex.Message}";
+                Debug.WriteLine($"Error executing pipeline: {ex}");
+            }
+            finally
+            {
+                IsPipelineRunning = false;
+                ((Command)RunImprovementPipelineCommand).ChangeCanExecute(); // Update button state
+            }
+        }
+        // --- End AI Improvement Method ---
+
 
         private void OnToggleCreateGoal()
         {
