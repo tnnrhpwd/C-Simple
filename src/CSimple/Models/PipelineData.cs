@@ -30,6 +30,9 @@ namespace CSimple.Models
         public float SizeWidth { get; set; }
         public float SizeHeight { get; set; }
         public string ModelPath { get; set; } // Include relevant properties
+        public string DataType { get; set; } // Add this if not already present
+        public string Classification { get; set; } // ADDED: Store classification
+        public string OriginalName { get; set; } // ADDED: Store original name without classification
 
         // Parameterless constructor for deserialization
         public SerializableNode() { }
@@ -45,6 +48,9 @@ namespace CSimple.Models
             SizeWidth = vm.Size.Width;
             SizeHeight = vm.Size.Height;
             ModelPath = vm.ModelPath; // Assign ModelPath
+            DataType = vm.DataType; // Add this if not already present
+            Classification = vm.Classification; // ADDED: Store classification
+            OriginalName = vm.OriginalName; // ADDED: Store original name
         }
 
         // Method to convert back to NodeViewModel
@@ -60,7 +66,10 @@ namespace CSimple.Models
             {
                 // Set properties not handled by constructor
                 Size = new SizeF(this.SizeWidth, this.SizeHeight),
-                ModelPath = this.ModelPath // Restore ModelPath
+                ModelPath = this.ModelPath, // Restore ModelPath
+                DataType = this.DataType, // Add this if not already present
+                Classification = this.Classification, // ADDED: Restore classification
+                OriginalName = this.OriginalName // ADDED: Restore original name
             };
             return vm;
         }

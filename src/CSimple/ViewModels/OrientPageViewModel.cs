@@ -31,8 +31,46 @@ namespace CSimple.ViewModels
         public NodeViewModel SelectedNode
         {
             get => _selectedNode;
-            set => SetProperty(ref _selectedNode, value);
+            set
+            {
+                if (SetProperty(ref _selectedNode, value))
+                {
+                    // Update the SelectedClassification when the node changes
+                    if (value != null && value.IsTextModel)
+                    {
+                        _selectedClassification = value.Classification;
+                        OnPropertyChanged(nameof(SelectedClassification));
+                    }
+                }
+            }
         }
+
+        // Add this property for binding with the classification picker in XAML
+        private string _selectedClassification;
+        public string SelectedClassification
+        {
+            get => _selectedClassification;
+            set
+            {
+                if (SetProperty(ref _selectedClassification, value))
+                {
+                    // If we have a selected node and it's a text model,
+                    // update its classification when this property changes
+                    if (SelectedNode != null && SelectedNode.IsTextModel)
+                    {
+                        SetNodeClassification(SelectedNode, value);
+                    }
+                }
+            }
+        }
+
+        public List<string> TextModelClassifications { get; } = new List<string>
+        {
+            "", // Empty option to clear classification
+            "Goal",
+            "Plan",
+            "Action"
+        };
 
         // Pipeline Management Properties
         public ObservableCollection<string> AvailablePipelineNames { get; } = new ObservableCollection<string>();
@@ -494,7 +532,8 @@ namespace CSimple.ViewModels
             }
         }
 
-        private async Task SaveCurrentPipelineAsync()
+        // Change from protected to public to make it accessible from OrientPage
+        public async Task SaveCurrentPipelineAsync()
         {
             if (string.IsNullOrWhiteSpace(CurrentPipelineName))
             {
@@ -1105,6 +1144,21 @@ namespace CSimple.ViewModels
             else
             {
                 Debug.WriteLine("No ensemble counts changed.");
+            }
+        }
+
+        // ADDED: Method to set a node's classification
+        public void SetNodeClassification(NodeViewModel node, string classification)
+        {
+            if (node != null && node.IsTextModel)
+            {
+                // This will automatically update the node's display name via the property setter
+                node.Classification = classification;
+
+                // Request redraw to show the updated name
+                InvalidateCanvas?.Invoke();
+
+                Debug.WriteLine($"Set node '{node.OriginalName}' classification to '{classification}'");
             }
         }
     }
