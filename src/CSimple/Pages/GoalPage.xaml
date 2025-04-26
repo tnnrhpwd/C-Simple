@@ -30,6 +30,19 @@
                         <Label Text="AI Goal Improvement Suggestions"
                                Style="{StaticResource SubHeaderStyle}"
                                HorizontalOptions="Center" />
+                        <!-- New Prompt Input Field -->
+                        <Label Text="Enter your prompt for AI improvement:"
+                               Style="{StaticResource BodyTextStyle}" />
+                        <Editor Text="{Binding AiPromptInput}"
+                                Placeholder="E.g., Suggest ways to improve my goal prioritization"
+                                HeightRequest="60"
+                                AutoSize="TextChanges"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                PlaceholderColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackgroundLight}, Dark={StaticResource SurfaceBackgroundDark}}" />
+                        <!-- Existing Output Display -->
+                        <Label Text="AI Response:"
+                               Style="{StaticResource BodyTextStyle}" />
                         <Editor Text="{Binding ImprovementSuggestion}"
                                 IsReadOnly="True"
                                 HeightRequest="100"
@@ -301,7 +314,6 @@
                         </CollectionView.ItemTemplate>
                     </CollectionView>
                 </VerticalStackLayout>
-
                 <!-- Discover Goals Section -->
                 <VerticalStackLayout IsVisible="{Binding IsDiscoverSelected}"
                                      Spacing="15">

@@ -83,6 +83,13 @@ namespace CSimple.Pages
             set => SetProperty(ref _improvementSuggestion, value);
         }
 
+        private string _aiPromptInput = "Suggest improvements for my goal planning approach";
+        public string AiPromptInput
+        {
+            get => _aiPromptInput;
+            set => SetProperty(ref _aiPromptInput, value);
+        }
+
         private bool _isPipelineRunning = false;
         public bool IsPipelineRunning
         {
@@ -163,7 +170,7 @@ namespace CSimple.Pages
             SubmitGoalCommand = new Command(async () => await OnSubmitGoal());
             DeleteGoalCommand = new Command<Goal>(async (goal) => await OnDeleteGoal(goal));
             EditGoalCommand = new Command<Goal>(OnEditGoal);
-            RunImprovementPipelineCommand = new Command(async () => await OnRunImprovementPipeline(), () => !IsPipelineRunning);
+            RunImprovementPipelineCommand = new Command(async () => await OnRunPipeline(), () => !IsPipelineRunning);
 
             // Initialize new tab commands
             SwitchToMyGoalsCommand = new Command(() => SwitchTab(TabType.MyGoals));
@@ -301,7 +308,7 @@ namespace CSimple.Pages
         }
 
         // --- AI Improvement Method ---
-        private async Task OnRunImprovementPipeline()
+        private async Task OnRunPipeline()
         {
             if (IsPipelineRunning) return;
 
@@ -311,8 +318,10 @@ namespace CSimple.Pages
 
             try
             {
-                // The specific prompt to inject
-                string prompt = "predict what should be improved given the inputs";
+                // Use the prompt from the input field
+                string prompt = string.IsNullOrWhiteSpace(AiPromptInput)
+                    ? "Suggest future improvements given my PC recorded data."
+                    : AiPromptInput;
 
                 // Execute the pipeline from OrientPageViewModel
                 string result = await _orientPageViewModel.ExecuteCurrentPipelineAsync(prompt);
