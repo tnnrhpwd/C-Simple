@@ -83,7 +83,7 @@ namespace CSimple.Pages
             set => SetProperty(ref _improvementSuggestion, value);
         }
 
-        private string _aiPromptInput = "Suggest improvements for my goal planning approach";
+        private string _aiPromptInput = "Suggest future improvements given my PC recorded data.";
         public string AiPromptInput
         {
             get => _aiPromptInput;
