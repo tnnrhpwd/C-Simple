@@ -145,6 +145,19 @@ namespace CSimple.ViewModels
 
         // Current position in the action replay
         private int _currentActionStep = 0;
+        public int CurrentActionStep
+        {
+            get => _currentActionStep;
+            set
+            {
+                if (SetProperty(ref _currentActionStep, value))
+                {
+                    // Update command can execute status
+                    (StepBackwardCommand as Command)?.ChangeCanExecute();
+                }
+            }
+        }
+
         private List<ActionItem> _currentActionItems = new List<ActionItem>();
 
         // Commands for action stepping
@@ -1377,8 +1390,8 @@ namespace CSimple.ViewModels
 
                         Debug.WriteLine($"Loaded {SelectedReviewActionName} with {_currentActionItems.Count} action items.");
 
-                        // Initial data load for the first step
-                        await LoadActionStepData();
+                        // Do not load initial data here. Let StepForward load the first step.
+                        Debug.WriteLine("Initial data load skipped. Waiting for StepForward.");
                     }
                     else
                     {
@@ -1403,8 +1416,9 @@ namespace CSimple.ViewModels
 
         private async void ExecuteStepForward()
         {
-            _currentActionStep++;
+            // Load data for the next step
             await LoadActionStepData();
+            CurrentActionStep++;
 
             // Update command can execute status
             (StepBackwardCommand as Command)?.ChangeCanExecute();
@@ -1412,7 +1426,8 @@ namespace CSimple.ViewModels
 
         private async void ExecuteStepBackward()
         {
-            _currentActionStep--;
+            // Decrement step BEFORE loading data
+            CurrentActionStep--;
             await LoadActionStepData();
 
             // Update command can execute status
@@ -1421,8 +1436,29 @@ namespace CSimple.ViewModels
 
         private async void ExecuteResetAction()
         {
-            _currentActionStep = 0;
-            await LoadActionStepData();
+            // Reset to step 0
+            CurrentActionStep = 0;
+
+            // Clear any loaded data
+            // Simulate clearing data for different input types
+            // In a real implementation, you would clear the actual data
+            // from storage or a data stream
+            string mouseText = "Mouse Text Data (Reset)";
+            string keyText = "Key Text Data (Reset)";
+            string webcamImage = "Webcam Image Data (Reset)";
+            string screenImage = "Screen Image Data (Reset)";
+            string webcamAudio = "Webcam Audio Data (Reset)";
+            string pcAudio = "PC Audio Data (Reset)";
+
+            // Update the UI with the cleared data
+            // This would typically involve updating properties bound to UI elements
+            // For now, just log the data
+            Debug.WriteLine($"Mouse Text: {mouseText}");
+            Debug.WriteLine($"Key Text: {keyText}");
+            Debug.WriteLine($"Webcam Image: {webcamImage}");
+            Debug.WriteLine($"Screen Image: {screenImage}");
+            Debug.WriteLine($"Webcam Audio: {webcamAudio}");
+            Debug.WriteLine($"PC Audio: {pcAudio}");
 
             // Update command can execute status
             (StepBackwardCommand as Command)?.ChangeCanExecute();
@@ -1440,18 +1476,22 @@ namespace CSimple.ViewModels
                 }
 
                 // Ensure current step is within bounds
-                if (_currentActionStep < 0)
+                if (CurrentActionStep < 0)
                 {
-                    _currentActionStep = 0;
+                    CurrentActionStep = 0;
+                    Debug.WriteLine("Reached start of action. Cannot step back further.");
+                    return;
                 }
-                else if (_currentActionStep >= _currentActionItems.Count)
+                else if (CurrentActionStep >= _currentActionItems.Count)
                 {
-                    _currentActionStep = _currentActionItems.Count - 1;
+                    CurrentActionStep = _currentActionItems.Count - 1;
+                    Debug.WriteLine("Reached end of action. Cannot step forward further.");
+                    return;
                 }
 
                 // Get the action item for the current step
-                var step = _currentActionItems[_currentActionStep];
-                Debug.WriteLine($"Loading data for step {_currentActionStep + 1} of {_currentActionItems.Count}");
+                var step = _currentActionItems[CurrentActionStep];
+                Debug.WriteLine($"Loading data for step {CurrentActionStep + 1} of {_currentActionItems.Count}");
 
                 // Extract data for the current step
                 // For now, just log the data
@@ -1460,12 +1500,12 @@ namespace CSimple.ViewModels
                 // Simulate loading data for different input types
                 // In a real implementation, you would load the actual data
                 // from storage or a data stream
-                string mouseText = $"Mouse Text Data (Step {_currentActionStep + 1})";
-                string keyText = $"Key Text Data (Step {_currentActionStep + 1})";
-                string webcamImage = $"Webcam Image Data (Step {_currentActionStep + 1})";
-                string screenImage = $"Screen Image Data (Step {_currentActionStep + 1})";
-                string webcamAudio = $"Webcam Audio Data (Step {_currentActionStep + 1})";
-                string pcAudio = $"PC Audio Data (Step {_currentActionStep + 1})";
+                string mouseText = $"Mouse Text Data (Step {CurrentActionStep + 1})";
+                string keyText = $"Key Text Data (Step {CurrentActionStep + 1})";
+                string webcamImage = $"Webcam Image Data (Step {CurrentActionStep + 1})";
+                string screenImage = $"Screen Image Data (Step {CurrentActionStep + 1})";
+                string webcamAudio = $"Webcam Audio Data (Step {CurrentActionStep + 1})";
+                string pcAudio = $"PC Audio Data (Step {CurrentActionStep + 1})";
 
                 // Update the UI with the loaded data
                 // This would typically involve updating properties bound to UI elements
