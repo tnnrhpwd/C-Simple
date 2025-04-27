@@ -646,5 +646,120 @@ namespace CSimple.Pages
         {
             NodeCanvas?.Invalidate();
         }
+
+        // Add this event handler for the Run Node button
+        private async void OnRunNodeClicked(object sender, EventArgs e)
+        {
+            if (_viewModel.SelectedNode == null)
+            {
+                return;
+            }
+
+            try
+            {
+                // Show loading state
+                var button = sender as Button;
+                if (button != null)
+                {
+                    var originalText = button.Text;
+                    button.Text = "Running...";
+                    button.IsEnabled = false;
+
+                    // Execute the node
+                    var node = _viewModel.SelectedNode;
+                    string result = await ExecuteNodeAsync(node);
+                    _viewModel.NodeOutputText = result;
+
+                    // Restore button
+                    button.Text = originalText;
+                    button.IsEnabled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _viewModel.NodeOutputText = $"Error: {ex.Message}";
+                Debug.WriteLine($"Error executing node: {ex}");
+
+                // Restore button state if error occurs
+                if (sender is Button btn)
+                {
+                    btn.Text = "Run Node";
+                    btn.IsEnabled = true;
+                }
+            }
+        }
+
+        // Helper method to execute a node
+        private async Task<string> ExecuteNodeAsync(NodeViewModel node)
+        {
+            if (node == null) return "No node selected";
+
+            // Show different output based on node type
+            switch (node.Type)
+            {
+                case NodeType.Input:
+                    return $"Input Node: '{node.Name}'\nSimulated {node.DataType ?? "data"} input would be captured here.";
+
+                case NodeType.Model:
+                    // For model nodes, attempt to simulate model execution
+                    string modelInfo = $"Model Node: '{node.Name}'\n";
+
+                    if (!string.IsNullOrEmpty(node.ModelPath))
+                    {
+                        modelInfo += $"Model ID: {node.ModelPath}\n";
+                    }
+
+                    // Check incoming connections
+                    var incomingConnections = _viewModel.Connections
+                        .Where(c => c.TargetNodeId == node.Id)
+                        .ToList();
+
+                    if (incomingConnections.Any())
+                    {
+                        modelInfo += $"Receives input from {incomingConnections.Count} node(s).\n";
+
+                        // Show ensemble details if applicable
+                        if (incomingConnections.Count > 1 && !string.IsNullOrEmpty(node.SelectedEnsembleMethod))
+                        {
+                            modelInfo += $"Using ensemble method: {node.SelectedEnsembleMethod}\n";
+                        }
+                    }
+                    else
+                    {
+                        modelInfo += "No input connections. This model needs input data.\n";
+                    }
+
+                    // Add a simulated result
+                    modelInfo += "\nSimulated output: [Model processing would execute here]";
+
+                    // For text models with classification, add special output
+                    if (node.IsTextModel && !string.IsNullOrEmpty(node.Classification))
+                    {
+                        modelInfo += $"\n\nClassified as: {node.Classification}";
+
+                        // Add different responses based on classification
+                        switch (node.Classification)
+                        {
+                            case "Goal":
+                                modelInfo += "\nGoal models define high-level objectives.";
+                                break;
+                            case "Plan":
+                                modelInfo += "\nPlan models break down goals into steps.";
+                                break;
+                            case "Action":
+                                modelInfo += "\nAction models execute specific tasks.";
+                                break;
+                        }
+                    }
+
+                    return modelInfo;
+
+                case NodeType.Output:
+                    return $"Output Node: '{node.Name}'\nWould display or save results here.";
+
+                default:
+                    return $"Unknown node type: {node.Type}";
+            }
+        }
     }
 }

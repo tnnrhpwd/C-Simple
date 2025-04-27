@@ -42,8 +42,19 @@ namespace CSimple.ViewModels
                         _selectedClassification = value.Classification;
                         OnPropertyChanged(nameof(SelectedClassification));
                     }
+
+                    // Clear node output when selecting a different node
+                    NodeOutputText = null;
                 }
             }
+        }
+
+        // Added property to store node execution output
+        private string _nodeOutputText;
+        public string NodeOutputText
+        {
+            get => _nodeOutputText;
+            set => SetProperty(ref _nodeOutputText, value);
         }
 
         // Add this property for binding with the classification picker in XAML
