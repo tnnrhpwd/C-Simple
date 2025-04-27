@@ -522,7 +522,8 @@ namespace CSimple.Pages
             }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        // Fix warning CS0108 by using 'new' keyword
+        public new event PropertyChangedEventHandler PropertyChanged;
 
         protected virtual bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string propertyName = null, Action onChanged = null)
         {
@@ -533,7 +534,8 @@ namespace CSimple.Pages
             return true;
         }
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        // Fix warning CS0114 by using 'new' keyword
+        protected new virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }

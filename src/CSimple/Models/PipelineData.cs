@@ -48,28 +48,30 @@ namespace CSimple.Models
             SizeWidth = vm.Size.Width;
             SizeHeight = vm.Size.Height;
             ModelPath = vm.ModelPath; // Assign ModelPath
-            DataType = vm.DataType; // Add this if not already present
-            Classification = vm.Classification; // ADDED: Store classification
-            OriginalName = vm.OriginalName; // ADDED: Store original name
+            DataType = vm.DataType;
+            Classification = vm.Classification;
+            OriginalName = vm.OriginalName; // Assign OriginalName
         }
 
         // Method to convert back to NodeViewModel
         public NodeViewModel ToViewModel()
         {
-            // Call the constructor with required arguments
+            // Call the constructor with required arguments, including new ones
             var vm = new NodeViewModel(
                 this.Id.ToString(), // Convert Guid back to string
                 this.Name,
                 this.Type,
-                new PointF(this.PositionX, this.PositionY)
+                new PointF(this.PositionX, this.PositionY),
+                this.DataType, // Pass DataType
+                null, // OriginalModelId - assuming not stored here, pass null or retrieve if needed
+                this.ModelPath, // Pass ModelPath
+                this.Classification, // Pass Classification
+                this.OriginalName // Pass OriginalName
             )
             {
-                // Set properties not handled by constructor
+                // Set properties not handled by constructor (Size is handled by constructor default)
                 Size = new SizeF(this.SizeWidth, this.SizeHeight),
-                ModelPath = this.ModelPath, // Restore ModelPath
-                DataType = this.DataType, // Add this if not already present
-                Classification = this.Classification, // ADDED: Restore classification
-                OriginalName = this.OriginalName // ADDED: Restore original name
+                // ModelPath, DataType, Classification, OriginalName are now handled by constructor
             };
             return vm;
         }
