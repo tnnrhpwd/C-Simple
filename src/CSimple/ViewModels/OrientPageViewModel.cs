@@ -108,6 +108,50 @@ namespace CSimple.ViewModels
         public ICommand RenamePipelineCommand { get; }
         public ICommand DeletePipelineCommand { get; }
 
+        // Add these properties and fields for Action Review functionality
+        private ObservableCollection<string> _availableActionNames;
+        public ObservableCollection<string> AvailableActionNames
+        {
+            get => _availableActionNames ??= new ObservableCollection<string>();
+            set
+            {
+                if (_availableActionNames != value)
+                {
+                    _availableActionNames = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        private string _selectedReviewActionName;
+        public string SelectedReviewActionName
+        {
+            get => _selectedReviewActionName;
+            set
+            {
+                if (_selectedReviewActionName != value)
+                {
+                    _selectedReviewActionName = value;
+                    OnPropertyChanged();
+
+                    // When a new action is selected, load its details
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        LoadSelectedAction();
+                    }
+                }
+            }
+        }
+
+        // Current position in the action replay
+        private int _currentActionStep = 0;
+        private List<ActionItem> _currentActionItems = new List<ActionItem>();
+
+        // Commands for action stepping
+        public ICommand StepForwardCommand { get; }
+        public ICommand StepBackwardCommand { get; }
+        public ICommand ResetActionCommand { get; }
+
 
         // --- UI Interaction Delegates ---
         public Func<string, string, string, Task> ShowAlert { get; set; }
@@ -138,6 +182,11 @@ namespace CSimple.ViewModels
 
             // Subscribe to NetPageViewModel's PropertyChanged event
             netPageViewModel.PropertyChanged += NetPageViewModel_PropertyChanged;
+
+            // Initialize Review Action commands
+            StepForwardCommand = new Command(ExecuteStepForward, () => !string.IsNullOrEmpty(SelectedReviewActionName));
+            StepBackwardCommand = new Command(ExecuteStepBackward, () => !string.IsNullOrEmpty(SelectedReviewActionName) && _currentActionStep > 0);
+            ResetActionCommand = new Command(ExecuteResetAction, () => !string.IsNullOrEmpty(SelectedReviewActionName));
 
             // Load available pipelines on initialization
             _ = LoadAvailablePipelinesAsync();
@@ -194,6 +243,9 @@ namespace CSimple.ViewModels
             // Add this line to explicitly call UpdateNodeClassificationsAsync during initialization
             await UpdateNodeClassificationsAsync();
             Debug.WriteLine("InitializeAsync: Explicitly called UpdateNodeClassificationsAsync");
+
+            // Load available actions for review
+            await LoadAvailableActions();
         }
 
         public async Task LoadAvailableModelsAsync()
@@ -1254,6 +1306,121 @@ namespace CSimple.ViewModels
 
                 Debug.WriteLine($"Set node '{node.OriginalName}' classification to '{classification}'");
             }
+        }
+
+        // Add these methods for Action Review functionality
+        private async Task LoadAvailableActions()
+        {
+            try
+            {
+                // Clear existing items
+                AvailableActionNames.Clear();
+
+                // Use ActionService or appropriate service to load actions
+                var actionService = ServiceProvider.GetService<ActionService>();
+                if (actionService != null)
+                {
+                    var actionItems = await actionService.LoadDataItemsFromFile();
+
+                    // Sort actions by date (newest first)
+                    actionItems = actionItems
+                        .OrderByDescending(item => item?.createdAt ?? DateTime.MinValue)
+                        .ToList();
+
+                    // Extract action names and add to collection
+                    foreach (var item in actionItems)
+                    {
+                        if (item?.Data?.ActionGroupObject?.ActionName != null)
+                        {
+                            AvailableActionNames.Add(item.Data.ActionGroupObject.ActionName);
+                        }
+                    }
+
+                    // Automatically select the most recent action if available
+                    if (AvailableActionNames.Count > 0)
+                    {
+                        SelectedReviewActionName = AvailableActionNames[0];
+                    }
+
+                    Debug.WriteLine($"Loaded {AvailableActionNames.Count} actions for review, selected: {SelectedReviewActionName ?? "none"}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading actions: {ex.Message}");
+            }
+        }
+
+        private void LoadSelectedAction()
+        {
+            try
+            {
+                // Reset current state
+                _currentActionStep = 0;
+                _currentActionItems.Clear();
+
+                // Load the selected action's steps
+                // This would typically involve fetching the action from storage
+                // For now, just log that we would load it
+                Debug.WriteLine($"Would load action: {SelectedReviewActionName}");
+
+                // In a real implementation, you would:
+                // 1. Get the ActionGroup object from storage
+                // 2. Extract its ActionItems array
+                // 3. Store in _currentActionItems
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading selected action: {ex.Message}");
+            }
+        }
+
+        private void ExecuteStepForward()
+        {
+            if (_currentActionStep < _currentActionItems.Count)
+            {
+                // Execute the next step
+                var step = _currentActionItems[_currentActionStep];
+                Debug.WriteLine($"Executing step {_currentActionStep + 1} of {_currentActionItems.Count}");
+
+                // Here you would:
+                // 1. Process the action step (e.g., simulate mouse/keyboard input)
+                // 2. Update any visualization
+
+                _currentActionStep++;
+
+                // Update command can execute status
+                (StepBackwardCommand as Command)?.ChangeCanExecute();
+            }
+        }
+
+        private void ExecuteStepBackward()
+        {
+            if (_currentActionStep > 0)
+            {
+                _currentActionStep--;
+                Debug.WriteLine($"Reverting to step {_currentActionStep} of {_currentActionItems.Count}");
+
+                // Here you would:
+                // 1. Undo the effects of the previous step
+                // 2. Update any visualization
+
+                // Update command can execute status
+                (StepBackwardCommand as Command)?.ChangeCanExecute();
+            }
+        }
+
+        private void ExecuteResetAction()
+        {
+            _currentActionStep = 0;
+            Debug.WriteLine("Reset action to beginning");
+
+            // Here you would:
+            // 1. Reset any state changes caused by previous steps
+            // 2. Update visualization to initial state
+
+            // Update command can execute status
+            (StepBackwardCommand as Command)?.ChangeCanExecute();
         }
     }
 }
