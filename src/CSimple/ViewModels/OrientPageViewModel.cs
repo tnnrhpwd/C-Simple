@@ -1351,7 +1351,7 @@ namespace CSimple.ViewModels
             }
         }
 
-        private void LoadSelectedAction()
+        private async void LoadSelectedAction()
         {
             try
             {
@@ -1359,68 +1359,133 @@ namespace CSimple.ViewModels
                 _currentActionStep = 0;
                 _currentActionItems.Clear();
 
-                // Load the selected action's steps
-                // This would typically involve fetching the action from storage
-                // For now, just log that we would load it
-                Debug.WriteLine($"Would load action: {SelectedReviewActionName}");
+                // Use ActionService to load the selected action's steps
+                var actionService = ServiceProvider.GetService<ActionService>();
+                if (actionService != null && !string.IsNullOrEmpty(SelectedReviewActionName))
+                {
+                    // Load all data items
+                    var allDataItems = await actionService.LoadAllDataItemsAsync();
 
-                // In a real implementation, you would:
-                // 1. Get the ActionGroup object from storage
-                // 2. Extract its ActionItems array
-                // 3. Store in _currentActionItems
+                    // Find the selected action by name
+                    var selectedDataItem = allDataItems.FirstOrDefault(item =>
+                        item?.Data?.ActionGroupObject?.ActionName == SelectedReviewActionName);
+
+                    if (selectedDataItem != null)
+                    {
+                        // Extract ActionItems from the selected action
+                        _currentActionItems = selectedDataItem.Data.ActionGroupObject.ActionArray;
+
+                        Debug.WriteLine($"Loaded {SelectedReviewActionName} with {_currentActionItems.Count} action items.");
+
+                        // Initial data load for the first step
+                        await LoadActionStepData();
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Action '{SelectedReviewActionName}' not found.");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("ActionService is null or SelectedReviewActionName is empty.");
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error loading selected action: {ex.Message}");
             }
-        }
-
-        private void ExecuteStepForward()
-        {
-            if (_currentActionStep < _currentActionItems.Count)
+            finally
             {
-                // Execute the next step
-                var step = _currentActionItems[_currentActionStep];
-                Debug.WriteLine($"Executing step {_currentActionStep + 1} of {_currentActionItems.Count}");
-
-                // Here you would:
-                // 1. Process the action step (e.g., simulate mouse/keyboard input)
-                // 2. Update any visualization
-
-                _currentActionStep++;
-
                 // Update command can execute status
                 (StepBackwardCommand as Command)?.ChangeCanExecute();
             }
         }
 
-        private void ExecuteStepBackward()
+        private async void ExecuteStepForward()
         {
-            if (_currentActionStep > 0)
-            {
-                _currentActionStep--;
-                Debug.WriteLine($"Reverting to step {_currentActionStep} of {_currentActionItems.Count}");
-
-                // Here you would:
-                // 1. Undo the effects of the previous step
-                // 2. Update any visualization
-
-                // Update command can execute status
-                (StepBackwardCommand as Command)?.ChangeCanExecute();
-            }
-        }
-
-        private void ExecuteResetAction()
-        {
-            _currentActionStep = 0;
-            Debug.WriteLine("Reset action to beginning");
-
-            // Here you would:
-            // 1. Reset any state changes caused by previous steps
-            // 2. Update visualization to initial state
+            _currentActionStep++;
+            await LoadActionStepData();
 
             // Update command can execute status
             (StepBackwardCommand as Command)?.ChangeCanExecute();
+        }
+
+        private async void ExecuteStepBackward()
+        {
+            _currentActionStep--;
+            await LoadActionStepData();
+
+            // Update command can execute status
+            (StepBackwardCommand as Command)?.ChangeCanExecute();
+        }
+
+        private async void ExecuteResetAction()
+        {
+            _currentActionStep = 0;
+            await LoadActionStepData();
+
+            // Update command can execute status
+            (StepBackwardCommand as Command)?.ChangeCanExecute();
+        }
+
+        private async Task LoadActionStepData()
+        {
+            try
+            {
+                // Ensure action items are loaded
+                if (_currentActionItems == null || _currentActionItems.Count == 0)
+                {
+                    Debug.WriteLine("No action items loaded. Cannot load step data.");
+                    return;
+                }
+
+                // Ensure current step is within bounds
+                if (_currentActionStep < 0)
+                {
+                    _currentActionStep = 0;
+                }
+                else if (_currentActionStep >= _currentActionItems.Count)
+                {
+                    _currentActionStep = _currentActionItems.Count - 1;
+                }
+
+                // Get the action item for the current step
+                var step = _currentActionItems[_currentActionStep];
+                Debug.WriteLine($"Loading data for step {_currentActionStep + 1} of {_currentActionItems.Count}");
+
+                // Extract data for the current step
+                // For now, just log the data
+                Debug.WriteLine($"Action: {step.ToString()}");
+
+                // Simulate loading data for different input types
+                // In a real implementation, you would load the actual data
+                // from storage or a data stream
+                string mouseText = $"Mouse Text Data (Step {_currentActionStep + 1})";
+                string keyText = $"Key Text Data (Step {_currentActionStep + 1})";
+                string webcamImage = $"Webcam Image Data (Step {_currentActionStep + 1})";
+                string screenImage = $"Screen Image Data (Step {_currentActionStep + 1})";
+                string webcamAudio = $"Webcam Audio Data (Step {_currentActionStep + 1})";
+                string pcAudio = $"PC Audio Data (Step {_currentActionStep + 1})";
+
+                // Update the UI with the loaded data
+                // This would typically involve updating properties bound to UI elements
+                // For now, just log the data
+                Debug.WriteLine($"Mouse Text: {mouseText}");
+                Debug.WriteLine($"Key Text: {keyText}");
+                Debug.WriteLine($"Webcam Image: {webcamImage}");
+                Debug.WriteLine($"Screen Image: {screenImage}");
+                Debug.WriteLine($"Webcam Audio: {webcamAudio}");
+                Debug.WriteLine($"PC Audio: {pcAudio}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading action step data: {ex.Message}");
+            }
+            finally
+            {
+                // Update command can execute status
+                (StepBackwardCommand as Command)?.ChangeCanExecute();
+            }
         }
     }
 }
