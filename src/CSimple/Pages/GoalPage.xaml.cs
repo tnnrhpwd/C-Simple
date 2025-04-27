@@ -5,6 +5,7 @@ using CSimple.ViewModels; // Added for OrientPageViewModel
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 
@@ -15,6 +16,7 @@ namespace CSimple.Pages
         private readonly GoalService _goalService;
         private readonly CSimple.Services.AppModeService.AppModeService _appModeService;
         private readonly OrientPageViewModel _orientPageViewModel; // Added
+        private readonly FileService _fileService; // Added FileService
 
         private bool _showNewGoal = false;
         public bool ShowNewGoal
@@ -96,6 +98,16 @@ namespace CSimple.Pages
             get => _isPipelineRunning;
             set => SetProperty(ref _isPipelineRunning, value);
         }
+
+        // Properties for Pipeline Selection
+        public ObservableCollection<string> AvailablePipelines { get; } = new ObservableCollection<string>();
+
+        private string _selectedPipelineName;
+        public string SelectedPipelineName
+        {
+            get => _selectedPipelineName;
+            set => SetProperty(ref _selectedPipelineName, value);
+        }
         // --- End AI Improvement Section ---
 
 
@@ -156,21 +168,22 @@ namespace CSimple.Pages
         public ICommand UnshareGoalCommand { get; }
         public ICommand DownloadGoalCommand { get; }
 
-        // Modified constructor to accept OrientPageViewModel
-        public GoalPage(GoalService goalService, CSimple.Services.AppModeService.AppModeService appModeService, OrientPageViewModel orientPageViewModel)
+        // Modified constructor to accept OrientPageViewModel and FileService
+        public GoalPage(GoalService goalService, CSimple.Services.AppModeService.AppModeService appModeService, OrientPageViewModel orientPageViewModel, FileService fileService) // Added FileService
         {
             InitializeComponent();
 
             _goalService = goalService; // Use injected service
             _appModeService = appModeService; // Use injected service
             _orientPageViewModel = orientPageViewModel; // Store injected ViewModel
+            _fileService = fileService; // Store injected FileService
 
             // Initialize existing commands
             ToggleCreateGoalCommand = new Command(OnToggleCreateGoal);
             SubmitGoalCommand = new Command(async () => await OnSubmitGoal());
             DeleteGoalCommand = new Command<Goal>(async (goal) => await OnDeleteGoal(goal));
             EditGoalCommand = new Command<Goal>(OnEditGoal);
-            RunImprovementPipelineCommand = new Command(async () => await OnRunPipeline(), () => !IsPipelineRunning);
+            RunImprovementPipelineCommand = new Command(async () => await OnRunPipeline(), () => !IsPipelineRunning && !string.IsNullOrEmpty(SelectedPipelineName)); // Disable if no pipeline selected
 
             // Initialize new tab commands
             SwitchToMyGoalsCommand = new Command(() => SwitchTab(TabType.MyGoals));
@@ -182,12 +195,43 @@ namespace CSimple.Pages
             UnshareGoalCommand = new Command<Goal>(OnUnshareGoal);
             DownloadGoalCommand = new Command<Goal>(OnDownloadGoal);
 
-            // Add sample data for SharedGoals and DiscoverGoals for testing
-            InitializeSampleData();
-
             BindingContext = this;
 
-            _ = LoadGoalsAsync();
+            _ = LoadInitialDataAsync(); // Combined loading
+        }
+
+        // Add the missing LoadInitialDataAsync method
+        private async Task LoadInitialDataAsync()
+        {
+            // Load goals
+            await LoadGoalsAsync();
+
+            // Load available pipelines
+            await LoadAvailablePipelinesAsync();
+        }
+
+        // Method to load available pipeline names
+        private async Task LoadAvailablePipelinesAsync()
+        {
+            try
+            {
+                var pipelines = await _fileService.ListPipelinesAsync();
+                AvailablePipelines.Clear();
+                if (pipelines != null)
+                {
+                    foreach (var pipeline in pipelines.OrderBy(p => p.Name))
+                    {
+                        AvailablePipelines.Add(pipeline.Name);
+                    }
+                }
+                // Update command CanExecute state after loading
+                ((Command)RunImprovementPipelineCommand).ChangeCanExecute();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading available pipelines: {ex.Message}");
+                // Handle error appropriately, maybe show an alert
+            }
         }
 
         // Add this method to initialize sample data for SharedGoals and DiscoverGoals
@@ -310,10 +354,18 @@ namespace CSimple.Pages
         // --- AI Improvement Method ---
         private async Task OnRunPipeline()
         {
-            if (IsPipelineRunning) return;
+            if (IsPipelineRunning || string.IsNullOrEmpty(SelectedPipelineName))
+            {
+                if (string.IsNullOrEmpty(SelectedPipelineName))
+                {
+                    await DisplayAlert("Select Pipeline", "Please select a pipeline from the dropdown.", "OK");
+                }
+                return;
+            }
+
 
             IsPipelineRunning = true;
-            ImprovementSuggestion = "Running pipeline, please wait...";
+            ImprovementSuggestion = "Loading pipeline and running analysis, please wait...";
             ((Command)RunImprovementPipelineCommand).ChangeCanExecute(); // Update button state
 
             try
@@ -323,15 +375,15 @@ namespace CSimple.Pages
                     ? "Suggest future improvements given my PC recorded data."
                     : AiPromptInput;
 
-                // Execute the pipeline from OrientPageViewModel
-                string result = await _orientPageViewModel.ExecuteCurrentPipelineAsync(prompt);
+                // Execute the selected pipeline by name via OrientPageViewModel
+                string result = await _orientPageViewModel.ExecutePipelineByNameAsync(SelectedPipelineName, prompt);
 
                 ImprovementSuggestion = result; // Display the result
             }
             catch (Exception ex)
             {
-                ImprovementSuggestion = $"Error running pipeline: {ex.Message}";
-                Debug.WriteLine($"Error executing pipeline: {ex}");
+                ImprovementSuggestion = $"Error running pipeline '{SelectedPipelineName}': {ex.Message}";
+                Debug.WriteLine($"Error executing pipeline '{SelectedPipelineName}': {ex}");
             }
             finally
             {
@@ -435,7 +487,8 @@ namespace CSimple.Pages
         {
             base.OnAppearing();
             Debug.WriteLine("GoalPage Appearing");
-            await LoadGoalsAsync();
+            // Reload pipelines in case new ones were created/deleted elsewhere
+            await LoadInitialDataAsync();
         }
 
         private async void CheckUserLoggedIn()

@@ -8,10 +8,10 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text; // Added for StringBuilder
 using System.Threading.Tasks;
-using System.Windows.Input; // Required for ICommand
-using CSimple.Pages; // Add this for OrientPage
-using System.Text; // For StringBuilder
+using System.Windows.Input;
+
 
 namespace CSimple.ViewModels
 {
@@ -21,6 +21,7 @@ namespace CSimple.ViewModels
         private readonly FileService _fileService; // Inject FileService
         private readonly HuggingFaceService _huggingFaceService; // Add HuggingFaceService
         private readonly NetPageViewModel _netPageViewModel; // Keep reference if needed
+        private readonly PythonBootstrapper _pythonBootstrapper; // Added
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -113,11 +114,13 @@ namespace CSimple.ViewModels
         public Func<string, string, string, string[], Task<string>> ShowActionSheet { get; set; }
 
         // --- Constructor ---
-        public OrientPageViewModel(FileService fileService, NetPageViewModel netPageViewModel) // Inject NetPageViewModel
+        // Ensure FileService and PythonBootstrapper are injected
+        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper)
         {
             _fileService = fileService;
-            _huggingFaceService = new HuggingFaceService(); // Initialize HuggingFaceService
-            _netPageViewModel = netPageViewModel; // Store reference
+            _huggingFaceService = huggingFaceService;
+            _netPageViewModel = netPageViewModel;
+            _pythonBootstrapper = pythonBootstrapper; // Store injected service
 
             // Initialize Commands
             AddModelNodeCommand = new Command<HuggingFaceModel>(async (model) => await AddModelNode(model));
@@ -136,8 +139,8 @@ namespace CSimple.ViewModels
             // Subscribe to NetPageViewModel's PropertyChanged event
             netPageViewModel.PropertyChanged += NetPageViewModel_PropertyChanged;
 
-            // Load initial data (pipelines and default/last pipeline)
-            // Moved to OnAppearing in code-behind to ensure services are ready
+            // Load available pipelines on initialization
+            _ = LoadAvailablePipelinesAsync();
         }
 
         // --- Event Handlers ---
@@ -443,15 +446,24 @@ namespace CSimple.ViewModels
 
         private async Task LoadAvailablePipelinesAsync()
         {
-            Debug.WriteLine("Loading available pipelines...");
-            var pipelines = await _fileService.ListPipelinesAsync();
-            AvailablePipelineNames.Clear();
-            foreach (var p in pipelines) // Assuming ListPipelinesAsync returns PipelineData with Name
+            try
             {
-                AvailablePipelineNames.Add(p.Name);
+                var pipelines = await _fileService.ListPipelinesAsync();
+                AvailablePipelineNames.Clear();
+                if (pipelines != null)
+                {
+                    foreach (var pipeline in pipelines.OrderBy(p => p.Name))
+                    {
+                        AvailablePipelineNames.Add(pipeline.Name);
+                    }
+                }
+                // Optionally set the SelectedPipelineName if needed within OrientPage itself
+                // SelectedPipelineName = AvailablePipelineNames.FirstOrDefault();
             }
-            Debug.WriteLine($"Found {AvailablePipelineNames.Count} pipelines.");
-            OnPropertyChanged(nameof(AvailablePipelineNames)); // Notify UI
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading available pipeline names in OrientPageViewModel: {ex.Message}");
+            }
         }
 
         private async Task LoadPipelineAsync(string pipelineName)
@@ -1087,32 +1099,114 @@ namespace CSimple.ViewModels
             return finalOutput;
         }
 
-
-        // --- INotifyPropertyChanged Implementation ---
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        // Made protected virtual for potential subclassing
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        // Method to load a specific pipeline by name
+        public async Task LoadPipelineByNameAsync(string pipelineName)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            if (string.IsNullOrEmpty(pipelineName))
+            {
+                Debug.WriteLine("LoadPipelineByNameAsync: Pipeline name is null or empty.");
+                return;
+            }
+
+            try
+            {
+                var pipelineData = await _fileService.LoadPipelineAsync(pipelineName);
+                if (pipelineData != null)
+                {
+                    LoadPipelineData(pipelineData); // Use existing method to load nodes/connections
+                    CurrentPipelineName = pipelineName; // Update the current pipeline name
+                    Debug.WriteLine($"Pipeline '{pipelineName}' loaded successfully.");
+                }
+                else
+                {
+                    Debug.WriteLine($"Failed to load pipeline data for '{pipelineName}'.");
+                    // Optionally clear the canvas or show an error
+                    // ClearCanvas();
+                    // await ShowAlert("Error", $"Could not load pipeline '{pipelineName}'.", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading pipeline '{pipelineName}': {ex.Message}");
+                // await ShowAlert("Error", $"An error occurred while loading pipeline '{pipelineName}'.", "OK");
+            }
         }
 
-        // Helper for setting properties
-        protected bool SetProperty<T>(ref T backingStore, T value,
-            [CallerMemberName] string propertyName = "",
-            Action onChanged = null)
-        {
-            if (EqualityComparer<T>.Default.Equals(backingStore, value))
-                return false;
 
-            backingStore = value;
-            onChanged?.Invoke();
+        // Method to execute a pipeline by name
+        public async Task<string> ExecutePipelineByNameAsync(string pipelineName, string initialInput)
+        {
+            Debug.WriteLine($"Attempting to execute pipeline: {pipelineName} with input: {initialInput}");
+            await LoadPipelineByNameAsync(pipelineName); // Load the specified pipeline first
+
+            if (CurrentPipelineName != pipelineName || Nodes.Count == 0)
+            {
+                return $"Error: Failed to load pipeline '{pipelineName}' before execution.";
+            }
+
+            // Now execute the loaded pipeline (using the logic from ExecuteCurrentPipelineAsync)
+            return await ExecuteCurrentPipelineAsync(initialInput);
+        }
+
+        // Helper method to load pipeline data into the view model state
+        private void LoadPipelineData(PipelineData data)
+        {
+            if (data == null) return;
+
+            Nodes.Clear();
+            Connections.Clear();
+
+            if (data.Nodes != null)
+            {
+                foreach (var nodeData in data.Nodes)
+                {
+                    Nodes.Add(nodeData.ToViewModel());
+                }
+            }
+
+            if (data.Connections != null)
+            {
+                foreach (var connData in data.Connections)
+                {
+                    // Ensure source and target nodes exist before adding connection
+                    if (Nodes.Any(n => n.Id == connData.SourceNodeId.ToString()) &&
+                        Nodes.Any(n => n.Id == connData.TargetNodeId.ToString()))
+                    {
+                        Connections.Add(connData.ToViewModel());
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Warning: Skipping connection {connData.Id} due to missing source/target node during load.");
+                    }
+                }
+            }
+
+            CurrentPipelineName = data.Name;
+            InvalidateCanvas?.Invoke(); // Redraw canvas
+        }
+
+
+        // --- INotifyPropertyChanged Implementation ---
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected virtual bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string propertyName = null)
+        {
+            if (EqualityComparer<T>.Default.Equals(storage, value)) return false;
+            storage = value;
             OnPropertyChanged(propertyName);
             return true;
         }
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            // Update command states if necessary when properties change
+            if (propertyName == nameof(SelectedNode) || propertyName == nameof(Nodes) || propertyName == nameof(Connections))
+            {
+                // Example: ((Command)DeleteSelectedNodeCommand)?.ChangeCanExecute();
+            }
+        }
 
         public Action InvalidateCanvas { get; set; }
-        // Removed duplicate PropertyChanged event declaration
 
         // --- Helper Methods ---
 

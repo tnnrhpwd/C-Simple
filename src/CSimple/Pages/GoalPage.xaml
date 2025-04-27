@@ -30,7 +30,25 @@
                         <Label Text="AI Goal Improvement Suggestions"
                                Style="{StaticResource SubHeaderStyle}"
                                HorizontalOptions="Center" />
-                        <!-- New Prompt Input Field -->
+                        <!-- Pipeline Selection -->
+                        <Label Text="Select Pipeline:"
+                               Style="{StaticResource BodyTextStyle}" />
+                        <Picker ItemsSource="{Binding AvailablePipelines}"
+                                SelectedItem="{Binding SelectedPipelineName}"
+                                Title="Choose a pipeline..."
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                TitleColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackgroundLight}, Dark={StaticResource SurfaceBackgroundDark}}">
+                            <Picker.Triggers>
+                                <DataTrigger TargetType="Picker"
+                                             Binding="{Binding SelectedPipelineName}"
+                                             Value="{x:Null}">
+                                    <Setter Property="TitleColor"
+                                            Value="{StaticResource ErrorColor}" />
+                                </DataTrigger>
+                            </Picker.Triggers>
+                        </Picker>
+                        <!-- Prompt Input Field -->
                         <Label Text="Enter your prompt for AI improvement:"
                                Style="{StaticResource BodyTextStyle}" />
                         <Editor Text="{Binding AiPromptInput}"

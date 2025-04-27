@@ -1,10 +1,7 @@
 ﻿using CSimple.Pages;
 using CSimple.Services;
-using CSimple.ViewModels; // Add ViewModels namespace
-using Microsoft.Maui.LifecycleEvents;
-using Microsoft.UI;
-using Microsoft.UI.Windowing;
-using Windows.Graphics;
+using CSimple.ViewModels; // Ensure ViewModels namespace is included
+
 namespace CSimple;
 
 public static class MauiProgram
@@ -20,89 +17,24 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 fonts.AddFont("OpenSans-SemiBold.ttf", "OpenSansSemiBold");
             })
-            // Add the namespace here
             .ConfigureMauiAppWithBehaviors()
             .ConfigureMauiHandlers(handlers =>
             {
                 // Add any handler configuration here
-            })
-            .ConfigureLifecycleEvents(events =>
-            {
-#if WINDOWS
-                // Add Windows-specific customization for title bar
-                events.AddWindows(windowsLifecycleBuilder =>
-                {
-                    windowsLifecycleBuilder.OnWindowCreated(window =>
-                    {
-                        window.ExtendsContentIntoTitleBar = true;
-
-                        // Get the current theme colors
-                        var app = Microsoft.Maui.Controls.Application.Current as App;
-                        if (app != null)
-                        {
-                            // Force an update of the window colors
-                            app.Dispatcher.Dispatch(() =>
-                            {
-                                // This will trigger the update of the title bar colors
-                                Microsoft.Maui.Controls.Application.Current.UserAppTheme =
-                                    Microsoft.Maui.Controls.Application.Current.UserAppTheme;
-                            });
-                        }
-                    });
-                });
-#endif
             });
 
-        // No need to register styles here - they are already included in App.xaml
-        // Don't add resources to Application.Current here since it's not initialized yet
-
-        builder.ConfigureLifecycleEvents(lifecycle =>
-        {
-#if WINDOWS
-            lifecycle.AddWindows(windows => windows.OnWindowCreated((window) =>
-            {
-                // 'del.ExtendsContentIntoTitleBar = true;
-                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
-                var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
-                var appWindow = AppWindow.GetFromWindowId(windowId);
-                appWindow.Resize(new SizeInt32(800, 900));
-            }));
-#endif
-        });
-
         var services = builder.Services;
-        // --- Register ViewModels ---
-        services.AddSingleton<HomeViewModel>();
-        services.AddSingleton<LoginViewModel>();
-        services.AddSingleton<NetPageViewModel>(); // Register NetPageViewModel
-        services.AddSingleton<OrientPageViewModel>(); // Register OrientPageViewModel
-        // Register ActionPageViewModel if not already done
-        services.AddSingleton<ActionPageViewModel>();
 
-        // --- Register Pages ---
-        services.AddSingleton<HomePage>();
-        services.AddSingleton<LoginPage>();
-        services.AddSingleton<SettingsPage>();
-        // Register NetPage with ViewModel dependency
-        services.AddSingleton<NetPage>(); // Inject ViewModel automatically
-        services.AddSingleton<OrientPage>(); // Register OrientPage
-        // Register GoalPage with its dependencies
-        services.AddSingleton<GoalPage>();
-        // Register ActionPage if not already done
-        services.AddSingleton<ActionPage>();
-
-
-        // --- Register Services ---
+        // --- Register Services (ensure FileService, HuggingFaceService, PythonBootstrapper are here) ---
         services.AddSingleton<DataService>();
         services.AddSingleton<SettingsService>();
-        services.AddSingleton<FileService>();  // Register FileService
-        services.AddSingleton<GoalService>();  // GoalService depends on FileService
-        services.AddSingleton<ActionService>();  // Register ActionService with DI
+        services.AddSingleton<FileService>();  // Ensure registered
+        services.AddSingleton<GoalService>();
+        services.AddSingleton<ActionService>();
         services.AddSingleton<GlobalInputCapture>();
         services.AddSingleton<IOnTrainModelClickedService, OnTrainModelClickedService>();
-        services.AddSingleton<PythonBootstrapper>();  // Replace PythonDependencyManager with PythonBootstrapper
-        services.AddSingleton<HuggingFaceService>(); // Add HuggingFace service
-        // Inject ActionService into InputCaptureService
+        services.AddSingleton<PythonBootstrapper>(); // Ensure registered
+        services.AddSingleton<HuggingFaceService>(); // Ensure registered
         services.AddSingleton(sp =>
         {
             var actionService = sp.GetRequiredService<ActionService>();
@@ -117,8 +49,33 @@ public static class MauiProgram
         services.AddSingleton<AudioCaptureService>();
         services.AddSingleton<ObserveDataService>();
         services.AddSingleton<MouseTrackingService>();
+        services.AddSingleton<VoiceAssistantService>();
 
-        // Register ObservePage with all dependencies
+        // --- Register ViewModels ---
+        services.AddSingleton<HomeViewModel>();
+        services.AddSingleton<LoginViewModel>();
+        services.AddSingleton<NetPageViewModel>();
+        // Register OrientPageViewModel with dependencies
+        services.AddSingleton<OrientPageViewModel>(); // Dependencies injected automatically if registered
+
+        services.AddSingleton<ActionPageViewModel>();
+
+        // --- Register Pages ---
+        // Update HomePage registration
+        services.AddSingleton(sp => new HomePage(
+            sp.GetRequiredService<HomeViewModel>(),
+            sp.GetRequiredService<DataService>(),
+            sp.GetRequiredService<AppModeService>(),
+            sp.GetRequiredService<VoiceAssistantService>()
+        ));
+        services.AddSingleton<LoginPage>();
+        services.AddSingleton<SettingsPage>();
+        services.AddSingleton<NetPage>();
+        services.AddSingleton<OrientPage>();
+        // Register GoalPage with dependencies
+        services.AddSingleton<GoalPage>(); // Dependencies injected automatically if registered
+        services.AddSingleton<ActionPage>();
+        // Register ObservePage with dependencies
         services.AddSingleton(sp => new ObservePage(
             sp.GetRequiredService<InputCaptureService>(),
             sp.GetRequiredService<ScreenCaptureService>(),
@@ -128,16 +85,6 @@ public static class MauiProgram
             sp.GetRequiredService<ActionService>()
         ));
 
-        // Register VoiceAssistantService
-        services.AddSingleton<VoiceAssistantService>();
-
-        // Update HomePage registration to include VoiceAssistantService
-        services.AddSingleton(sp => new HomePage(
-            sp.GetRequiredService<HomeViewModel>(),
-            sp.GetRequiredService<DataService>(),
-            sp.GetRequiredService<AppModeService>(),
-            sp.GetRequiredService<VoiceAssistantService>()
-        ));
 
 #if WINDOWS
         services.AddSingleton<ITrayService, WinUI.TrayService>();
@@ -147,7 +94,8 @@ public static class MauiProgram
         services.AddSingleton<INotificationService, MacCatalyst.NotificationService>();
 #endif
 
-        services.AddTransient<App>();
+        // Register App with dependencies
+        services.AddSingleton<App>(); // Changed from Transient to Singleton if App holds state like NetPageViewModel
 
         return builder.Build();
     }
