@@ -234,7 +234,6 @@ namespace CSimple.Services
                 }
 
                 await _fileService.SaveDataItemsAsync(data);
-                Debug.WriteLine("Action Groups and Actions Saved to File");
             }
             catch (Exception ex)
             {
@@ -281,10 +280,6 @@ namespace CSimple.Services
 
                     result = uniqueItems.Values.ToList();
                     Debug.WriteLine($"LoadDataItemsFromFile: Loaded {result.Count} unique regular items");
-                }
-                else
-                {
-                    Debug.WriteLine("No items found in regular storage");
                 }
             }
             catch (Exception ex)
@@ -402,7 +397,6 @@ namespace CSimple.Services
                     }
                 }
 
-                Debug.WriteLine($"LoadLocalDataItemsAsync: Loaded {uniqueLocalItems.Count} unique local items");
                 return uniqueLocalItems.Values.ToList();
             }
             catch (Exception ex)
@@ -414,7 +408,6 @@ namespace CSimple.Services
 
         public async Task<bool> ToggleSimulateActionGroupAsync(ActionGroup actionGroup)
         {
-            Debug.WriteLine($"Toggling Simulation for: {actionGroup.ActionName}");
             if (actionGroup == null)
                 return false;
 
@@ -739,11 +732,11 @@ namespace CSimple.Services
                     }
                     if (prevMiddleButtonDown)
                     {
-                        // ...existing code...
+                        SendLowLevelMouseClick(MouseButton.Middle, true, currentX, currentY);
+                        prevMiddleButtonDown = false; // Update the local variable
                     }
 
                     _isDragging = false;
-                    Debug.WriteLine($"Completed Simulation for: {actionGroup.ActionName}");
                 }
                 catch (Exception ex)
                 {
@@ -1239,9 +1232,6 @@ namespace CSimple.Services
             {
                 dataItem.IsPublic = false;
             }
-            Debug.Write($"Parsed dataItem.Creator: {dataItem.Creator}");
-            Debug.Write($"Parsed dataItem.ActionName: {dataItem.Data.ActionGroupObject.ActionName}");
-            Debug.Write($"Parsed dataItem.IsPublic: {dataItem.IsPublic}");
         }
 
         private static string ExtractStringBetween(string source, string start, string end)
@@ -1298,7 +1288,6 @@ namespace CSimple.Services
         {
             keybd_event(volumeCommand, 0, 0, UIntPtr.Zero);
             keybd_event(volumeCommand, 0, 0x0002, UIntPtr.Zero); // Key up
-            Debug.WriteLine($"Executed Volume Command: {(volumeCommand == VK_VOLUME_MUTE ? "Mute" : volumeCommand == VK_VOLUME_DOWN ? "Volume Down" : "Volume Up")}");
         }
 
         public async Task<List<ActionFile>> GetActionFilesAsync(string actionId)
@@ -1462,9 +1451,7 @@ namespace CSimple.Services
 
             // Log summary of what we found - with clear offline/online indicator
             string modeInfo = (_appModeService?.CurrentMode == AppMode.Online) ? "[ONLINE MODE]" : "[OFFLINE MODE]";
-            Debug.WriteLine($"{modeInfo} Data summary: {debugInfo["backend"]} backend, " +
-                            $"{debugInfo["local"]} local, {debugInfo["duplicates"]} duplicates, " +
-                            $"returning {result.Count} items");
+            Debug.WriteLine($"{modeInfo} Data summary: {debugInfo["backend"]} backend, {debugInfo["local"]} local, {debugInfo["duplicates"]} duplicates -> {result.Count} items");
 
             return result.Values.ToList();
         }
