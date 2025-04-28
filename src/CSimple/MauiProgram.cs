@@ -1,6 +1,6 @@
 ﻿using CSimple.Pages;
 using CSimple.Services;
-using CSimple.ViewModels; // Ensure ViewModels namespace is included
+using CSimple.ViewModels;
 
 namespace CSimple;
 
@@ -20,21 +20,19 @@ public static class MauiProgram
             .ConfigureMauiAppWithBehaviors()
             .ConfigureMauiHandlers(handlers =>
             {
-                // Add any handler configuration here
             });
 
         var services = builder.Services;
 
-        // --- Register Services (ensure FileService, HuggingFaceService, PythonBootstrapper are here) ---
         services.AddSingleton<DataService>();
         services.AddSingleton<SettingsService>();
-        services.AddSingleton<FileService>();  // Ensure registered
+        services.AddSingleton<FileService>();
         services.AddSingleton<GoalService>();
         services.AddSingleton<ActionService>();
         services.AddSingleton<GlobalInputCapture>();
         services.AddSingleton<IOnTrainModelClickedService, OnTrainModelClickedService>();
-        services.AddSingleton<PythonBootstrapper>(); // Ensure registered
-        services.AddSingleton<HuggingFaceService>(); // Ensure registered
+        services.AddSingleton<PythonBootstrapper>();
+        services.AddSingleton<HuggingFaceService>();
         services.AddSingleton(sp =>
         {
             var actionService = sp.GetRequiredService<ActionService>();
@@ -51,17 +49,13 @@ public static class MauiProgram
         services.AddSingleton<MouseTrackingService>();
         services.AddSingleton<VoiceAssistantService>();
 
-        // --- Register ViewModels ---
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<LoginViewModel>();
         services.AddSingleton<NetPageViewModel>();
-        // Register OrientPageViewModel with dependencies
-        services.AddSingleton<OrientPageViewModel>(); // Dependencies injected automatically if registered
+        services.AddSingleton<OrientPageViewModel>();
 
         services.AddSingleton<ActionPageViewModel>();
 
-        // --- Register Pages ---
-        // Update HomePage registration
         services.AddSingleton(sp => new HomePage(
             sp.GetRequiredService<HomeViewModel>(),
             sp.GetRequiredService<DataService>(),
@@ -72,10 +66,8 @@ public static class MauiProgram
         services.AddSingleton<SettingsPage>();
         services.AddSingleton<NetPage>();
         services.AddSingleton<OrientPage>();
-        // Register GoalPage with dependencies
-        services.AddSingleton<GoalPage>(); // Dependencies injected automatically if registered
+        services.AddSingleton<GoalPage>();
         services.AddSingleton<ActionPage>();
-        // Register ObservePage with dependencies
         services.AddSingleton(sp => new ObservePage(
             sp.GetRequiredService<InputCaptureService>(),
             sp.GetRequiredService<ScreenCaptureService>(),
@@ -94,22 +86,18 @@ public static class MauiProgram
         services.AddSingleton<INotificationService, MacCatalyst.NotificationService>();
 #endif
 
-        // Register App with dependencies
-        services.AddSingleton<App>(); // Changed from Transient to Singleton if App holds state like NetPageViewModel
+        services.AddSingleton<App>();
 
         return builder.Build();
     }
 }
 
-// Add extension method for configuring behaviors
 public static class MauiAppBuilderExtensions
 {
     public static MauiAppBuilder ConfigureMauiAppWithBehaviors(this MauiAppBuilder builder)
     {
-        // Make sure behaviors are included in the assembly
         builder.ConfigureEffects(effects =>
         {
-            // This is just to ensure the behaviors assembly is loaded
             var behaviorType = typeof(CSimple.Behaviors.EnumBindingBehavior);
         });
 
