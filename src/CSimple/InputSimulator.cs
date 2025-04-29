@@ -1,207 +1,46 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using CSimple.Input; // Add using for the new namespace
 
 namespace CSimple
 {
-    public enum MouseButton
-    {
-        Left,
-        Right,
-        Middle
-    }
-
-    public enum VirtualKey
-    {
-        VK_LBUTTON = 0x01,
-        VK_RBUTTON = 0x02,
-        VK_CANCEL = 0x03,
-        VK_MBUTTON = 0x04,
-        VK_BACK = 0x08,
-        VK_TAB = 0x09,
-        VK_CLEAR = 0x0C,
-        VK_RETURN = 0x0D,
-        VK_SHIFT = 0x10,
-        VK_CONTROL = 0x11,
-        VK_MENU = 0x12,
-        VK_PAUSE = 0x13,
-        VK_CAPITAL = 0x14,
-        VK_ESCAPE = 0x1B,
-        VK_SPACE = 0x20,
-        VK_PRIOR = 0x21,
-        VK_NEXT = 0x22,
-        VK_END = 0x23,
-        VK_HOME = 0x24,
-        VK_LEFT = 0x25,
-        VK_UP = 0x26,
-        VK_RIGHT = 0x27,
-        VK_DOWN = 0x28,
-        VK_SELECT = 0x29,
-        VK_PRINT = 0x2A,
-        VK_EXECUTE = 0x2B,
-        VK_SNAPSHOT = 0x2C,
-        VK_INSERT = 0x2D,
-        VK_DELETE = 0x2E,
-        VK_HELP = 0x2F,
-        KEY_0 = 0x30,
-        KEY_1 = 0x31,
-        KEY_2 = 0x32,
-        KEY_3 = 0x33,
-        KEY_4 = 0x34,
-        KEY_5 = 0x35,
-        KEY_6 = 0x36,
-        KEY_7 = 0x37,
-        KEY_8 = 0x38,
-        KEY_9 = 0x39,
-        KEY_A = 0x41,
-        KEY_B = 0x42,
-        KEY_C = 0x43,
-        KEY_D = 0x44,
-        KEY_E = 0x45,
-        KEY_F = 0x46,
-        KEY_G = 0x47,
-        KEY_H = 0x48,
-        KEY_I = 0x49,
-        KEY_J = 0x4A,
-        KEY_K = 0x4B,
-        KEY_L = 0x4C,
-        KEY_M = 0x4D,
-        KEY_N = 0x4E,
-        KEY_O = 0x4F,
-        KEY_P = 0x50,
-        KEY_Q = 0x51,
-        KEY_R = 0x52,
-        KEY_S = 0x53,
-        KEY_T = 0x54,
-        KEY_U = 0x55,
-        KEY_V = 0x56,
-        KEY_W = 0x57,
-        KEY_X = 0x58,
-        KEY_Y = 0x59,
-        KEY_Z = 0x5A,
-        VK_F1 = 0x70,
-        VK_F2 = 0x71,
-        VK_F3 = 0x72,
-        VK_F4 = 0x73,
-        VK_F5 = 0x74,
-        VK_F6 = 0x75,
-        VK_F7 = 0x76,
-        VK_F8 = 0x77,
-        VK_F9 = 0x78,
-        VK_F10 = 0x79,
-        VK_F11 = 0x7A,
-        VK_F12 = 0x7B,
-    }
-
     public static class InputSimulator
     {
-        #region P/Invoke declarations and structs
-        [DllImport("user32.dll")]
-        private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+        #region Mouse Input Methods (Higher Level - Keep or Refactor)
 
-        [DllImport("user32.dll")]
-        private static extern bool GetCursorPos(out POINT lpPoint);
-
-        [DllImport("user32.dll")]
-        private static extern int GetSystemMetrics(int nIndex);
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern IntPtr GetMessageExtraInfo();
-
-        private const int INPUT_MOUSE = 0;
-        private const int INPUT_KEYBOARD = 1;
-        private const uint KEYEVENTF_KEYDOWN = 0x0000;
-        private const uint KEYEVENTF_KEYUP = 0x0002;
-        private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
-        private const int MOUSEEVENTF_ABSOLUTE = 0x8000;
-        private const uint MOUSEEVENTF_MOVE = 0x0001;
-        private const int MOUSEEVENTF_LEFTDOWN = 0x0002;
-        private const int MOUSEEVENTF_LEFTUP = 0x0004;
-        private const int MOUSEEVENTF_RIGHTDOWN = 0x0008;
-        private const int MOUSEEVENTF_RIGHTUP = 0x0010;
-        private const int MOUSEEVENTF_MIDDLEDOWN = 0x0020;
-        private const int MOUSEEVENTF_MIDDLEUP = 0x0040;
-        private const int MOUSEEVENTF_WHEEL = 0x0800;
-        private const int SM_CXSCREEN = 0;
-        private const int SM_CYSCREEN = 1;
-        private const uint MOUSEEVENTF_MOVE_NOCOALESCING = 0x2000;
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct MOUSEINPUT
-        {
-            public int dx;
-            public int dy;
-            public uint mouseData;
-            public uint dwFlags;
-            public uint time;
-            public IntPtr dwExtraInfo;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct KEYBDINPUT
-        {
-            public ushort wVk;
-            public ushort wScan;
-            public uint dwFlags;
-            public uint time;
-            public IntPtr dwExtraInfo;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct HARDWAREINPUT
-        {
-            public uint uMsg;
-            public ushort wParamL;
-            public ushort wParamH;
-        }
-
-        [StructLayout(LayoutKind.Explicit)]
-        private struct INPUT_UNION
-        {
-            [FieldOffset(0)] public MOUSEINPUT mi;
-            [FieldOffset(0)] public KEYBDINPUT ki;
-            [FieldOffset(0)] public HARDWAREINPUT hi;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct INPUT
-        {
-            public int type;
-            public INPUT_UNION u;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct POINT
-        {
-            public int X;
-            public int Y;
-        }
-        #endregion
-
-        #region Mouse Input Methods
+        // This MoveMouse uses absolute coordinates and GetSystemMetrics.
+        // It can be kept as a higher-level abstraction or refactored to use LowLevelInputSimulator.
         public static void MoveMouse(int x, int y)
         {
-            INPUT[] inputs = new INPUT[1];
+            // Option 1: Keep implementation using LowLevelInputSimulator methods
+            LowLevelInputSimulator.SendLowLevelMouseMove(x, y);
+
+            // Option 2: Keep original implementation if direct access to metrics is preferred here
+            /*
+            INPUT[] inputs = new INPUT[1]; // Need INPUT struct definition if kept
             inputs[0].type = INPUT_MOUSE;
 
-            int screenWidth = GetSystemMetrics(SM_CXSCREEN);
-            int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+            int screenWidth = LowLevelInputSimulator.GetSystemMetrics(SM_CXSCREEN); // Use LowLevelInputSimulator
+            int screenHeight = LowLevelInputSimulator.GetSystemMetrics(SM_CYSCREEN); // Use LowLevelInputSimulator
 
             inputs[0].u.mi.dx = (x * 65535) / screenWidth;
             inputs[0].u.mi.dy = (y * 65535) / screenHeight;
             inputs[0].u.mi.mouseData = 0;
-            inputs[0].u.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
+            inputs[0].u.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE; // Need constants if kept
             inputs[0].u.mi.time = 0;
-            inputs[0].u.mi.dwExtraInfo = GetMessageExtraInfo();
+            inputs[0].u.mi.dwExtraInfo = GetMessageExtraInfo(); // Need P/Invoke if kept
 
-            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT))); // Need P/Invoke if kept
+            */
         }
 
+        // SmoothMouseMove uses MoveMouse, so it depends on the implementation above.
         public static async Task SmoothMouseMove(int startX, int startY, int endX, int endY, int steps = 20, int delayMs = 2)
         {
             if (startX < 0 || startY < 0)
             {
-                GetCursorPos(out POINT currentPos);
+                LowLevelInputSimulator.GetCursorPos(out LowLevelInputSimulator.POINT currentPos); // Use LowLevelInputSimulator
                 startX = currentPos.X;
                 startY = currentPos.Y;
             }
@@ -284,123 +123,55 @@ namespace CSimple
             }
         }
 
-        public static void SimulateMouseClick(MouseButton button, int x, int y)
+        // SimulateMouseClick uses MoveMouse and sends click events. Refactor to use LowLevelInputSimulator.
+        public static void SimulateMouseClick(Input.MouseButton button, int x, int y) // Use namespaced enum
         {
-            MoveMouse(x, y);
-
-            INPUT[] inputs = new INPUT[2];
-
-            inputs[0].type = INPUT_MOUSE;
-            inputs[0].u.mi.dx = 0;
-            inputs[0].u.mi.dy = 0;
-            inputs[0].u.mi.mouseData = 0;
-            inputs[0].u.mi.time = 0;
-            inputs[0].u.mi.dwExtraInfo = GetMessageExtraInfo();
-
-            inputs[1].type = INPUT_MOUSE;
-            inputs[1].u.mi.dx = 0;
-            inputs[1].u.mi.dy = 0;
-            inputs[1].u.mi.mouseData = 0;
-            inputs[1].u.mi.time = 0;
-            inputs[1].u.mi.dwExtraInfo = GetMessageExtraInfo();
-
-            switch (button)
-            {
-                case MouseButton.Left:
-                    inputs[0].u.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
-                    inputs[1].u.mi.dwFlags = MOUSEEVENTF_LEFTUP;
-                    break;
-                case MouseButton.Right:
-                    inputs[0].u.mi.dwFlags = MOUSEEVENTF_RIGHTDOWN;
-                    inputs[1].u.mi.dwFlags = MOUSEEVENTF_RIGHTUP;
-                    break;
-                case MouseButton.Middle:
-                    inputs[0].u.mi.dwFlags = MOUSEEVENTF_MIDDLEDOWN;
-                    inputs[1].u.mi.dwFlags = MOUSEEVENTF_MIDDLEUP;
-                    break;
-            }
-
-            SendInput(2, inputs, Marshal.SizeOf(typeof(INPUT)));
+            MoveMouse(x, y); // Ensure position
+            LowLevelInputSimulator.SendLowLevelMouseClick(button, false, x, y); // Send Down
+            LowLevelInputSimulator.SendLowLevelMouseClick(button, true, x, y);  // Send Up
         }
 
-        public static void SimulateMouseEvent(MouseButton button, bool isUp)
+        // SimulateMouseEvent sends only up or down events. Refactor to use LowLevelInputSimulator.
+        public static void SimulateMouseEvent(Input.MouseButton button, bool isUp) // Use namespaced enum
         {
-            GetCursorPos(out POINT currentPos);
-
-            INPUT[] inputs = new INPUT[1];
-            inputs[0].type = INPUT_MOUSE;
-            inputs[0].u.mi.dx = 0;
-            inputs[0].u.mi.dy = 0;
-            inputs[0].u.mi.mouseData = 0;
-            inputs[0].u.mi.time = 0;
-            inputs[0].u.mi.dwExtraInfo = GetMessageExtraInfo();
-
-            switch (button)
-            {
-                case MouseButton.Left:
-                    inputs[0].u.mi.dwFlags = isUp ? (uint)MOUSEEVENTF_LEFTUP : (uint)MOUSEEVENTF_LEFTDOWN;
-                    break;
-                case MouseButton.Right:
-                    inputs[0].u.mi.dwFlags = isUp ? (uint)MOUSEEVENTF_RIGHTUP : (uint)MOUSEEVENTF_RIGHTDOWN;
-                    break;
-                case MouseButton.Middle:
-                    inputs[0].u.mi.dwFlags = isUp ? (uint)MOUSEEVENTF_MIDDLEUP : (uint)MOUSEEVENTF_MIDDLEDOWN;
-                    break;
-            }
-
-            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+            LowLevelInputSimulator.GetCursorPos(out LowLevelInputSimulator.POINT currentPos); // Get current position
+            LowLevelInputSimulator.SendLowLevelMouseClick(button, isUp, currentPos.X, currentPos.Y); // Send event at current pos
         }
 
+        // SendRawMouseInput moved to LowLevelInputSimulator. Keep this wrapper?
         public static void SendRawMouseInput(int deltaX, int deltaY)
         {
-            INPUT[] inputs = new INPUT[1];
-            inputs[0].type = INPUT_MOUSE;
-            inputs[0].u.mi.dx = deltaX;
-            inputs[0].u.mi.dy = deltaY;
-            inputs[0].u.mi.mouseData = 0;
-            inputs[0].u.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCING;
-            inputs[0].u.mi.time = 0;
-            inputs[0].u.mi.dwExtraInfo = IntPtr.Zero;
-
-            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+            LowLevelInputSimulator.SendRawMouseInput(deltaX, deltaY);
         }
         #endregion
 
-        #region Keyboard Input Methods
-        public static void SimulateKeyDown(VirtualKey key)
-        {
-            INPUT[] inputs = new INPUT[1];
-            inputs[0].type = INPUT_KEYBOARD;
-            inputs[0].u.ki.wVk = (ushort)key;
-            inputs[0].u.ki.wScan = 0;
-            inputs[0].u.ki.dwFlags = KEYEVENTF_KEYDOWN;
-            inputs[0].u.ki.time = 0;
-            inputs[0].u.ki.dwExtraInfo = GetMessageExtraInfo();
+        #region Keyboard Input Methods (Higher Level - Keep or Refactor)
 
-            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+        // SimulateKeyDown refactored to use LowLevelInputSimulator
+        public static void SimulateKeyDown(Input.VirtualKey key) // Use namespaced enum
+        {
+            LowLevelInputSimulator.SendKeyboardInput((ushort)key, false);
         }
 
-        public static void SimulateKeyUp(VirtualKey key)
+        // SimulateKeyUp refactored to use LowLevelInputSimulator
+        public static void SimulateKeyUp(Input.VirtualKey key) // Use namespaced enum
         {
-            INPUT[] inputs = new INPUT[1];
-            inputs[0].type = INPUT_KEYBOARD;
-            inputs[0].u.ki.wVk = (ushort)key;
-            inputs[0].u.ki.wScan = 0;
-            inputs[0].u.ki.dwFlags = KEYEVENTF_KEYUP;
-            inputs[0].u.ki.time = 0;
-            inputs[0].u.ki.dwExtraInfo = GetMessageExtraInfo();
-
-            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+            LowLevelInputSimulator.SendKeyboardInput((ushort)key, true);
         }
 
-        public static void SimulateKeyPress(VirtualKey key)
+        // SimulateKeyPress uses KeyDown/KeyUp, no changes needed if they are refactored correctly.
+        public static void SimulateKeyPress(Input.VirtualKey key) // Use namespaced enum
         {
             SimulateKeyDown(key);
             SimulateKeyUp(key);
         }
         #endregion
 
-        #region Advanced Game Input Methods
+        #region Advanced Game Input Methods (Keep or Refactor)
+        // These methods use SetCursorPos and GetCursorPos.
+        // Keep them here if they represent a distinct "game-focused" simulation approach.
+        // Ensure P/Invokes for SetCursorPos are available or move them to LowLevelInputSimulator too.
+
         private static bool _gameEnhancedMode = true;
         private static int _gameMouseSensitivity = 50;
         private static int _gameMovementSteps = 40;
@@ -419,7 +190,7 @@ namespace CSimple
 
         public static async Task GameMouseMove(int deltaX, int deltaY, int steps, int delayMs)
         {
-            GetCursorPos(out POINT startPos);
+            LowLevelInputSimulator.GetCursorPos(out LowLevelInputSimulator.POINT startPos); // Use LowLevelInputSimulator
 
             float sensitivityFactor = _gameMouseSensitivity / 100f;
             deltaX = (int)(deltaX * sensitivityFactor);
@@ -452,20 +223,21 @@ namespace CSimple
                     y += random.Next(-1, 2);
                 }
 
-                SetCursorPos(x, y);
+                SetCursorPos(x, y); // Keep using SetCursorPos P/Invoke
 
                 if (delayMs > 0)
                     await Task.Delay(delayMs);
             }
 
-            SetCursorPos(endX, endY);
+            SetCursorPos(endX, endY); // Keep using SetCursorPos P/Invoke
         }
 
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll")] // Keep SetCursorPos here if Game methods remain
         private static extern bool SetCursorPos(int X, int Y);
 
         #endregion
 
+        // MoveDirectlyAsync uses MoveMouse, depends on its implementation.
         public static async Task MoveDirectlyAsync(int startX, int startY, int endX, int endY, int steps = 20)
         {
             int stepX = (endX - startX) / steps;
@@ -480,6 +252,7 @@ namespace CSimple
             MoveMouse(endX, endY);
         }
 
+        // Window management methods are not input simulation, keep them here.
         public static bool BringWindowToForeground(IntPtr hWnd)
         {
             if (IsIconic(hWnd))

@@ -5,6 +5,8 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using CSimple.Services.AppModeService;
 using CSimple.Models;
+using CSimple.Input; // Added using for LowLevelInputSimulator
+using CSimple.Utils;  // Added using for ActionServiceUtils
 
 namespace CSimple.Services
 {
@@ -16,120 +18,25 @@ namespace CSimple.Services
         private bool cancel_simulation = false;
 
         [DllImport("user32.dll")]
-        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
-
-        [DllImport("user32.dll")]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        [DllImport("user32.dll")]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
-        [DllImport("user32.dll")]
-        private static extern bool SetCursorPos(int X, int Y);
-
-        [DllImport("user32.dll")]
-        private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
-
-        [DllImport("user32.dll")]
-        private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
-
-        [DllImport("user32.dll")]
-        private static extern bool GetCursorPos(out POINT lpPoint);
-
-        [DllImport("user32.dll")]
-        private static extern int GetSystemMetrics(int nIndex);
-
-        private const byte VK_VOLUME_MUTE = 0xAD;
+        private const byte VK_VOLUME_MUTE = 0xAD; // Keep volume keys if ExecuteWindowsCommand stays
         private const byte VK_VOLUME_DOWN = 0xAE;
         private const byte VK_VOLUME_UP = 0xAF;
-        private const uint MOUSEEVENTF_MOVE = 0x0001;
-        private const int WH_KEYBOARD_LL = 13;
-        private const int WH_MOUSE_LL = 14;
-        private const int WM_LBUTTONDOWN = 0x0201;
-        private const int WM_RBUTTONDOWN = 0x0204;
-        private const int WM_MOUSEMOVE = 0x0200;
-        private const uint KEYEVENTF_KEYDOWN = 0x0000;
-        private const uint KEYEVENTF_KEYUP = 0x0002;
-        private const int WM_KEYDOWN = 0x0100;
-        private const int WM_KEYUP = 0x0101;
-
-        private const int INPUT_MOUSE = 0;
-        private const int MOUSEEVENTF_ABSOLUTE = 0x8000;
-        private const int MOUSEEVENTF_LEFTDOWN = 0x0002;
-        private const int MOUSEEVENTF_LEFTUP = 0x0004;
-        private const int MOUSEEVENTF_RIGHTDOWN = 0x0008;
-        private const int MOUSEEVENTF_RIGHTUP = 0x0010;
-        private const int MOUSEEVENTF_MIDDLEDOWN = 0x0020;
-        private const int MOUSEEVENTF_MIDDLEUP = 0x0040;
-        private const int MOUSEEVENTF_WHEEL = 0x0800;
-        private const int SM_CXSCREEN = 0;
-        private const int SM_CYSCREEN = 1;
-
-        private const uint MOUSEEVENTF_MOVE_NOCOALESCING = 0x2000;
-        private const int REALIGN_EVERY_N_MOVEMENTS = 10;
-        private bool _useRawMovement = true;
 
         private bool _leftButtonDown = false;
         private bool _rightButtonDown = false;
         private bool _middleButtonDown = false;
         private bool _isDragging = false;
 
-        private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
-        private const uint KEYEVENTF_SCANCODE = 0x0008;
-        private const int INPUT_KEYBOARD = 1;
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct INPUT
-        {
-            public int type;
-            public InputUnion u;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct MOUSEINPUT
-        {
-            public int dx;
-            public int dy;
-            public uint mouseData;
-            public uint dwFlags;
-            public uint time;
-            public IntPtr dwExtraInfo;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct KEYBDINPUT
-        {
-            public ushort wVk;
-            public ushort wScan;
-            public uint dwFlags;
-            public uint time;
-            public IntPtr dwExtraInfo;
-        }
-
-        [StructLayout(LayoutKind.Explicit)]
-        private struct InputUnion
-        {
-            [FieldOffset(0)]
-            public MOUSEINPUT mi;
-            [FieldOffset(0)]
-            public KEYBDINPUT ki;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct POINT
-        {
-            public int X;
-            public int Y;
-        }
-
         public bool UseInterpolation { get; set; } = true;
         public int MovementSteps { get; set; } = 25;
         public int MovementDelayMs { get; set; } = 1;
         public float GameSensitivityMultiplier { get; set; } = 1.0f;
-        public bool UltraSmoothMode { get; set; } = true;
+        public bool UltraSmoothMode { get; set; } = true; // Consider if this is still relevant
         public bool UseRawInput { get; set; } = true;
 
-        private POINT _lastMousePosition;
+        private LowLevelInputSimulator.POINT _lastMousePosition; // Use namespaced struct
         private DateTime _lastMoveTime = DateTime.MinValue;
         private readonly object _movementLock = new object();
 
@@ -167,7 +74,7 @@ namespace CSimple.Services
                 {
                     if (dataItem != null)
                     {
-                        ParseDataItemText(dataItem);
+                        ActionServiceUtils.ParseDataItemText(dataItem); // Use utility class
                         result.Add(dataItem);
                     }
                 }
@@ -227,7 +134,7 @@ namespace CSimple.Services
 
                     foreach (var dataItem in loadedDataItems)
                     {
-                        ParseDataItemText(dataItem);
+                        ActionServiceUtils.ParseDataItemText(dataItem); // Use utility class
 
                         if (dataItem?.Data?.ActionGroupObject != null)
                         {
@@ -383,11 +290,11 @@ namespace CSimple.Services
 
                     cancel_simulation = false;
                     DateTime? previousActionTime = null;
-                    bool prevLeftButtonDown = false;
+                    bool prevLeftButtonDown = false; // Renamed to avoid conflict with class member
                     bool prevRightButtonDown = false;
                     bool prevMiddleButtonDown = false;
 
-                    GetCursorPos(out POINT startPoint);
+                    LowLevelInputSimulator.GetCursorPos(out LowLevelInputSimulator.POINT startPoint); // Use utility class
                     int currentX = startPoint.X;
                     int currentY = startPoint.Y;
 
@@ -419,24 +326,24 @@ namespace CSimple.Services
 
                         try
                         {
-                            if (action.EventType == 0x0100)
+                            if (action.EventType == 0x0100) // KeyDown
                             {
                                 pressedKeys[action.KeyCode] = true;
-                                SendKeyboardInput((ushort)action.KeyCode, false);
+                                LowLevelInputSimulator.SendKeyboardInput((ushort)action.KeyCode, false); // Use utility class
 
                                 if (action.Duration > 0)
                                 {
                                     await Task.Delay(action.Duration);
-                                    SendKeyboardInput((ushort)action.KeyCode, true);
+                                    LowLevelInputSimulator.SendKeyboardInput((ushort)action.KeyCode, true); // Use utility class
                                     pressedKeys.Remove(action.KeyCode);
                                 }
                             }
-                            else if (action.EventType == 0x0101)
+                            else if (action.EventType == 0x0101) // KeyUp
                             {
-                                SendKeyboardInput((ushort)action.KeyCode, true);
+                                LowLevelInputSimulator.SendKeyboardInput((ushort)action.KeyCode, true); // Use utility class
                                 pressedKeys.Remove(action.KeyCode);
                             }
-                            else if (action.EventType == 0x0201)
+                            else if (action.EventType == 0x0201) // LeftButtonDown
                             {
                                 int targetX = action.Coordinates?.X ?? currentX;
                                 int targetY = action.Coordinates?.Y ?? currentY;
@@ -450,23 +357,25 @@ namespace CSimple.Services
                                     }
                                     else
                                     {
-                                        SendLowLevelMouseMove(targetX, targetY);
+                                        LowLevelInputSimulator.SendLowLevelMouseMove(targetX, targetY); // Use utility class
                                     }
                                     currentX = targetX;
                                     currentY = targetY;
                                 }
 
-                                SendLowLevelMouseClick(MouseButton.Left, false, targetX, targetY);
-                                _leftButtonDown = true;
+                                // Use Input.MouseButton explicitly
+                                LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Left, false, targetX, targetY);
+                                _leftButtonDown = true; // Track state within ActionService
 
                                 if (action.Duration > 0)
                                 {
                                     await Task.Delay(action.Duration);
-                                    SendLowLevelMouseClick(MouseButton.Left, true, targetX, targetY);
+                                    // Use Input.MouseButton explicitly
+                                    LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Left, true, targetX, targetY);
                                     _leftButtonDown = false;
                                 }
                             }
-                            else if (action.EventType == 0x0202)
+                            else if (action.EventType == 0x0202) // LeftButtonUp
                             {
                                 int targetX = action.Coordinates?.X ?? currentX;
                                 int targetY = action.Coordinates?.Y ?? currentY;
@@ -480,16 +389,17 @@ namespace CSimple.Services
                                     }
                                     else
                                     {
-                                        SendLowLevelMouseMove(targetX, targetY);
+                                        LowLevelInputSimulator.SendLowLevelMouseMove(targetX, targetY); // Use utility class
                                     }
                                     currentX = targetX;
                                     currentY = targetY;
                                 }
 
-                                SendLowLevelMouseClick(MouseButton.Left, true, targetX, targetY);
+                                // Use Input.MouseButton explicitly
+                                LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Left, true, targetX, targetY);
                                 _leftButtonDown = false;
                             }
-                            else if (action.EventType == 0x0204)
+                            else if (action.EventType == 0x0204) // RightButtonDown
                             {
                                 int targetX = action.Coordinates?.X ?? currentX;
                                 int targetY = action.Coordinates?.Y ?? currentY;
@@ -503,23 +413,25 @@ namespace CSimple.Services
                                     }
                                     else
                                     {
-                                        SendLowLevelMouseMove(targetX, targetY);
+                                        LowLevelInputSimulator.SendLowLevelMouseMove(targetX, targetY); // Use utility class
                                     }
                                     currentX = targetX;
                                     currentY = targetY;
                                 }
 
-                                SendLowLevelMouseClick(MouseButton.Right, false, targetX, targetY);
-                                prevRightButtonDown = true;
+                                // Use Input.MouseButton explicitly
+                                LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Right, false, targetX, targetY);
+                                prevRightButtonDown = true; // Use local variable
 
                                 if (action.Duration > 0)
                                 {
                                     await Task.Delay(action.Duration);
-                                    SendLowLevelMouseClick(MouseButton.Right, true, targetX, targetY);
+                                    // Use Input.MouseButton explicitly
+                                    LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Right, true, targetX, targetY);
                                     prevRightButtonDown = false;
                                 }
                             }
-                            else if (action.EventType == 0x0205)
+                            else if (action.EventType == 0x0205) // RightButtonUp
                             {
                                 int targetX = action.Coordinates?.X ?? currentX;
                                 int targetY = action.Coordinates?.Y ?? currentY;
@@ -533,16 +445,17 @@ namespace CSimple.Services
                                     }
                                     else
                                     {
-                                        SendLowLevelMouseMove(targetX, targetY);
+                                        LowLevelInputSimulator.SendLowLevelMouseMove(targetX, targetY); // Use utility class
                                     }
                                     currentX = targetX;
                                     currentY = targetY;
                                 }
 
-                                SendLowLevelMouseClick(MouseButton.Right, true, targetX, targetY);
+                                // Use Input.MouseButton explicitly
+                                LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Right, true, targetX, targetY);
                                 prevRightButtonDown = false;
                             }
-                            else if (action.EventType == 0x0207)
+                            else if (action.EventType == 0x0207) // MiddleButtonDown
                             {
                                 int targetX = action.Coordinates?.X ?? currentX;
                                 int targetY = action.Coordinates?.Y ?? currentY;
@@ -556,23 +469,25 @@ namespace CSimple.Services
                                     }
                                     else
                                     {
-                                        SendLowLevelMouseMove(targetX, targetY);
+                                        LowLevelInputSimulator.SendLowLevelMouseMove(targetX, targetY); // Use utility class
                                     }
                                     currentX = targetX;
                                     currentY = targetY;
                                 }
 
-                                SendLowLevelMouseClick(MouseButton.Middle, false, targetX, targetY);
-                                _middleButtonDown = true;
+                                // Use Input.MouseButton explicitly
+                                LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Middle, false, targetX, targetY);
+                                _middleButtonDown = true; // Track state within ActionService
 
                                 if (action.Duration > 0)
                                 {
                                     await Task.Delay(action.Duration);
-                                    SendLowLevelMouseClick(MouseButton.Middle, true, targetX, targetY);
+                                    // Use Input.MouseButton explicitly
+                                    LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Middle, true, targetX, targetY);
                                     _middleButtonDown = false;
                                 }
                             }
-                            else if (action.EventType == 0x0208)
+                            else if (action.EventType == 0x0208) // MiddleButtonUp
                             {
                                 int targetX = action.Coordinates?.X ?? currentX;
                                 int targetY = action.Coordinates?.Y ?? currentY;
@@ -586,16 +501,17 @@ namespace CSimple.Services
                                     }
                                     else
                                     {
-                                        SendLowLevelMouseMove(targetX, targetY);
+                                        LowLevelInputSimulator.SendLowLevelMouseMove(targetX, targetY); // Use utility class
                                     }
                                     currentX = targetX;
                                     currentY = targetY;
                                 }
 
-                                SendLowLevelMouseClick(MouseButton.Middle, true, targetX, targetY);
+                                // Use Input.MouseButton explicitly
+                                LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Middle, true, targetX, targetY);
                                 _middleButtonDown = false;
                             }
-                            else if (action.EventType == 512 || action.EventType == 0x0200)
+                            else if (action.EventType == 512 || action.EventType == 0x0200) // MouseMove
                             {
                                 int targetX = action.Coordinates?.X ?? currentX;
                                 int targetY = action.Coordinates?.Y ?? currentY;
@@ -623,7 +539,7 @@ namespace CSimple.Services
                                         }
                                         else
                                         {
-                                            SendLowLevelMouseMove(targetX, targetY);
+                                            LowLevelInputSimulator.SendLowLevelMouseMove(targetX, targetY); // Use utility class
                                         }
                                         currentX = targetX;
                                         currentY = targetY;
@@ -637,26 +553,32 @@ namespace CSimple.Services
                         }
                     }
 
+                    // Cleanup pressed keys
                     foreach (var keyCode in pressedKeys.Keys.ToList())
                     {
-                        SendKeyboardInput((ushort)keyCode, true);
+                        LowLevelInputSimulator.SendKeyboardInput((ushort)keyCode, true); // Use utility class
                     }
 
+                    // Cleanup mouse buttons
                     if (_leftButtonDown)
                     {
-                        SendLowLevelMouseClick(MouseButton.Left, true, currentX, currentY);
+                        // Use Input.MouseButton explicitly
+                        LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Left, true, currentX, currentY);
                         _leftButtonDown = false;
                     }
-                    if (prevRightButtonDown)
+                    if (prevRightButtonDown) // Use local variable
                     {
-                        SendLowLevelMouseClick(MouseButton.Right, true, currentX, currentY);
+                        // Use Input.MouseButton explicitly
+                        LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Right, true, currentX, currentY);
                         prevRightButtonDown = false;
                     }
-                    if (prevMiddleButtonDown)
+                    if (_middleButtonDown) // Check class member state
                     {
-                        SendLowLevelMouseClick(MouseButton.Middle, true, currentX, currentY);
-                        prevMiddleButtonDown = false;
+                        // Use Input.MouseButton explicitly
+                        LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Middle, true, currentX, currentY);
+                        _middleButtonDown = false;
                     }
+                    // Note: prevMiddleButtonDown was not used consistently, switched to checking _middleButtonDown state
 
                     _isDragging = false;
                 }
@@ -667,10 +589,13 @@ namespace CSimple.Services
 
                     try
                     {
-                        GetCursorPos(out POINT currentPoint);
-                        if (_leftButtonDown) SendLowLevelMouseClick(MouseButton.Left, true, currentPoint.X, currentPoint.Y);
-                        if (_rightButtonDown) SendLowLevelMouseClick(MouseButton.Right, true, currentPoint.X, currentPoint.Y);
-                        if (_middleButtonDown) SendLowLevelMouseClick(MouseButton.Middle, true, currentPoint.X, currentPoint.Y);
+                        LowLevelInputSimulator.GetCursorPos(out LowLevelInputSimulator.POINT currentPoint); // Use utility class
+                        // Use Input.MouseButton explicitly
+                        if (_leftButtonDown) LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Left, true, currentPoint.X, currentPoint.Y);
+                        // Use Input.MouseButton explicitly
+                        if (_rightButtonDown) LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Right, true, currentPoint.X, currentPoint.Y);
+                        // Use Input.MouseButton explicitly
+                        if (_middleButtonDown) LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Middle, true, currentPoint.X, currentPoint.Y);
                         _leftButtonDown = _rightButtonDown = _middleButtonDown = _isDragging = false;
                     }
                     catch { }
@@ -690,6 +615,7 @@ namespace CSimple.Services
             return true;
         }
 
+
         private async Task TimedSmoothMouseMove(int startX, int startY, int endX, int endY, int steps, int delayMs, TimeSpan targetDuration)
         {
             lock (_movementLock)
@@ -698,7 +624,7 @@ namespace CSimple.Services
                 {
                     if (DateTime.Now - _lastMoveTime > TimeSpan.FromSeconds(1))
                     {
-                        GetCursorPos(out POINT currentPos);
+                        LowLevelInputSimulator.GetCursorPos(out LowLevelInputSimulator.POINT currentPos); // Use utility class
                         startX = currentPos.X;
                         startY = currentPos.Y;
                     }
@@ -791,7 +717,7 @@ namespace CSimple.Services
 
                 if (x != lastX || y != lastY)
                 {
-                    SendLowLevelMouseMove(x, y);
+                    LowLevelInputSimulator.SendLowLevelMouseMove(x, y); // Use utility class
                     lastX = x;
                     lastY = y;
                 }
@@ -802,150 +728,12 @@ namespace CSimple.Services
                 }
             }
 
-            SendLowLevelMouseMove(endX, endY);
+            LowLevelInputSimulator.SendLowLevelMouseMove(endX, endY); // Use utility class
 
             _lastMousePosition.X = endX;
             _lastMousePosition.Y = endY;
 
             stopwatch.Stop();
-        }
-
-        private void SendLowLevelMouseMove(int x, int y)
-        {
-            try
-            {
-                INPUT[] inputs = new INPUT[1];
-                inputs[0].type = INPUT_MOUSE;
-
-                int screenWidth = GetSystemMetrics(SM_CXSCREEN);
-                int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-
-                inputs[0].u.mi.dx = (x * 65535) / screenWidth;
-                inputs[0].u.mi.dy = (y * 65535) / screenHeight;
-                inputs[0].u.mi.mouseData = 0;
-                inputs[0].u.mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
-                inputs[0].u.mi.time = 0;
-                inputs[0].u.mi.dwExtraInfo = IntPtr.Zero;
-
-                uint result = SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
-
-                if (result != 1)
-                {
-                    Debug.WriteLine($"⚠️ SendInput failed for mouse move to ({x},{y}), error code: {Marshal.GetLastWin32Error()}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in SendLowLevelMouseMove: {ex.Message}");
-            }
-        }
-
-        private enum MouseButton
-        {
-            Left,
-            Right,
-            Middle
-        }
-
-        private void SendLowLevelMouseClick(MouseButton button, bool isUp, int x, int y)
-        {
-            try
-            {
-                SendLowLevelMouseMove(x, y);
-
-                INPUT[] inputs = new INPUT[1];
-                inputs[0].type = INPUT_MOUSE;
-                inputs[0].u.mi.dx = 0;
-                inputs[0].u.mi.dy = 0;
-                inputs[0].u.mi.mouseData = 0;
-                inputs[0].u.mi.time = 0;
-                inputs[0].u.mi.dwExtraInfo = IntPtr.Zero;
-
-                switch (button)
-                {
-                    case MouseButton.Left:
-                        inputs[0].u.mi.dwFlags = (uint)(isUp ? MOUSEEVENTF_LEFTUP : MOUSEEVENTF_LEFTDOWN);
-                        break;
-                    case MouseButton.Right:
-                        inputs[0].u.mi.dwFlags = (uint)(isUp ? MOUSEEVENTF_RIGHTUP : MOUSEEVENTF_RIGHTDOWN);
-                        break;
-                    case MouseButton.Middle:
-                        inputs[0].u.mi.dwFlags = (uint)(isUp ? MOUSEEVENTF_MIDDLEUP : MOUSEEVENTF_MIDDLEDOWN);
-                        break;
-                }
-
-                uint result = SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
-
-                if (result != 1)
-                {
-                    Debug.WriteLine($"⚠️ SendInput failed for mouse {button} {(isUp ? "UP" : "DOWN")}, error code: {Marshal.GetLastWin32Error()}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in SendLowLevelMouseClick: {ex.Message}");
-            }
-        }
-
-        private void SendKeyboardInput(ushort key, bool isKeyUp)
-        {
-            try
-            {
-                INPUT[] inputs = new INPUT[1];
-                inputs[0].type = INPUT_KEYBOARD;
-                inputs[0].u.ki.wVk = key;
-                inputs[0].u.ki.wScan = 0;
-
-                if (IsExtendedKey(key))
-                {
-                    inputs[0].u.ki.dwFlags = isKeyUp ?
-                        KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY :
-                        KEYEVENTF_KEYDOWN | KEYEVENTF_EXTENDEDKEY;
-                }
-                else
-                {
-                    inputs[0].u.ki.dwFlags = isKeyUp ? KEYEVENTF_KEYUP : KEYEVENTF_KEYDOWN;
-                }
-
-                inputs[0].u.ki.time = 0;
-                inputs[0].u.ki.dwExtraInfo = IntPtr.Zero;
-
-                uint result = SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
-
-                if (result != 1)
-                {
-                    Debug.WriteLine($"⚠️ SendInput failed for key {key}, error code: {Marshal.GetLastWin32Error()}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in SendKeyboardInput: {ex.Message}");
-            }
-        }
-
-        private bool IsExtendedKey(ushort vkCode)
-        {
-            return vkCode == 0x5B ||
-                   vkCode == 0x5C ||
-                   vkCode == 0x5D ||
-                   vkCode == 0x23 ||
-                   vkCode == 0x24 ||
-                   vkCode == 0x25 ||
-                   vkCode == 0x26 ||
-                   vkCode == 0x27 ||
-                   vkCode == 0x28 ||
-                   vkCode == 0x2D ||
-                   vkCode == 0x2E ||
-                   vkCode == 0x21 ||
-                   vkCode == 0x22 ||
-                   vkCode == 0x90 ||
-                   vkCode == 0x91 ||
-                   vkCode == 0xA0 ||
-                   vkCode == 0xA1 ||
-                   vkCode == 0xA2 ||
-                   vkCode == 0xA3 ||
-                   vkCode == 0xA4 ||
-                   vkCode == 0xA5;
         }
 
         private async Task SimulateRawMouseMovement(int deltaX, int deltaY, long timeSinceLastMoveMs, float velocityX, float velocityY)
@@ -971,7 +759,7 @@ namespace CSimple.Services
                 int microDeltaX = (int)Math.Round(stepX);
                 int microDeltaY = (int)Math.Round(stepY);
 
-                SendRawMouseInput(microDeltaX, microDeltaY);
+                LowLevelInputSimulator.SendRawMouseInput(microDeltaX, microDeltaY); // Use utility class
 
                 double targetElapsedMs = stepDelayMs * (i + 1);
                 double actualDelayMs = targetElapsedMs - elapsedMs;
@@ -985,92 +773,9 @@ namespace CSimple.Services
             sw.Stop();
         }
 
-        private void SendRawMouseInput(int deltaX, int deltaY)
-        {
-            INPUT[] inputs = new INPUT[1];
-            inputs[0].type = INPUT_MOUSE;
-            inputs[0].u.mi.dx = deltaX;
-            inputs[0].u.mi.dy = deltaY;
-            inputs[0].u.mi.mouseData = 0;
-            inputs[0].u.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_MOVE_NOCOALESCING;
-            inputs[0].u.mi.time = 0;
-            inputs[0].u.mi.dwExtraInfo = IntPtr.Zero;
-
-            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
-        }
-
         public void CancelSimulation()
         {
             cancel_simulation = true;
-        }
-
-        public static void ParseDataItemText(DataItem dataItem)
-        {
-            if (string.IsNullOrEmpty(dataItem?.Data?.Text)) return;
-
-            var parts = dataItem.Data.Text.Split('|', StringSplitOptions.RemoveEmptyEntries);
-            var creatorPart = parts.FirstOrDefault(p => p.StartsWith("Creator:"));
-            var actionPart = parts.FirstOrDefault(p => p.StartsWith("Action:"));
-            var publicPart = parts.FirstOrDefault(p => p.StartsWith("IsPublic:"));
-
-            dataItem.Creator = (creatorPart != null) ? creatorPart.Substring("Creator:".Length).Trim() : "";
-            if (dataItem.Data.ActionGroupObject != null)
-            {
-                var actionGroup = dataItem.Data.ActionGroupObject;
-                actionGroup.ActionName = (actionPart != null && actionPart.Contains("\"ActionName\":\""))
-                    ? ExtractStringBetween(actionPart, "\"ActionName\":\"", "\",")
-                    : (actionPart != null
-                        ? (actionPart.Length > 50
-                            ? actionPart.Substring(0, 50) + "..."
-                            : actionPart.Substring("Action:".Length).Trim())
-                        : "");
-            }
-            if (publicPart != null)
-            {
-                try
-                {
-                    dataItem.IsPublic = publicPart.Substring("IsPublic:".Length).Trim().ToLower() == "true";
-                }
-                catch (ArgumentOutOfRangeException)
-                {
-                    dataItem.IsPublic = false;
-                }
-            }
-            else
-            {
-                dataItem.IsPublic = false;
-            }
-        }
-
-        private static string ExtractStringBetween(string source, string start, string end)
-        {
-            int startIndex = source.IndexOf(start);
-            if (startIndex < 0) return "";
-            startIndex += start.Length;
-            int endIndex = source.IndexOf(end, startIndex);
-            if (endIndex < 0) return "";
-            return source.Substring(startIndex, endIndex - startIndex);
-        }
-
-        public static List<DataItem> SortDataItems(List<DataItem> items, int sortIndex)
-        {
-            switch (sortIndex)
-            {
-                case 0:
-                    return items.OrderBy(d => d.createdAt).ToList();
-                case 1:
-                    return items.OrderByDescending(d => d.createdAt).ToList();
-                case 2:
-                    return items.OrderBy(d => d.Creator).ToList();
-                case 3:
-                    return items.OrderByDescending(d => d.Creator).ToList();
-                case 4:
-                    return items.OrderBy(d => d.Data?.ActionGroupObject?.ActionName).ToList();
-                case 5:
-                    return items.OrderByDescending(d => d.Data?.ActionGroupObject?.ActionName).ToList();
-                default:
-                    return items;
-            }
         }
 
         private void ExecuteWindowsCommand(string command)
@@ -1094,8 +799,10 @@ namespace CSimple.Services
 
         private void SendVolumeCommand(byte volumeCommand)
         {
-            keybd_event(volumeCommand, 0, 0, UIntPtr.Zero);
-            keybd_event(volumeCommand, 0, 0x0002, UIntPtr.Zero);
+            // This uses keybd_event directly, keep it or refactor ExecuteWindowsCommand
+            // to use LowLevelInputSimulator.SendKeyboardInput if preferred.
+            keybd_event(volumeCommand, 0, 0, UIntPtr.Zero); // KEYEVENTF_KEYDOWN
+            keybd_event(volumeCommand, 0, 0x0002, UIntPtr.Zero); // KEYEVENTF_KEYUP
         }
 
         public async Task<List<ActionFile>> GetActionFilesAsync(string actionId)
