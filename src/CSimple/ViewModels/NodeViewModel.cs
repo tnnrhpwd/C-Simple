@@ -220,5 +220,25 @@ namespace CSimple.ViewModels
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+
+        public (string Type, string Value) GetStepContent(int step)
+        {
+            // Example logic to retrieve step content
+            if (Type != NodeType.Input || step <= 0 || step > ActionSteps.Count)
+            {
+                return (null, null);
+            }
+
+            var stepData = ActionSteps[step - 1]; // Assuming ActionSteps is a list of step data
+            return stepData switch
+            {
+                { Type: "Text" } => ("Text", stepData.Value),
+                { Type: "Image" } => ("Image", stepData.Value), // Image path
+                { Type: "Audio" } => ("Audio", stepData.Value), // Audio path
+                _ => (null, null)
+            };
+        }
+
+        public List<(string Type, string Value)> ActionSteps { get; set; } = new();
     }
 }

@@ -144,7 +144,7 @@ namespace CSimple.ViewModels
         }
 
         // Current position in the action replay
-        private int _currentActionStep = 0;
+        private int _currentActionStep;
         public int CurrentActionStep
         {
             get => _currentActionStep;
@@ -152,6 +152,7 @@ namespace CSimple.ViewModels
             {
                 if (SetProperty(ref _currentActionStep, value))
                 {
+                    UpdateStepContent();
                     // Update command can execute status
                     (StepBackwardCommand as Command)?.ChangeCanExecute();
                 }
@@ -1526,6 +1527,55 @@ namespace CSimple.ViewModels
                 // Update command can execute status
                 (StepBackwardCommand as Command)?.ChangeCanExecute();
             }
+        }
+
+        private string _stepContentType;
+        public string StepContentType
+        {
+            get => _stepContentType;
+            set => SetProperty(ref _stepContentType, value);
+        }
+
+        private string _stepContent;
+        public string StepContent
+        {
+            get => _stepContent;
+            set => SetProperty(ref _stepContent, value);
+        }
+
+        public ICommand PlayAudioCommand { get; }
+        public ICommand StopAudioCommand { get; }
+
+        public OrientPageViewModel()
+        {
+            PlayAudioCommand = new Command(PlayAudio);
+            StopAudioCommand = new Command(StopAudio);
+        }
+
+        public void UpdateStepContent()
+        {
+            if (SelectedNode == null || CurrentActionStep == 0)
+            {
+                StepContentType = null;
+                StepContent = null;
+                return;
+            }
+
+            var content = SelectedNode.GetStepContent(CurrentActionStep);
+            StepContentType = content.Type; // "Text", "Image", or "Audio"
+            StepContent = content.Value;   // The actual content (e.g., text, image path, or audio path)
+        }
+
+        private void PlayAudio()
+        {
+            // Logic to play audio from StepContent
+            Debug.WriteLine($"Playing audio: {StepContent}");
+        }
+
+        private void StopAudio()
+        {
+            // Logic to stop audio playback
+            Debug.WriteLine("Stopping audio playback");
         }
     }
 }

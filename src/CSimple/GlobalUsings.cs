@@ -1,4 +1,5 @@
-﻿global using CSimple.Services;
+﻿global using CSimple.Converters;
+global using CSimple.Services;
 global using Microsoft.Extensions.DependencyInjection;
 global using Microsoft.Maui;
 global using Microsoft.Maui.ApplicationModel;
