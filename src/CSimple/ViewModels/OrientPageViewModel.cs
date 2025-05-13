@@ -22,6 +22,7 @@ namespace CSimple.ViewModels
         private readonly HuggingFaceService _huggingFaceService; // Add HuggingFaceService
         private readonly NetPageViewModel _netPageViewModel; // Keep reference if needed
         private readonly PythonBootstrapper _pythonBootstrapper; // Added
+        private readonly NodeManagementService _nodeManagementService; // ADDED
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -173,12 +174,13 @@ namespace CSimple.ViewModels
 
         // --- Constructor ---
         // Ensure FileService and PythonBootstrapper are injected
-        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper)
+        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
             _netPageViewModel = netPageViewModel;
             _pythonBootstrapper = pythonBootstrapper; // Store injected service
+            _nodeManagementService = nodeManagementService; // ADDED
 
             // Initialize Commands
             AddModelNodeCommand = new Command<HuggingFaceModel>(async (model) => await AddModelNode(model));
@@ -350,50 +352,16 @@ namespace CSimple.ViewModels
             float x = 300 + (Nodes.Count % 3) * 180;
             float y = 200 + (Nodes.Count / 3) * 100;
 
-            // Use the NodeViewModel constructor
-            var newNode = new NodeViewModel(
-                Guid.NewGuid().ToString(), // Generate string ID
-                modelName, // Use a friendly name
-                modelType, // Infer type
-                new PointF(x, y) // Calculated position
-            )
-            {
-                // Set properties not in constructor
-                Size = new SizeF(180, 60), // Size based on name length if needed
-                ModelPath = model.Id // Store the HuggingFace ID
-                // ModelDetails property doesn't exist in NodeViewModel, removing it
-            };
-
-            Nodes.Add(newNode);
-            Debug.WriteLine($"Added node: {newNode.Name} at position {x},{y}");
+            // Use the NodeManagementService to add the node
+            await _nodeManagementService.AddModelNodeAsync(Nodes, model.Id, modelName, modelType, new PointF(x, y));
             await SaveCurrentPipelineAsync(); // Save after adding
-        }
-
-        // Helper to determine a more friendly model name
-        private string GetFriendlyModelName(string modelId)
-        {
-            // Similar to NetPageViewModel implementation
-            var name = modelId.Contains('/') ? modelId.Split('/').Last() : modelId;
-            name = name.Replace("-", " ").Replace("_", " ");
-            return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name.ToLower());
         }
 
         public async Task DeleteSelectedNode()
         {
             if (SelectedNode != null)
             {
-                // Remove connections associated with the node
-                var connectionsToRemove = Connections
-                    .Where(c => c.SourceNodeId == SelectedNode.Id || c.TargetNodeId == SelectedNode.Id)
-                    .ToList();
-                foreach (var conn in connectionsToRemove)
-                {
-                    Connections.Remove(conn); // Remove connection
-                }
-
-                // Remove the node itself
-                Nodes.Remove(SelectedNode);
-                Debug.WriteLine($"Deleted node: {SelectedNode.Name}");
+                await _nodeManagementService.DeleteSelectedNodeAsync(Nodes, Connections, SelectedNode, InvalidateCanvas);
                 SelectedNode = null; // Deselect
                 UpdateEnsembleCounts(); // ADDED: Update counts after removing connections
                 await SaveCurrentPipelineAsync(); // Save after deleting
@@ -407,14 +375,11 @@ namespace CSimple.ViewModels
 
         public void UpdateNodePosition(NodeViewModel node, PointF newPosition)
         {
-            if (node != null)
-            {
-                node.Position = newPosition;
-                // Note: Saving on every move update might be too frequent.
-                // Consider saving only on DragEnd interaction in the view,
-                // or implement debouncing here. For simplicity, saving here for now.
-                // await SaveCurrentPipelineAsync(); // Commented out again
-            }
+            _nodeManagementService.UpdateNodePosition(node, newPosition);
+            // Note: Saving on every move update might be too frequent.
+            // Consider saving only on DragEnd interaction in the view,
+            // or implement debouncing here. For simplicity, saving here for now.
+            // await SaveCurrentPipelineAsync(); // Commented out again
         }
 
         // Call this from EndInteraction in the view after a drag completes
@@ -477,13 +442,8 @@ namespace CSimple.ViewModels
 
                 if (!exists)
                 {
-                    // Use the ConnectionViewModel constructor
-                    var newConnection = new ConnectionViewModel(
-                        Guid.NewGuid().ToString(), // Generate string ID
-                        _temporaryConnectionState.Id,
-                        targetNode.Id
-                    );
-                    Connections.Add(newConnection);
+                    // Use the NodeManagementService to complete the connection
+                    _nodeManagementService.CompleteConnection(Connections, _temporaryConnectionState, targetNode, InvalidateCanvas);
                     Debug.WriteLine($"Completed connection from {_temporaryConnectionState.Name} to {targetNode.Name}");
                     UpdateEnsembleCounts(); // ADDED: Update counts after adding
                     await SaveCurrentPipelineAsync(); // Save after adding connection
@@ -827,44 +787,13 @@ namespace CSimple.ViewModels
             return NodeType.Model; // Default to Model
         }
 
-        // Helper to determine data type from node name (can be used for UI styling)
-        public string DetermineDataType(string nodeName)
+        // Helper to determine a more friendly model name
+        private string GetFriendlyModelName(string modelId)
         {
-            // Get the NetPageViewModel from App
-            var netPageVM = ((App)Application.Current).NetPageViewModel;
-            if (netPageVM == null)
-            {
-                Debug.WriteLine("DetermineDataType: NetPageViewModel is null. Defaulting to 'unknown'.");
-                return "unknown";
-            }
-
-            // Check if this name exists in any models in NetPageViewModel
-            var matchingModel = netPageVM.AvailableModels.FirstOrDefault(m =>
-                m.Name.Equals(nodeName, StringComparison.OrdinalIgnoreCase) ||
-                (m.HuggingFaceModelId != null && m.HuggingFaceModelId.Contains(nodeName, StringComparison.OrdinalIgnoreCase)));
-
-            if (matchingModel != null)
-            {
-                // Use the model's actual InputType
-                return matchingModel.InputType switch
-                {
-                    ModelInputType.Text => "text",
-                    ModelInputType.Image => "image",
-                    ModelInputType.Audio => "audio",
-                    _ => "unknown"
-                };
-            }
-
-            // For input node names that might not be in the models collection
-            string lowerName = nodeName.ToLowerInvariant();
-            if (lowerName.Contains("image") || lowerName.Contains("webcam") || lowerName.Contains("screen"))
-                return "image";
-            if (lowerName.Contains("audio") || lowerName.Contains("sound") || lowerName.Contains("speech"))
-                return "audio";
-            if (lowerName.Contains("text") || lowerName.Contains("keyboard") || lowerName.Contains("mouse"))
-                return "text";
-
-            return "unknown";
+            // Similar to NetPageViewModel implementation
+            var name = modelId.Contains('/') ? modelId.Split('/').Last() : modelId;
+            name = name.Replace("-", " ").Replace("_", " ");
+            return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name.ToLower());
         }
 
         public async Task UpdateNodeClassificationsAsync()
