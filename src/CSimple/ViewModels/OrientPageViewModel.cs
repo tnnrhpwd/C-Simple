@@ -344,8 +344,8 @@ namespace CSimple.ViewModels
 
             // Improve model node creation with HuggingFace info
             var modelId = model.ModelId ?? model.Id;
-            var modelType = InferNodeTypeFromName(modelId);
-            var modelName = GetFriendlyModelName(modelId);
+            var modelType = _nodeManagementService.InferNodeTypeFromName(modelId);
+            var modelName = _nodeManagementService.GetFriendlyModelName(modelId);
 
             // Generate a reasonable position for the new node
             // Find a vacant spot in the middle area of the canvas
@@ -395,17 +395,7 @@ namespace CSimple.ViewModels
 
         public NodeViewModel GetNodeAtPoint(PointF point)
         {
-            // Check nodes in reverse order so top-most node is selected
-            for (int i = Nodes.Count - 1; i >= 0; i--)
-            {
-                var node = Nodes[i];
-                var nodeRect = new RectF(node.Position, node.Size);
-                if (nodeRect.Contains(point))
-                {
-                    return node;
-                }
-            }
-            return null;
+            return _nodeManagementService.GetNodeAtPoint(Nodes, point);
         }
 
         // --- Connection Logic ---
@@ -623,63 +613,7 @@ namespace CSimple.ViewModels
         // --- Private Helper Methods --- (Moved AddDefaultInputNodes here)
         private void AddDefaultInputNodes()
         {
-            // Create more organized default layout
-            float startX = 50;
-            float startY = 50;
-            float spacingY = 80; // Vertical spacing between nodes
-            float spacingX = 170; // Horizontal spacing between nodes (Node Width + Gap)
-            SizeF defaultSize = new SizeF(150, 50); // Default size for input nodes
-
-            // Group by type: Visual inputs, Audio inputs, Text inputs
-
-            // Visual inputs (top row)
-            var webcamImageNode = new NodeViewModel(Guid.NewGuid().ToString(), "Webcam Image", NodeType.Input, new PointF(startX, startY))
-            {
-                Size = defaultSize,
-                DataType = "image" // Add data type for better classification
-            };
-
-            var screenImageNode = new NodeViewModel(Guid.NewGuid().ToString(), "Screen Image", NodeType.Input, new PointF(startX + spacingX, startY))
-            {
-                Size = defaultSize,
-                DataType = "image" // Add data type for better classification
-            };
-
-            // Audio inputs (middle row)
-            var pcAudioNode = new NodeViewModel(Guid.NewGuid().ToString(), "PC Audio", NodeType.Input, new PointF(startX, startY + spacingY))
-            {
-                Size = defaultSize,
-                DataType = "audio" // Add data type for better classification
-            };
-
-            var webcamAudioNode = new NodeViewModel(Guid.NewGuid().ToString(), "Webcam Audio", NodeType.Input, new PointF(startX + spacingX, startY + spacingY))
-            {
-                Size = defaultSize,
-                DataType = "audio" // Add data type for better classification
-            };
-
-            // Text inputs (bottom row)
-            var keyboardTextNode = new NodeViewModel(Guid.NewGuid().ToString(), "Keyboard Text", NodeType.Input, new PointF(startX, startY + 2 * spacingY))
-            {
-                Size = defaultSize,
-                DataType = "text" // Add data type for better classification
-            };
-
-            var mouseTextNode = new NodeViewModel(Guid.NewGuid().ToString(), "Mouse Text", NodeType.Input, new PointF(startX + spacingX, startY + 2 * spacingY))
-            {
-                Size = defaultSize,
-                DataType = "text" // Add data type for better classification
-            };
-
-            // Add all nodes to the collection
-            Nodes.Add(webcamImageNode);
-            Nodes.Add(screenImageNode);
-            Nodes.Add(pcAudioNode);
-            Nodes.Add(webcamAudioNode);
-            Nodes.Add(keyboardTextNode);
-            Nodes.Add(mouseTextNode);
-
-            Debug.WriteLine($"Added specialized input nodes to '{CurrentPipelineName}'.");
+            _nodeManagementService.AddDefaultInputNodes(Nodes, CurrentPipelineName);
         }
 
         private async Task RenameCurrentPipeline()
@@ -773,27 +707,13 @@ namespace CSimple.ViewModels
 
         private NodeType InferNodeTypeFromName(string name)
         {
-            string lowerName = name.ToLower();
-
-            // Input node detection with more specific categories
-            if (lowerName.Contains("webcam") || lowerName.Contains("screen") ||
-                lowerName.Contains("keyboard") || lowerName.Contains("mouse") ||
-                lowerName.Contains("audio") || lowerName.Contains("input"))
-                return NodeType.Input;
-
-            if (lowerName.Contains("output") || lowerName.Contains("display") || lowerName.Contains("speaker"))
-                return NodeType.Output;
-
-            return NodeType.Model; // Default to Model
+            return _nodeManagementService.InferNodeTypeFromName(name);
         }
 
         // Helper to determine a more friendly model name
         private string GetFriendlyModelName(string modelId)
         {
-            // Similar to NetPageViewModel implementation
-            var name = modelId.Contains('/') ? modelId.Split('/').Last() : modelId;
-            name = name.Replace("-", " ").Replace("_", " ");
-            return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name.ToLower());
+            return _nodeManagementService.GetFriendlyModelName(modelId);
         }
 
         public async Task UpdateNodeClassificationsAsync()
@@ -818,7 +738,7 @@ namespace CSimple.ViewModels
                 if (node.Type == NodeType.Model)
                 {
                     // Improved model matching logic with better debugging
-                    var correspondingNetModel = FindCorrespondingModel(netPageVM, node);
+                    var correspondingNetModel = _nodeManagementService.FindCorrespondingModel(netPageVM.AvailableModels, node);
 
                     if (correspondingNetModel != null)
                     {
@@ -881,82 +801,16 @@ namespace CSimple.ViewModels
             }
         }
 
-        // New helper method for finding corresponding model with better matching logic
-        private NeuralNetworkModel FindCorrespondingModel(NetPageViewModel netPageVM, NodeViewModel node)
-        {
-            // First try exact match by ID (most precise)
-            var exactIdMatch = netPageVM.AvailableModels.FirstOrDefault(m =>
-                (!string.IsNullOrEmpty(m.Id) && m.Id == node.ModelPath) ||
-                (!string.IsNullOrEmpty(m.HuggingFaceModelId) && m.HuggingFaceModelId == node.ModelPath));
-
-            if (exactIdMatch != null)
-            {
-                Debug.WriteLine($"Found exact ID match for node {node.Name}");
-                return exactIdMatch;
-            }
-
-            // Try matching by name (second best)
-            var nameMatch = netPageVM.AvailableModels.FirstOrDefault(m =>
-                string.Equals(m.Name, node.Name, StringComparison.OrdinalIgnoreCase));
-
-            if (nameMatch != null)
-            {
-                Debug.WriteLine($"Found name match for node {node.Name}");
-                return nameMatch;
-            }
-
-            // Try fuzzy name matching (as a last resort)
-            string nodeName = node.Name.ToLowerInvariant();
-            var fuzzyMatch = netPageVM.AvailableModels.FirstOrDefault(m =>
-                (m.Name != null && m.Name.ToLowerInvariant().Contains(nodeName)) ||
-                (nodeName.Length > 5 && m.Name != null && nodeName.Contains(m.Name.ToLowerInvariant())));
-
-            if (fuzzyMatch != null)
-            {
-                Debug.WriteLine($"Found fuzzy name match for node {node.Name} -> {fuzzyMatch.Name}");
-            }
-
-            return fuzzyMatch; // May be null if no match found
-        }
-
         // Helper to infer data type from node name as a fallback
         private string DetermineDataTypeFromName(string nodeName)
         {
-            string lowerName = nodeName.ToLowerInvariant();
+            return _nodeManagementService.DetermineDataTypeFromName(nodeName);
+        }
 
-            // Text models
-            if (lowerName.Contains("text") ||
-                lowerName.Contains("gpt") ||
-                lowerName.Contains("llama") ||
-                lowerName.Contains("llm") ||
-                lowerName.Contains("bert") ||
-                lowerName.Contains("token") ||
-                lowerName.Contains("deepseek") ||
-                lowerName.Contains("mistral") ||
-                lowerName.Contains("chat"))
-                return "text";
-
-            // Image models
-            if (lowerName.Contains("image") ||
-                lowerName.Contains("vision") ||
-                lowerName.Contains("yolo") ||
-                lowerName.Contains("resnet") ||
-                lowerName.Contains("clip") ||
-                lowerName.Contains("diffusion") ||
-                lowerName.Contains("stable") ||
-                lowerName.Contains("gan"))
-                return "image";
-
-            // Audio models
-            if (lowerName.Contains("audio") ||
-                lowerName.Contains("speech") ||
-                lowerName.Contains("whisper") ||
-                lowerName.Contains("wav2vec") ||
-                lowerName.Contains("sound") ||
-                lowerName.Contains("voice"))
-                return "audio";
-
-            return "unknown";
+        // New helper method for finding corresponding model with better matching logic
+        private NeuralNetworkModel FindCorrespondingModel(NetPageViewModel netPageVM, NodeViewModel node)
+        {
+            return _nodeManagementService.FindCorrespondingModel(netPageVM.AvailableModels, node);
         }
 
         // --- Pipeline Execution Logic ---
