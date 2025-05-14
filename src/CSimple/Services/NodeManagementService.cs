@@ -283,5 +283,40 @@ namespace CSimple.Services
 
             Debug.WriteLine($"Added specialized input nodes to '{CurrentPipelineName}'.");
         }
+
+        public void LoadPipelineData(ObservableCollection<NodeViewModel> Nodes, ObservableCollection<ConnectionViewModel> Connections, PipelineData data, Action InvalidateCanvas)
+        {
+            if (data == null) return;
+
+            Nodes.Clear();
+            Connections.Clear();
+
+            if (data.Nodes != null)
+            {
+                foreach (var nodeData in data.Nodes)
+                {
+                    Nodes.Add(nodeData.ToViewModel());
+                }
+            }
+
+            if (data.Connections != null)
+            {
+                foreach (var connData in data.Connections)
+                {
+                    // Ensure source and target nodes exist before adding connection
+                    if (Nodes.Any(n => n.Id == connData.SourceNodeId.ToString()) &&
+                        Nodes.Any(n => n.Id == connData.TargetNodeId.ToString()))
+                    {
+                        Connections.Add(connData.ToViewModel());
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Warning: Skipping connection {connData.Id} due to missing source/target node during load.");
+                    }
+                }
+            }
+
+            InvalidateCanvas?.Invoke(); // Redraw canvas
+        }
     }
 }
