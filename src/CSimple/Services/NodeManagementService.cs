@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Maui.Controls;
 
 namespace CSimple.Services
 {
@@ -317,6 +318,132 @@ namespace CSimple.Services
             }
 
             InvalidateCanvas?.Invoke(); // Redraw canvas
+        }
+
+        public async Task UpdateNodeClassificationsAsync(ObservableCollection<NodeViewModel> Nodes, ObservableCollection<NeuralNetworkModel> AvailableModels, Action InvalidateCanvas, Func<string, string> DetermineDataTypeFromName, Func<Task> SaveCurrentPipelineAsync)
+        {
+            bool pipelineChanged = false;
+
+            if (AvailableModels == null)
+            {
+                Debug.WriteLine("UpdateNodeClassificationsAsync: NetPageViewModel or AvailableModels is null. Cannot update.");
+                return;
+            }
+
+            Debug.WriteLine($"UpdateNodeClassificationsAsync: Found {AvailableModels.Count} models in NetPageViewModel.");
+
+            // Iterate through the nodes in the current pipeline
+            foreach (var node in Nodes)
+            {
+                // Only update nodes that represent models (not Input/Output nodes)
+                if (node.Type == NodeType.Model)
+                {
+                    // Improved model matching logic with better debugging
+                    var correspondingNetModel = FindCorrespondingModel(AvailableModels, node);
+
+                    if (correspondingNetModel != null)
+                    {
+                        Debug.WriteLine($"Found corresponding NetModel '{correspondingNetModel.Name}' for Node '{node.Name}' (ModelPath: {node.ModelPath})");
+
+                        // Get InputType directly from the model - this is the key part we want to ensure is working
+                        var inputType = correspondingNetModel.InputType;
+                        Debug.WriteLine($"Model '{correspondingNetModel.Name}' has InputType: {inputType}");
+
+                        // Convert ModelInputType enum to string for DataType
+                        string newDataType = inputType switch
+                        {
+                            ModelInputType.Text => "text",
+                            ModelInputType.Image => "image",
+                            ModelInputType.Audio => "audio",
+                            _ => "unknown" // Default or Unknown
+                        };
+
+                        Debug.WriteLine($"Converted InputType {inputType} to DataType '{newDataType}'");
+
+                        // Check if the DataType needs updating
+                        if (node.DataType != newDataType)
+                        {
+                            Debug.WriteLine($"Updating DataType for Node '{node.Name}' from '{node.DataType}' to '{newDataType}' based on NetModel InputType '{correspondingNetModel.InputType}'.");
+                            node.DataType = newDataType;
+                            pipelineChanged = true; // Mark that a change occurred
+                        }
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Could not find corresponding NetModel for Node '{node.Name}' with ModelPath '{node.ModelPath}'.");
+                        // Try to determine data type based on node name as fallback
+                        string inferredDataType = DetermineDataTypeFromName(node.Name);
+                        if (inferredDataType != "unknown" && node.DataType != inferredDataType)
+                        {
+                            Debug.WriteLine($"Using inferred data type '{inferredDataType}' for node '{node.Name}' based on name");
+                            node.DataType = inferredDataType;
+                            pipelineChanged = true;
+                        }
+                    }
+                }
+            }
+
+            // Save the pipeline only if any node's DataType was actually changed
+            if (pipelineChanged)
+            {
+                Debug.WriteLine("UpdateNodeClassificationsAsync: Pipeline data changed, saving...");
+                await SaveCurrentPipelineAsync();
+
+                // Force redraw of the canvas to reflect potential color changes
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    InvalidateCanvas?.Invoke();
+                    Debug.WriteLine("Requested canvas invalidation via InvalidateCanvas action.");
+                });
+            }
+            else
+            {
+                Debug.WriteLine("UpdateNodeClassificationsAsync: No pipeline data changed, skipping save.");
+            }
+        }
+
+        public void SetNodeClassification(NodeViewModel node, string classification, Action InvalidateCanvas)
+        {
+            if (node != null && node.IsTextModel)
+            {
+                // This will automatically update the node's display name via the property setter
+                node.Classification = classification;
+
+                // Request redraw to show the updated name
+                InvalidateCanvas?.Invoke();
+
+                Debug.WriteLine($"Set node '{node.OriginalName}' classification to '{classification}'");
+            }
+        }
+
+        public void UpdateEnsembleCounts(ObservableCollection<NodeViewModel> Nodes, ObservableCollection<ConnectionViewModel> Connections, Action InvalidateCanvas)
+        {
+            Debug.WriteLine("Updating ensemble counts...");
+            bool countsChanged = false;
+            var inputCounts = Connections
+                .GroupBy(c => c.TargetNodeId)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            foreach (var node in Nodes)
+            {
+                int newCount = inputCounts.TryGetValue(node.Id, out var count) ? count : 0;
+                if (node.EnsembleInputCount != newCount)
+                {
+                    node.EnsembleInputCount = newCount;
+                    countsChanged = true;
+                    Debug.WriteLine($"Node '{node.Name}' input count set to {newCount}");
+                }
+            }
+
+            if (countsChanged)
+            {
+                Debug.WriteLine("Ensemble counts changed, invalidating canvas.");
+                InvalidateCanvas?.Invoke(); // Trigger redraw if any count changed
+            }
+            else
+            {
+                Debug.WriteLine("No ensemble counts changed.");
+            }
         }
     }
 }

@@ -34,6 +34,7 @@ public static class MauiProgram
         services.AddSingleton<PythonBootstrapper>();
         services.AddSingleton<HuggingFaceService>();
         services.AddSingleton<NodeManagementService>(); // ADDED
+        services.AddSingleton<PipelineManagementService>(); // ADDED
         services.AddSingleton(sp =>
         {
             var actionService = sp.GetRequiredService<ActionService>();

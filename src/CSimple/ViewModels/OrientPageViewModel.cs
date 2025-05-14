@@ -23,6 +23,7 @@ namespace CSimple.ViewModels
         private readonly NetPageViewModel _netPageViewModel; // Keep reference if needed
         private readonly PythonBootstrapper _pythonBootstrapper; // Added
         private readonly NodeManagementService _nodeManagementService; // ADDED
+        private readonly PipelineManagementService _pipelineManagementService; // ADDED
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -174,13 +175,14 @@ namespace CSimple.ViewModels
 
         // --- Constructor ---
         // Ensure FileService and PythonBootstrapper are injected
-        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService)
+        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
             _netPageViewModel = netPageViewModel;
             _pythonBootstrapper = pythonBootstrapper; // Store injected service
             _nodeManagementService = nodeManagementService; // ADDED
+            _pipelineManagementService = pipelineManagementService; // ADDED
 
             // Initialize Commands
             AddModelNodeCommand = new Command<HuggingFaceModel>(async (model) => await AddModelNode(model));
@@ -462,158 +464,23 @@ namespace CSimple.ViewModels
 
         private async Task LoadAvailablePipelinesAsync()
         {
-            try
-            {
-                var pipelines = await _fileService.ListPipelinesAsync();
-                AvailablePipelineNames.Clear();
-                if (pipelines != null)
-                {
-                    foreach (var pipeline in pipelines.OrderBy(p => p.Name))
-                    {
-                        AvailablePipelineNames.Add(pipeline.Name);
-                    }
-                }
-                // Optionally set the SelectedPipelineName if needed within OrientPage itself
-                // SelectedPipelineName = AvailablePipelineNames.FirstOrDefault();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading available pipeline names in OrientPageViewModel: {ex.Message}");
-            }
+            await _pipelineManagementService.LoadAvailablePipelinesAsync(AvailablePipelineNames);
         }
 
         private async Task LoadPipelineAsync(string pipelineName)
         {
-            Debug.WriteLine($"Loading pipeline: {pipelineName}");
-            var pipelineData = await _fileService.LoadPipelineAsync(pipelineName);
-            if (pipelineData != null)
-            {
-                // Check if we are loading the same pipeline that's already current
-                // and if the canvas is already empty (avoids unnecessary clearing/reloading)
-                if (CurrentPipelineName == pipelineName && !Nodes.Any() && !Connections.Any() && pipelineData.Nodes.Count == 0 && pipelineData.Connections.Count == 0)
-                {
-                    Debug.WriteLine($"Pipeline '{pipelineName}' is already the current empty pipeline. Skipping reload.");
-                    // Ensure CurrentPipelineName is set correctly even if skipping
-                    if (_currentPipelineName != pipelineName)
-                    {
-                        CurrentPipelineName = pipelineName;
-                    }
-                    // Ensure picker reflects the name
-                    if (_selectedPipelineName != pipelineName)
-                    {
-                        _selectedPipelineName = pipelineName;
-                        OnPropertyChanged(nameof(SelectedPipelineName));
-                    }
-                    return; // Exit early
-                }
-
-
-                Nodes.Clear();
-                Connections.Clear();
-
-                foreach (var nodeData in pipelineData.Nodes)
-                {
-                    Nodes.Add(nodeData.ToViewModel());
-                }
-                foreach (var connData in pipelineData.Connections)
-                {
-                    Connections.Add(connData.ToViewModel()); // Add connection
-                }
-                CurrentPipelineName = pipelineData.Name;
-                // Manually update the picker selection if needed, though binding should handle it
-                if (_selectedPipelineName != pipelineName)
-                {
-                    _selectedPipelineName = pipelineName;
-                    OnPropertyChanged(nameof(SelectedPipelineName));
-                }
-                Debug.WriteLine($"Successfully loaded pipeline: {pipelineName}");
-                UpdateEnsembleCounts(); // ADDED: Update counts after loading all connections
-                // After loading, update classifications based on the newly loaded nodes
-                await UpdateNodeClassificationsAsync();
-            }
-            else
-            {
-                // Only show error if it's not the initial creation scenario
-                if (!(CurrentPipelineName == pipelineName && !Nodes.Any() && !Connections.Any()))
-                {
-                    await ShowAlert?.Invoke("Error", $"Failed to load pipeline '{pipelineName}'.", "OK");
-                }
-                else
-                {
-                    Debug.WriteLine($"Failed to load pipeline '{pipelineName}', but assuming it's the initial empty one being created.");
-                }
-
-                // Fallback logic remains the same
-                if (AvailablePipelineNames.Any() && AvailablePipelineNames.First() != pipelineName) // Avoid infinite loop if first fails
-                {
-                    SelectedPipelineName = AvailablePipelineNames.First(); // Fallback to first available
-                }
-                else if (!AvailablePipelineNames.Any()) // Only create new if list becomes empty
-                {
-                    // This case should ideally not be hit if creation logic is sound,
-                    // but as a safeguard:
-                    Debug.WriteLine($"Load failed for '{pipelineName}', and no other pipelines exist. Attempting to create a new one again.");
-                    await CreateNewPipeline();
-                    await SaveCurrentPipelineAsync();
-                    SelectedPipelineName = CurrentPipelineName;
-                }
-            }
+            await _pipelineManagementService.LoadPipelineAsync(pipelineName, Nodes, Connections, InvalidateCanvas, CurrentPipelineName, DisplayAlert, SetCurrentPipelineName, SetSelectedPipelineName, OnPropertyChanged, UpdateNodeClassificationsAsync);
         }
 
         // Change from protected to public to make it accessible from OrientPage
         public async Task SaveCurrentPipelineAsync()
         {
-            if (string.IsNullOrWhiteSpace(CurrentPipelineName))
-            {
-                // This shouldn't happen if CurrentPipelineName is managed correctly
-                Debug.WriteLine("Cannot save pipeline with empty name.");
-                return;
-            }
-
-            Debug.WriteLine($"Saving pipeline: {CurrentPipelineName}");
-            var pipelineData = new PipelineData
-            {
-                Name = CurrentPipelineName,
-                Nodes = Nodes.Select(n => new SerializableNode(n)).ToList(),
-                Connections = Connections.Select(c => new SerializableConnection(c)).ToList()
-            };
-            await _fileService.SavePipelineAsync(pipelineData);
-            // No need to reload list unless timestamp sorting is critical for immediate UI update
+            await _pipelineManagementService.SaveCurrentPipelineAsync(CurrentPipelineName, Nodes, Connections);
         }
 
         private async Task CreateNewPipeline()
         {
-            ClearCanvas();
-            // Find a unique default name
-            int counter = 1;
-            string baseName = "Untitled Pipeline";
-            string newName = baseName;
-            while (AvailablePipelineNames.Contains(newName))
-            {
-                newName = $"{baseName} {counter++}";
-            }
-            CurrentPipelineName = newName;
-            // SelectedPipelineName = null; // Keep deselected initially
-
-            Debug.WriteLine($"Created new pipeline placeholder: {CurrentPipelineName}");
-
-            // Add default input nodes
-            AddDefaultInputNodes();
-
-            // Add to list immediately so it can be selected later
-            if (!AvailablePipelineNames.Contains(CurrentPipelineName))
-            {
-                AvailablePipelineNames.Insert(0, CurrentPipelineName); // Add to top
-                OnPropertyChanged(nameof(AvailablePipelineNames)); // Notify UI about the change
-            }
-            // No saving or selecting here - handled by the command or initialization logic
-            await Task.CompletedTask;
-        }
-
-        // --- Private Helper Methods --- (Moved AddDefaultInputNodes here)
-        private void AddDefaultInputNodes()
-        {
-            _nodeManagementService.AddDefaultInputNodes(Nodes, CurrentPipelineName);
+            await _pipelineManagementService.CreateNewPipelineAsync(AvailablePipelineNames, Nodes, Connections, InvalidateCanvas, ClearCanvas, SetCurrentPipelineName, OnPropertyChanged);
         }
 
         private async Task RenameCurrentPipeline()
@@ -629,13 +496,7 @@ namespace CSimple.ViewModels
 
             if (!string.IsNullOrWhiteSpace(newName) && newName != oldName)
             {
-                if (AvailablePipelineNames.Contains(newName))
-                {
-                    await ShowAlert?.Invoke("Error", $"A pipeline named '{newName}' already exists.", "OK");
-                    return;
-                }
-
-                bool success = await _fileService.RenamePipelineAsync(oldName, newName);
+                bool success = await _pipelineManagementService.RenamePipelineAsync(oldName, newName);
                 if (success)
                 {
                     CurrentPipelineName = newName; // Update current name if it was the one renamed
@@ -670,7 +531,7 @@ namespace CSimple.ViewModels
             if (confirm)
             {
                 string nameToDelete = SelectedPipelineName;
-                await _fileService.DeletePipelineAsync(nameToDelete);
+                await _pipelineManagementService.DeletePipelineAsync(nameToDelete);
                 AvailablePipelineNames.Remove(nameToDelete);
                 OnPropertyChanged(nameof(AvailablePipelineNames)); // Notify UI
 
@@ -718,87 +579,7 @@ namespace CSimple.ViewModels
 
         public async Task UpdateNodeClassificationsAsync()
         {
-            bool pipelineChanged = false;
-
-            // Access NetPageViewModel directly from App class
-            var netPageVM = ((App)Application.Current).NetPageViewModel;
-
-            if (netPageVM == null || netPageVM.AvailableModels == null)
-            {
-                Debug.WriteLine("UpdateNodeClassificationsAsync: NetPageViewModel or AvailableModels is null. Cannot update.");
-                return;
-            }
-
-            Debug.WriteLine($"UpdateNodeClassificationsAsync: Found {netPageVM.AvailableModels.Count} models in NetPageViewModel.");
-
-            // Iterate through the nodes in the current pipeline
-            foreach (var node in Nodes)
-            {
-                // Only update nodes that represent models (not Input/Output nodes)
-                if (node.Type == NodeType.Model)
-                {
-                    // Improved model matching logic with better debugging
-                    var correspondingNetModel = _nodeManagementService.FindCorrespondingModel(netPageVM.AvailableModels, node);
-
-                    if (correspondingNetModel != null)
-                    {
-                        Debug.WriteLine($"Found corresponding NetModel '{correspondingNetModel.Name}' for Node '{node.Name}' (ModelPath: {node.ModelPath})");
-
-                        // Get InputType directly from the model - this is the key part we want to ensure is working
-                        var inputType = correspondingNetModel.InputType;
-                        Debug.WriteLine($"Model '{correspondingNetModel.Name}' has InputType: {inputType}");
-
-                        // Convert ModelInputType enum to string for DataType
-                        string newDataType = inputType switch
-                        {
-                            ModelInputType.Text => "text",
-                            ModelInputType.Image => "image",
-                            ModelInputType.Audio => "audio",
-                            _ => "unknown" // Default or Unknown
-                        };
-
-                        Debug.WriteLine($"Converted InputType {inputType} to DataType '{newDataType}'");
-
-                        // Check if the DataType needs updating
-                        if (node.DataType != newDataType)
-                        {
-                            Debug.WriteLine($"Updating DataType for Node '{node.Name}' from '{node.DataType}' to '{newDataType}' based on NetModel InputType '{correspondingNetModel.InputType}'.");
-                            node.DataType = newDataType;
-                            pipelineChanged = true; // Mark that a change occurred
-                        }
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"Could not find corresponding NetModel for Node '{node.Name}' with ModelPath '{node.ModelPath}'.");
-                        // Try to determine data type based on node name as fallback
-                        string inferredDataType = DetermineDataTypeFromName(node.Name);
-                        if (inferredDataType != "unknown" && node.DataType != inferredDataType)
-                        {
-                            Debug.WriteLine($"Using inferred data type '{inferredDataType}' for node '{node.Name}' based on name");
-                            node.DataType = inferredDataType;
-                            pipelineChanged = true;
-                        }
-                    }
-                }
-            }
-
-            // Save the pipeline only if any node's DataType was actually changed
-            if (pipelineChanged)
-            {
-                Debug.WriteLine("UpdateNodeClassificationsAsync: Pipeline data changed, saving...");
-                await SaveCurrentPipelineAsync();
-
-                // Force redraw of the canvas to reflect potential color changes
-                MainThread.BeginInvokeOnMainThread(() =>
-                {
-                    InvalidateCanvas?.Invoke();
-                    Debug.WriteLine("Requested canvas invalidation via InvalidateCanvas action.");
-                });
-            }
-            else
-            {
-                Debug.WriteLine("UpdateNodeClassificationsAsync: No pipeline data changed, skipping save.");
-            }
+            await _nodeManagementService.UpdateNodeClassificationsAsync(Nodes, _netPageViewModel.AvailableModels, InvalidateCanvas, DetermineDataTypeFromName, SaveCurrentPipelineAsync);
         }
 
         // Helper to infer data type from node name as a fallback
@@ -1032,47 +813,13 @@ namespace CSimple.ViewModels
         // ADDED: Method to calculate and update ensemble input counts for all nodes
         private void UpdateEnsembleCounts()
         {
-            Debug.WriteLine("Updating ensemble counts...");
-            bool countsChanged = false;
-            var inputCounts = Connections
-                .GroupBy(c => c.TargetNodeId)
-                .ToDictionary(g => g.Key, g => g.Count());
-
-            foreach (var node in Nodes)
-            {
-                int newCount = inputCounts.TryGetValue(node.Id, out var count) ? count : 0;
-                if (node.EnsembleInputCount != newCount)
-                {
-                    node.EnsembleInputCount = newCount;
-                    countsChanged = true;
-                    Debug.WriteLine($"Node '{node.Name}' input count set to {newCount}");
-                }
-            }
-
-            if (countsChanged)
-            {
-                Debug.WriteLine("Ensemble counts changed, invalidating canvas.");
-                InvalidateCanvas?.Invoke(); // Trigger redraw if any count changed
-            }
-            else
-            {
-                Debug.WriteLine("No ensemble counts changed.");
-            }
+            _nodeManagementService.UpdateEnsembleCounts(Nodes, Connections, InvalidateCanvas);
         }
 
         // ADDED: Method to set a node's classification
         public void SetNodeClassification(NodeViewModel node, string classification)
         {
-            if (node != null && node.IsTextModel)
-            {
-                // This will automatically update the node's display name via the property setter
-                node.Classification = classification;
-
-                // Request redraw to show the updated name
-                InvalidateCanvas?.Invoke();
-
-                Debug.WriteLine($"Set node '{node.OriginalName}' classification to '{classification}'");
-            }
+            _nodeManagementService.SetNodeClassification(node, classification, InvalidateCanvas);
         }
 
         // Add these methods for Action Review functionality
@@ -1329,6 +1076,21 @@ namespace CSimple.ViewModels
         {
             // Logic to stop audio playback
             Debug.WriteLine("Stopping audio playback");
+        }
+
+        private Task DisplayAlert(string message)
+        {
+            return ShowAlert?.Invoke("Error", message, "OK");
+        }
+
+        private void SetCurrentPipelineName(string name)
+        {
+            CurrentPipelineName = name;
+        }
+
+        private void SetSelectedPipelineName(string name)
+        {
+            SelectedPipelineName = name;
         }
     }
 }
