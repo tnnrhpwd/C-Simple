@@ -331,6 +331,22 @@
                         <Label Text="AI Assistant"
                                FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold" />
+                        <!-- Input Section -->
+                        <Label Text="Input"
+                               FontAttributes="Bold" />
+                        <!-- Text Input -->
+                        <Entry Placeholder="Enter text input..."
+                               x:Name="TextInput" />
+                        <!-- Image Input -->
+                        <Button Text="Select Image" />
+                        <Image x:Name="SelectedImage"
+                               HeightRequest="100"
+                               IsVisible="False" />
+                        <!-- Audio Input -->
+                        <Button Text="Select Audio" />
+                        <!-- Output Section -->
+                        <Label Text="Output"
+                               FontAttributes="Bold" />
                         <Frame BackgroundColor="{StaticResource BackgroundSecondary}"
                                CornerRadius="{StaticResource CornerRadiusSmall}"
                                Padding="{StaticResource CardContentPadding}"
