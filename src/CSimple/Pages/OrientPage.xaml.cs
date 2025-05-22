@@ -101,6 +101,18 @@ namespace CSimple.Pages
 
                 // Now initialize our own ViewModel (which will use the loaded models)
                 await _viewModel.InitializeAsync();
+
+                // Log initial values for debugging step content visibility
+                Debug.WriteLine($"[OnAppearing] Initial CurrentActionStep: {_viewModel.CurrentActionStep}");
+                Debug.WriteLine($"[OnAppearing] Initial StepContent: '{_viewModel.StepContent}'");
+                if (_viewModel.SelectedNode != null)
+                {
+                    Debug.WriteLine($"[OnAppearing] Initial SelectedNode: {_viewModel.SelectedNode.Name}, DataType: {_viewModel.SelectedNode.DataType}");
+                }
+                else
+                {
+                    Debug.WriteLine("[OnAppearing] Initial SelectedNode: null");
+                }
             }
             else
             {
@@ -119,12 +131,24 @@ namespace CSimple.Pages
         // --- IDrawable Implementation ---
         public void Draw(ICanvas canvas, RectF dirtyRect)
         {
+            if (_viewModel == null) return;
+
+            // Debug log for step content visibility
+            Debug.WriteLine($"[Draw] CurrentActionStep: {_viewModel.CurrentActionStep}");
+            Debug.WriteLine($"[Draw] StepContent: '{_viewModel.StepContent}'");
+            if (_viewModel.SelectedNode != null)
+            {
+                Debug.WriteLine($"[Draw] SelectedNode: {_viewModel.SelectedNode.Name}, DataType: {_viewModel.SelectedNode.DataType}");
+            }
+            else
+            {
+                Debug.WriteLine("[Draw] SelectedNode: null");
+            }
+
             // Use theme-aware background from XAML binding
             // Color backgroundColor = Application.Current.RequestedTheme == AppTheme.Dark ? Color.FromArgb("#1e1e1e") : Colors.WhiteSmoke;
             // canvas.FillColor = backgroundColor; // Background is set by GraphicsView BackgroundColor property in XAML
             // canvas.FillRectangle(dirtyRect); // No need to fill if background is set in XAML
-
-            if (_viewModel == null) return;
 
             // Define theme-aware colors dynamically
             bool isDarkTheme = Application.Current.RequestedTheme == AppTheme.Dark;
@@ -491,6 +515,10 @@ namespace CSimple.Pages
                 _draggedNode = null; // Don't drag if starting connection
                 _viewModel.SelectedNode = nodeUnderHandle; // Select the node whose handle was tapped
                 Debug.WriteLine($"Started connection from handle of {nodeUnderHandle.Name}");
+                if (_viewModel.SelectedNode != null)
+                {
+                    Debug.WriteLine($"[OnCanvasStartInteraction] SelectedNode set (handle tap): {_viewModel.SelectedNode.Name}, DataType: {_viewModel.SelectedNode.DataType}");
+                }
                 _draggedNode = null; // Explicitly ensure no dragging when starting connection
             }
             else
@@ -506,11 +534,16 @@ namespace CSimple.Pages
                     _dragStartPoint = touchPoint;
                     _isDrawingConnection = false; // Ensure connection drawing is off
                     Debug.WriteLine($"Selected/Dragging node {tappedNode.Name}");
+                    if (_viewModel.SelectedNode != null)
+                    {
+                        Debug.WriteLine($"[OnCanvasStartInteraction] SelectedNode set (node tap): {_viewModel.SelectedNode.Name}, DataType: {_viewModel.SelectedNode.DataType}");
+                    }
                 }
                 else
                 {
                     // 3. Tapped empty space
                     _viewModel.SelectedNode = null;
+                    Debug.WriteLine($"[OnCanvasStartInteraction] SelectedNode set to null (empty space tap)");
                     _draggedNode = null;
                     _viewModel.CancelConnection();
                     _isDrawingConnection = false;

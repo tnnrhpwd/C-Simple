@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic; // Added for List
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq; // Added for LINQ
 using System.Runtime.CompilerServices;
 using CSimple.Models; // Ensure Models namespace is included for NodeType
@@ -221,22 +222,57 @@ namespace CSimple.ViewModels
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        public (string Type, string Value) GetStepContent(int step)
+        public (string Type, string Value) GetStepContent(int step) // step is 1-based
         {
+            Debug.WriteLine($"[NodeViewModel.GetStepContent] Node '{Name}' (Type: {Type}, DataType: {DataType}), Requested Step: {step}, ActionSteps.Count: {ActionSteps.Count}");
+
             // Example logic to retrieve step content
+            // Ensure step is 1-based and within the bounds of ActionSteps (0-indexed list)
             if (Type != NodeType.Input || step <= 0 || step > ActionSteps.Count)
             {
+                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Not Input type, or step {step} out of bounds (1 to {ActionSteps.Count}). Returning null content.");
                 return (null, null);
             }
 
-            var stepData = ActionSteps[step - 1]; // Assuming ActionSteps is a list of step data
+            // Adjust step to be 0-indexed for list access
+            var stepData = ActionSteps[step - 1];
+            Debug.WriteLine($"[NodeViewModel.GetStepContent] Accessing ActionSteps[{step - 1}]. Data: Type='{stepData.Type}', Value='{stepData.Value}'");
+
+            // Ensure the stepData.Type matches the node's DataType for relevance
+            if (!string.Equals(stepData.Type, this.DataType, StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.WriteLine($"[NodeViewModel.GetStepContent] Step data type '{stepData.Type}' does not match node's DataType '{this.DataType}'. Returning null content for this step.");
+                // return (null, null); // Or return as is, depending on desired behavior
+            }
+
+
+            // Return based on the Type field within the ActionStep tuple
+            // This assumes ActionSteps[i].Type correctly identifies "Text", "Image", "Audio"
+            // And ActionSteps[i].Value is the corresponding content.
+            // The switch statement here is a bit redundant if stepData.Type is already what we need.
+            // Let's simplify to directly use stepData.Type and stepData.Value if they are correctly populated.
+
+            // We should ensure that the ActionSteps are populated correctly for this node's DataType.
+            // For example, an "Image" node should only have "Image" type steps.
+            // The current logic returns the stepData as is.
+
+            Debug.WriteLine($"[NodeViewModel.GetStepContent] Returning: Type='{stepData.Type}', Value='{stepData.Value}'");
+            return (stepData.Type, stepData.Value);
+
+            /* Original switch logic - might be useful if stepData itself needs interpretation
             return stepData switch
             {
+                // This assumes stepData itself is an object with a 'Type' property, which is not the case for List<(string Type, string Value)
+                // We should use stepData.Type directly.
                 { Type: "Text" } => ("Text", stepData.Value),
                 { Type: "Image" } => ("Image", stepData.Value), // Image path
                 { Type: "Audio" } => ("Audio", stepData.Value), // Audio path
-                _ => (null, null)
+                _ => {
+                        Debug.WriteLine($"[NodeViewModel.GetStepContent] StepData.Type ('{stepData.Type}') not recognized or doesn't match node's role. Returning null content.");
+                        return (null, null);
+                     }
             };
+            */
         }
 
         public List<(string Type, string Value)> ActionSteps { get; set; } = new();

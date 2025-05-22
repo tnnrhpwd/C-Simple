@@ -152,11 +152,14 @@ namespace CSimple.ViewModels
             get => _currentActionStep;
             set
             {
+                Debug.WriteLine($"[OrientPageViewModel.CurrentActionStep_Set] Attempting to set from {_currentActionStep} to {value}");
                 if (SetProperty(ref _currentActionStep, value))
                 {
+                    Debug.WriteLine($"[OrientPageViewModel.CurrentActionStep_Set] CurrentActionStep changed to: {CurrentActionStep}. Calling UpdateStepContent.");
                     UpdateStepContent();
                     // Update command can execute status
                     (StepBackwardCommand as Command)?.ChangeCanExecute();
+                    (StepForwardCommand as Command)?.ChangeCanExecute(); // Ensure forward is also updated
                 }
             }
         }
@@ -918,21 +921,25 @@ namespace CSimple.ViewModels
         private async void ExecuteStepForward()
         {
             // Load data for the next step
-            await LoadActionStepData();
-            CurrentActionStep++;
+            await LoadActionStepData(); // This loads data for the *current* _currentActionStep before increment
+            CurrentActionStep++; // This will trigger UpdateStepContent via its setter
+            Debug.WriteLine($"[OrientPageViewModel.ExecuteStepForward] CurrentActionStep incremented to: {CurrentActionStep}");
 
             // Update command can execute status
             (StepBackwardCommand as Command)?.ChangeCanExecute();
+            (StepForwardCommand as Command)?.ChangeCanExecute();
         }
 
         private async void ExecuteStepBackward()
         {
             // Decrement step BEFORE loading data
-            CurrentActionStep--;
-            await LoadActionStepData();
+            CurrentActionStep--; // This will trigger UpdateStepContent via its setter
+            Debug.WriteLine($"[OrientPageViewModel.ExecuteStepBackward] CurrentActionStep decremented to: {CurrentActionStep}");
+            await LoadActionStepData(); // This loads data for the new _currentActionStep
 
             // Update command can execute status
             (StepBackwardCommand as Command)?.ChangeCanExecute();
+            (StepForwardCommand as Command)?.ChangeCanExecute();
         }
 
         private async void ExecuteResetAction()
@@ -969,63 +976,73 @@ namespace CSimple.ViewModels
         {
             try
             {
+                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Called for CurrentActionStep: {CurrentActionStep}");
                 // Ensure action items are loaded
                 if (_currentActionItems == null || _currentActionItems.Count == 0)
                 {
-                    Debug.WriteLine("No action items loaded. Cannot load step data.");
+                    Debug.WriteLine("[OrientPageViewModel.LoadActionStepData] No action items loaded. Cannot load step data.");
+                    StepContent = "Error: No action items."; // Provide feedback
+                    StepContentType = "Text";
                     return;
                 }
 
                 // Ensure current step is within bounds
                 if (CurrentActionStep < 0)
                 {
-                    CurrentActionStep = 0;
-                    Debug.WriteLine("Reached start of action. Cannot step back further.");
+                    // CurrentActionStep = 0; // Setter will handle UpdateStepContent
+                    Debug.WriteLine("[OrientPageViewModel.LoadActionStepData] Reached start of action. Cannot step back further.");
+                    StepContent = "At the beginning of the action.";
+                    StepContentType = "Text";
                     return;
                 }
                 else if (CurrentActionStep >= _currentActionItems.Count)
                 {
-                    CurrentActionStep = _currentActionItems.Count - 1;
-                    Debug.WriteLine("Reached end of action. Cannot step forward further.");
+                    // CurrentActionStep = _currentActionItems.Count - 1; // Setter will handle UpdateStepContent
+                    Debug.WriteLine("[OrientPageViewModel.LoadActionStepData] Reached end of action. Cannot step forward further.");
+                    StepContent = "At the end of the action.";
+                    StepContentType = "Text";
                     return;
                 }
 
                 // Get the action item for the current step
                 var step = _currentActionItems[CurrentActionStep];
-                Debug.WriteLine($"Loading data for step {CurrentActionStep + 1} of {_currentActionItems.Count}");
-
-                // Extract data for the current step
-                // For now, just log the data
-                Debug.WriteLine($"Action: {step.ToString()}");
+                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Loading data for step index {CurrentActionStep} (Step {CurrentActionStep + 1} of {_currentActionItems.Count})");
+                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] ActionItem: {step.ToString()}");
 
                 // Simulate loading data for different input types
-                // In a real implementation, you would load the actual data
-                // from storage or a data stream
-                string mouseText = $"Mouse Text Data (Step {CurrentActionStep + 1})";
-                string keyText = $"Key Text Data (Step {CurrentActionStep + 1})";
-                string webcamImage = $"Webcam Image Data (Step {CurrentActionStep + 1})";
-                string screenImage = $"Screen Image Data (Step {CurrentActionStep + 1})";
-                string webcamAudio = $"Webcam Audio Data (Step {CurrentActionStep + 1})";
-                string pcAudio = $"PC Audio Data (Step {CurrentActionStep + 1})";
+                // This part is more about preparing data for the *selected node* to consume
+                // The actual StepContent update happens in UpdateStepContent based on SelectedNode.GetStepContent
 
-                // Update the UI with the loaded data
-                // This would typically involve updating properties bound to UI elements
-                // For now, just log the data
-                Debug.WriteLine($"Mouse Text: {mouseText}");
-                Debug.WriteLine($"Key Text: {keyText}");
-                Debug.WriteLine($"Webcam Image: {webcamImage}");
-                Debug.WriteLine($"Screen Image: {screenImage}");
-                Debug.WriteLine($"Webcam Audio: {webcamAudio}");
-                Debug.WriteLine($"PC Audio: {pcAudio}");
+                // For now, we'll just log. The actual data association with SelectedNode happens elsewhere.
+                if (SelectedNode != null && SelectedNode.Type == NodeType.Input)
+                {
+                    // This is where you would populate SelectedNode.ActionSteps if it's not already populated
+                    // For example, if ActionItem 'step' corresponds to data for 'SelectedNode'
+                    // SelectedNode.ActionSteps = ... based on 'step' and 'SelectedNode.DataType'
+                    Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] SelectedNode '{SelectedNode.Name}' (Type: {SelectedNode.DataType}) is an Input node. It should provide content for this step via GetStepContent.");
+                }
+                else if (SelectedNode == null)
+                {
+                    Debug.WriteLine("[OrientPageViewModel.LoadActionStepData] SelectedNode is null. No specific node content to associate.");
+                }
+                else
+                {
+                    Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] SelectedNode '{SelectedNode.Name}' is not an Input node. Step content might not be applicable directly.");
+                }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading action step data: {ex.Message}");
+                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Error: {ex.Message}");
+                StepContent = $"Error loading step data: {ex.Message}";
+                StepContentType = "Text";
             }
             finally
             {
                 // Update command can execute status
                 (StepBackwardCommand as Command)?.ChangeCanExecute();
+                (StepForwardCommand as Command)?.ChangeCanExecute();
+                // Explicitly call UpdateStepContent here after data might have been prepared for SelectedNode
+                UpdateStepContent();
             }
         }
 
@@ -1054,16 +1071,32 @@ namespace CSimple.ViewModels
 
         public void UpdateStepContent()
         {
-            if (SelectedNode == null || CurrentActionStep == 0)
+            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Called. CurrentActionStep: {CurrentActionStep}, SelectedNode: {SelectedNode?.Name ?? "null"}");
+            if (SelectedNode == null || CurrentActionStep == 0) // CurrentActionStep is 1-based for display, 0 for "no step"
             {
+                Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] SelectedNode is null or CurrentActionStep is 0. Clearing StepContent.");
                 StepContentType = null;
                 StepContent = null;
+                OnPropertyChanged(nameof(StepContentType)); // Explicitly notify for XAML update
+                OnPropertyChanged(nameof(StepContent));     // Explicitly notify for XAML update
                 return;
             }
 
-            var content = SelectedNode.GetStepContent(CurrentActionStep);
+            // CurrentActionStep in ViewModel is 0-indexed for list access, but represents step "1" if it's 0.
+            // The GetStepContent method in NodeViewModel might expect a 1-based index.
+            // Let's assume CurrentActionStep from the UI perspective is 1-based.
+            // If CurrentActionStep is 1 (meaning first step), we pass 1 to GetStepContent.
+            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Getting content for SelectedNode '{SelectedNode.Name}', Effective Step: {CurrentActionStep}");
+            var content = SelectedNode.GetStepContent(CurrentActionStep); // Pass the 1-based step number
+
+            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Content retrieved: Type='{content.Type}', Value='{content.Value}'");
+
             StepContentType = content.Type; // "Text", "Image", or "Audio"
             StepContent = content.Value;   // The actual content (e.g., text, image path, or audio path)
+
+            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Updated StepContentType: '{StepContentType}', StepContent: '{StepContent}'");
+            OnPropertyChanged(nameof(StepContentType)); // Explicitly notify for XAML update
+            OnPropertyChanged(nameof(StepContent));     // Explicitly notify for XAML update
         }
 
         private void PlayAudio()
