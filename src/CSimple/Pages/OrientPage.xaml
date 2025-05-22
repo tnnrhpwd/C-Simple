@@ -1,254 +1,254 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:viewmodels="clr-namespace:CSimple.ViewModels"
-             xmlns:models="clr-namespace:CSimple.Models"
-             xmlns:local="clr-namespace:CSimple.Pages"
-             xmlns:converters="clr-namespace:CSimple.Converters"
-             x:DataType="viewmodels:OrientPageViewModel"
-             x:Class="CSimple.Pages.OrientPage"
-             Title="Orient - Pipeline Editor">
-    <ContentPage.Resources>
-        <converters:IsNotNullConverter x:Key="IsNotNullConverter" />
-        <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
-        <converters:EqualsConverter x:Key="EqualsConverter" />
-        <!-- ... existing resources ... -->
-        <Style x:Key="ThemedPickerStyle"
-               TargetType="Picker">
-            <!-- Define common picker styles -->
-            <Setter Property="BackgroundColor"
-                    Value="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource CardBackgroundLight}, 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource CardBackgroundDark}}" />
-            <Setter Property="TextColor"
-                    Value="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextPrimaryLight}, 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextPrimaryDark}}" />
-            <Setter Property="TitleColor"
-                    Value="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextSecondaryLight}, 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextSecondaryDark}}" />
-            <Setter Property="HeightRequest"
-                    Value="55" />
-            <Setter Property="FontSize"
-                    Value="14" />
-            <Setter Property="Margin"
-                    Value="2" />
-            <Setter Property="MinimumWidthRequest"
-                    Value="150" />
-        </Style>
-        <Style x:Key="SmallLabelStyle"
-               TargetType="Label">
-            <Setter Property="FontSize"
-                    Value="10" />
-            <Setter Property="TextColor"
-                    Value="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
-            <Setter Property="Margin"
-                    Value="0,5,0,0" />
-        </Style>
-        <Style x:Key="ToolbarButtonStyle"
-               TargetType="Button">
-            <Setter Property="CornerRadius"
-                    Value="5" />
-            <Setter Property="Padding"
-                    Value="8,4" />
-            <Setter Property="Margin"
-                    Value="2" />
-            <Setter Property="FontSize"
-                    Value="12" />
-            <Setter Property="HeightRequest"
-                    Value="30" />
-            <Setter Property="TextColor"
-                    Value="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextOnPrimary}, 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextOnPrimary}}" />
-        </Style>
-        <Style x:Key="ToolbarLabelStyle"
-               TargetType="Label">
-            <Setter Property="VerticalOptions"
-                    Value="Center" />
-            <Setter Property="FontAttributes"
-                    Value="Bold" />
-            <Setter Property="Margin"
-                    Value="5,0" />
-            <Setter Property="TextColor"
-                    Value="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextPrimaryLight}, 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextPrimaryDark}}" />
-        </Style>
-    </ContentPage.Resources>
-    <Grid RowDefinitions="Auto, *">
-        <!-- Top Toolbar (Row 0) -->
-        <Border Grid.Row="0"
-                StrokeThickness="0"
-                BackgroundColor="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                    Light={StaticResource SurfaceBackgroundLight},
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                    Dark={StaticResource SurfaceBackgroundDark}}"
-                Padding="5,5"
-                Margin="5,5,5,0"
-                VerticalOptions="Start"
-                HorizontalOptions="FillAndExpand"
-                StrokeShape="RoundRectangle 8">
-            <!-- Use FlexLayout for wrapping -->
-            <FlexLayout Wrap="Wrap"
-                        AlignItems="Center"
-                        JustifyContent="Start">
-                <!-- Pipeline Management -->
-                <Label Text="Pipeline:"
-                       Style="{StaticResource ToolbarLabelStyle}" />
-                <Picker Title="Select Pipeline"
-                        ItemsSource="{Binding AvailablePipelineNames}"
-                        SelectedItem="{Binding SelectedPipelineName, Mode=TwoWay}"
-                        Style="{StaticResource ThemedPickerStyle}" />
-                <Button Command="{Binding CreateNewPipelineCommand}"
-                        Text="New"
-                        BackgroundColor="{StaticResource Tertiary}"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        ToolTipProperties.Text="Create New Pipeline" />
-                <Button Command="{Binding RenamePipelineCommand}"
-                        Text="Rename"
-                        IsEnabled="{Binding SelectedPipelineName, Converter={StaticResource IsNotNullConverter}}"
-                        BackgroundColor="{StaticResource Secondary}"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        ToolTipProperties.Text="Rename Selected Pipeline" />
-                <Button Command="{Binding DeletePipelineCommand}"
-                        Text="Delete Pipeline"
-                        IsEnabled="{Binding SelectedPipelineName, Converter={StaticResource IsNotNullConverter}}"
-                        BackgroundColor="{StaticResource Error}"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        ToolTipProperties.Text="Delete Selected Pipeline" />
-                <!-- Separator -->
-                <BoxView BackgroundColor="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Light={StaticResource BorderColor},
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Dark={StaticResource NeutralDark}}"
-                         WidthRequest="1"
-                         HeightRequest="25"
-                         Margin="10,0"
-                         VerticalOptions="Center" />
-                <!-- Add Model -->
-                <Label Text="Add Model:"
-                       Style="{StaticResource ToolbarLabelStyle}" />
-                <Picker Title="Select Model Type"
-                        ItemsSource="{Binding AvailableModels}"
-                        ItemDisplayBinding="{Binding Name}"
-                        x:Name="ModelPicker"
-                        Style="{StaticResource ThemedPickerStyle}" />
-                <Button Command="{Binding AddModelNodeCommand}"
-                        CommandParameter="{Binding Source={x:Reference ModelPicker}, Path=SelectedItem}"
-                        BackgroundColor="{StaticResource Primary}"
-                        Text="Add Node"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        ToolTipProperties.Text="Add Selected Model Node" />
-                <!-- Delete Node -->
-                <Button Command="{Binding DeleteSelectedNodeCommand}"
-                        BackgroundColor="{StaticResource Error}"
-                        Text="Delete Node"
-                        IsEnabled="{Binding SelectedNode, Converter={StaticResource IsNotNullConverter}}"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        ToolTipProperties.Text="Delete Selected Node" />
-                <!-- Separator -->
-                <BoxView BackgroundColor="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Light={StaticResource BorderColor},
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Dark={StaticResource NeutralDark}}"
-                         WidthRequest="1"
-                         HeightRequest="25"
-                         Margin="10,0"
-                         VerticalOptions="Center" />
-                <!-- Review Action Section -->
-                <Label Text="Review Action:"
-                       Style="{StaticResource ToolbarLabelStyle}" />
-                <Picker Title="Select Action"
-                        ItemsSource="{Binding AvailableActionNames}"
-                        SelectedItem="{Binding SelectedReviewActionName, Mode=TwoWay}"
-                        Style="{StaticResource ThemedPickerStyle}"
-                        x:Name="ActionReviewPicker" />
-                <Button Command="{Binding StepBackwardCommand}"
-                        Text="Step Back"
-                        IsEnabled="{Binding SelectedReviewActionName, Converter={StaticResource IsNotNullConverter}}"
-                        BackgroundColor="{StaticResource Secondary}"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        ToolTipProperties.Text="Revert last executed step" />
-                <Label Text="{Binding CurrentActionStep, StringFormat='Step: {0}'}"
-                       Style="{StaticResource ToolbarLabelStyle}"
-                       HorizontalOptions="Center"
-                       WidthRequest="60" />
-                <Button Command="{Binding StepForwardCommand}"
-                        Text="Step Forward"
-                        IsEnabled="{Binding SelectedReviewActionName, Converter={StaticResource IsNotNullConverter}}"
-                        BackgroundColor="{StaticResource Primary}"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        ToolTipProperties.Text="Execute next step of selected action" />
-                <Button Command="{Binding ResetActionCommand}"
-                        Text="Reset Action"
-                        IsEnabled="{Binding SelectedReviewActionName, Converter={StaticResource IsNotNullConverter}}"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        ToolTipProperties.Text="Reset action review to start" />
-            </FlexLayout>
-        </Border>
-        <!-- GraphicsView for drawing nodes and connections (Row 1) -->
-        <GraphicsView Grid.Row="1"
-                      x:Name="NodeCanvas"
-                      Drawable="{Binding Source={RelativeSource AncestorType={x:Type local:OrientPage}}, Path=NodeDrawable}"
-                      StartInteraction="OnCanvasStartInteraction"
-                      DragInteraction="OnCanvasDragInteraction"
-                      EndInteraction="OnCanvasEndInteraction"
-                      CancelInteraction="OnCanvasCancelInteraction"
-                      BackgroundColor="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                          Light={StaticResource BackgroundLight}, 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                          Dark={StaticResource BackgroundDark}}" />
-        <!-- Selected Node Info Panel (Overlay in Row 1) -->
-        <Border Grid.Row="1"
-                Stroke="{AppThemeBinding Light={StaticResource BorderColor}, Dark={StaticResource NeutralDark}}"
-                BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
-                Opacity="0.9"
-                Padding="10"
-                Margin="10"
-                VerticalOptions="End"
-                HorizontalOptions="Start"
-                StrokeShape="RoundRectangle 8"
-                IsVisible="{Binding SelectedNode, Converter={StaticResource IsNotNullConverter}}"
-                WidthRequest="200">
-            <VerticalStackLayout Spacing="4">
-                <!-- Existing Node Info -->
-                <Label Text="Selected Node"
-                       FontSize="12"
-                       FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
-                <Label Text="{Binding SelectedNode.Name}"
-                       FontSize="14"
-                       LineBreakMode="TailTruncation"
-                       TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
-                <Label Text="{Binding SelectedNode.Type, StringFormat='Type: {0}'}"
-                       FontSize="10"
-                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
-                <Label Text="{Binding SelectedNode.DataType, StringFormat='Data Type: {0}'}"
-                       FontSize="10"
-                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
-                <!-- New Step-Specific Content Area -->
-                <StackLayout IsVisible="{Binding CurrentActionStep, Converter={StaticResource IsNotZeroConverter}}">
-                    <Label Text="Step Content:"
-                           Style="{StaticResource SmallLabelStyle}" />
-                    <!-- Display Text -->
-                    <Label Text="{Binding StepContent}"
-                           IsVisible="{Binding SelectedNode.DataType, ConverterParameter=Text, Converter={StaticResource EqualsConverter}}"
-                           FontSize="12"
-                           TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
-                    <!-- Display Image -->
-                    <Image Source="{Binding StepContent}"
-                           IsVisible="{Binding SelectedNode.DataType, ConverterParameter=Image, Converter={StaticResource EqualsConverter}}"
-                           Aspect="AspectFit"
-                           HeightRequest="100"
-                           WidthRequest="100" />
-                    <!-- Display Audio -->
-                    <StackLayout Orientation="Horizontal"
-                                 IsVisible="{Binding SelectedNode.DataType, ConverterParameter=Audio, Converter={StaticResource EqualsConverter}}">
-                        <Button Text="Play"
-                                Command="{Binding PlayAudioCommand}" />
-                        <Button Text="Stop"
-                                Command="{Binding StopAudioCommand}" />
-                    </StackLayout>
-                </StackLayout>
-            </VerticalStackLayout>
-        </Border>
-    </Grid>
+                xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                xmlns:viewmodels="clr-namespace:CSimple.ViewModels"
+                xmlns:models="clr-namespace:CSimple.Models"
+                xmlns:local="clr-namespace:CSimple.Pages"
+                xmlns:converters="clr-namespace:CSimple.Converters"
+                x:DataType="viewmodels:OrientPageViewModel"
+                x:Class="CSimple.Pages.OrientPage"
+                Title="Orient - Pipeline Editor">
+        <ContentPage.Resources>
+                <converters:IsNotNullConverter x:Key="IsNotNullConverter" />
+                <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
+                <converters:EqualsConverter x:Key="EqualsConverter" />
+                <!-- ... existing resources ... -->
+                <Style x:Key="ThemedPickerStyle"
+                TargetType="Picker">
+                <!-- Define common picker styles -->
+                <Setter Property="BackgroundColor"
+                        Value="{AppThemeBinding 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource CardBackgroundLight}, 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource CardBackgroundDark}}" />
+                <Setter Property="TextColor"
+                        Value="{AppThemeBinding 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextPrimaryLight}, 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextPrimaryDark}}" />
+                <Setter Property="TitleColor"
+                        Value="{AppThemeBinding 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextSecondaryLight}, 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextSecondaryDark}}" />
+                <Setter Property="HeightRequest"
+                        Value="55" />
+                <Setter Property="FontSize"
+                        Value="14" />
+                <Setter Property="Margin"
+                        Value="2" />
+                <Setter Property="MinimumWidthRequest"
+                        Value="150" />
+                </Style>
+                <Style x:Key="SmallLabelStyle"
+                TargetType="Label">
+                <Setter Property="FontSize"
+                        Value="10" />
+                <Setter Property="TextColor"
+                        Value="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                <Setter Property="Margin"
+                        Value="0,5,0,0" />
+                </Style>
+                <Style x:Key="ToolbarButtonStyle"
+                TargetType="Button">
+                <Setter Property="CornerRadius"
+                        Value="5" />
+                <Setter Property="Padding"
+                        Value="8,4" />
+                <Setter Property="Margin"
+                        Value="2" />
+                <Setter Property="FontSize"
+                        Value="12" />
+                <Setter Property="HeightRequest"
+                        Value="30" />
+                <Setter Property="TextColor"
+                        Value="{AppThemeBinding 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextOnPrimary}, 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextOnPrimary}}" />
+                </Style>
+                <Style x:Key="ToolbarLabelStyle"
+                TargetType="Label">
+                <Setter Property="VerticalOptions"
+                        Value="Center" />
+                <Setter Property="FontAttributes"
+                        Value="Bold" />
+                <Setter Property="Margin"
+                        Value="5,0" />
+                <Setter Property="TextColor"
+                        Value="{AppThemeBinding 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextPrimaryLight}, 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextPrimaryDark}}" />
+                </Style>
+        </ContentPage.Resources>
+        <Grid RowDefinitions="Auto, *">
+                <!-- Top Toolbar (Row 0) -->
+                <Border Grid.Row="0"
+                        StrokeThickness="0"
+                        BackgroundColor="{AppThemeBinding 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                    Light={StaticResource SurfaceBackgroundLight},
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                    Dark={StaticResource SurfaceBackgroundDark}}"
+                        Padding="5,5"
+                        Margin="5,5,5,0"
+                        VerticalOptions="Start"
+                        HorizontalOptions="FillAndExpand"
+                        StrokeShape="RoundRectangle 8">
+                <!-- Use FlexLayout for wrapping -->
+                <FlexLayout Wrap="Wrap"
+                                AlignItems="Center"
+                                JustifyContent="Start">
+                        <!-- Pipeline Management -->
+                        <Label Text="Pipeline:"
+                        Style="{StaticResource ToolbarLabelStyle}" />
+                        <Picker Title="Select Pipeline"
+                                ItemsSource="{Binding AvailablePipelineNames}"
+                                SelectedItem="{Binding SelectedPipelineName, Mode=TwoWay}"
+                                Style="{StaticResource ThemedPickerStyle}" />
+                        <Button Command="{Binding CreateNewPipelineCommand}"
+                                Text="New"
+                                BackgroundColor="{StaticResource Tertiary}"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTipProperties.Text="Create New Pipeline" />
+                        <Button Command="{Binding RenamePipelineCommand}"
+                                Text="Rename"
+                                IsEnabled="{Binding SelectedPipelineName, Converter={StaticResource IsNotNullConverter}}"
+                                BackgroundColor="{StaticResource Secondary}"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTipProperties.Text="Rename Selected Pipeline" />
+                        <Button Command="{Binding DeletePipelineCommand}"
+                                Text="Delete Pipeline"
+                                IsEnabled="{Binding SelectedPipelineName, Converter={StaticResource IsNotNullConverter}}"
+                                BackgroundColor="{StaticResource Error}"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTipProperties.Text="Delete Selected Pipeline" />
+                        <!-- Separator -->
+                        <BoxView BackgroundColor="{AppThemeBinding 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Light={StaticResource BorderColor},
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Dark={StaticResource NeutralDark}}"
+                                WidthRequest="1"
+                                HeightRequest="25"
+                                Margin="10,0"
+                                VerticalOptions="Center" />
+                        <!-- Add Model -->
+                        <Label Text="Add Model:"
+                        Style="{StaticResource ToolbarLabelStyle}" />
+                        <Picker Title="Select Model Type"
+                                ItemsSource="{Binding AvailableModels}"
+                                ItemDisplayBinding="{Binding Name}"
+                                x:Name="ModelPicker"
+                                Style="{StaticResource ThemedPickerStyle}" />
+                        <Button Command="{Binding AddModelNodeCommand}"
+                                CommandParameter="{Binding Source={x:Reference ModelPicker}, Path=SelectedItem}"
+                                BackgroundColor="{StaticResource Primary}"
+                                Text="Add Node"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTipProperties.Text="Add Selected Model Node" />
+                        <!-- Delete Node -->
+                        <Button Command="{Binding DeleteSelectedNodeCommand}"
+                                BackgroundColor="{StaticResource Error}"
+                                Text="Delete Node"
+                                IsEnabled="{Binding SelectedNode, Converter={StaticResource IsNotNullConverter}}"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTipProperties.Text="Delete Selected Node" />
+                        <!-- Separator -->
+                        <BoxView BackgroundColor="{AppThemeBinding 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Light={StaticResource BorderColor},
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Dark={StaticResource NeutralDark}}"
+                                WidthRequest="1"
+                                HeightRequest="25"
+                                Margin="10,0"
+                                VerticalOptions="Center" />
+                        <!-- Review Action Section -->
+                        <Label Text="Review Action:"
+                        Style="{StaticResource ToolbarLabelStyle}" />
+                        <Picker Title="Select Action"
+                                ItemsSource="{Binding AvailableActionNames}"
+                                SelectedItem="{Binding SelectedReviewActionName, Mode=TwoWay}"
+                                Style="{StaticResource ThemedPickerStyle}"
+                                x:Name="ActionReviewPicker" />
+                        <Button Command="{Binding StepBackwardCommand}"
+                                Text="Step Back"
+                                IsEnabled="{Binding SelectedReviewActionName, Converter={StaticResource IsNotNullConverter}}"
+                                BackgroundColor="{StaticResource Secondary}"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTipProperties.Text="Revert last executed step" />
+                        <Label Text="{Binding CurrentActionStep, StringFormat='Step: {0}'}"
+                        Style="{StaticResource ToolbarLabelStyle}"
+                        HorizontalOptions="Center"
+                        WidthRequest="60" />
+                        <Button Command="{Binding StepForwardCommand}"
+                                Text="Step Forward"
+                                IsEnabled="{Binding SelectedReviewActionName, Converter={StaticResource IsNotNullConverter}}"
+                                BackgroundColor="{StaticResource Primary}"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTipProperties.Text="Execute next step of selected action" />
+                        <Button Command="{Binding ResetActionCommand}"
+                                Text="Reset Action"
+                                IsEnabled="{Binding SelectedReviewActionName, Converter={StaticResource IsNotNullConverter}}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTipProperties.Text="Reset action review to start" />
+                </FlexLayout>
+                </Border>
+                <!-- GraphicsView for drawing nodes and connections (Row 1) -->
+                <GraphicsView Grid.Row="1"
+                        x:Name="NodeCanvas"
+                        Drawable="{Binding Source={RelativeSource AncestorType={x:Type local:OrientPage}}, Path=NodeDrawable}"
+                        StartInteraction="OnCanvasStartInteraction"
+                        DragInteraction="OnCanvasDragInteraction"
+                        EndInteraction="OnCanvasEndInteraction"
+                        CancelInteraction="OnCanvasCancelInteraction"
+                        BackgroundColor="{AppThemeBinding 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                          Light={StaticResource BackgroundLight}, 
+        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                          Dark={StaticResource BackgroundDark}}" />
+                <!-- Selected Node Info Panel (Overlay in Row 1) -->
+                <Border Grid.Row="1"
+                        Stroke="{AppThemeBinding Light={StaticResource BorderColor}, Dark={StaticResource NeutralDark}}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
+                        Opacity="0.9"
+                        Padding="10"
+                        Margin="10"
+                        VerticalOptions="End"
+                        HorizontalOptions="Start"
+                        StrokeShape="RoundRectangle 8"
+                        IsVisible="{Binding SelectedNode, Converter={StaticResource IsNotNullConverter}}"
+                        WidthRequest="200">
+                <VerticalStackLayout Spacing="4">
+                        <!-- Existing Node Info -->
+                        <Label Text="Selected Node"
+                        FontSize="12"
+                        FontAttributes="Bold"
+                        TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                        <Label Text="{Binding SelectedNode.Name}"
+                        FontSize="14"
+                        LineBreakMode="TailTruncation"
+                        TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                        <Label Text="{Binding SelectedNode.Type, StringFormat='Type: {0}'}"
+                        FontSize="10"
+                        TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                        <Label Text="{Binding SelectedNode.DataType, StringFormat='Data Type: {0}'}"
+                        FontSize="10"
+                        TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                        <!-- New Step-Specific Content Area -->
+                        <StackLayout IsVisible="{Binding CurrentActionStep, Converter={StaticResource IsNotZeroConverter}}">
+                        <Label Text="Step Content:"
+                                Style="{StaticResource SmallLabelStyle}" />
+                        <!-- Display Text -->
+                        <Label Text="{Binding StepContent}"
+                                IsVisible="{Binding SelectedNode.DataType, ConverterParameter=Text, Converter={StaticResource EqualsConverter}}"
+                                FontSize="12"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                        <!-- Display Image -->
+                        <Image Source="{Binding StepContent}"
+                                IsVisible="{Binding SelectedNode.DataType, ConverterParameter=Image, Converter={StaticResource EqualsConverter}}"
+                                Aspect="AspectFit"
+                                HeightRequest="100"
+                                WidthRequest="100" />
+                        <!-- Display Audio -->
+                        <StackLayout Orientation="Horizontal"
+                                        IsVisible="{Binding SelectedNode.DataType, ConverterParameter=Audio, Converter={StaticResource EqualsConverter}}">
+                                <Button Text="Play"
+                                        Command="{Binding PlayAudioCommand}" />
+                                <Button Text="Stop"
+                                        Command="{Binding StopAudioCommand}" />
+                        </StackLayout>
+                        </StackLayout>
+                </VerticalStackLayout>
+                </Border>
+        </Grid>
 </ContentPage>
