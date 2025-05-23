@@ -25,7 +25,8 @@ namespace CSimple.Services
                 Guid.NewGuid().ToString(),
                 modelName,
                 modelType,
-                position
+                position,
+                DetermineDataTypeFromName(modelName) // Set DataType based on name
             )
             {
                 Size = new SizeF(180, 60),
@@ -236,42 +237,36 @@ namespace CSimple.Services
             // Group by type: Visual inputs, Audio inputs, Text inputs
 
             // Visual inputs (top row)
-            var webcamImageNode = new NodeViewModel(Guid.NewGuid().ToString(), "Webcam Image", NodeType.Input, new PointF(startX, startY))
+            var webcamImageNode = new NodeViewModel(Guid.NewGuid().ToString(), "Webcam Image", NodeType.Input, new PointF(startX, startY), DetermineDataTypeFromName("Webcam Image"))
             {
                 Size = defaultSize,
-                DataType = "image" // Add data type for better classification
             };
 
-            var screenImageNode = new NodeViewModel(Guid.NewGuid().ToString(), "Screen Image", NodeType.Input, new PointF(startX + spacingX, startY))
+            var screenImageNode = new NodeViewModel(Guid.NewGuid().ToString(), "Screen Image", NodeType.Input, new PointF(startX + spacingX, startY), DetermineDataTypeFromName("Screen Image"))
             {
                 Size = defaultSize,
-                DataType = "image" // Add data type for better classification
             };
 
             // Audio inputs (middle row)
-            var pcAudioNode = new NodeViewModel(Guid.NewGuid().ToString(), "PC Audio", NodeType.Input, new PointF(startX, startY + spacingY))
+            var pcAudioNode = new NodeViewModel(Guid.NewGuid().ToString(), "PC Audio", NodeType.Input, new PointF(startX, startY + spacingY), DetermineDataTypeFromName("PC Audio"))
             {
                 Size = defaultSize,
-                DataType = "audio" // Add data type for better classification
             };
 
-            var webcamAudioNode = new NodeViewModel(Guid.NewGuid().ToString(), "Webcam Audio", NodeType.Input, new PointF(startX + spacingX, startY + spacingY))
+            var webcamAudioNode = new NodeViewModel(Guid.NewGuid().ToString(), "Webcam Audio", NodeType.Input, new PointF(startX + spacingX, startY + spacingY), DetermineDataTypeFromName("Webcam Audio"))
             {
                 Size = defaultSize,
-                DataType = "audio" // Add data type for better classification
             };
 
             // Text inputs (bottom row)
-            var keyboardTextNode = new NodeViewModel(Guid.NewGuid().ToString(), "Keyboard Text", NodeType.Input, new PointF(startX, startY + 2 * spacingY))
+            var keyboardTextNode = new NodeViewModel(Guid.NewGuid().ToString(), "Keyboard Text", NodeType.Input, new PointF(startX, startY + 2 * spacingY), DetermineDataTypeFromName("Keyboard Text"))
             {
                 Size = defaultSize,
-                DataType = "text" // Add data type for better classification
             };
 
-            var mouseTextNode = new NodeViewModel(Guid.NewGuid().ToString(), "Mouse Text", NodeType.Input, new PointF(startX + spacingX, startY + 2 * spacingY))
+            var mouseTextNode = new NodeViewModel(Guid.NewGuid().ToString(), "Mouse Text", NodeType.Input, new PointF(startX + spacingX, startY + 2 * spacingY), DetermineDataTypeFromName("Mouse Text"))
             {
                 Size = defaultSize,
-                DataType = "text" // Add data type for better classification
             };
 
             // Add all nodes to the collection

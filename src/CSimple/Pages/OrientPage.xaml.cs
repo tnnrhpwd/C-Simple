@@ -368,48 +368,123 @@ namespace CSimple.Pages
             Color unknownDataColor = isDarkTheme ? surfaceBackground.WithLuminosity(surfaceBackground.GetLuminosity() * 1.2f) : surfaceBackground.WithLuminosity(surfaceBackground.GetLuminosity() * 0.9f);
             Color outputNodeColor = isDarkTheme ? Color.FromArgb("#35252A") : Color.FromArgb("#FFF0F0");
 
-            string dataType = node.DataType?.ToLowerInvariant() ?? "unknown";
+            string explicitDataType = node.DataType?.Trim().ToLowerInvariant();
             string nameLower = node.Name.ToLower();
 
-            // Prioritize DataType property if available and not "unknown"
-            if (dataType != "unknown")
-            {
-                switch (dataType)
-                {
-                    case "text": return textDataColor;
-                    case "image": return imageDataColor;
-                    case "audio": return audioDataColor;
-                        // Add other specific data types if needed
-                }
-            }
-
-            // Fallback to name-based inference if DataType is unknown or not set
-            // Handle Input Nodes first
-            if (node.Type == NodeType.Input)
-            {
-                if (nameLower.Contains("keyboard") || nameLower.Contains("mouse") || nameLower.Contains("text")) return textDataColor;
-                if (nameLower.Contains("camera") || nameLower.Contains("image") || nameLower.Contains("png")) return imageDataColor;
-                if (nameLower.Contains("audio") || nameLower.Contains("wav") || nameLower.Contains("mfcc")) return audioDataColor;
-                return unknownDataColor; // Fallback for unknown input types
-            }
-            // Handle Model Nodes (using name as fallback)
-            else if (node.Type == NodeType.Model)
-            {
-                if (nameLower.Contains("llm") || nameLower.Contains("language") || nameLower.Contains("text") || nameLower.Contains("gpt") || nameLower.Contains("bert") || nameLower.Contains("deepseek") || nameLower.Contains("llama") || nameLower.Contains("mistral")) return textDataColor;
-                if (nameLower.Contains("vision") || nameLower.Contains("image") || nameLower.Contains("cnn") || nameLower.Contains("resnet") || nameLower.Contains("yolo") || nameLower.Contains("clip") || nameLower.Contains("segmentation") || nameLower.Contains("detection")) return imageDataColor;
-                if (nameLower.Contains("audio") || nameLower.Contains("speech") || nameLower.Contains("whisper") || nameLower.Contains("wav2vec") || nameLower.Contains("sound")) return audioDataColor;
-                return defaultModelColor; // Fallback for models if type not inferred
-            }
-            // Output nodes or other types
-            else if (node.Type == NodeType.Output)
+            // 1. Handle Output Nodes first as their color is distinct
+            if (node.Type == NodeType.Output)
             {
                 return outputNodeColor;
             }
-            // Fallback for any other node types
-            else
+
+            // 2. Prioritize explicit DataType property if specific and recognized
+            if (!string.IsNullOrEmpty(explicitDataType) && explicitDataType != "unknown")
             {
-                return unknownDataColor;
+                switch (explicitDataType)
+                {
+                    case "text":
+                    case "string":
+                    case "char":
+                    case "document":
+                    case "script":
+                    case "log":
+                    case "json":
+                    case "xml":
+                    case "csv":
+                    case "html":
+                    case "markdown":
+                    case "url":
+                        return textDataColor;
+                    case "image":
+                    case "picture":
+                    case "photo":
+                    case "bitmap":
+                    case "raster":
+                    case "png":
+                    case "jpg":
+                    case "jpeg":
+                    case "gif":
+                    case "bmp":
+                    case "webp":
+                    case "frame":
+                    case "texture":
+                        return imageDataColor;
+                    case "audio":
+                    case "sound":
+                    case "music":
+                    case "voice":
+                    case "speech":
+                    case "wav":
+                    case "mp3":
+                    case "aac":
+                    case "ogg":
+                    case "flac":
+                    case "mfcc": // MFCC is a feature, but often implies audio source
+                        return audioDataColor;
+                        // If explicitDataType is set but not matched here, we'll fall through to name-based inference.
+                }
             }
+
+            // 3. Fallback to name-based inference if DataType was generic, not set, or not recognized above
+            if (node.Type == NodeType.Input)
+            {
+                // Prioritize audio-related keywords
+                if (nameLower.Contains("audio") || nameLower.Contains("sound") || nameLower.Contains("microphone") || nameLower.Contains("mic") ||
+                    nameLower.Contains("voice") || nameLower.Contains("speech") || nameLower.Contains("music") ||
+                    nameLower.Contains("wav") || nameLower.Contains("mp3") || nameLower.Contains("mfcc") ||
+                    (nameLower.Contains("webcam") && nameLower.Contains("audio")) || // e.g., "webcam audio"
+                    nameLower.Contains("pc audio") || nameLower.Contains("line in") || nameLower.Contains("headset mic")) // Common audio input names
+                {
+                    return audioDataColor;
+                }
+                // Then image-related keywords
+                if (nameLower.Contains("image") || nameLower.Contains("camera") || nameLower.Contains("picture") || nameLower.Contains("photo") ||
+                    nameLower.Contains("webcam") || // e.g., "webcam image" or just "webcam" if it implies video/image
+                    nameLower.Contains("png") || nameLower.Contains("jpg") || nameLower.Contains("jpeg") || nameLower.Contains("bmp") ||
+                    nameLower.Contains("frame") || nameLower.Contains("screenshot") || nameLower.Contains("scan") || nameLower.Contains("vision")) // "vision" for input could be a camera feed
+                {
+                    return imageDataColor;
+                }
+                // Finally text-related keywords
+                if (nameLower.Contains("text") || nameLower.Contains("keyboard") || nameLower.Contains("string") || nameLower.Contains("char") ||
+                    nameLower.Contains("mouse") || // e.g., "mouse text input"
+                    nameLower.Contains("prompt") || nameLower.Contains("query") || nameLower.Contains("script") || nameLower.Contains("log") ||
+                    nameLower.Contains("caption") || nameLower.Contains("subtitle") || nameLower.Contains("transcript") || nameLower.Contains("ocr"))
+                {
+                    return textDataColor;
+                }
+
+                return unknownDataColor; // Fallback for input types not inferred by name
+            }
+            else if (node.Type == NodeType.Model)
+            {
+                // Text-processing model keywords
+                if (nameLower.Contains("llm") || nameLower.Contains("language") || nameLower.Contains("text") || nameLower.Contains("gpt") ||
+                    nameLower.Contains("bert") || nameLower.Contains("llama") || nameLower.Contains("mistral") || nameLower.Contains("t5") ||
+                    nameLower.Contains("translate") || nameLower.Contains("summarize") || nameLower.Contains("nlp") || nameLower.Contains("dialog") ||
+                    nameLower.Contains("chatbot") || nameLower.Contains("ner") || nameLower.Contains("sentiment"))
+                {
+                    return textDataColor;
+                }
+                // Image-processing model keywords
+                if (nameLower.Contains("vision") || nameLower.Contains("image") || nameLower.Contains("cnn") || nameLower.Contains("resnet") ||
+                    nameLower.Contains("yolo") || nameLower.Contains("segment") || nameLower.Contains("detect") || nameLower.Contains("ocr") || // OCR model
+                    nameLower.Contains("gan") || nameLower.Contains("diffusion") || nameLower.Contains("clip") || nameLower.Contains("vit"))
+                {
+                    return imageDataColor;
+                }
+                // Audio-processing model keywords
+                if (nameLower.Contains("audio") || nameLower.Contains("speech") || nameLower.Contains("voice") || nameLower.Contains("sound") ||
+                    nameLower.Contains("whisper") || nameLower.Contains("wav2vec") || nameLower.Contains("tts") || nameLower.Contains("asr") ||
+                    nameLower.Contains("acoustic") || nameLower.Contains("speaker"))
+                {
+                    return audioDataColor;
+                }
+                return defaultModelColor; // Fallback for models if data type not inferred by name
+            }
+
+            // 4. Final fallback for any other node types or unidentifiable cases
+            return unknownDataColor;
         }
 
         // Helper to draw the legend
