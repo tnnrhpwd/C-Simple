@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using OpenCvSharp;
@@ -428,6 +429,84 @@ namespace CSimple.Services
         private void LogDebug(string message)
         {
             DebugMessageLogged?.Invoke(message);
+        }
+
+        public string GetMostRecentScreenshot(DateTime timestamp)
+        {
+            return GetMostRecentFile(_screenshotsDirectory, timestamp, "ScreenCapture");
+        }
+
+        public string GetMostRecentWebcamImage(DateTime timestamp)
+        {
+            return GetMostRecentFile(_webcamImagesDirectory, timestamp, "WebcamImage");
+        }
+
+        private string GetMostRecentFile(string directory, DateTime timestamp, string filePrefix)
+        {
+            try
+            {
+                if (!Directory.Exists(directory))
+                {
+                    LogDebug($"Directory not found: {directory}");
+                    return null;
+                }
+
+                var files = Directory.GetFiles(directory)
+                    .Where(f => Path.GetFileName(f).StartsWith(filePrefix))
+                    .Select(f => new
+                    {
+                        Path = f,
+                        CreationTime = GetDateTimeFromFilename(f)
+                    })
+                    .Where(f => f.CreationTime <= timestamp)
+                    .OrderByDescending(f => f.CreationTime)
+                    .ToList();
+
+                if (files.Any())
+                {
+                    return files.First().Path;
+                }
+                else
+                {
+                    LogDebug($"No files found in {directory} for timestamp {timestamp}");
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"Error getting most recent file: {ex.Message}");
+                return null;
+            }
+        }
+
+        private DateTime GetDateTimeFromFilename(string filename)
+        {
+            try
+            {
+                // Example filename: ScreenCapture_20250427_150419_512_.DISPLAY2.png
+                // Example filename: WebcamImage_20250427_150419.jpg
+                string name = Path.GetFileNameWithoutExtension(filename);
+                string dateTimePart = name.Substring(name.IndexOf('_') + 1, 19); // Extract yyyyMMdd_HHmmss_fff or yyyyMMdd_HHmmss
+
+                if (DateTime.TryParseExact(dateTimePart, "yyyyMMdd_HHmmss_fff", null, System.Globalization.DateTimeStyles.None, out DateTime parsedDateTime))
+                {
+                    return parsedDateTime;
+                }
+                else if (DateTime.TryParseExact(dateTimePart, "yyyyMMdd_HHmmss", null, System.Globalization.DateTimeStyles.None, out parsedDateTime))
+                {
+                    return parsedDateTime;
+                }
+                else
+                {
+                    LogDebug($"Could not parse DateTime from filename: {filename}");
+                    return DateTime.MinValue;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"Error parsing DateTime from filename: {ex.Message}");
+                return DateTime.MinValue;
+            }
         }
     }
 }
