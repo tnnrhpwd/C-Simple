@@ -327,6 +327,20 @@ namespace CSimple.ViewModels
                 AvailableModels.Clear();
                 AddDefaultModelExamples();
             }
+
+            // Add input nodes to the AvailableModels list
+            AddDefaultInputNodesToAvailableModels();
+        }
+
+        // Helper method to add default input nodes to the AvailableModels list
+        private void AddDefaultInputNodesToAvailableModels()
+        {
+            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "webcam_image", ModelId = "Webcam Image (Input)" });
+            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "screen_image", ModelId = "Screen Image (Input)" });
+            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "pc_audio", ModelId = "PC Audio (Input)" });
+            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "webcam_audio", ModelId = "Webcam Audio (Input)" });
+            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "keyboard_text", ModelId = "Keyboard Text (Input)" });
+            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "mouse_text", ModelId = "Mouse Text (Input)" });
         }
 
         // Helper method to add default examples as a fallback
