@@ -1034,6 +1034,12 @@ namespace CSimple.ViewModels
                     // For example, if ActionItem 'step' corresponds to data for 'SelectedNode'
                     // SelectedNode.ActionSteps = ... based on 'step' and 'SelectedNode.DataType'
                     Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] SelectedNode '{SelectedNode.Name}' (Type: {SelectedNode.DataType}) is an Input node. It should provide content for this step via GetStepContent.");
+
+                    // Add debug logging to print file names if they exist in the step data
+                    if (!string.IsNullOrEmpty(step.ToString()))
+                    {
+                        Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Step data contains file name: {step}");
+                    }
                 }
                 else if (SelectedNode == null)
                 {
