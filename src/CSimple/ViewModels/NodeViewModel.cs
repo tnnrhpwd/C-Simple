@@ -224,10 +224,14 @@ namespace CSimple.ViewModels
 
         public (string Type, string Value) GetStepContent(int step) // step is 1-based
         {
-            Debug.WriteLine($"[NodeViewModel.GetStepContent] Node '{Name}' (Type: {Type}, DataType: {DataType}), Requested Step: {step}, ActionSteps.Count: {ActionSteps.Count}");
+            Debug.WriteLine($"[NodeViewModel.GetStepContent] Node '{Name}' (Type: {Type}, DataType: {DataType}), Requested Step: {step} (1-based), ActionSteps.Count: {ActionSteps.Count}");
 
-            // Example logic to retrieve step content
-            // Ensure step is 1-based and within the bounds of ActionSteps (0-indexed list)
+            if (ActionSteps == null)
+            {
+                Debug.WriteLine($"[NodeViewModel.GetStepContent] ActionSteps list is null. Returning null content.");
+                return (null, null);
+            }
+
             if (Type != NodeType.Input)
             {
                 Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Node is not of Input type (Type: {Type}). Returning null content.");
@@ -236,13 +240,19 @@ namespace CSimple.ViewModels
 
             if (step <= 0)
             {
-                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Step {step} is not a positive integer. Returning null content.");
+                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Requested step {step} (1-based) is not a positive integer. Returning null content.");
+                return (null, null);
+            }
+
+            if (ActionSteps.Count == 0)
+            {
+                Debug.WriteLine($"[NodeViewModel.GetStepContent] ActionSteps is empty. Cannot retrieve content for step {step}. Returning null content.");
                 return (null, null);
             }
 
             if (step > ActionSteps.Count)
             {
-                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Step {step} is out of bounds (ActionSteps.Count: {ActionSteps.Count}). Returning null content.");
+                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Requested step {step} (1-based) is out of bounds for this node's ActionSteps (Count: {ActionSteps.Count}). Returning null content.");
                 return (null, null);
             }
 
@@ -251,10 +261,10 @@ namespace CSimple.ViewModels
             Debug.WriteLine($"[NodeViewModel.GetStepContent] Accessing ActionSteps[{step - 1}]. Step Data: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value}'");
 
             // Ensure the stepData.Type matches the node's DataType for relevance
+            // This check might be redundant if ActionSteps was already populated with matching types.
             if (!string.Equals(stepData.Type, this.DataType, StringComparison.OrdinalIgnoreCase))
             {
-                Debug.WriteLine($"[NodeViewModel.GetStepContent] Step data type '{stepData.Type}' does not match node's DataType '{this.DataType}'. Proceeding to return content anyway.");
-                // return (null, null); // Or return as is, depending on desired behavior
+                Debug.WriteLine($"[NodeViewModel.GetStepContent] Warning: Step data type '{stepData.Type}' from ActionSteps[{step - 1}] does not match node's DataType '{this.DataType}'. Returning content as is.");
             }
 
 

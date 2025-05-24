@@ -205,8 +205,8 @@ namespace CSimple.ViewModels
             netPageViewModel.PropertyChanged += NetPageViewModel_PropertyChanged;
 
             // Initialize Review Action commands
-            StepForwardCommand = new Command(ExecuteStepForward, () => !string.IsNullOrEmpty(SelectedReviewActionName));
-            StepBackwardCommand = new Command(ExecuteStepBackward, () => !string.IsNullOrEmpty(SelectedReviewActionName) && _currentActionStep > 0);
+            StepForwardCommand = new Command(ExecuteStepForward, () => !string.IsNullOrEmpty(SelectedReviewActionName) && _currentActionItems != null && CurrentActionStep < _currentActionItems.Count);
+            StepBackwardCommand = new Command(ExecuteStepBackward, () => !string.IsNullOrEmpty(SelectedReviewActionName) && CurrentActionStep > 0);
             ResetActionCommand = new Command(ExecuteResetAction, () => !string.IsNullOrEmpty(SelectedReviewActionName));
 
             // Load available pipelines on initialization
@@ -882,187 +882,207 @@ namespace CSimple.ViewModels
             }
         }
 
+        private string GetFileTypeFromName(string filename)
+        {
+            if (string.IsNullOrEmpty(filename)) return "unknown";
+            string ext = System.IO.Path.GetExtension(filename).ToLowerInvariant();
+            switch (ext)
+            {
+                case ".png":
+                case ".jpg":
+                case ".jpeg":
+                case ".bmp":
+                case ".gif":
+                    return "image";
+                case ".wav":
+                case ".mp3":
+                case ".aac":
+                    return "audio";
+                case ".txt":
+                case ".md":
+                case ".json":
+                case ".xml":
+                    return "text";
+                default:
+                    // Basic content sniffing for text if no extension
+                    if (!string.IsNullOrEmpty(filename) && (filename.StartsWith("text:") || filename.Length < 255 && !filename.Any(c => char.IsControl(c) && c != '\r' && c != '\n' && c != '\t')))
+                        return "text"; // Crude check for text content
+                    return "unknown";
+            }
+        }
+
         private async void LoadSelectedAction()
         {
             try
             {
+                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Attempting to load action: {SelectedReviewActionName ?? "null"}");
                 // Reset current state
-                _currentActionStep = 0;
+                CurrentActionStep = 0; // Set to 0, so first StepForward goes to step 1 (index 0)
                 _currentActionItems.Clear();
+                OnPropertyChanged(nameof(CurrentActionStep)); // Ensure UI updates if it was already 0
 
-                // Use ActionService to load the selected action's steps
+                // Clear ActionSteps for all input nodes
+                foreach (var nodeVM in Nodes.Where(n => n.Type == NodeType.Input))
+                {
+                    nodeVM.ActionSteps.Clear();
+                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Cleared ActionSteps for Input Node: {nodeVM.Name}");
+                }
+
+
                 var actionService = ServiceProvider.GetService<ActionService>();
                 if (actionService != null && !string.IsNullOrEmpty(SelectedReviewActionName))
                 {
-                    // Load all data items
                     var allDataItems = await actionService.LoadAllDataItemsAsync();
-
-                    // Find the selected action by name
                     var selectedDataItem = allDataItems.FirstOrDefault(item =>
                         item?.Data?.ActionGroupObject?.ActionName == SelectedReviewActionName);
 
-                    if (selectedDataItem != null)
+                    if (selectedDataItem?.Data?.ActionGroupObject != null)
                     {
-                        // Extract ActionItems from the selected action
-                        _currentActionItems = selectedDataItem.Data.ActionGroupObject.ActionArray;
+                        _currentActionItems = selectedDataItem.Data.ActionGroupObject.ActionArray ?? new List<ActionItem>();
+                        Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Loaded '{SelectedReviewActionName}' with {_currentActionItems.Count} global action items.");
 
-                        Debug.WriteLine($"Loaded {SelectedReviewActionName} with {_currentActionItems.Count} action items.");
+                        var actionGroupFiles = selectedDataItem.Data.ActionGroupObject.Files;
+                        Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] ActionGroup has {actionGroupFiles.Count} associated files.");
 
-                        // Do not load initial data here. Let StepForward load the first step.
-                        Debug.WriteLine("Initial data load skipped. Waiting for StepForward.");
+                        foreach (var nodeVM in Nodes.Where(n => n.Type == NodeType.Input))
+                        {
+                            // nodeVM.ActionSteps.Clear(); // Already cleared above
+                            Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Populating ActionSteps for Input Node: {nodeVM.Name} (Node DataType: {nodeVM.DataType})");
+                            foreach (var mediaFile in actionGroupFiles)
+                            {
+                                if (mediaFile == null || string.IsNullOrEmpty(mediaFile.Filename)) continue;
+
+                                string fileContentType = GetFileTypeFromName(mediaFile.Filename);
+                                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Processing mediaFile: '{mediaFile.Filename}' (Inferred FileType: {fileContentType}) for Node '{nodeVM.Name}' (Node DataType: {nodeVM.DataType})");
+
+                                if (string.Equals(fileContentType, nodeVM.DataType, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    // Assuming mediaFile.Data contains the path or direct content
+                                    string contentValue = mediaFile.Data ?? mediaFile.Filename; // Fallback to filename if Data is null
+                                    nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: contentValue));
+                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]     Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{contentValue}'");
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]     Skipped mediaFile '{mediaFile.Filename}' for node '{nodeVM.Name}' - DataType mismatch (File: {fileContentType}, Node: {nodeVM.DataType}).");
+                                }
+                            }
+                            Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Finished populating ActionSteps for '{nodeVM.Name}'. Count: {nodeVM.ActionSteps.Count}");
+                        }
+                        // UpdateStepContent(); // Update content for the initial step (CurrentActionStep is 0)
                     }
                     else
                     {
-                        Debug.WriteLine($"Action '{SelectedReviewActionName}' not found.");
+                        Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Action '{SelectedReviewActionName}' not found or has no ActionGroupObject.");
                     }
                 }
                 else
                 {
-                    Debug.WriteLine("ActionService is null or SelectedReviewActionName is empty.");
+                    Debug.WriteLine("[OrientPageViewModel.LoadSelectedAction] ActionService is null or SelectedReviewActionName is empty.");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading selected action: {ex.Message}");
+                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Error: {ex.Message}\nStackTrace: {ex.StackTrace}");
             }
             finally
             {
-                // Update command can execute status
+                (StepForwardCommand as Command)?.ChangeCanExecute();
                 (StepBackwardCommand as Command)?.ChangeCanExecute();
+                UpdateStepContent(); // Call this to reflect the state for CurrentActionStep = 0
             }
         }
 
         private async void ExecuteStepForward()
         {
-            // Load data for the next step
-            await LoadActionStepData(); // This loads data for the *current* _currentActionStep before increment
-            CurrentActionStep++; // This will trigger UpdateStepContent via its setter
-            Debug.WriteLine($"[OrientPageViewModel.ExecuteStepForward] CurrentActionStep incremented to: {CurrentActionStep}");
+            if (_currentActionItems == null || CurrentActionStep >= _currentActionItems.Count - 1) // Check if already at the last step or beyond
+            {
+                Debug.WriteLine($"[OrientPageViewModel.ExecuteStepForward] Cannot step forward. CurrentActionStep: {CurrentActionStep}, TotalItems: {_currentActionItems?.Count ?? 0}");
+                (StepForwardCommand as Command)?.ChangeCanExecute(); // Re-evaluate CanExecute
+                return;
+            }
 
-            // Update command can execute status
+            CurrentActionStep++;
+            Debug.WriteLine($"[OrientPageViewModel.ExecuteStepForward] CurrentActionStep incremented to: {CurrentActionStep}");
+            await LoadActionStepData(); // Load data for the new CurrentActionStep
+
             (StepBackwardCommand as Command)?.ChangeCanExecute();
             (StepForwardCommand as Command)?.ChangeCanExecute();
         }
 
         private async void ExecuteStepBackward()
         {
-            // Decrement step BEFORE loading data
-            CurrentActionStep--; // This will trigger UpdateStepContent via its setter
+            if (CurrentActionStep <= 0)
+            {
+                Debug.WriteLine($"[OrientPageViewModel.ExecuteStepBackward] Cannot step backward. CurrentActionStep: {CurrentActionStep}");
+                (StepBackwardCommand as Command)?.ChangeCanExecute(); // Re-evaluate CanExecute
+                return;
+            }
+            CurrentActionStep--;
             Debug.WriteLine($"[OrientPageViewModel.ExecuteStepBackward] CurrentActionStep decremented to: {CurrentActionStep}");
-            await LoadActionStepData(); // This loads data for the new _currentActionStep
+            await LoadActionStepData();
 
-            // Update command can execute status
             (StepBackwardCommand as Command)?.ChangeCanExecute();
             (StepForwardCommand as Command)?.ChangeCanExecute();
         }
 
         private async void ExecuteResetAction()
         {
-            // Reset to step 0
-            CurrentActionStep = 0;
+            Debug.WriteLine($"[OrientPageViewModel.ExecuteResetAction] Resetting action. CurrentActionStep was: {CurrentActionStep}");
+            CurrentActionStep = 0; // This will trigger UpdateStepContent via its setter if value changes
+            await LoadActionStepData(); // Load data for step 0
 
-            // Clear any loaded data
-            // Simulate clearing data for different input types
-            // In a real implementation, you would clear the actual data
-            // from storage or a data stream
-            string mouseText = "Mouse Text Data (Reset)";
-            string keyText = "Key Text Data (Reset)";
-            string webcamImage = "Webcam Image Data (Reset)";
-            string screenImage = "Screen Image Data (Reset)";
-            string webcamAudio = "Webcam Audio Data (Reset)";
-            string pcAudio = "PC Audio Data (Reset)";
-
-            // Update the UI with the cleared data
-            // This would typically involve updating properties bound to UI elements
-            // For now, just log the data
-            Debug.WriteLine($"Mouse Text: {mouseText}");
-            Debug.WriteLine($"Key Text: {keyText}");
-            Debug.WriteLine($"Webcam Image: {webcamImage}");
-            Debug.WriteLine($"Screen Image: {screenImage}");
-            Debug.WriteLine($"Webcam Audio: {webcamAudio}");
-            Debug.WriteLine($"PC Audio: {pcAudio}");
-
-            // Update command can execute status
             (StepBackwardCommand as Command)?.ChangeCanExecute();
+            (StepForwardCommand as Command)?.ChangeCanExecute();
+            Debug.WriteLine($"[OrientPageViewModel.ExecuteResetAction] Action reset. CurrentActionStep is now: {CurrentActionStep}");
         }
 
         private async Task LoadActionStepData()
         {
             try
             {
-                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Called for CurrentActionStep: {CurrentActionStep}");
-                // Ensure action items are loaded
-                if (_currentActionItems == null || _currentActionItems.Count == 0)
+                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Called for CurrentActionStep (0-indexed): {CurrentActionStep}");
+                if (_currentActionItems == null || !_currentActionItems.Any())
                 {
-                    Debug.WriteLine("[OrientPageViewModel.LoadActionStepData] No action items loaded. Cannot load step data.");
-                    StepContent = "Error: No action items."; // Provide feedback
-                    StepContentType = "Text";
+                    Debug.WriteLine("[OrientPageViewModel.LoadActionStepData] No global action items loaded (_currentActionItems is null or empty).");
+                    // StepContent = "No action loaded."; StepContentType = "Text"; // Handled by UpdateStepContent
+                    UpdateStepContent(); // Ensure UI reflects no content
                     return;
                 }
 
-                // Ensure current step is within bounds
-                if (CurrentActionStep < 0)
+                if (CurrentActionStep < 0 || CurrentActionStep >= _currentActionItems.Count)
                 {
-                    // CurrentActionStep = 0; // Setter will handle UpdateStepContent
-                    Debug.WriteLine("[OrientPageViewModel.LoadActionStepData] Reached start of action. Cannot step back further.");
-                    StepContent = "At the beginning of the action.";
-                    StepContentType = "Text";
-                    return;
-                }
-                else if (CurrentActionStep >= _currentActionItems.Count)
-                {
-                    // CurrentActionStep = _currentActionItems.Count - 1; // Setter will handle UpdateStepContent
-                    Debug.WriteLine("[OrientPageViewModel.LoadActionStepData] Reached end of action. Cannot step forward further.");
-                    StepContent = "At the end of the action.";
-                    StepContentType = "Text";
+                    Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] CurrentActionStep {CurrentActionStep} is out of bounds for _currentActionItems (Count: {_currentActionItems.Count}).");
+                    // StepContent = "End of action steps."; StepContentType = "Text"; // Handled by UpdateStepContent
+                    UpdateStepContent(); // Ensure UI reflects boundary
                     return;
                 }
 
-                // Get the action item for the current step
-                var step = _currentActionItems[CurrentActionStep];
-                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Loading data for step index {CurrentActionStep} (Step {CurrentActionStep + 1} of {_currentActionItems.Count})");
-                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] ActionItem: {step.ToString()}");
+                var globalActionItem = _currentActionItems[CurrentActionStep];
+                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Global ActionItem at index {CurrentActionStep}: {globalActionItem?.ToString() ?? "null"}");
 
-                // Simulate loading data for different input types
-                // This part is more about preparing data for the *selected node* to consume
-                // The actual StepContent update happens in UpdateStepContent based on SelectedNode.GetStepContent
+                // The crucial part: UpdateStepContent will call SelectedNode.GetStepContent.
+                // GetStepContent needs the *correct index for the SelectedNode's ActionSteps*.
+                // For now, UpdateStepContent passes the global CurrentActionStep + 1.
+                // This will only work correctly if the SelectedNode's ActionSteps are 1:1 with global steps OR
+                // if the Nth file for that node type in the ActionGroup.Files corresponds to the Nth time that
+                // GetStepContent is called for that node with an incrementing step.
 
-                // For now, we'll just log. The actual data association with SelectedNode happens elsewhere.
-                if (SelectedNode != null && SelectedNode.Type == NodeType.Input)
-                {
-                    // This is where you would populate SelectedNode.ActionSteps if it's not already populated
-                    // For example, if ActionItem 'step' corresponds to data for 'SelectedNode'
-                    // SelectedNode.ActionSteps = ... based on 'step' and 'SelectedNode.DataType'
-                    Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] SelectedNode '{SelectedNode.Name}' (Type: {SelectedNode.DataType}) is an Input node. It should provide content for this step via GetStepContent.");
+                // The population in LoadSelectedAction puts *all* relevant files for a node into its ActionSteps.
+                // So, if global step 5 is the 2nd image capture, and SelectedNode is "Webcam Image",
+                // we need to tell GetStepContent to get the 2nd item from its list.
 
-                    // Add debug logging to print file names if they exist in the step data
-                    if (!string.IsNullOrEmpty(step.ToString()))
-                    {
-                        Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Step data contains file name: {step}");
-                    }
-                }
-                else if (SelectedNode == null)
-                {
-                    Debug.WriteLine("[OrientPageViewModel.LoadActionStepData] SelectedNode is null. No specific node content to associate.");
-                }
-                else
-                {
-                    Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] SelectedNode '{SelectedNode.Name}' is not an Input node. Step content might not be applicable directly.");
-                }
+                // For now, we rely on UpdateStepContent to call GetStepContent.
+                // The debug logs in GetStepContent will show what index it receives and if it's valid for its own ActionSteps.
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Error: {ex.Message}");
-                StepContent = $"Error loading step data: {ex.Message}";
-                StepContentType = "Text";
+                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Error: {ex.Message}\nStackTrace: {ex.StackTrace}");
+                // StepContent = $"Error: {ex.Message}"; StepContentType = "Text";
             }
             finally
             {
-                // Update command can execute status
-                (StepBackwardCommand as Command)?.ChangeCanExecute();
-                (StepForwardCommand as Command)?.ChangeCanExecute();
-                // Explicitly call UpdateStepContent here after data might have been prepared for SelectedNode
-                UpdateStepContent();
+                UpdateStepContent(); // This is the most important call here.
             }
         }
 
@@ -1091,32 +1111,82 @@ namespace CSimple.ViewModels
 
         public void UpdateStepContent()
         {
-            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Called. CurrentActionStep: {CurrentActionStep}, SelectedNode: {SelectedNode?.Name ?? "null"}");
-            if (SelectedNode == null || CurrentActionStep == 0) // CurrentActionStep is 1-based for display, 0 for "no step"
+            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Called. Global CurrentActionStep (0-indexed): {CurrentActionStep}, SelectedNode: {SelectedNode?.Name ?? "null"}");
+            if (SelectedNode == null)
             {
-                Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] SelectedNode is null or CurrentActionStep is 0. Clearing StepContent.");
+                Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] SelectedNode is null. Clearing StepContent.");
                 StepContentType = null;
                 StepContent = null;
-                OnPropertyChanged(nameof(StepContentType)); // Explicitly notify for XAML update
-                OnPropertyChanged(nameof(StepContent));     // Explicitly notify for XAML update
+                OnPropertyChanged(nameof(StepContentType));
+                OnPropertyChanged(nameof(StepContent));
                 return;
             }
 
-            // CurrentActionStep in ViewModel is 0-indexed for list access, but represents step "1" if it's 0.
-            // The GetStepContent method in NodeViewModel might expect a 1-based index.
-            // Let's assume CurrentActionStep from the UI perspective is 1-based.
-            // If CurrentActionStep is 1 (meaning first step), we pass 1 to GetStepContent.
-            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Getting content for SelectedNode '{SelectedNode.Name}', Effective Step: {CurrentActionStep}");
-            var content = SelectedNode.GetStepContent(CurrentActionStep); // Pass the 1-based step number
+            if (SelectedNode.Type != NodeType.Input)
+            {
+                Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] SelectedNode '{SelectedNode.Name}' is not an Input node. Clearing StepContent for review.");
+                StepContentType = null;
+                StepContent = null;
+                OnPropertyChanged(nameof(StepContentType));
+                OnPropertyChanged(nameof(StepContent));
+                return;
+            }
+
+            // CurrentActionStep is the 0-indexed global step.
+            // For GetStepContent, we need a 1-based index.
+            // This assumes that the Nth call to GetStepContent for this node should retrieve the Nth item
+            // from its *own* ActionSteps list. This is a temporary simplification.
+            // A more robust solution would map the global step to the node-specific step.
+            int stepForNodeContent = CurrentActionStep + 1; // Using global step + 1 for now.
+
+            // If SelectedNode.ActionSteps is populated with only its relevant files,
+            // then stepForNodeContent (derived from global step) might be out of bounds for SelectedNode.ActionSteps.
+            // Example: Global step 5, but it's only the 2nd image. SelectedNode.ActionSteps.Count might be 2. stepForNodeContent=6 is invalid.
+
+            // Let's adjust: if CurrentActionStep is 0 (first global step), we try to get the first item (index 1) from node's list.
+            // This is a placeholder logic. The correct logic depends on how global steps map to node-specific content.
+            // For now, we'll use the count of items in the node's ActionSteps that have been "consumed"
+            // This is still tricky. Let's assume for now that the step passed to GetStepContent
+            // should be an index into *its own* ActionSteps.
+            // The `CurrentActionStep` in OrientPageViewModel is the step in the *overall action sequence*.
+            // We need to determine which item in the `SelectedNode.ActionSteps` corresponds to the *current global action item*.
+
+            // Simplification: If the current global ActionItem (from _currentActionItems[CurrentActionStep])
+            // is supposed to provide data for the SelectedNode, then we find that data.
+            // The `SelectedNode.ActionSteps` was populated with all files for that node from the ActionGroup.
+            // We need to find which of those files corresponds to `_currentActionItems[CurrentActionStep]`.
+
+            // This part needs careful design. For now, let's see if populating ActionSteps helps.
+            // The `stepForNodeContent` will likely be wrong if `SelectedNode.ActionSteps` is filtered.
+            // A better approach: count how many *previous* global steps would have produced content for this node.
+            int relevantGlobalStepsPassed = 0;
+            if (_currentActionItems != null)
+            {
+                for (int i = 0; i < CurrentActionStep; i++)
+                {
+                    // This logic is complex: need to check if _currentActionItems[i]
+                    // would have produced content for SelectedNode.DataType.
+                    // For now, we cannot easily do this without more info on ActionItem.
+                }
+            }
+            // If we had a way to count, nodeSpecificIndexToFetch = count_of_relevant_items_up_to_CurrentActionStep + 1;
+
+            // TEMPORARY: Use CurrentActionStep + 1 and let GetStepContent validate bounds against its own ActionSteps.
+            // This is the most direct way to test the population of ActionSteps.
+            stepForNodeContent = CurrentActionStep + 1;
+            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Using TEMPORARY logic: stepForNodeContent = GlobalCurrentActionStep + 1 = {stepForNodeContent}");
+
+            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Getting content for SelectedNode '{SelectedNode.Name}', attempting to fetch its step number {stepForNodeContent} (1-based).");
+            var content = SelectedNode.GetStepContent(stepForNodeContent);
 
             Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Content retrieved from NodeViewModel: Type='{content.Type}', Supposed File/Content Value='{content.Value}'");
 
-            StepContentType = content.Type; // "Text", "Image", or "Audio"
-            StepContent = content.Value;   // The actual content (e.g., text, image path, or audio path)
+            StepContentType = content.Type;
+            StepContent = content.Value;
 
             Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] ViewModel's StepContentType set to: '{StepContentType}', ViewModel's StepContent (File/Content Value for UI) set to: '{StepContent}'");
-            OnPropertyChanged(nameof(StepContentType)); // Explicitly notify for XAML update
-            OnPropertyChanged(nameof(StepContent));     // Explicitly notify for XAML update
+            OnPropertyChanged(nameof(StepContentType));
+            OnPropertyChanged(nameof(StepContent));
         }
 
         private void PlayAudio()
