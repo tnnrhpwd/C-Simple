@@ -280,21 +280,6 @@ namespace CSimple.ViewModels
 
             Debug.WriteLine($"[NodeViewModel.GetStepContent] Returning for UI: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value}'");
             return (stepData.Type, stepData.Value);
-
-            /* Original switch logic - might be useful if stepData itself needs interpretation
-            return stepData switch
-            {
-                // This assumes stepData itself is an object with a 'Type' property, which is not the case for List<(string Type, string Value)
-                // We should use stepData.Type directly.
-                { Type: "Text" } => ("Text", stepData.Value),
-                { Type: "Image" } => ("Image", stepData.Value), // Image path
-                { Type: "Audio" } => ("Audio", stepData.Value), // Audio path
-                _ => {
-                        Debug.WriteLine($"[NodeViewModel.GetStepContent] StepData.Type ('{stepData.Type}') not recognized or doesn't match node's role. Returning null content.");
-                        return (null, null);
-                     }
-            };
-            */
         }
 
         public List<(string Type, string Value)> ActionSteps { get; set; } = new();

@@ -1159,17 +1159,35 @@ namespace CSimple.ViewModels
             // This part needs careful design. For now, let's see if populating ActionSteps helps.
             // The `stepForNodeContent` will likely be wrong if `SelectedNode.ActionSteps` is filtered.
             // A better approach: count how many *previous* global steps would have produced content for this node.
-            int relevantGlobalStepsPassed = 0;
             if (_currentActionItems != null)
             {
-                for (int i = 0; i < CurrentActionStep; i++)
+                // Check if the selected node is a text node
+                if (SelectedNode.DataType == "text")
                 {
-                    // This logic is complex: need to check if _currentActionItems[i]
-                    // would have produced content for SelectedNode.DataType.
-                    // For now, we cannot easily do this without more info on ActionItem.
+                    // Get the index of the current action item in the global action items list
+                    int currentActionIndex = CurrentActionStep;
+
+                    // Get the recent actions from the global action items
+                    // up to the current action index.
+                    // This is because the ActionSteps of the text node are not populated
+                    // with the action descriptions, but the global action items are.
+                    List<string> recentActions = _currentActionItems
+                        .Take(currentActionIndex + 1)
+                        .Select(item => item.ToString()) // Convert ActionItem to string
+                        .ToList();
+
+                    // Format the recent actions into a string
+                    string recentActionsString = string.Join("\n", recentActions);
+
+                    // Set the step content to the recent actions string
+                    StepContentType = "Text";
+                    StepContent = recentActionsString;
+                    OnPropertyChanged(nameof(StepContentType));
+                    OnPropertyChanged(nameof(StepContent));
+                    Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Displaying recent actions for text node: {recentActionsString}");
+                    return;
                 }
             }
-            // If we had a way to count, nodeSpecificIndexToFetch = count_of_relevant_items_up_to_CurrentActionStep + 1;
 
             // TEMPORARY: Use CurrentActionStep + 1 and let GetStepContent validate bounds against its own ActionSteps.
             // This is the most direct way to test the population of ActionSteps.
