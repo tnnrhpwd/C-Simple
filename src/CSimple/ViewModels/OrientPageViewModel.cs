@@ -1109,12 +1109,12 @@ namespace CSimple.ViewModels
             Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Getting content for SelectedNode '{SelectedNode.Name}', Effective Step: {CurrentActionStep}");
             var content = SelectedNode.GetStepContent(CurrentActionStep); // Pass the 1-based step number
 
-            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Content retrieved: Type='{content.Type}', Value='{content.Value}'");
+            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Content retrieved from NodeViewModel: Type='{content.Type}', Supposed File/Content Value='{content.Value}'");
 
             StepContentType = content.Type; // "Text", "Image", or "Audio"
             StepContent = content.Value;   // The actual content (e.g., text, image path, or audio path)
 
-            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Updated StepContentType: '{StepContentType}', StepContent: '{StepContent}'");
+            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] ViewModel's StepContentType set to: '{StepContentType}', ViewModel's StepContent (File/Content Value for UI) set to: '{StepContent}'");
             OnPropertyChanged(nameof(StepContentType)); // Explicitly notify for XAML update
             OnPropertyChanged(nameof(StepContent));     // Explicitly notify for XAML update
         }

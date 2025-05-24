@@ -228,20 +228,32 @@ namespace CSimple.ViewModels
 
             // Example logic to retrieve step content
             // Ensure step is 1-based and within the bounds of ActionSteps (0-indexed list)
-            if (Type != NodeType.Input || step <= 0 || step > ActionSteps.Count)
+            if (Type != NodeType.Input)
             {
-                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Not Input type, or step {step} out of bounds (1 to {ActionSteps.Count}). Returning null content.");
+                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Node is not of Input type (Type: {Type}). Returning null content.");
+                return (null, null);
+            }
+
+            if (step <= 0)
+            {
+                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Step {step} is not a positive integer. Returning null content.");
+                return (null, null);
+            }
+
+            if (step > ActionSteps.Count)
+            {
+                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Step {step} is out of bounds (ActionSteps.Count: {ActionSteps.Count}). Returning null content.");
                 return (null, null);
             }
 
             // Adjust step to be 0-indexed for list access
             var stepData = ActionSteps[step - 1];
-            Debug.WriteLine($"[NodeViewModel.GetStepContent] Accessing ActionSteps[{step - 1}]. Data: Type='{stepData.Type}', Value='{stepData.Value}'");
+            Debug.WriteLine($"[NodeViewModel.GetStepContent] Accessing ActionSteps[{step - 1}]. Step Data: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value}'");
 
             // Ensure the stepData.Type matches the node's DataType for relevance
             if (!string.Equals(stepData.Type, this.DataType, StringComparison.OrdinalIgnoreCase))
             {
-                Debug.WriteLine($"[NodeViewModel.GetStepContent] Step data type '{stepData.Type}' does not match node's DataType '{this.DataType}'. Returning null content for this step.");
+                Debug.WriteLine($"[NodeViewModel.GetStepContent] Step data type '{stepData.Type}' does not match node's DataType '{this.DataType}'. Proceeding to return content anyway.");
                 // return (null, null); // Or return as is, depending on desired behavior
             }
 
@@ -256,7 +268,7 @@ namespace CSimple.ViewModels
             // For example, an "Image" node should only have "Image" type steps.
             // The current logic returns the stepData as is.
 
-            Debug.WriteLine($"[NodeViewModel.GetStepContent] Returning: Type='{stepData.Type}', Value='{stepData.Value}'");
+            Debug.WriteLine($"[NodeViewModel.GetStepContent] Returning for UI: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value}'");
             return (stepData.Type, stepData.Value);
 
             /* Original switch logic - might be useful if stepData itself needs interpretation

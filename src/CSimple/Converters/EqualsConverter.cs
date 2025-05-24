@@ -9,11 +9,11 @@ namespace CSimple.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            Debug.WriteLine($"EqualsConverter: Input value = '{value}', Parameter = '{parameter}'");
+            // Debug.WriteLine($"EqualsConverter: Input value = '{value}', Parameter = '{parameter}'");
 
             if (value == null || parameter == null)
             {
-                Debug.WriteLine("EqualsConverter: Value or Parameter is null, returning false.");
+                // Debug.WriteLine("EqualsConverter: Value or Parameter is null, returning false.");
                 return false;
             }
 
@@ -21,19 +21,19 @@ namespace CSimple.Converters
             if (value is Enum)
             {
                 valueString = Enum.GetName(value.GetType(), value);
-                Debug.WriteLine($"EqualsConverter: Value is Enum, converted to string '{valueString}'");
+                // Debug.WriteLine($"EqualsConverter: Value is Enum, converted to string '{valueString}'");
             }
             else
             {
                 valueString = value.ToString();
-                Debug.WriteLine($"EqualsConverter: Value is not Enum, converted to string '{valueString}'");
+                // Debug.WriteLine($"EqualsConverter: Value is not Enum, converted to string '{valueString}'");
             }
 
             string parameterString = parameter.ToString();
-            Debug.WriteLine($"EqualsConverter: Parameter converted to string '{parameterString}'");
+            // Debug.WriteLine($"EqualsConverter: Parameter converted to string '{parameterString}'");
 
             bool result = string.Equals(valueString, parameterString, StringComparison.OrdinalIgnoreCase);
-            Debug.WriteLine($"EqualsConverter: Comparison result for '{valueString}' vs '{parameterString}' (IgnoreCase) = {result}");
+            Debug.WriteLine($"EqualsConverter: Value '{valueString}' == Parameter '{parameterString}' (IgnoreCase)? {result}");
 
             return result;
         }
