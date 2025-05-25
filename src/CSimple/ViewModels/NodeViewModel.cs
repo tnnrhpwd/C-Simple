@@ -309,10 +309,70 @@ namespace CSimple.ViewModels
                 return null;
             }
 
-            // Implement logic to extract the audio segment
-            // This is a placeholder; replace with actual audio processing code
-            string segmentPath = SimulateAudioSegmentExtraction(AudioFilePath, startTime, endTime);
+            // Implement logic to find the audio file with the closest timestamp
+            string audioFilePath = FindClosestAudioFile(startTime);
+
+            if (string.IsNullOrEmpty(audioFilePath))
+            {
+                Debug.WriteLine("[NodeViewModel.GetAudioSegment] No audio file found with a timestamp close to the action review timestamp.");
+                return null;
+            }
+
+            // Simulate audio segment extraction from the found file
+            string segmentPath = SimulateAudioSegmentExtraction(audioFilePath, startTime, endTime);
             return segmentPath;
+        }
+
+        private string FindClosestAudioFile(DateTime targetTime)
+        {
+            string directoryPath = @"C:\Users\tanne\Documents\CSimple\Resources\PCAudio\";
+
+            if (!Directory.Exists(directoryPath))
+            {
+                Debug.WriteLine($"[NodeViewModel.FindClosestAudioFile] Directory does not exist: {directoryPath}");
+                return null;
+            }
+
+            string closestFile = null;
+            TimeSpan closestDifference = TimeSpan.MaxValue;
+
+            try
+            {
+                string[] files = Directory.GetFiles(directoryPath, "PCAudio_*.wav");
+
+                foreach (string filePath in files)
+                {
+                    string fileName = Path.GetFileNameWithoutExtension(filePath);
+                    string timestampPart = fileName.Substring("PCAudio_".Length); // Extract timestamp part
+
+                    if (DateTime.TryParseExact(timestampPart, "yyyyMMdd_HHmmss", null, System.Globalization.DateTimeStyles.None, out DateTime fileTime))
+                    {
+                        TimeSpan difference = TimeSpan.FromTicks(Math.Abs(fileTime.Ticks - targetTime.Ticks));
+
+                        if (difference < closestDifference)
+                        {
+                            closestDifference = difference;
+                            closestFile = filePath;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[NodeViewModel.FindClosestAudioFile] Error finding closest audio file: {ex.Message}");
+                return null;
+            }
+
+            if (closestFile != null)
+            {
+                Debug.WriteLine($"[NodeViewModel.FindClosestAudioFile] Found closest audio file: {closestFile}, difference: {closestDifference}");
+            }
+            else
+            {
+                Debug.WriteLine("[NodeViewModel.FindClosestAudioFile] No suitable audio file found.");
+            }
+
+            return closestFile;
         }
 
         // Simulate audio segment extraction
