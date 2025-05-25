@@ -3,6 +3,7 @@ using System.Collections.Generic; // Added for List
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq; // Added for LINQ
 using System.Runtime.CompilerServices;
 using CSimple.Models; // Ensure Models namespace is included for NodeType
@@ -283,5 +284,50 @@ namespace CSimple.ViewModels
         }
 
         public List<(string Type, string Value)> ActionSteps { get; set; } = new();
+
+        // Add this property to store the full path to the audio file
+        public string AudioFilePath { get; set; }
+
+        // Method to extract a segment of the audio file
+        public string GetAudioSegment(DateTime startTime, DateTime endTime)
+        {
+            if (string.IsNullOrEmpty(AudioFilePath))
+            {
+                Debug.WriteLine("[NodeViewModel.GetAudioSegment] Audio file path is not set.");
+                return null;
+            }
+
+            if (Type != NodeType.Input || DataType?.ToLower() != "audio")
+            {
+                Debug.WriteLine("[NodeViewModel.GetAudioSegment] Node is not an audio input node.");
+                return null;
+            }
+
+            if (startTime == DateTime.MinValue || endTime == DateTime.MinValue)
+            {
+                Debug.WriteLine("[NodeViewModel.GetAudioSegment] Invalid start or end time.");
+                return null;
+            }
+
+            // Implement logic to extract the audio segment
+            // This is a placeholder; replace with actual audio processing code
+            string segmentPath = SimulateAudioSegmentExtraction(AudioFilePath, startTime, endTime);
+            return segmentPath;
+        }
+
+        // Simulate audio segment extraction
+        private string SimulateAudioSegmentExtraction(string fullPath, DateTime startTime, DateTime endTime)
+        {
+            // This is a placeholder; replace with actual audio processing code
+            // For example, use NAudio library to read and write audio segments
+            // Ensure NAudio is installed: Install-Package NAudio
+
+            // Simulate creating a segment file path
+            string segmentFileName = $"Segment_{startTime.Ticks}_{endTime.Ticks}.wav";
+            string segmentPath = Path.Combine(Path.GetDirectoryName(fullPath), segmentFileName);
+
+            Debug.WriteLine($"[NodeViewModel.SimulateAudioSegmentExtraction] Simulated audio segment extraction from {fullPath} to {segmentPath} (Start: {startTime}, End: {endTime})");
+            return segmentPath;
+        }
     }
 }

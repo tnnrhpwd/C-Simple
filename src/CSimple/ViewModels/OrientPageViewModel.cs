@@ -1111,100 +1111,87 @@ namespace CSimple.ViewModels
 
         public void UpdateStepContent()
         {
-            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Called. Global CurrentActionStep (0-indexed): {CurrentActionStep}, SelectedNode: {SelectedNode?.Name ?? "null"}");
+            Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] Called.");
+
+            if (SelectedReviewActionName == null)
+            {
+                Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] No action selected for review. Clearing content.");
+                StepContentType = null;
+                StepContent = null;
+                return;
+            }
+
             if (SelectedNode == null)
             {
-                Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] SelectedNode is null. Clearing StepContent.");
+                Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] No node selected. Clearing content.");
                 StepContentType = null;
                 StepContent = null;
-                OnPropertyChanged(nameof(StepContentType));
-                OnPropertyChanged(nameof(StepContent));
                 return;
             }
 
-            if (SelectedNode.Type != NodeType.Input)
-            {
-                Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] SelectedNode '{SelectedNode.Name}' is not an Input node. Clearing StepContent for review.");
-                StepContentType = null;
-                StepContent = null;
-                OnPropertyChanged(nameof(StepContentType));
-                OnPropertyChanged(nameof(StepContent));
-                return;
-            }
-
-            // CurrentActionStep is the 0-indexed global step.
-            // For GetStepContent, we need a 1-based index.
-            // This assumes that the Nth call to GetStepContent for this node should retrieve the Nth item
-            // from its *own* ActionSteps list. This is a temporary simplification.
-            // A more robust solution would map the global step to the node-specific step.
-            int stepForNodeContent = CurrentActionStep + 1; // Using global step + 1 for now.
-
-            // If SelectedNode.ActionSteps is populated with only its relevant files,
-            // then stepForNodeContent (derived from global step) might be out of bounds for SelectedNode.ActionSteps.
-            // Example: Global step 5, but it's only the 2nd image. SelectedNode.ActionSteps.Count might be 2. stepForNodeContent=6 is invalid.
-
-            // Let's adjust: if CurrentActionStep is 0 (first global step), we try to get the first item (index 1) from node's list.
-            // This is a placeholder logic. The correct logic depends on how global steps map to node-specific content.
-            // For now, we'll use the count of items in the node's ActionSteps that have been "consumed"
-            // This is still tricky. Let's assume for now that the step passed to GetStepContent
-            // should be an index into *its own* ActionSteps.
-            // The `CurrentActionStep` in OrientPageViewModel is the step in the *overall action sequence*.
-            // We need to determine which item in the `SelectedNode.ActionSteps` corresponds to the *current global action item*.
-
-            // Simplification: If the current global ActionItem (from _currentActionItems[CurrentActionStep])
-            // is supposed to provide data for the SelectedNode, then we find that data.
-            // The `SelectedNode.ActionSteps` was populated with all files for that node from the ActionGroup.
-            // We need to find which of those files corresponds to `_currentActionItems[CurrentActionStep]`.
-
-            // This part needs careful design. For now, let's see if populating ActionSteps helps.
-            // The `stepForNodeContent` will likely be wrong if `SelectedNode.ActionSteps` is filtered.
-            // A better approach: count how many *previous* global steps would have produced content for this node.
-            if (_currentActionItems != null)
-            {
-                // Check if the selected node is a text node
-                if (SelectedNode.DataType == "text")
-                {
-                    // Get the index of the current action item in the global action items list
-                    int currentActionIndex = CurrentActionStep;
-
-                    // Get the recent actions from the global action items
-                    // up to the current action index.
-                    // This is because the ActionSteps of the text node are not populated
-                    // with the action descriptions, but the global action items are.
-                    List<string> recentActions = _currentActionItems
-                        .Take(currentActionIndex + 1)
-                        .Select(item => item.ToString()) // Convert ActionItem to string
-                        .ToList();
-
-                    // Format the recent actions into a string
-                    string recentActionsString = string.Join("\n", recentActions);
-
-                    // Set the step content to the recent actions string
-                    StepContentType = "Text";
-                    StepContent = recentActionsString;
-                    OnPropertyChanged(nameof(StepContentType));
-                    OnPropertyChanged(nameof(StepContent));
-                    Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Displaying recent actions for text node: {recentActionsString}");
-                    return;
-                }
-            }
-
-            // TEMPORARY: Use CurrentActionStep + 1 and let GetStepContent validate bounds against its own ActionSteps.
-            // This is the most direct way to test the population of ActionSteps.
-            stepForNodeContent = CurrentActionStep + 1;
+            // Determine the step number for the selected node's content
+            // This logic might need adjustment based on how you want to map the global step to individual node steps
+            int stepForNodeContent = CurrentActionStep + 1; // Convert back to 1-based index for UI
             Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Using TEMPORARY logic: stepForNodeContent = GlobalCurrentActionStep + 1 = {stepForNodeContent}");
 
             Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Getting content for SelectedNode '{SelectedNode.Name}', attempting to fetch its step number {stepForNodeContent} (1-based).");
-            var content = SelectedNode.GetStepContent(stepForNodeContent);
+            var (contentType, contentValue) = SelectedNode.GetStepContent(stepForNodeContent);
+            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Content retrieved from NodeViewModel: Type='{contentType}', Supposed File/Content Value='{contentValue}'");
 
-            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Content retrieved from NodeViewModel: Type='{content.Type}', Supposed File/Content Value='{content.Value}'");
+            // --- Audio Segment Retrieval Logic ---
+            if (SelectedNode.DataType?.ToLower() == "audio" && !string.IsNullOrEmpty(SelectedReviewActionName))
+            {
+                // Retrieve the ActionItem for the current step
+                if (CurrentActionStep >= 0 && CurrentActionStep < _currentActionItems.Count)
+                {
+                    var currentActionItem = _currentActionItems[CurrentActionStep];
 
-            StepContentType = content.Type;
-            StepContent = content.Value;
+                    // Find the previous ActionItem that also corresponds to this node
+                    ActionItem previousActionItem = null;
+                    for (int i = CurrentActionStep - 1; i >= 0; i--)
+                    {
+                        var item = _currentActionItems[i];
+                        // Check if the item corresponds to the same node based on some criteria (e.g., node ID)
+                        // This assumes you have a way to link ActionItems to specific nodes
+                        if (item != null)
+                        {
+                            previousActionItem = item;
+                            break;
+                        }
+                    }
 
+                    // Calculate start and end times based on ActionItem timestamps
+                    DateTime startTime = (previousActionItem?.Timestamp as DateTime?) ?? DateTime.MinValue;
+                    DateTime endTime = (currentActionItem?.Timestamp as DateTime?) ?? DateTime.MinValue;
+
+                    // Get the audio segment path from the NodeViewModel
+                    string audioSegmentPath = SelectedNode.GetAudioSegment(startTime, endTime);
+
+                    if (!string.IsNullOrEmpty(audioSegmentPath))
+                    {
+                        contentType = "audio";
+                        contentValue = audioSegmentPath;
+                        Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Successfully retrieved audio segment: {audioSegmentPath}");
+                    }
+                    else
+                    {
+                        Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] Could not retrieve audio segment.");
+                        contentType = null;
+                        contentValue = null;
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] CurrentActionStep is out of bounds.");
+                    contentType = null;
+                    contentValue = null;
+                }
+            }
+            // --- End Audio Segment Retrieval Logic ---
+
+            StepContentType = contentType;
+            StepContent = contentValue; // File/Content Value for UI
             Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] ViewModel's StepContentType set to: '{StepContentType}', ViewModel's StepContent (File/Content Value for UI) set to: '{StepContent}'");
-            OnPropertyChanged(nameof(StepContentType));
-            OnPropertyChanged(nameof(StepContent));
         }
 
         private void PlayAudio()
