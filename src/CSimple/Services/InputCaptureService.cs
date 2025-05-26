@@ -280,14 +280,14 @@ namespace CSimple.Services
                 _keyboardHookID = SetHook(_keyboardProc, WH_KEYBOARD_LL);
                 if (_keyboardHookID == IntPtr.Zero)
                 {
-                    LogDebug($"Failed to set keyboard hook. Error: {Marshal.GetLastWin32Error()}");
+                    Debug.Print($"Failed to set keyboard hook. Error: {Marshal.GetLastWin32Error()}");
                 }
 
                 _mouseHookID = SetHook(_mouseProc, WH_MOUSE_LL);
                 GetCursorPos(out _lastMousePos);
                 _startMousePos = _lastMousePos; // Save start position for relative tracking
                 _isActive = true;
-                LogDebug("Input capture started - Keyboard hook status: " + (_keyboardHookID != IntPtr.Zero ? "Active" : "Failed"));
+                Debug.Print("Input capture started - Keyboard hook status: " + (_keyboardHookID != IntPtr.Zero ? "Active" : "Failed"));
 
                 // Start a high-frequency mouse movement tracker
                 Task.Run(() => TrackMouseMovements());
@@ -308,7 +308,7 @@ namespace CSimple.Services
             {
                 // Register window to receive touch input
                 RegisterTouchWindow(hwnd, 0);
-                LogDebug("Registered window for touch input");
+                Debug.Print("Registered window for touch input");
             }
         }
 
@@ -326,7 +326,7 @@ namespace CSimple.Services
 
             if (!GetTouchInputInfo(lParam, (uint)numInputs, inputs, Marshal.SizeOf(typeof(TOUCHINPUT))))
             {
-                LogDebug("Failed to get touch input info");
+                Debug.Print("Failed to get touch input info");
                 return;
             }
 
@@ -437,7 +437,7 @@ namespace CSimple.Services
 
                 _activeKeyPresses.Clear();
                 _keyPressDownTimestamps.Clear();
-                LogDebug("Input capture stopped");
+                Debug.Print("Input capture stopped");
 
                 // Complete the input queue to signal the consumer to stop
                 try
@@ -446,7 +446,7 @@ namespace CSimple.Services
                 }
                 catch (ObjectDisposedException)
                 {
-                    LogDebug("Input queue was already disposed.");
+                    Debug.Print("Input queue was already disposed.");
                 }
             }
 #endif
@@ -545,7 +545,7 @@ namespace CSimple.Services
                     {
                         // Cancel the simulation
                         _actionService?.CancelSimulation();
-                        LogDebug("CTRL+SHIFT+ESC detected - Simulation cancelled.");
+                        Debug.Print("CTRL+SHIFT+ESC detected - Simulation cancelled.");
 
                         // Set the static flag
                         SimulationCancelledByTaskManager = true;
@@ -564,12 +564,12 @@ namespace CSimple.Services
                     {
                         _currentlyPressedKeys.Add(keyCode);
                         _keyPressDownTimestamps[keyCode] = now;
-                        LogDebug($"KEY DOWN: {vkCode:X2} ({(Keys)vkCode}) - added to pressed keys");
+                        Debug.Print($"KEY DOWN: {vkCode:X2} ({(Keys)vkCode}) - added to pressed keys");
                     }
                     else if (isKeyUp)
                     {
                         _currentlyPressedKeys.Remove(keyCode);
-                        LogDebug($"KEY UP: {vkCode:X2} ({(Keys)vkCode}) - removed from pressed keys");
+                        Debug.Print($"KEY UP: {vkCode:X2} ({(Keys)vkCode}) - removed from pressed keys");
                     }
 
                     // Create the action item regardless of event type
@@ -606,11 +606,11 @@ namespace CSimple.Services
                     // Log the event for debugging/monitoring
                     string eventName = isKeyDown ? (wParamInt == WM_KEYDOWN ? "WM_KEYDOWN" : "WM_SYSKEYDOWN") :
                                       isKeyUp ? (wParamInt == WM_KEYUP ? "WM_KEYUP" : "WM_SYSKEYUP") : "UNKNOWN";
-                    LogDebug($"KEYBOARD: {eventName} Key: {vkCode} (0x{vkCode:X2}) ({(Keys)vkCode}) at ({curPos.X},{curPos.Y})");
+                    Debug.Print($"KEYBOARD: {eventName} Key: {vkCode} (0x{vkCode:X2}) ({(Keys)vkCode}) at ({curPos.X},{curPos.Y})");
                 }
                 catch (Exception ex)
                 {
-                    LogDebug($"Error in keyboard hook: {ex.Message}");
+                    Debug.Print($"Error in keyboard hook: {ex.Message}");
                 }
             }
 
@@ -665,14 +665,14 @@ namespace CSimple.Services
                             if (_leftMouseDown)
                             {
                                 actionNeeded = false;
-                                LogDebug($"Skipping duplicate Left button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
+                                Debug.Print($"Skipping duplicate Left button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             else
                             {
                                 _leftMouseDown = true;
                                 _currentlyPressedButtons.Add((ushort)WM_LBUTTONDOWN);
                                 _keyPressDownTimestamps[(ushort)WM_LBUTTONDOWN] = now;
-                                LogDebug($"Left button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
+                                Debug.Print($"Left button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             break;
 
@@ -681,7 +681,7 @@ namespace CSimple.Services
                             if (!_leftMouseDown)
                             {
                                 actionNeeded = false;
-                                LogDebug($"Skipping duplicate Left button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
+                                Debug.Print($"Skipping duplicate Left button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             else
                             {
@@ -692,7 +692,7 @@ namespace CSimple.Services
                                     actionItem.Duration = (int)(now - downTime).TotalMilliseconds;
                                     _keyPressDownTimestamps.Remove((ushort)WM_LBUTTONDOWN);
                                 }
-                                LogDebug($"Left button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
+                                Debug.Print($"Left button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             break;
 
@@ -700,14 +700,14 @@ namespace CSimple.Services
                             if (_rightMouseDown)
                             {
                                 actionNeeded = false;
-                                LogDebug($"Skipping duplicate Right button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
+                                Debug.Print($"Skipping duplicate Right button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             else
                             {
                                 _rightMouseDown = true;
                                 _currentlyPressedButtons.Add((ushort)WM_RBUTTONDOWN);
                                 _keyPressDownTimestamps[(ushort)WM_RBUTTONDOWN] = now;
-                                LogDebug($"Right button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
+                                Debug.Print($"Right button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             break;
 
@@ -715,7 +715,7 @@ namespace CSimple.Services
                             if (!_rightMouseDown)
                             {
                                 actionNeeded = false;
-                                LogDebug($"Skipping duplicate Right button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
+                                Debug.Print($"Skipping duplicate Right button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             else
                             {
@@ -726,7 +726,7 @@ namespace CSimple.Services
                                     actionItem.Duration = (int)(now - downTime).TotalMilliseconds;
                                     _keyPressDownTimestamps.Remove((ushort)WM_RBUTTONDOWN);
                                 }
-                                LogDebug($"Right button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
+                                Debug.Print($"Right button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             break;
 
@@ -734,14 +734,14 @@ namespace CSimple.Services
                             if (_middleButtonDown)
                             {
                                 actionNeeded = false;
-                                LogDebug($"Skipping duplicate Middle button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
+                                Debug.Print($"Skipping duplicate Middle button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             else
                             {
                                 _middleButtonDown = true;
                                 _currentlyPressedButtons.Add((ushort)WM_MBUTTONDOWN);
                                 _keyPressDownTimestamps[(ushort)WM_MBUTTONDOWN] = now;
-                                LogDebug($"Middle button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
+                                Debug.Print($"Middle button DOWN at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             break;
 
@@ -749,7 +749,7 @@ namespace CSimple.Services
                             if (!_middleButtonDown)
                             {
                                 actionNeeded = false;
-                                LogDebug($"Skipping duplicate Middle button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
+                                Debug.Print($"Skipping duplicate Middle button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             else
                             {
@@ -760,7 +760,7 @@ namespace CSimple.Services
                                     actionItem.Duration = (int)(now - downTime).TotalMilliseconds;
                                     _keyPressDownTimestamps.Remove((ushort)WM_MBUTTONDOWN);
                                 }
-                                LogDebug($"Middle button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
+                                Debug.Print($"Middle button UP at ({mouseHookStruct.pt.X}, {mouseHookStruct.pt.Y})");
                             }
                             break;
 
@@ -785,16 +785,16 @@ namespace CSimple.Services
                     if (actionNeeded)
                     {
                         AddToInputQueue(actionItem);
-                        LogDebug($"Adding to queue: Mouse EventType={wParamInt}, ActionNeeded={actionNeeded}");
+                        Debug.Print($"Adding to queue: Mouse EventType={wParamInt}, ActionNeeded={actionNeeded}");
                     }
                     else
                     {
-                        LogDebug($"Skipping queue add: Mouse EventType={wParamInt}, ActionNeeded={actionNeeded}");
+                        Debug.Print($"Skipping queue add: Mouse EventType={wParamInt}, ActionNeeded={actionNeeded}");
                     }
                 }
                 catch (Exception ex)
                 {
-                    LogDebug($"Error in mouse hook: {ex.Message}");
+                    Debug.Print($"Error in mouse hook: {ex.Message}");
                 }
             }
 
@@ -840,7 +840,7 @@ namespace CSimple.Services
                     if (isKeyboardEvent)
                     {
                         bool isKeyDown = actionItem.EventType == WM_KEYDOWN || actionItem.EventType == WM_SYSKEYDOWN;
-                        LogDebug($"Queue: Adding key {(isKeyDown ? "DOWN" : "UP")} event for key {actionItem.KeyCode}");
+                        Debug.Print($"Queue: Adding key {(isKeyDown ? "DOWN" : "UP")} event for key {actionItem.KeyCode}");
                     }
 
                     _inputQueue.Add(actionItem);
@@ -848,12 +848,12 @@ namespace CSimple.Services
                 catch (InvalidOperationException)
                 {
                     // The collection has been marked as complete
-                    LogDebug("Queue is marked complete and cannot accept new items.");
+                    Debug.Print("Queue is marked complete and cannot accept new items.");
                 }
             }
             else
             {
-                LogDebug("Queue is null or completed - could not add item.");
+                Debug.Print("Queue is null or completed - could not add item.");
             }
         }
 
@@ -925,7 +925,7 @@ namespace CSimple.Services
                 }
                 catch (Exception ex)
                 {
-                    LogDebug($"Error tracking mouse movements: {ex.Message}");
+                    Debug.Print($"Error tracking mouse movements: {ex.Message}");
                     await Task.Delay(5); // Short delay on error
                 }
             }
@@ -1017,7 +1017,7 @@ namespace CSimple.Services
                 return;
 
             // Log the number of captured inputs for diagnostics
-            LogDebug($"Processing {capturedInputs.Length} captured inputs to action group");
+            Debug.Print($"Processing {capturedInputs.Length} captured inputs to action group");
 
             // Count mouse button events for debugging
             int mouseButtonEvents = capturedInputs.Count(i =>
@@ -1025,7 +1025,7 @@ namespace CSimple.Services
                 i.EventType == WM_RBUTTONDOWN || i.EventType == WM_RBUTTONUP ||
                 i.EventType == WM_MBUTTONDOWN || i.EventType == WM_MBUTTONUP);
 
-            LogDebug($"Found {mouseButtonEvents} mouse button events to process");
+            Debug.Print($"Found {mouseButtonEvents} mouse button events to process");
 
             // Convert the captured inputs to model items
             var modelItems = ConvertToModelActionItems(capturedInputs);
@@ -1069,7 +1069,7 @@ namespace CSimple.Services
             }));
 
             // Log confirmation that events were added
-            LogDebug($"Added {modelItems.Count} items to action group");
+            Debug.Print($"Added {modelItems.Count} items to action group");
         }
 
         #endregion
@@ -1103,25 +1103,25 @@ namespace CSimple.Services
                                 // Debug log for key events to track what's being processed
                                 if (item.EventType == WM_KEYDOWN || item.EventType == WM_SYSKEYDOWN)
                                 {
-                                    LogDebug($"Recorded keyboard event: DOWN KeyCode: {item.KeyCode}");
+                                    Debug.Print($"Recorded keyboard event: DOWN KeyCode: {item.KeyCode}");
                                 }
                                 else if (item.EventType == WM_KEYUP || item.EventType == WM_SYSKEYUP)
                                 {
-                                    LogDebug($"Recorded keyboard event: UP KeyCode: {item.KeyCode}");
+                                    Debug.Print($"Recorded keyboard event: UP KeyCode: {item.KeyCode}");
                                 }
                                 // Add explicit logging for mouse button events
                                 else if (item.EventType == WM_LBUTTONDOWN)
                                 {
-                                    LogDebug($"Recorded left mouse DOWN event at ({item.Coordinates?.X}, {item.Coordinates?.Y})");
+                                    Debug.Print($"Recorded left mouse DOWN event at ({item.Coordinates?.X}, {item.Coordinates?.Y})");
                                 }
                                 else if (item.EventType == WM_LBUTTONUP)
                                 {
-                                    LogDebug($"Recorded left mouse UP event at ({item.Coordinates?.X}, {item.Coordinates?.Y})");
+                                    Debug.Print($"Recorded left mouse UP event at ({item.Coordinates?.X}, {item.Coordinates?.Y})");
                                 }
                                 else if (item.EventType == WM_RBUTTONDOWN || item.EventType == WM_RBUTTONUP ||
                                          item.EventType == WM_MBUTTONDOWN || item.EventType == WM_MBUTTONUP)
                                 {
-                                    LogDebug($"Recorded mouse button event: {item.EventType} at ({item.Coordinates?.X}, {item.Coordinates?.Y})");
+                                    Debug.Print($"Recorded mouse button event: {item.EventType} at ({item.Coordinates?.X}, {item.Coordinates?.Y})");
                                 }
                             }
                         }
@@ -1156,27 +1156,27 @@ namespace CSimple.Services
                     }
                     catch (Exception ex)
                     {
-                        LogDebug($"Error processing input item: {ex.Message}");
+                        Debug.Print($"Error processing input item: {ex.Message}");
                     }
                 }
             }
             catch (OperationCanceledException)
             {
                 // Expected when cancellation is requested
-                LogDebug("Input queue processing cancelled.");
+                Debug.Print("Input queue processing cancelled.");
             }
             catch (ObjectDisposedException)
             {
                 // Expected when the queue is disposed during shutdown
-                LogDebug("Input queue processing stopped due to object disposed exception.");
+                Debug.Print("Input queue processing stopped due to object disposed exception.");
             }
             catch (Exception ex)
             {
-                LogDebug($"Error processing input queue: {ex.Message}");
+                Debug.Print($"Error processing input queue: {ex.Message}");
             }
             finally
             {
-                LogDebug("Input queue processing completed.");
+                Debug.Print("Input queue processing completed.");
             }
         }
 
@@ -1187,16 +1187,11 @@ namespace CSimple.Services
             bool isKeyDown = keyboardEvent.EventType == WM_KEYDOWN || keyboardEvent.EventType == WM_SYSKEYDOWN;
             string eventType = isKeyDown ? "DOWN" : "UP";
 
-            LogDebug($"Processing keyboard event: {eventType} KeyCode: {keyboardEvent.KeyCode}");
+            Debug.Print($"Processing keyboard event: {eventType} KeyCode: {keyboardEvent.KeyCode}");
 
             // Convert to JSON and invoke the event
             string inputJson = JsonConvert.SerializeObject(keyboardEvent);
             InputCaptured?.Invoke(inputJson);
-        }
-
-        private void LogDebug(string message)
-        {
-            DebugMessageLogged?.Invoke(message);
         }
 
         public void StartPreviewMode()
@@ -1263,24 +1258,24 @@ namespace CSimple.Services
         // Add diagnostic method to help troubleshoot key capture issues
         public void DiagnoseKeyboardCapture()
         {
-            LogDebug($"Keyboard hook status: {(_keyboardHookID != IntPtr.Zero ? "Active" : "Inactive")}");
-            LogDebug($"Mouse hook status: {(_mouseHookID != IntPtr.Zero ? "Active" : "Inactive")}");
-            LogDebug($"Active key count: {_activeKeyPresses.Count}");
-            LogDebug($"Is capturing active: {_isActive}");
+            Debug.Print($"Keyboard hook status: {(_keyboardHookID != IntPtr.Zero ? "Active" : "Inactive")}");
+            Debug.Print($"Mouse hook status: {(_mouseHookID != IntPtr.Zero ? "Active" : "Inactive")}");
+            Debug.Print($"Active key count: {_activeKeyPresses.Count}");
+            Debug.Print($"Is capturing active: {_isActive}");
 
             // Force refresh keyboard hook
             if (_isActive && _keyboardHookID != IntPtr.Zero)
             {
-                LogDebug("Refreshing keyboard hook...");
+                Debug.Print("Refreshing keyboard hook...");
                 try
                 {
                     UnhookWindowsHookEx(_keyboardHookID);
                     _keyboardHookID = SetHook(_keyboardProc, WH_KEYBOARD_LL);
-                    LogDebug($"Keyboard hook refreshed: {(_keyboardHookID != IntPtr.Zero ? "Success" : "Failed")}");
+                    Debug.Print($"Keyboard hook refreshed: {(_keyboardHookID != IntPtr.Zero ? "Success" : "Failed")}");
                 }
                 catch (Exception ex)
                 {
-                    LogDebug($"Error refreshing keyboard hook: {ex.Message}");
+                    Debug.Print($"Error refreshing keyboard hook: {ex.Message}");
                 }
             }
         }
@@ -1288,48 +1283,48 @@ namespace CSimple.Services
         // Add method to test if keyboard input is being captured correctly
         public void TestKeyboardCapture()
         {
-            LogDebug("Running keyboard capture test...");
+            Debug.Print("Running keyboard capture test...");
 
             // Force keyboard hook to be properly set
             if (_keyboardHookID == IntPtr.Zero && _isActive)
             {
                 _keyboardProc = KeyboardHookCallback;
                 _keyboardHookID = SetHook(_keyboardProc, WH_KEYBOARD_LL);
-                LogDebug($"Reinstalled keyboard hook: {(_keyboardHookID != IntPtr.Zero ? "Success" : "Failed")}");
+                Debug.Print($"Reinstalled keyboard hook: {(_keyboardHookID != IntPtr.Zero ? "Success" : "Failed")}");
             }
 
             // Verify Windows messages are being processed correctly
-            LogDebug("Key event constants check:");
-            LogDebug($"WM_KEYDOWN: {WM_KEYDOWN} (0x{WM_KEYDOWN:X4})");
-            LogDebug($"WM_KEYUP: {WM_KEYUP} (0x{WM_KEYUP:X4})");
-            LogDebug($"WM_SYSKEYDOWN: {WM_SYSKEYDOWN} (0x{WM_SYSKEYDOWN:X4})");
-            LogDebug($"WM_SYSKEYUP: {WM_SYSKEYUP} (0x{WM_SYSKEYUP:X4})");
+            Debug.Print("Key event constants check:");
+            Debug.Print($"WM_KEYDOWN: {WM_KEYDOWN} (0x{WM_KEYDOWN:X4})");
+            Debug.Print($"WM_KEYUP: {WM_KEYUP} (0x{WM_KEYUP:X4})");
+            Debug.Print($"WM_SYSKEYDOWN: {WM_SYSKEYDOWN} (0x{WM_SYSKEYDOWN:X4})");
+            Debug.Print($"WM_SYSKEYUP: {WM_SYSKEYUP} (0x{WM_SYSKEYUP:X4})");
 
             // Sample the current state
             var activeKeys = string.Join(", ", _currentlyPressedKeys);
-            LogDebug($"Currently tracked keys: {activeKeys}");
+            Debug.Print($"Currently tracked keys: {activeKeys}");
         }
 
         // Add a diagnostic method to test if recording is working properly
         public void TestInputRecording()
         {
-            LogDebug("DIAGNOSTIC TEST: Checking input recording system");
+            Debug.Print("DIAGNOSTIC TEST: Checking input recording system");
 
             // Check hook status
             if (_keyboardHookID == IntPtr.Zero)
-                LogDebug("WARNING: Keyboard hook is not active!");
+                Debug.Print("WARNING: Keyboard hook is not active!");
             else
-                LogDebug("Keyboard hook is active");
+                Debug.Print("Keyboard hook is active");
 
             if (_mouseHookID == IntPtr.Zero)
-                LogDebug("WARNING: Mouse hook is not active!");
+                Debug.Print("WARNING: Mouse hook is not active!");
             else
-                LogDebug("Mouse hook is active");
+                Debug.Print("Mouse hook is active");
 
             // Log current state tracking
-            LogDebug($"Current active key count: {_activeKeyPresses.Count}");
-            LogDebug($"Current mouse button states: Left={_leftMouseDown}, Right={_rightMouseDown}, Middle={_middleButtonDown}");
-            LogDebug($"Input queue size: {(_inputQueue?.Count ?? 0)}");
+            Debug.Print($"Current active key count: {_activeKeyPresses.Count}");
+            Debug.Print($"Current mouse button states: Left={_leftMouseDown}, Right={_rightMouseDown}, Middle={_middleButtonDown}");
+            Debug.Print($"Input queue size: {(_inputQueue?.Count ?? 0)}");
 
             // Test event by directly adding a test action
             var testAction = new ActionItem
@@ -1352,7 +1347,7 @@ namespace CSimple.Services
             };
 
             AddToInputQueue(testAction);
-            LogDebug("Added test action to input queue");
+            Debug.Print("Added test action to input queue");
         }
     }
 }

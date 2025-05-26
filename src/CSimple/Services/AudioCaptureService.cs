@@ -6,6 +6,7 @@ using NWaves.FeatureExtractors;
 using NWaves.FeatureExtractors.Options;
 using NAudio.Wave.SampleProviders;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace CSimple.Services
 {
@@ -52,7 +53,7 @@ namespace CSimple.Services
             Directory.CreateDirectory(_pcAudioDirectory);
             Directory.CreateDirectory(_webcamAudioDirectory);
 
-            LogDebug($"Audio directories initialized: {_pcAudioDirectory}, {_webcamAudioDirectory}");
+            Debug.Print($"Audio audio directories initialized: {_pcAudioDirectory}, {_webcamAudioDirectory}");
         }
 
         public void StartPCAudioRecording(bool saveRecording = true)
@@ -82,7 +83,7 @@ namespace CSimple.Services
 
                     if (_savePCAudio)
                     {
-                        LogDebug($"PC audio recording saved to: {_tempPcFilePath}");
+                        Debug.Print($"PC audio recording saved to: {_tempPcFilePath}");
                         FileCaptured?.Invoke(_tempPcFilePath);
                         ExtractMFCCs(_tempPcFilePath);
                     }
@@ -94,11 +95,11 @@ namespace CSimple.Services
                             try
                             {
                                 File.Delete(_tempPcFilePath);
-                                LogDebug("PC audio recording discarded");
+                                Debug.Print("PC audio recording discarded");
                             }
                             catch (Exception ex)
                             {
-                                LogDebug($"Error deleting temporary audio file: {ex.Message}");
+                                Debug.Print($"Error deleting temporary audio file: {ex.Message}");
                             }
                         }
                     }
@@ -108,18 +109,18 @@ namespace CSimple.Services
                 };
 
                 _loopbackCapture.StartRecording();
-                LogDebug("Recording PC audio...");
+                Debug.Print("Recording PC audio...");
             }
             catch (Exception ex)
             {
-                LogDebug($"Error starting PC audio recording: {ex.Message}");
+                Debug.Print($"Error starting PC audio recording: {ex.Message}");
             }
         }
 
         public void StopPCAudioRecording()
         {
             _loopbackCapture?.StopRecording();
-            LogDebug("Stopped recording PC audio.");
+            Debug.Print("Stopped recording PC audio.");
         }
 
         public void StartWebcamAudioRecording(bool saveRecording = true)
@@ -134,7 +135,7 @@ namespace CSimple.Services
                 var deviceNumber = FindWebcamAudioDevice();
                 if (deviceNumber == -1)
                 {
-                    LogDebug("Webcam audio device not found.");
+                    Debug.Print("Webcam audio device not found.");
                     return;
                 }
 
@@ -159,7 +160,7 @@ namespace CSimple.Services
 
                     if (_saveWebcamAudio)
                     {
-                        LogDebug($"Webcam audio recording saved to: {_tempWebcamFilePath}");
+                        Debug.Print($"Webcam audio recording saved to: {_tempWebcamFilePath}");
                         FileCaptured?.Invoke(_tempWebcamFilePath);
                         ExtractMFCCs(_tempWebcamFilePath);
                     }
@@ -171,11 +172,11 @@ namespace CSimple.Services
                             try
                             {
                                 File.Delete(_tempWebcamFilePath);
-                                LogDebug("Webcam audio recording discarded");
+                                Debug.Print("Webcam audio recording discarded");
                             }
                             catch (Exception ex)
                             {
-                                LogDebug($"Error deleting temporary audio file: {ex.Message}");
+                                Debug.Print($"Error deleting temporary audio file: {ex.Message}");
                             }
                         }
                     }
@@ -185,18 +186,18 @@ namespace CSimple.Services
                 };
 
                 _waveIn.StartRecording();
-                LogDebug("Recording webcam audio...");
+                Debug.Print("Recording webcam audio...");
             }
             catch (Exception ex)
             {
-                LogDebug($"Error starting webcam audio recording: {ex.Message}");
+                Debug.Print($"Error starting webcam audio recording: {ex.Message}");
             }
         }
 
         public void StopWebcamAudioRecording()
         {
             _waveIn?.StopRecording();
-            LogDebug("Stopped recording webcam audio.");
+            Debug.Print("Stopped recording webcam audio.");
         }
 
         private int FindWebcamAudioDevice()
@@ -254,11 +255,11 @@ namespace CSimple.Services
                     }
                 }
 
-                LogDebug($"MFCCs saved to: {mfccFilePath}");
+                Debug.Print($"MFCCs saved to: {mfccFilePath}");
             }
             catch (Exception ex)
             {
-                LogDebug($"Error extracting MFCCs: {ex.Message}");
+                Debug.Print($"Error extracting MFCCs: {ex.Message}");
             }
         }
 
@@ -278,11 +279,6 @@ namespace CSimple.Services
 
             float rms = (float)Math.Sqrt(sum / sampleCount);
             return Math.Min(1.0f, rms * 5.0f); // Scale up a bit for better visualization
-        }
-
-        private void LogDebug(string message)
-        {
-            DebugMessageLogged?.Invoke(message);
         }
     }
 }

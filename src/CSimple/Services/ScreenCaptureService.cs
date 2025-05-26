@@ -6,6 +6,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using OpenCvSharp;
+using System.Diagnostics;
+
 #if WINDOWS
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
@@ -110,6 +112,8 @@ namespace CSimple.Services
 
             Directory.CreateDirectory(_screenshotsDirectory);
             Directory.CreateDirectory(_webcamImagesDirectory);
+
+            Debug.Print($"Initialized image directories initialized: {_screenshotsDirectory}, {_webcamImagesDirectory}");
         }
 
         public void CaptureScreens(string actionName, string userTouchInputText)
@@ -137,14 +141,14 @@ namespace CSimple.Services
                         string filePath = Path.Combine(_screenshotsDirectory, $"ScreenCapture_{captureTime:yyyyMMdd_HHmmss_fff}_{screen.DeviceName.Replace("\\", "").Replace(":", "")}.png");
                         bitmap.Save(filePath, ImageFormat.Png);
 
-                        LogDebug($"Screenshot saved to: {filePath}");
+                        Debug.Print($"Screenshot saved to: {filePath}");
                         FileCaptured?.Invoke(filePath);
                     }
                 }
             }
             catch (Exception ex)
             {
-                LogDebug($"Error capturing screen: {ex.Message}");
+                Debug.Print($"Error capturing screen: {ex.Message}");
             }
 #endif
         }
@@ -176,7 +180,7 @@ namespace CSimple.Services
 
                 if (!capture.IsOpened())
                 {
-                    LogDebug("Failed to open webcam.");
+                    Debug.Print("Failed to open webcam.");
                     return;
                 }
 
@@ -194,7 +198,7 @@ namespace CSimple.Services
                         string filePath = Path.Combine(_webcamImagesDirectory, $"WebcamImage_{DateTime.Now:yyyyMMdd_HHmmss}.jpg");
                         Cv2.ImWrite(filePath, frame);
                         FileCaptured?.Invoke(filePath);
-                        LogDebug($"Webcam image saved to: {filePath}");
+                        Debug.Print($"Webcam image saved to: {filePath}");
                     }
                     Thread.Sleep(CaptureIntervalMs);
 
@@ -237,11 +241,11 @@ namespace CSimple.Services
 
                 if (!webcamCapture.IsOpened())
                 {
-                    LogDebug("Failed to open webcam for preview.");
+                    Debug.Print("Failed to open webcam for preview.");
                 }
                 else
                 {
-                    LogDebug("Webcam opened successfully for preview.");
+                    Debug.Print("Webcam opened successfully for preview.");
                 }
 
                 while (!token.IsCancellationRequested && _previewModeActive)
@@ -278,7 +282,7 @@ namespace CSimple.Services
                     }
                     catch (Exception ex)
                     {
-                        LogDebug($"Frame capture error: {ex.Message}");
+                        Debug.Print($"Frame capture error: {ex.Message}");
                         await Task.Delay(1000, token); // Longer delay on error
                     }
                 }
@@ -286,11 +290,11 @@ namespace CSimple.Services
             catch (OperationCanceledException)
             {
                 // Expected when cancellation is requested
-                LogDebug("Preview mode cancelled");
+                Debug.Print("Preview mode cancelled");
             }
             catch (Exception ex)
             {
-                LogDebug($"Error in preview generation: {ex.Message}");
+                Debug.Print($"Error in preview generation: {ex.Message}");
             }
         }
 
@@ -334,7 +338,7 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
-                LogDebug($"Screen capture error: {ex.Message}");
+                Debug.Print($"Screen capture error: {ex.Message}");
             }
 #endif
             return null;
@@ -380,7 +384,7 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
-                LogDebug($"Error converting webcam frame: {ex.Message}");
+                Debug.Print($"Error converting webcam frame: {ex.Message}");
                 return null;
             }
         }
@@ -426,11 +430,6 @@ namespace CSimple.Services
 #endif
         }
 
-        private void LogDebug(string message)
-        {
-            DebugMessageLogged?.Invoke(message);
-        }
-
         public string GetMostRecentScreenshot(DateTime timestamp)
         {
             return GetMostRecentFile(_screenshotsDirectory, timestamp, "ScreenCapture");
@@ -447,7 +446,7 @@ namespace CSimple.Services
             {
                 if (!Directory.Exists(directory))
                 {
-                    LogDebug($"Directory not found: {directory}");
+                    Debug.Print($"Directory not found: {directory}");
                     return null;
                 }
 
@@ -468,13 +467,13 @@ namespace CSimple.Services
                 }
                 else
                 {
-                    LogDebug($"No files found in {directory} for timestamp {timestamp}");
+                    Debug.Print($"No files found in {directory} for timestamp {timestamp}");
                     return null;
                 }
             }
             catch (Exception ex)
             {
-                LogDebug($"Error getting most recent file: {ex.Message}");
+                Debug.Print($"Error getting most recent file: {ex.Message}");
                 return null;
             }
         }
@@ -498,13 +497,13 @@ namespace CSimple.Services
                 }
                 else
                 {
-                    LogDebug($"Could not parse DateTime from filename: {filename}");
+                    Debug.Print($"Could not parse DateTime from filename: {filename}");
                     return DateTime.MinValue;
                 }
             }
             catch (Exception ex)
             {
-                LogDebug($"Error parsing DateTime from filename: {ex.Message}");
+                Debug.Print($"Error parsing DateTime from filename: {ex.Message}");
                 return DateTime.MinValue;
             }
         }

@@ -5,15 +5,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Microsoft.Maui.Storage;
+using System.Diagnostics;
 
 namespace CSimple.Services
 {
     public class ObserveDataService
     {
-        #region Events
-        public event Action<string> DebugMessageLogged;
-        #endregion
-
         #region Properties
         private readonly FileService _fileService;
         private readonly DataService _dataService;
@@ -47,7 +44,7 @@ namespace CSimple.Services
                 Data = Convert.ToBase64String(File.ReadAllBytes(filePath))
             });
 
-            LogDebug($"File added to data item: {filePath}");
+            Debug.Print($"File added to data item: {filePath}");
         }
 
         public async Task SaveDataItemsToFile(IEnumerable<DataItem> dataItems)
@@ -58,7 +55,7 @@ namespace CSimple.Services
                 var itemsList = dataItems.ToList();
                 if (itemsList.Count == 0)
                 {
-                    LogDebug("No data items to save");
+                    Debug.Print("No data items to save");
                     return;
                 }
 
@@ -78,19 +75,19 @@ namespace CSimple.Services
 
                             if (keyDownEvents > 0 || keyUpEvents > 0)
                             {
-                                LogDebug($"Action '{item.Data.ActionGroupObject.ActionName}' contains {keyDownEvents} DOWN and {keyUpEvents} UP keyboard events");
+                                Debug.Print($"Action '{item.Data.ActionGroupObject.ActionName}' contains {keyDownEvents} DOWN and {keyUpEvents} UP keyboard events");
                             }
                         }
                     }
                 }
 
                 await _fileService.SaveDataItemsAsync(itemsList);
-                LogDebug($"Saved {itemsList.Count} data items to file");
+                Debug.Print($"Saved {itemsList.Count} data items to file");
             }
             catch (Exception ex)
             {
-                LogDebug($"Error saving data items: {ex.Message}");
-                LogDebug(ex.StackTrace);
+                Debug.Print($"Error saving data items: {ex.Message}");
+                Debug.Print(ex.StackTrace);
             }
         }
 
@@ -99,12 +96,12 @@ namespace CSimple.Services
             try
             {
                 var loadedItems = await _fileService.LoadDataItemsAsync();
-                LogDebug("Data items loaded from file");
+                Debug.Print("Data items loaded from file");
                 return loadedItems;
             }
             catch (Exception ex)
             {
-                LogDebug($"Error loading data items: {ex.Message}");
+                Debug.Print($"Error loading data items: {ex.Message}");
                 return new List<DataItem>();
             }
         }
@@ -117,13 +114,13 @@ namespace CSimple.Services
                 var itemsList = dataItems.ToList();
                 if (itemsList.Count == 0)
                 {
-                    LogDebug("No local rich data items to save");
+                    Debug.Print("No local rich data items to save");
                     return;
                 }
 
                 // Log some details about what we're saving
                 var actionNames = itemsList.Select(i => i.Data?.ActionGroupObject?.ActionName).ToList();
-                LogDebug($"Saving {itemsList.Count} items to local rich data: {string.Join(", ", actionNames)}");
+                Debug.Print($"Saving {itemsList.Count} items to local rich data: {string.Join(", ", actionNames)}");
 
                 // Verify keyboard events are included before saving
                 foreach (var item in itemsList)
@@ -135,19 +132,19 @@ namespace CSimple.Services
 
                         if (keyDownEvents > 0 || keyUpEvents > 0)
                         {
-                            LogDebug($"Action '{item.Data.ActionGroupObject.ActionName}' contains {keyDownEvents} DOWN and {keyUpEvents} UP keyboard events");
+                            Debug.Print($"Action '{item.Data.ActionGroupObject.ActionName}' contains {keyDownEvents} DOWN and {keyUpEvents} UP keyboard events");
                         }
                     }
                 }
 
                 // Use the updated SaveLocalDataItemsAsync method to append data
                 await _fileService.SaveLocalDataItemsAsync(itemsList);
-                LogDebug("Local rich data saved successfully");
+                Debug.Print("Local rich data saved successfully");
             }
             catch (Exception ex)
             {
-                LogDebug($"Error saving local rich data: {ex.Message}");
-                LogDebug(ex.StackTrace);
+                Debug.Print($"Error saving local rich data: {ex.Message}");
+                Debug.Print(ex.StackTrace);
             }
         }
 
@@ -156,12 +153,12 @@ namespace CSimple.Services
             try
             {
                 var localData = await _fileService.LoadLocalDataItemsAsync();
-                LogDebug("Local rich data loaded");
+                Debug.Print("Local rich data loaded");
                 return localData;
             }
             catch (Exception ex)
             {
-                LogDebug($"Error loading local rich data: {ex.Message}");
+                Debug.Print($"Error loading local rich data: {ex.Message}");
                 return new List<DataItem>();
             }
         }
@@ -206,7 +203,7 @@ namespace CSimple.Services
                 var token = await SecureStorage.GetAsync("userToken");
                 if (string.IsNullOrEmpty(token))
                 {
-                    LogDebug("No user token found for upload");
+                    Debug.Print("No user token found for upload");
                     return;
                 }
 
@@ -217,17 +214,17 @@ namespace CSimple.Services
                 if (meetsCriteria && NetworkIsSuitable())
                 {
                     // await _dataService.CreateDataAsync(compressedData, token);
-                    LogDebug("Data uploaded to server");
+                    Debug.Print("Data uploaded to server");
                 }
                 else
                 {
-                    LogDebug("Data stored locally (network unsuitable or priority too low)");
+                    Debug.Print("Data stored locally (network unsuitable or priority too low)");
                     // StoreDataLocally(compressedData);
                 }
             }
             catch (Exception ex)
             {
-                LogDebug($"Error in compress and upload: {ex.Message}");
+                Debug.Print($"Error in compress and upload: {ex.Message}");
             }
         }
 
@@ -256,7 +253,7 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
-                LogDebug($"Error checking login status: {ex.Message}");
+                Debug.Print($"Error checking login status: {ex.Message}");
                 return false;
             }
         }
@@ -280,19 +277,14 @@ namespace CSimple.Services
                 // Delete from all storage locations
                 await _fileService.DeleteDataItemsAsync(idList, nameList);
 
-                LogDebug($"Data item completely deleted: {dataItem.Data?.ActionGroupObject?.ActionName ?? dataItem._id}");
+                Debug.Print($"Data item completely deleted: {dataItem.Data?.ActionGroupObject?.ActionName ?? dataItem._id}");
                 return true;
             }
             catch (Exception ex)
             {
-                LogDebug($"Error deleting data item: {ex.Message}");
+                Debug.Print($"Error deleting data item: {ex.Message}");
                 return false;
             }
-        }
-
-        private void LogDebug(string message)
-        {
-            DebugMessageLogged?.Invoke(message);
         }
     }
 }

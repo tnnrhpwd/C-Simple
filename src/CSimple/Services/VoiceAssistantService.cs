@@ -73,7 +73,7 @@ namespace CSimple.Services
             {
                 StopListening();
             }
-            LogDebug($"Voice Assistant {(_isEnabled ? "Enabled" : "Disabled")}");
+            Debug.Print($"Voice Assistant {(_isEnabled ? "Enabled" : "Disabled")}");
         }
 
         public void StartListening()
@@ -88,7 +88,7 @@ namespace CSimple.Services
                 _listeningCts = new CancellationTokenSource();
                 ListeningStateChanged?.Invoke(true);
 
-                LogDebug("Voice Assistant started listening");
+                Debug.Print("Voice Assistant started listening");
 
                 // Start recording audio
                 _audioBuffer = new MemoryStream();
@@ -119,7 +119,7 @@ namespace CSimple.Services
                 _listeningCts?.Cancel();
                 ListeningStateChanged?.Invoke(false);
 
-                LogDebug("Voice Assistant stopped listening");
+                Debug.Print("Voice Assistant stopped listening");
 
                 // Stop recording and process the audio
                 _audioCaptureService.StopPCAudioRecording();
@@ -130,7 +130,7 @@ namespace CSimple.Services
                 }
                 else
                 {
-                    LogDebug("No audio captured to process");
+                    Debug.Print("No audio captured to process");
                 }
             }
         }
@@ -146,7 +146,7 @@ namespace CSimple.Services
                     // If we've had silence for the specified duration, stop listening
                     if ((DateTime.Now - _lastSignificantAudioTime).TotalMilliseconds > SILENCE_DURATION_MS)
                     {
-                        LogDebug("Silence detected, stopping listening");
+                        Debug.Print("Silence detected, stopping listening");
                         StopListening();
                         break;
                     }
@@ -160,7 +160,7 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
-                LogDebug($"Error in silence detection: {ex.Message}");
+                Debug.Print($"Error in silence detection: {ex.Message}");
             }
         }
 
@@ -195,14 +195,14 @@ namespace CSimple.Services
                 _isProcessing = true;
                 _processingCts = new CancellationTokenSource();
 
-                LogDebug("Processing audio...");
+                Debug.Print("Processing audio...");
 
                 // Process the audio
                 string recognizedText = await RecognizeSpeechAsync(_currentAudioPath);
 
                 if (!string.IsNullOrEmpty(recognizedText))
                 {
-                    LogDebug($"Recognized: {recognizedText}");
+                    Debug.Print($"Recognized: {recognizedText}");
                     TranscriptionCompleted?.Invoke(recognizedText);
 
                     // Process the command
@@ -210,12 +210,12 @@ namespace CSimple.Services
                 }
                 else
                 {
-                    LogDebug("No speech recognized");
+                    Debug.Print("No speech recognized");
                 }
             }
             catch (Exception ex)
             {
-                LogDebug($"Error processing audio: {ex.Message}");
+                Debug.Print($"Error processing audio: {ex.Message}");
             }
             finally
             {
@@ -241,7 +241,7 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
-                LogDebug($"Speech recognition error: {ex.Message}");
+                Debug.Print($"Speech recognition error: {ex.Message}");
                 return string.Empty;
             }
         }
@@ -250,7 +250,7 @@ namespace CSimple.Services
         {
             try
             {
-                LogDebug($"Processing command: {text}");
+                Debug.Print($"Processing command: {text}");
                 CommandRecognized?.Invoke(text);
 
                 // Basic command recognition - in a more advanced implementation,
@@ -306,13 +306,13 @@ namespace CSimple.Services
                 }
                 else
                 {
-                    LogDebug("Command not recognized");
+                    Debug.Print("Command not recognized");
                     ActionExecuted?.Invoke("Command not recognized", false);
                 }
             }
             catch (Exception ex)
             {
-                LogDebug($"Error processing command: {ex.Message}");
+                Debug.Print($"Error processing command: {ex.Message}");
                 ActionExecuted?.Invoke($"Error: {ex.Message}", false);
             }
         }
@@ -334,7 +334,7 @@ namespace CSimple.Services
 
         private async Task ExecuteActionAsync(string actionDescription, string actionType)
         {
-            LogDebug($"Executing action: {actionDescription} (Type: {actionType})");
+            Debug.Print($"Executing action: {actionDescription} (Type: {actionType})");
 
             bool success = false;
 
@@ -363,7 +363,7 @@ namespace CSimple.Services
                         string textToType = actionDescription.Substring("type ".Length);
                         // In a real implementation, this would use InputSimulator to type the text
                         // For now, just log it
-                        LogDebug($"Would type: {textToType}");
+                        Debug.Print($"Would type: {textToType}");
                         success = true;
                         break;
 
@@ -371,7 +371,7 @@ namespace CSimple.Services
                         string appName = actionDescription.Substring("launch ".Length).Trim();
                         // In a real implementation, this would launch the app
                         // For now, just log it
-                        LogDebug($"Would launch app: {appName}");
+                        Debug.Print($"Would launch app: {appName}");
                         success = true;
                         break;
 
@@ -379,18 +379,18 @@ namespace CSimple.Services
                         string query = actionDescription.Substring("search for ".Length);
                         // In a real implementation, this would launch the browser and search
                         // For now, just log it
-                        LogDebug($"Would search for: {query}");
+                        Debug.Print($"Would search for: {query}");
                         success = true;
                         break;
 
                     case "mouse-scroll":
                         string direction = actionDescription.Substring("scroll ".Length);
-                        LogDebug($"Would scroll: {direction}");
+                        Debug.Print($"Would scroll: {direction}");
                         success = true;
                         break;
 
                     default:
-                        LogDebug($"Unknown action type: {actionType}");
+                        Debug.Print($"Unknown action type: {actionType}");
                         break;
                 }
 
@@ -398,15 +398,9 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
-                LogDebug($"Error executing action: {ex.Message}");
+                Debug.Print($"Error executing action: {ex.Message}");
                 ActionExecuted?.Invoke($"Error: {ex.Message}", false);
             }
-        }
-
-        private void LogDebug(string message)
-        {
-            Debug.WriteLine($"[VoiceAssistant] {message}");
-            DebugMessageLogged?.Invoke(message);
         }
 
         public void Dispose()

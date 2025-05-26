@@ -226,14 +226,10 @@ namespace CSimple.Pages
 
             // Set up events
             _inputService.InputCaptured += OnInputCaptured;
-            _inputService.DebugMessageLogged += message => Debug.WriteLine(message);
             _screenService.FileCaptured += OnFileCaptured;
-            _screenService.DebugMessageLogged += message => Debug.WriteLine(message);
             _audioService.FileCaptured += OnFileCaptured;
-            _audioService.DebugMessageLogged += message => Debug.WriteLine(message);
             _audioService.PCLevelChanged += level => Dispatcher.Dispatch(() => PCAudioLevel = level);
             _audioService.WebcamLevelChanged += level => Dispatcher.Dispatch(() => UserAudioLevel = level);
-            _dataService.DebugMessageLogged += message => Debug.WriteLine(message);
             _mouseService.MouseMoved += OnMouseMoved;
 
             // Add preview frame handlers
