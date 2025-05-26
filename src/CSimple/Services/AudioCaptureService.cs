@@ -46,8 +46,8 @@ namespace CSimple.Services
         private void InitDirectories()
         {
             // Create directories for audio captures
-            _pcAudioDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "AudioCaptures", "PC");
-            _webcamAudioDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "AudioCaptures", "Webcam");
+            _pcAudioDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "PCAudio");
+            _webcamAudioDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "WebcamAudio");
 
             Directory.CreateDirectory(_pcAudioDirectory);
             Directory.CreateDirectory(_webcamAudioDirectory);
