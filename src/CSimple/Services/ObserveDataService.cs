@@ -34,7 +34,17 @@ namespace CSimple.Services
 
             if (!File.Exists(filePath))
             {
-                File.WriteAllBytes(filePath, Convert.FromBase64String(File.ReadAllText(filePath)));
+                Debug.Print($"File does not exist, attempting to create: {filePath}");
+                try
+                {
+                    File.WriteAllBytes(filePath, Convert.FromBase64String(File.ReadAllText(filePath)));
+                    Debug.Print($"File created successfully: {filePath}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.Print($"Error creating file: {ex.Message}");
+                    return; // Exit if file creation fails
+                }
             }
 
             dataItem.Data.Files.Add(new CSimple.ActionFile

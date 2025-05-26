@@ -19,7 +19,6 @@ namespace CSimple.Services
     public class ScreenCaptureService
     {
         #region Events
-        public event Action<string> DebugMessageLogged;
         public event Action<string> FileCaptured;
         public event Action<ImageSource> ScreenPreviewFrameReady;
         public event Action<ImageSource> WebcamPreviewFrameReady;
@@ -161,18 +160,20 @@ namespace CSimple.Services
                 {
                     CaptureScreens(actionName, userTouchInputText);
                     Thread.Sleep(CaptureIntervalMs); // Capture at the reduced interval
-
-                    if (_previewModeActive && ScreenPreviewFrameReady != null)
-                    {
-                        // In a real implementation, you would send preview frames periodically
-                        // This is just a placeholder
-                    }
                 }
             }, cancellationToken);
         }
 
         public Task StartWebcamCapture(CancellationToken cancellationToken, string actionName, string userTouchInputText)
         {
+            if (!string.IsNullOrEmpty(actionName) || !string.IsNullOrEmpty(userTouchInputText))
+            {
+                Debug.Print("[ScreenCaptureService] Starting webcam capture with action or user input");
+            }
+            else
+            {
+                Debug.Print("Webcam capture started without action or user input");
+            }
             return Task.Run(() =>
             {
                 using var capture = new VideoCapture(0);
@@ -186,26 +187,39 @@ namespace CSimple.Services
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    capture.Read(frame);
-
-                    if (frame.Empty())
+                    try
                     {
-                        continue;
+                        if (!capture.Read(frame))
+                        {
+                            Debug.Print("Failed to read frame from webcam.");
+                            continue;
+                        }
+
+                        if (frame.Empty())
+                        {
+                            Debug.Print("Webcam frame is empty.");
+                            continue;
+                        }
+
+                        if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(userTouchInputText))
+                        {
+                            string filePath = Path.Combine(_webcamImagesDirectory, $"WebcamImage_{DateTime.Now:yyyyMMdd_HHmmss}.jpg");
+                            try
+                            {
+                                Cv2.ImWrite(filePath, frame);
+                                Debug.Print($"Webcam image saved to: {filePath}");
+                                FileCaptured?.Invoke(filePath);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.Print($"Error saving webcam image: {ex.Message}");
+                            }
+                        }
+                        Thread.Sleep(CaptureIntervalMs);
                     }
-
-                    if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(userTouchInputText))
+                    catch (Exception ex)
                     {
-                        string filePath = Path.Combine(_webcamImagesDirectory, $"WebcamImage_{DateTime.Now:yyyyMMdd_HHmmss}.jpg");
-                        Cv2.ImWrite(filePath, frame);
-                        FileCaptured?.Invoke(filePath);
-                        Debug.Print($"Webcam image saved to: {filePath}");
-                    }
-                    Thread.Sleep(CaptureIntervalMs);
-
-                    if (_previewModeActive && WebcamPreviewFrameReady != null)
-                    {
-                        // In a real implementation, you would send preview frames periodically
-                        // This is just a placeholder
+                        Debug.Print($"Exception in webcam capture loop: {ex.Message}");
                     }
                 }
             }, cancellationToken);
@@ -219,7 +233,7 @@ namespace CSimple.Services
             // Start sending preview frames
             Task.Run(() => GeneratePreviewFrames(_previewCts.Token));
 
-            DebugMessageLogged?.Invoke("Screen capture preview mode started");
+            Debug.Print("Screen capture preview mode started");
         }
 
         public void StopPreviewMode()
@@ -228,7 +242,7 @@ namespace CSimple.Services
             _previewCts?.Cancel();
             _previewCts = null;
 
-            DebugMessageLogged?.Invoke("Screen capture preview mode stopped");
+            Debug.Print("Screen capture preview mode stopped");
         }
 
         private async Task GeneratePreviewFrames(CancellationToken token)
@@ -405,7 +419,7 @@ namespace CSimple.Services
             uint flags;
             bool isTouchRegistered = IsTouchWindow(windowHandle, out flags);
 
-            DebugMessageLogged?.Invoke($"Touch registration result: {result}, Is touch window: {isTouchRegistered}, Flags: {flags}");
+            Debug.Print($"Touch registration result: {result}, Is touch window: {isTouchRegistered}, Flags: {flags}");
 
             // Enable enhanced pointer support for Windows 8+ touch and pen support
             try
@@ -419,14 +433,14 @@ namespace CSimple.Services
                 // Fine-tune mouse wheel behavior
                 EnableProcessMouseWheelFiltering(true);
 
-                DebugMessageLogged?.Invoke("Enhanced pointer input enabled");
+                Debug.Print("Enhanced pointer input enabled");
             }
             catch (Exception ex)
             {
-                DebugMessageLogged?.Invoke($"Error enabling enhanced pointer input: {ex.Message}");
+                Debug.Print($"Error enabling enhanced pointer input: {ex.Message}");
             }
 #else
-            DebugMessageLogged?.Invoke("Touch input registration not available on this platform");
+            Debug.Print("Touch input registration not available on this platform");
 #endif
         }
 
