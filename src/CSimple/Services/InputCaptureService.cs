@@ -1208,6 +1208,7 @@ namespace CSimple.Services
         public void StopPreviewMode()
         {
             _previewModeActive = false;
+            Debug.WriteLine("[InputCaptureService] StopPreviewMode - Calling _previewCts?.Cancel()");
             _previewCts?.Cancel();
             _previewCts = null;
 

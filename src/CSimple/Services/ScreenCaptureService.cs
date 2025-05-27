@@ -166,6 +166,7 @@ namespace CSimple.Services
 
         public Task StartWebcamCapture(CancellationToken cancellationToken, string actionName, string userTouchInputText)
         {
+            Debug.WriteLine("[ScreenCaptureService] StartWebcamCapture called");
             if (!string.IsNullOrEmpty(actionName) || !string.IsNullOrEmpty(userTouchInputText))
             {
                 Debug.Print("[ScreenCaptureService] Starting webcam capture with action or user input");
@@ -176,6 +177,7 @@ namespace CSimple.Services
             }
             return Task.Run(() =>
             {
+                Debug.WriteLine("[ScreenCaptureService] Webcam capture task started");
                 using var capture = new VideoCapture(0);
                 using var frame = new Mat();
 
@@ -184,6 +186,22 @@ namespace CSimple.Services
                     Debug.Print("Failed to open webcam.");
                     return;
                 }
+                else
+                {
+                    Debug.Print("Webcam opened successfully.");
+                }
+                // Ensure the webcam is ready
+                if (!capture.Read(frame) || frame.Empty())
+                {
+                    Debug.Print("Failed to read initial frame from webcam.");
+                    return;
+                }
+                else
+                {
+                    Debug.Print("Initial webcam frame read successfully.");
+                }
+
+                Debug.WriteLine($"[ScreenCaptureService] Webcam capture loop - CancellationToken.IsCancellationRequested: {cancellationToken.IsCancellationRequested}");
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
@@ -193,6 +211,45 @@ namespace CSimple.Services
                         {
                             Debug.Print("Failed to read frame from webcam.");
                             continue;
+                        }
+                        else if (frame.Width == 0 || frame.Height == 0)
+                        {
+                            Debug.Print("Webcam frame has zero dimensions.");
+                            continue;
+                        }
+                        else if (frame.Width < 100 || frame.Height < 100)
+                        {
+                            Debug.Print("Webcam frame is too small.");
+                            continue;
+                        }
+                        else if (frame.Width > 1920 || frame.Height > 1080)
+                        {
+                            Debug.Print("Webcam frame is too large.");
+                            continue;
+                        }
+                        else if (frame.Channels() != 3 && frame.Channels() != 4)
+                        {
+                            Debug.Print("Webcam frame has unexpected number of channels.");
+                            continue;
+                        }
+                        else if (frame.Depth() != MatType.CV_8U)
+                        {
+                            Debug.Print("Webcam frame has unexpected depth.");
+                            continue;
+                        }
+                        else if (frame.Type() != MatType.CV_8UC3 && frame.Type() != MatType.CV_8UC4)
+                        {
+                            Debug.Print("Webcam frame has unexpected type.");
+                            continue;
+                        }
+                        else if (frame.Rows < 10 || frame.Cols < 10)
+                        {
+                            Debug.Print("Webcam frame is too small.");
+                            continue;
+                        }
+                        else
+                        {
+                            Debug.Print("Webcam frame captured successfully.");
                         }
 
                         if (frame.Empty())
@@ -222,6 +279,7 @@ namespace CSimple.Services
                         Debug.Print($"Exception in webcam capture loop: {ex.Message}");
                     }
                 }
+                Debug.Print("Webcam capture stopped by cancellation request.");
             }, cancellationToken);
         }
 
@@ -239,6 +297,7 @@ namespace CSimple.Services
         public void StopPreviewMode()
         {
             _previewModeActive = false;
+            Debug.WriteLine("[ScreenCaptureService] StopPreviewMode - Calling _previewCts?.Cancel()");
             _previewCts?.Cancel();
             _previewCts = null;
 

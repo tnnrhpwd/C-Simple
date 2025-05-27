@@ -465,6 +465,7 @@ namespace CSimple.Pages
         private void StartPCVisual()
         {
             _pcVisualCts = new CancellationTokenSource();
+            Debug.WriteLine("[ObservePage] StartPCVisual - Calling _screenService.StartWebcamCapture");
             Task.Run(() => _screenService.StartWebcamCapture(_pcVisualCts.Token, ActionConfigCard?.ActionName, UserTouchInputText), _pcVisualCts.Token);
         }
 
