@@ -145,7 +145,7 @@ namespace CSimple.Services
                         Debug.Print($"[ScreenCaptureService] CaptureScreens - About to save screenshot to: {filePath}"); // Added debug print
                         bitmap.Save(filePath, ImageFormat.Png);
 
-                        Debug.Print($"Screenshot saved to: {filePath}");
+                        Debug.Print($"[ScreenCaptureService] CaptureScreens - Screenshot saved to: {filePath}");
                         FileCaptured?.Invoke(filePath);
                     }
                 }
@@ -271,7 +271,7 @@ namespace CSimple.Services
                             {
                                 Debug.WriteLine($"[ScreenCaptureService] Attempting to save webcam image to: {filePath}, _previewModeActive: {_previewModeActive}");
                                 Cv2.ImWrite(filePath, frame);
-                                Debug.Print($"Webcam image saved to: {filePath}");
+                                Debug.Print($"[ScreenCaptureService] StartWebcamCapture - Webcam image saved to: {filePath}");
                                 FileCaptured?.Invoke(filePath);
                             }
                             catch (Exception ex)
