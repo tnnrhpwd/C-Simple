@@ -6,6 +6,7 @@ using System.Threading;
 using Microsoft.Maui.Controls;
 using System.Threading.Tasks;
 using Microsoft.Maui.Graphics;
+using System.IO;
 
 namespace CSimple.Pages
 {
@@ -358,6 +359,7 @@ namespace CSimple.Pages
             if (CapturePreviewCard != null)
             {
                 CapturePreviewCard.IsUserToggledOff = !isEnabled && CapturePreviewCard.IsToggleChangedByUser;
+                Debug.WriteLine($"CapturePreviewCard.IsUserToggledOff set to: {CapturePreviewCard.IsUserToggledOff}");
             }
 
             // Optionally pause/resume preview generation to save resources
@@ -467,6 +469,7 @@ namespace CSimple.Pages
             _pcVisualCts = new CancellationTokenSource();
             Debug.WriteLine("[ObservePage] StartPCVisual - Calling _screenService.StartWebcamCapture");
             Task.Run(() => _screenService.StartWebcamCapture(_pcVisualCts.Token, ActionConfigCard?.ActionName, UserTouchInputText), _pcVisualCts.Token);
+            Debug.WriteLine("[ObservePage] StartPCVisual - _screenService.StartWebcamCapture task started"); // Added debug print
         }
 
         private void StopPCVisual() => _pcVisualCts?.Cancel();
@@ -475,6 +478,7 @@ namespace CSimple.Pages
         {
             _userVisualCts = new CancellationTokenSource();
             Task.Run(() => _screenService.StartScreenCapture(_userVisualCts.Token, ActionConfigCard?.ActionName, UserTouchInputText), _userVisualCts.Token);
+            Debug.WriteLine("[ObservePage] StartUserVisual - _screenService.StartScreenCapture task started"); // Added debug print
         }
 
         private void StopUserVisual() => _userVisualCts?.Cancel();
@@ -836,12 +840,14 @@ namespace CSimple.Pages
             if (CapturePreviewCard != null)
             {
                 CapturePreviewCard.SetPreviewActive(isActive);
+                Debug.WriteLine($"CapturePreviewCard.SetPreviewActive({isActive}) called");
 
                 // Default to disabled on page load
                 // Only auto-enable if user hasn't explicitly turned it off AND we have active captures
                 if (isActive && !CapturePreviewCard.IsUserToggledOff && IsRecordingActive)
                 {
                     CapturePreviewCard.IsPreviewEnabled = true;
+                    Debug.WriteLine($"CapturePreviewCard.IsPreviewEnabled set to true (auto-enable)");
                 }
                 else if (!isActive)
                 {
@@ -849,7 +855,12 @@ namespace CSimple.Pages
                     if (!CapturePreviewCard.IsUserToggledOff)
                     {
                         CapturePreviewCard.IsPreviewEnabled = false;
+                        Debug.WriteLine($"CapturePreviewCard.IsPreviewEnabled set to false (respecting user toggle)");
                     }
+                }
+                else
+                {
+                    Debug.WriteLine($"CapturePreviewCard.IsPreviewEnabled not changed");
                 }
 
                 // Start the capture service - it will always run, but preview updates depend on IsPreviewEnabled
@@ -863,6 +874,10 @@ namespace CSimple.Pages
                     _screenService.StopPreviewMode();
                     Debug.WriteLine("Stopped screen and webcam preview service");
                 }
+            }
+            else
+            {
+                Debug.WriteLine("CapturePreviewCard is null in UpdatePreviewSources");
             }
         }
 
@@ -1055,6 +1070,17 @@ namespace CSimple.Pages
         {
             Dispatcher.Dispatch(() =>
             {
+                Debug.WriteLine($"OnFileCaptured: FilePath={filePath}");
+
+                if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+                {
+                    Debug.WriteLine($"OnFileCaptured: File exists at {filePath}");
+                }
+                else
+                {
+                    Debug.WriteLine($"OnFileCaptured: File does not exist or path is invalid");
+                }
+
                 if (Data.Any())
                 {
                     var lastActionGroup = Data.Last().Data.ActionGroupObject;
@@ -1153,7 +1179,11 @@ namespace CSimple.Pages
 
         private void OnScreenPreviewFrameReady(ImageSource source)
         {
-            if (source == null) return;
+            if (source == null)
+            {
+                Debug.WriteLine("[ObservePage] OnScreenPreviewFrameReady - ImageSource is null"); // Added debug print
+                return;
+            }
 
             // Use Dispatcher to update UI from background thread
             Dispatcher.Dispatch(() =>
@@ -1174,7 +1204,11 @@ namespace CSimple.Pages
 
         private void OnWebcamPreviewFrameReady(ImageSource source)
         {
-            if (source == null) return;
+            if (source == null)
+            {
+                Debug.WriteLine("[ObservePage] OnWebcamPreviewFrameReady - ImageSource is null"); // Added debug print
+                return;
+            }
 
             // Use Dispatcher to update UI from background thread
             Dispatcher.Dispatch(() =>
@@ -1241,6 +1275,22 @@ namespace CSimple.Pages
                 var localItems = new List<DataItem> { newItem };
                 await _dataService.SaveLocalRichDataAsync(localItems);
                 Debug.WriteLine("Saved action to localdataitems.json");
+
+                // Verify file paths before saving
+                if (newItem?.Data?.ActionGroupObject?.Files != null)
+                {
+                    foreach (var file in newItem.Data.ActionGroupObject.Files)
+                    {
+                        if (!string.IsNullOrEmpty(file.Data) && File.Exists(file.Data))
+                        {
+                            Debug.WriteLine($"File path verified: {file.Data}");
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"WARNING: Invalid file path: {file.Data}");
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {

@@ -120,6 +120,7 @@ namespace CSimple.Services
 #if WINDOWS
             try
             {
+                Debug.Print("[ScreenCaptureService] CaptureScreens called");
                 if (string.IsNullOrEmpty(actionName) || string.IsNullOrEmpty(userTouchInputText))
                     return;
 
@@ -138,6 +139,7 @@ namespace CSimple.Services
                         }
 
                         string filePath = Path.Combine(_screenshotsDirectory, $"ScreenCapture_{captureTime:yyyyMMdd_HHmmss_fff}_{screen.DeviceName.Replace("\\", "").Replace(":", "")}.png");
+                        Debug.Print($"[ScreenCaptureService] CaptureScreens - About to save screenshot to: {filePath}"); // Added debug print
                         bitmap.Save(filePath, ImageFormat.Png);
 
                         Debug.Print($"Screenshot saved to: {filePath}");
@@ -207,6 +209,7 @@ namespace CSimple.Services
                 {
                     try
                     {
+                        Debug.Print("[ScreenCaptureService] Webcam capture loop - Attempting to read frame");
                         if (!capture.Read(frame))
                         {
                             Debug.Print("Failed to read frame from webcam.");
@@ -337,6 +340,7 @@ namespace CSimple.Services
                         // 2. Get the webcam preview
                         if (webcamCapture.IsOpened())
                         {
+                            Debug.Print("[ScreenCaptureService] GeneratePreviewFrames - Attempting to read webcam frame");
                             if (webcamCapture.Read(webcamFrame) && !webcamFrame.Empty())
                             {
                                 Debug.WriteLine("[ScreenCaptureService] GeneratePreviewFrames - Webcam frame read successfully");
@@ -382,6 +386,7 @@ namespace CSimple.Services
 #if WINDOWS
             try
             {
+                Debug.Print("[ScreenCaptureService] CaptureScreenForPreview called");
                 // Get the primary screen
                 var bounds = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
                 using (var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb))
@@ -427,6 +432,7 @@ namespace CSimple.Services
         {
             try
             {
+                Debug.Print("[ScreenCaptureService] ConvertMatToImageSource called");
                 // Calculate aspect ratio to maintain proportions
                 double aspectRatio = (double)frame.Width / frame.Height;
                 int targetHeight = 240;
@@ -442,6 +448,7 @@ namespace CSimple.Services
                 // Save the frame to a file with higher quality
                 // Use OpenCvSharp's correct parameter syntax
                 var imgParams = new int[] { (int)ImwriteFlags.JpegQuality, 95 };
+                Debug.Print($"[ScreenCaptureService] ConvertMatToImageSource - About to save webcam image to: {tempFile}"); // Added debug print
                 Cv2.ImWrite(tempFile, resizedFrame, imgParams);
 
                 // Load the file as an ImageSource
