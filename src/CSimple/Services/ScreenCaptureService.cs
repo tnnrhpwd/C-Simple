@@ -263,6 +263,7 @@ namespace CSimple.Services
                             string filePath = Path.Combine(_webcamImagesDirectory, $"WebcamImage_{DateTime.Now:yyyyMMdd_HHmmss}.jpg");
                             try
                             {
+                                Debug.WriteLine($"[ScreenCaptureService] Attempting to save webcam image to: {filePath}, _previewModeActive: {_previewModeActive}");
                                 Cv2.ImWrite(filePath, frame);
                                 Debug.Print($"Webcam image saved to: {filePath}");
                                 FileCaptured?.Invoke(filePath);
@@ -338,11 +339,16 @@ namespace CSimple.Services
                         {
                             if (webcamCapture.Read(webcamFrame) && !webcamFrame.Empty())
                             {
+                                Debug.WriteLine("[ScreenCaptureService] GeneratePreviewFrames - Webcam frame read successfully");
                                 var webcamImage = ConvertMatToImageSource(webcamFrame);
                                 if (webcamImage != null)
                                 {
                                     WebcamPreviewFrameReady?.Invoke(webcamImage);
                                 }
+                            }
+                            else
+                            {
+                                Debug.WriteLine("[ScreenCaptureService] GeneratePreviewFrames - Failed to read webcam frame");
                             }
                         }
 
