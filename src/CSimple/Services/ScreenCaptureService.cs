@@ -34,6 +34,9 @@ namespace CSimple.Services
         private const int CaptureIntervalMs = 250; // Capture every 250ms (4 times per second)
         #endregion
 
+        // Add IsPreviewEnabled property
+        public bool IsPreviewEnabled { get; set; }
+
         #region Windows API
 #if WINDOWS
         [DllImport("user32.dll")]
@@ -327,6 +330,13 @@ namespace CSimple.Services
 
                 while (!token.IsCancellationRequested && _previewModeActive)
                 {
+                    // Check if preview is enabled before capturing frames
+                    if (!_previewModeActive || !IsPreviewEnabled)
+                    {
+                        await Task.Delay(200, token); // Short delay if preview is not enabled
+                        continue;
+                    }
+
                     try
                     {
                         // 1. Get the screen preview
@@ -389,12 +399,14 @@ namespace CSimple.Services
                 Debug.Print("[ScreenCaptureService] CaptureScreenForPreview called");
                 // Get the primary screen
                 var bounds = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
+                // Capture the screen to a bitmap
                 using (var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb))
                 {
                     using (var g = Graphics.FromImage(bitmap))
                     {
                         // Optimize: Use CopyFromScreen with handle
                         g.CopyFromScreen(bounds.Location, System.Drawing.Point.Empty, bounds.Size, CopyPixelOperation.SourceCopy);
+                        Debug.Print($"[ScreenCaptureService] CaptureScreenForPreview - Screen captured to bitmap");
 
                         // Calculate aspect ratio and determine target size
                         double aspectRatio = (double)bounds.Width / bounds.Height;
@@ -402,18 +414,20 @@ namespace CSimple.Services
                         int targetWidth = (int)(targetHeight * aspectRatio);
 
                         // Resize for preview while maintaining aspect ratio
-                        var resizedBitmap = new Bitmap(bitmap, new System.Drawing.Size(
-                            targetWidth, targetHeight));
+                        var resizedBitmap = new Bitmap(bitmap, new System.Drawing.Size(targetWidth, targetHeight));
+                        Debug.Print($"[ScreenCaptureService] CaptureScreenForPreview - Bitmap resized");
 
                         // Convert to a format that MAUI can display
                         using (var memoryStream = new MemoryStream())
                         {
                             // Use JPEG for smaller file size
                             resizedBitmap.Save(memoryStream, ImageFormat.Jpeg);
+                            Debug.Print($"[ScreenCaptureService] CaptureScreenForPreview - Resized bitmap saved to memory stream");
                             memoryStream.Position = 0;
 
                             // Create a copy to avoid memory issues
                             var data = memoryStream.ToArray();
+                            Debug.Print($"[ScreenCaptureService] CaptureScreenForPreview - Memory stream converted to byte array, size: {data.Length}");
 
                             return ImageSource.FromStream(() => new MemoryStream(data));
                         }
@@ -433,6 +447,7 @@ namespace CSimple.Services
             try
             {
                 Debug.Print("[ScreenCaptureService] ConvertMatToImageSource called");
+
                 // Calculate aspect ratio to maintain proportions
                 double aspectRatio = (double)frame.Width / frame.Height;
                 int targetHeight = 240;
@@ -442,29 +457,17 @@ namespace CSimple.Services
                 using var resizedFrame = new Mat();
                 Cv2.Resize(frame, resizedFrame, new OpenCvSharp.Size(targetWidth, targetHeight));
 
-                // Create a temporary file with a unique name
-                string tempFile = Path.Combine(Path.GetTempPath(), $"webcam_{Guid.NewGuid()}.jpg");
+                // Convert the resized frame to a byte array
+                byte[] imageBytes = resizedFrame.ToBytes(".jpg", new ImageEncodingParam(ImwriteFlags.JpegQuality, 95));
+                Debug.Print($"[ScreenCaptureService] ConvertMatToImageSource - Image converted to byte array, size: {imageBytes.Length}");
 
-                // Save the frame to a file with higher quality
-                // Use OpenCvSharp's correct parameter syntax
-                var imgParams = new int[] { (int)ImwriteFlags.JpegQuality, 95 };
-                Debug.Print($"[ScreenCaptureService] ConvertMatToImageSource - About to save webcam image to: {tempFile}"); // Added debug print
-                Cv2.ImWrite(tempFile, resizedFrame, imgParams);
+                // Create a MemoryStream from the byte array
+                MemoryStream memoryStream = new MemoryStream(imageBytes);
+                Debug.Print($"[ScreenCaptureService] ConvertMatToImageSource - MemoryStream created from byte array");
 
-                // Load the file as an ImageSource
-                var imageSource = ImageSource.FromFile(tempFile);
-
-                // Schedule the file for deletion
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        await Task.Delay(1000);
-                        if (File.Exists(tempFile))
-                            File.Delete(tempFile);
-                    }
-                    catch { /* Ignore cleanup errors */ }
-                });
+                // Create an ImageSource from the MemoryStream
+                ImageSource imageSource = ImageSource.FromStream(() => memoryStream);
+                Debug.Print($"[ScreenCaptureService] ConvertMatToImageSource - ImageSource created from MemoryStream");
 
                 return imageSource;
             }
