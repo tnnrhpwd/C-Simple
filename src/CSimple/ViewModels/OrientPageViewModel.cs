@@ -44,6 +44,9 @@ namespace CSimple.ViewModels
                         _selectedClassification = value.Classification;
                         OnPropertyChanged(nameof(SelectedClassification));
                     }
+
+                    // Trigger UpdateStepContent when the selected node changes
+                    UpdateStepContent();
                 }
             }
         }
