@@ -293,8 +293,19 @@ namespace CSimple.ViewModels
         {
             if (string.IsNullOrEmpty(AudioFilePath))
             {
-                Debug.WriteLine("[NodeViewModel.GetAudioSegment] Audio file path is not set.");
-                return null;
+                Debug.WriteLine("[NodeViewModel.GetAudioSegment] Audio file path is not set. Attempting to find closest audio file by timestamp.");
+                // Implement logic to find the audio file with the closest timestamp
+                string audioFilePath = FindClosestAudioFile(startTime);
+
+                if (string.IsNullOrEmpty(audioFilePath))
+                {
+                    Debug.WriteLine("[NodeViewModel.GetAudioSegment] No audio file found with a timestamp close to the action review timestamp.");
+                    return null;
+                }
+
+                // Simulate audio segment extraction from the found file
+                string segmentPath2 = SimulateAudioSegmentExtraction(audioFilePath, startTime, endTime);
+                return segmentPath2;
             }
 
             if (Type != NodeType.Input || DataType?.ToLower() != "audio")
@@ -309,17 +320,8 @@ namespace CSimple.ViewModels
                 return null;
             }
 
-            // Implement logic to find the audio file with the closest timestamp
-            string audioFilePath = FindClosestAudioFile(startTime);
-
-            if (string.IsNullOrEmpty(audioFilePath))
-            {
-                Debug.WriteLine("[NodeViewModel.GetAudioSegment] No audio file found with a timestamp close to the action review timestamp.");
-                return null;
-            }
-
             // Simulate audio segment extraction from the found file
-            string segmentPath = SimulateAudioSegmentExtraction(audioFilePath, startTime, endTime);
+            string segmentPath = SimulateAudioSegmentExtraction(AudioFilePath, startTime, endTime);
             return segmentPath;
         }
 
