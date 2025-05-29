@@ -118,13 +118,13 @@ namespace CSimple.Services
             Debug.Print($"Initialized image directories initialized: {_screenshotsDirectory}, {_webcamImagesDirectory}");
         }
 
-        public void CaptureScreens(string actionName, string userTouchInputText)
+        public void CaptureScreens(string actionName)
         {
 #if WINDOWS
             try
             {
                 Debug.Print("[ScreenCaptureService] CaptureScreens called");
-                if (string.IsNullOrEmpty(actionName) || string.IsNullOrEmpty(userTouchInputText))
+                if (string.IsNullOrEmpty(actionName))
                     return;
 
                 DateTime captureTime = DateTime.Now;
@@ -157,22 +157,22 @@ namespace CSimple.Services
 #endif
         }
 
-        public Task StartScreenCapture(CancellationToken cancellationToken, string actionName, string userTouchInputText)
+        public Task StartScreenCapture(CancellationToken cancellationToken, string actionName)
         {
             return Task.Run(() =>
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    CaptureScreens(actionName, userTouchInputText);
+                    CaptureScreens(actionName);
                     Thread.Sleep(CaptureIntervalMs); // Capture at the reduced interval
                 }
             }, cancellationToken);
         }
 
-        public Task StartWebcamCapture(CancellationToken cancellationToken, string actionName, string userTouchInputText)
+        public Task StartWebcamCapture(CancellationToken cancellationToken, string actionName)
         {
             Debug.WriteLine("[ScreenCaptureService] StartWebcamCapture called");
-            if (!string.IsNullOrEmpty(actionName) || !string.IsNullOrEmpty(userTouchInputText))
+            if (!string.IsNullOrEmpty(actionName))
             {
                 Debug.Print("[ScreenCaptureService] Starting webcam capture with action or user input");
             }
@@ -264,7 +264,7 @@ namespace CSimple.Services
                             continue;
                         }
 
-                        if (!string.IsNullOrEmpty(actionName) && !string.IsNullOrEmpty(userTouchInputText))
+                        if (!string.IsNullOrEmpty(actionName))
                         {
                             string filePath = Path.Combine(_webcamImagesDirectory, $"WebcamImage_{DateTime.Now:yyyyMMdd_HHmmss}.jpg");
                             try
@@ -278,6 +278,9 @@ namespace CSimple.Services
                             {
                                 Debug.Print($"Error saving webcam image: {ex.Message}");
                             }
+                        }else
+                        {
+                            Debug.Print($"No action or user input provided, skipping webcam image save. values - actionName: {actionName}");
                         }
                         Thread.Sleep(CaptureIntervalMs);
                     }

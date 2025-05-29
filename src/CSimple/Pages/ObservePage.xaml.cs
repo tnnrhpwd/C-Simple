@@ -468,7 +468,7 @@ namespace CSimple.Pages
         {
             _pcVisualCts = new CancellationTokenSource();
             Debug.WriteLine("[ObservePage] StartPCVisual - Calling _screenService.StartWebcamCapture");
-            Task.Run(() => _screenService.StartWebcamCapture(_pcVisualCts.Token, ActionConfigCard?.ActionName, UserTouchInputText), _pcVisualCts.Token);
+            Task.Run(() => _screenService.StartWebcamCapture(_pcVisualCts.Token, ActionConfigCard?.ActionName), _pcVisualCts.Token);
             Debug.WriteLine("[ObservePage] StartPCVisual - _screenService.StartWebcamCapture task started"); // Added debug print
         }
 
@@ -477,7 +477,7 @@ namespace CSimple.Pages
         private void StartUserVisual()
         {
             _userVisualCts = new CancellationTokenSource();
-            Task.Run(() => _screenService.StartScreenCapture(_userVisualCts.Token, ActionConfigCard?.ActionName, UserTouchInputText), _userVisualCts.Token);
+            Task.Run(() => _screenService.StartScreenCapture(_userVisualCts.Token, ActionConfigCard?.ActionName), _userVisualCts.Token);
             Debug.WriteLine("[ObservePage] StartUserVisual - _screenService.StartScreenCapture task started"); // Added debug print
         }
 
