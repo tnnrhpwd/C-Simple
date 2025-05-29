@@ -147,6 +147,16 @@ namespace CSimple.Services
 
                         Debug.Print($"[ScreenCaptureService] CaptureScreens - Screenshot saved to: {filePath}");
                         FileCaptured?.Invoke(filePath);
+
+                        // Convert the captured bitmap to ImageSource for preview
+                        using (MemoryStream memoryStream = new MemoryStream())
+                        {
+                            bitmap.Save(memoryStream, ImageFormat.Jpeg);
+                            memoryStream.Position = 0;
+                            byte[] data = memoryStream.ToArray();
+                            ImageSource screenImage = ImageSource.FromStream(() => new MemoryStream(data));
+                            ScreenPreviewFrameReady?.Invoke(screenImage);
+                        }
                     }
                 }
             }
@@ -273,12 +283,17 @@ namespace CSimple.Services
                                 Cv2.ImWrite(filePath, frame);
                                 Debug.Print($"[ScreenCaptureService] StartWebcamCapture - Webcam image saved to: {filePath}");
                                 FileCaptured?.Invoke(filePath);
+
+                                // Convert the captured frame to ImageSource for preview
+                                ImageSource webcamImage = ConvertMatToImageSource(frame);
+                                WebcamPreviewFrameReady?.Invoke(webcamImage);
                             }
                             catch (Exception ex)
                             {
                                 Debug.Print($"Error saving webcam image: {ex.Message}");
                             }
-                        }else
+                        }
+                        else
                         {
                             Debug.Print($"No action or user input provided, skipping webcam image save. values - actionName: {actionName}");
                         }
@@ -342,14 +357,6 @@ namespace CSimple.Services
 
                     try
                     {
-                        // 1. Get the screen preview
-                        var screenImage = CaptureScreenForPreview();
-                        if (screenImage != null)
-                        {
-                            // Make sure we're on a background thread when invoking the event
-                            ScreenPreviewFrameReady?.Invoke(screenImage);
-                        }
-
                         // 2. Get the webcam preview
                         if (webcamCapture.IsOpened())
                         {
@@ -394,57 +401,6 @@ namespace CSimple.Services
             }
         }
 
-        private ImageSource CaptureScreenForPreview()
-        {
-#if WINDOWS
-            try
-            {
-                Debug.Print("[ScreenCaptureService] CaptureScreenForPreview called");
-                // Get the primary screen
-                var bounds = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
-                // Capture the screen to a bitmap
-                using (var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb))
-                {
-                    using (var g = Graphics.FromImage(bitmap))
-                    {
-                        // Optimize: Use CopyFromScreen with handle
-                        g.CopyFromScreen(bounds.Location, System.Drawing.Point.Empty, bounds.Size, CopyPixelOperation.SourceCopy);
-                        Debug.Print($"[ScreenCaptureService] CaptureScreenForPreview - Screen captured to bitmap");
-
-                        // Calculate aspect ratio and determine target size
-                        double aspectRatio = (double)bounds.Width / bounds.Height;
-                        int targetHeight = 360;
-                        int targetWidth = (int)(targetHeight * aspectRatio);
-
-                        // Resize for preview while maintaining aspect ratio
-                        var resizedBitmap = new Bitmap(bitmap, new System.Drawing.Size(targetWidth, targetHeight));
-                        Debug.Print($"[ScreenCaptureService] CaptureScreenForPreview - Bitmap resized");
-
-                        // Convert to a format that MAUI can display
-                        using (var memoryStream = new MemoryStream())
-                        {
-                            // Use JPEG for smaller file size
-                            resizedBitmap.Save(memoryStream, ImageFormat.Jpeg);
-                            Debug.Print($"[ScreenCaptureService] CaptureScreenForPreview - Resized bitmap saved to memory stream");
-                            memoryStream.Position = 0;
-
-                            // Create a copy to avoid memory issues
-                            var data = memoryStream.ToArray();
-                            Debug.Print($"[ScreenCaptureService] CaptureScreenForPreview - Memory stream converted to byte array, size: {data.Length}");
-
-                            return ImageSource.FromStream(() => new MemoryStream(data));
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.Print($"Screen capture error: {ex.Message}");
-            }
-#endif
-            return null;
-        }
-
         private ImageSource ConvertMatToImageSource(Mat frame)
         {
             try
@@ -479,12 +435,6 @@ namespace CSimple.Services
                 Debug.Print($"Error converting webcam frame: {ex.Message}");
                 return null;
             }
-        }
-
-        // Add this new method to get a single screenshot
-        public ImageSource GetSingleScreenshot()
-        {
-            return CaptureScreenForPreview();
         }
 
         public void Initialize(IntPtr windowHandle)

@@ -1233,11 +1233,11 @@ namespace CSimple.Pages
             if (_screenService != null && CapturePreviewCard != null && CapturePreviewCard.IsScreenCaptureInactive)
             {
                 // Force an initial screen capture
-                var screenImage = _screenService.GetSingleScreenshot();
-                if (screenImage != null)
-                {
-                    CapturePreviewCard.UpdateScreenCapture(screenImage);
-                }
+                //var screenImage = _screenService.GetSingleScreenshot();
+                //if (screenImage != null)
+                //{
+                //    CapturePreviewCard.UpdateScreenCapture(screenImage);
+                //}
             }
         }
 
