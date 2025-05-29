@@ -946,25 +946,36 @@ namespace CSimple.ViewModels
 
                         foreach (var nodeVM in Nodes.Where(n => n.Type == NodeType.Input))
                         {
-                            // nodeVM.ActionSteps.Clear(); // Already cleared above
+                            nodeVM.ActionSteps.Clear(); // Already cleared above
                             Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Populating ActionSteps for Input Node: {nodeVM.Name} (Node DataType: {nodeVM.DataType})");
-                            foreach (var mediaFile in actionGroupFiles)
+                            foreach (var actionItem in _currentActionItems)
                             {
-                                if (mediaFile == null || string.IsNullOrEmpty(mediaFile.Filename)) continue;
-
-                                string fileContentType = GetFileTypeFromName(mediaFile.Filename);
-                                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Processing mediaFile: '{mediaFile.Filename}' (Inferred FileType: {fileContentType}) for Node '{nodeVM.Name}' (Node DataType: {nodeVM.DataType})");
-
-                                if (string.Equals(fileContentType, nodeVM.DataType, StringComparison.OrdinalIgnoreCase))
+                                // Check if the action item matches the node's data type
+                                string actionDescription = actionItem.ToString();
+                                // Check if the node is "Keyboard Text (Input)" and the action is a keyboard event
+                                if (nodeVM.Name == "Keyboard Text (Input)" && (actionItem.EventType == 256 || actionItem.EventType == 257))
                                 {
-                                    // Assuming mediaFile.Data contains the path or direct content
-                                    string contentValue = mediaFile.Data ?? mediaFile.Filename; // Fallback to filename if Data is null
-                                    nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: contentValue));
-                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]     Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{contentValue}'");
+                                    // Add the action item to the node's ActionSteps
+                                    nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
+                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}'");
+                                }
+                                // Check if the node is "Mouse Text (Input)" and the action is a mouse event
+                                else if (nodeVM.Name == "Mouse Text (Input)" && (actionItem.EventType == 512 || actionItem.EventType == 0x0200))
+                                {
+                                    // Add the action item to the node's ActionSteps
+                                    nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
+                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}'");
+                                }
+                                // Check if the action item matches the node's data type
+                                else if (actionDescription.ToLower().Contains(nodeVM.DataType.ToLower()))
+                                {
+                                    // Add the action item to the node's ActionSteps
+                                    nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
+                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}'");
                                 }
                                 else
                                 {
-                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]     Skipped mediaFile '{mediaFile.Filename}' for node '{nodeVM.Name}' - DataType mismatch (File: {fileContentType}, Node: {nodeVM.DataType}).");
+                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]     Skipped action item for node '{nodeVM.Name}' - DataType mismatch (Action: {actionDescription}, Node: {nodeVM.DataType}).");
                                 }
                             }
                             Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Finished populating ActionSteps for '{nodeVM.Name}'. Count: {nodeVM.ActionSteps.Count}");
@@ -1118,6 +1129,8 @@ namespace CSimple.ViewModels
                 Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] No action selected for review. Clearing content.");
                 StepContentType = null;
                 StepContent = null;
+                OnPropertyChanged(nameof(StepContentType));
+                OnPropertyChanged(nameof(StepContent));
                 return;
             }
 
@@ -1126,6 +1139,8 @@ namespace CSimple.ViewModels
                 Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] No node selected. Clearing content.");
                 StepContentType = null;
                 StepContent = null;
+                OnPropertyChanged(nameof(StepContentType));
+                OnPropertyChanged(nameof(StepContent));
                 return;
             }
 
@@ -1191,6 +1206,8 @@ namespace CSimple.ViewModels
 
             StepContentType = contentType;
             StepContent = contentValue; // File/Content Value for UI
+            OnPropertyChanged(nameof(StepContentType));
+            OnPropertyChanged(nameof(StepContent));
             Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] ViewModel's StepContentType set to: '{StepContentType}', ViewModel's StepContent (File/Content Value for UI) set to: '{StepContent}'");
         }
 
