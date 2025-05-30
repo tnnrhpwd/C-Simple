@@ -246,9 +246,6 @@
                                 Command="{Binding PlayAudioCommand}" />
                         <Button Text="Stop"
                                 Command="{Binding StopAudioCommand}" />
-                        <Label Text="No audio content available"
-                               IsVisible="{Binding StepContent, Converter={StaticResource IsNotNullConverter}, ConverterParameter=True, Converter={StaticResource InverseBoolConverter}}"
-                               VerticalOptions="Center" />
                     </StackLayout>
                 </StackLayout>
             </VerticalStackLayout>
