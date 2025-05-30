@@ -931,7 +931,6 @@ namespace CSimple.ViewModels
                     Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Cleared ActionSteps for Input Node: {nodeVM.Name}");
                 }
 
-
                 var actionService = ServiceProvider.GetService<ActionService>();
                 if (actionService != null && !string.IsNullOrEmpty(SelectedReviewActionName))
                 {
@@ -953,30 +952,52 @@ namespace CSimple.ViewModels
                             Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Populating ActionSteps for Input Node: {nodeVM.Name} (Node DataType: {nodeVM.DataType})");
                             foreach (var actionItem in _currentActionItems)
                             {
-                                // Check if the action item matches the node's data type
                                 string actionDescription = actionItem.ToString();
+                                bool added = false;
+
                                 // Check if the node is "Keyboard Text (Input)" and the action is a keyboard event
                                 if (nodeVM.Name == "Keyboard Text (Input)" && (actionItem.EventType == 256 || actionItem.EventType == 257))
                                 {
-                                    // Add the action item to the node's ActionSteps
                                     nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}'");
+                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}' (Keyboard Event)");
+                                    added = true;
                                 }
                                 // Check if the node is "Mouse Text (Input)" and the action is a mouse event
                                 else if (nodeVM.Name == "Mouse Text (Input)" && (actionItem.EventType == 512 || actionItem.EventType == 0x0200))
                                 {
-                                    // Add the action item to the node's ActionSteps
                                     nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}'");
+                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}' (Mouse Event)");
+                                    added = true;
                                 }
-                                // Check if the action item matches the node's data type
-                                else if (actionDescription.ToLower().Contains(nodeVM.DataType.ToLower()))
+                                // For image nodes, try to find the corresponding image file
+                                else if (nodeVM.DataType == "image")
                                 {
-                                    // Add the action item to the node's ActionSteps
-                                    nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}'");
+                                    // Find the corresponding ActionFile
+                                    var imageFile = actionGroupFiles.FirstOrDefault(f => actionDescription.ToLower().Contains(f.Filename.ToLower()));
+
+                                    if (imageFile != null)
+                                    {
+                                        // Store the image data or path in the Value field
+                                        nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: imageFile.Data));
+                                        Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='[Image Data]' (Image File)");
+                                        added = true;
+                                    }
+                                    else
+                                    {
+                                        Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   No image file found for action item: {actionDescription}");
+                                        // Fallback: store the description
+                                        nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
+                                        added = true;
+                                    }
                                 }
                                 else
+                                {
+                                    nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
+                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}' (DataType Match)");
+                                    added = true;
+                                }
+
+                                if (!added)
                                 {
                                     Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]     Skipped action item for node '{nodeVM.Name}' - DataType mismatch (Action: {actionDescription}, Node: {nodeVM.DataType}).");
                                 }

@@ -268,7 +268,6 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"[NodeViewModel.GetStepContent] Warning: Step data type '{stepData.Type}' from ActionSteps[{step - 1}] does not match node's DataType '{this.DataType}'. Returning content as is.");
             }
 
-
             // Return based on the Type field within the ActionStep tuple
             // This assumes ActionSteps[i].Type correctly identifies "Text", "Image", "Audio"
             // And ActionSteps[i].Value is the corresponding content.
