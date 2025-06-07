@@ -1177,6 +1177,25 @@ namespace CSimple.ViewModels
             var (contentType, contentValue) = SelectedNode.GetStepContent(stepForNodeContent);
             Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Content retrieved from NodeViewModel: Type='{contentType}', Supposed File/Content Value='{contentValue}'");
 
+            // Log the image file name if the content type is image
+            if (contentType == "image")
+            {
+                // Retrieve the ActionItem for the current step
+                if (CurrentActionStep >= 0 && CurrentActionStep < _currentActionItems.Count)
+                {
+                    var currentActionItem = _currentActionItems[CurrentActionStep];
+                    string imageFileName = SelectedNode.FindClosestImageFile(contentValue, contentType);
+                    if (!string.IsNullOrEmpty(imageFileName))
+                    {
+                        Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] The most recent image file for this step is: {imageFileName}");
+                    }
+                    else
+                    {
+                        Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] No image file found for this step.");
+                    }
+                }
+            }
+
             // --- Audio Segment Retrieval Logic ---
             if (SelectedNode.DataType?.ToLower() == "audio" && !string.IsNullOrEmpty(SelectedReviewActionName))
             {

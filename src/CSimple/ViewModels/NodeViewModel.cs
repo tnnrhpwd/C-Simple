@@ -278,9 +278,132 @@ namespace CSimple.ViewModels
             // For example, an "Image" node should only have "Image" type steps.
             // The current logic returns the stepData as is.
 
+            string imageFileName = null;
+            if (DataType?.ToLower() == "image")
+            {
+                // Attempt to find the corresponding image file name based on timestamp
+                imageFileName = FindClosestImageFile(stepData.Value, stepData.Type);
+                if (!string.IsNullOrEmpty(imageFileName))
+                {
+                    Debug.WriteLine($"[NodeViewModel.GetStepContent] Found corresponding image file: {imageFileName}");
+                }
+                else
+                {
+                    Debug.WriteLine("[NodeViewModel.GetStepContent] No corresponding image file found.");
+                }
+            }
+
             Debug.WriteLine($"[NodeViewModel.GetStepContent] Returning for UI: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value}'");
             return (stepData.Type, stepData.Value);
         }
+
+        public string FindClosestImageFile(string actionDescription, string actionType)
+        {
+            if (string.IsNullOrEmpty(actionDescription))
+            {
+                Debug.WriteLine("[NodeViewModel.FindClosestImageFile] Action description is null or empty.");
+                return null;
+            }
+
+            string directoryPath = "";
+            string filePattern = "";
+
+            if (actionType == "image")
+            {
+                directoryPath = @"C:\Users\tanne\Documents\CSimple\Resources\WebcamImages\";
+                filePattern = "WebcamImage_*.jpg";
+            }
+            else
+            {
+                directoryPath = @"C:\Users\tanne\Documents\CSimple\Resources\Screenshots\";
+                filePattern = "ScreenCapture_*.png";
+            }
+
+            if (!Directory.Exists(directoryPath))
+            {
+                Debug.WriteLine($"[NodeViewModel.FindClosestImageFile] Directory does not exist: {directoryPath}");
+                return null;
+            }
+
+            string closestFile = null;
+            DateTime closestFileTime = DateTime.MinValue;
+
+            try
+            {
+                string[] files = Directory.GetFiles(directoryPath, filePattern);
+
+                foreach (string filePath in files)
+                {
+                    string fileName = Path.GetFileNameWithoutExtension(filePath);
+                    int lastIndexOfUnderscore = fileName.LastIndexOf('_');
+
+                    // Ensure fileName is long enough and contains at least one underscore
+                    if (lastIndexOfUnderscore > 0 && fileName.Length > lastIndexOfUnderscore + 1)
+                    {
+                        string timestampPart = fileName.Substring(lastIndexOfUnderscore + 1); // Extract timestamp part
+
+                        // Remove the DISPLAY suffix if present
+                        int displayIndex = timestampPart.IndexOf("DISPLAY");
+                        if (displayIndex > 0)
+                        {
+                            timestampPart = timestampPart.Substring(0, displayIndex);
+                        }
+
+                        // Try parsing with different timestamp lengths
+                        DateTime fileTime = DateTime.MinValue;
+                        bool parsed = false;
+
+                        if (timestampPart.Length >= 15)
+                        {
+                            parsed = DateTime.TryParseExact(timestampPart.Substring(0, 15), "yyyyMMdd_HHmmss_", null, System.Globalization.DateTimeStyles.None, out fileTime);
+                        }
+                        if (!parsed && timestampPart.Length >= 14)
+                        {
+                            parsed = DateTime.TryParseExact(timestampPart.Substring(0, 14), "yyyyMMdd_HHmmss", null, System.Globalization.DateTimeStyles.None, out fileTime);
+                        }
+                        if (!parsed && timestampPart.Length >= 6)
+                        {
+                            parsed = DateTime.TryParseExact(timestampPart, "HHmmss", null, System.Globalization.DateTimeStyles.None, out fileTime);
+                        }
+
+                        if (parsed)
+                        {
+                            // Check if the file time is more recent than the current closest file
+                            if (fileTime > closestFileTime)
+                            {
+                                closestFileTime = fileTime;
+                                closestFile = filePath;
+                            }
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"[NodeViewModel.FindClosestImageFile] Could not parse timestamp: {timestampPart}");
+                        }
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[NodeViewModel.FindClosestImageFile] Filename is too short or does not contain underscore: {fileName}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[NodeViewModel.FindClosestImageFile] Error finding closest image file: {ex.Message}");
+                return null;
+            }
+
+            if (closestFile != null)
+            {
+                Debug.WriteLine($"[NodeViewModel.FindClosestImageFile] Found closest image file: {closestFile}");
+            }
+            else
+            {
+                Debug.WriteLine("[NodeViewModel.FindClosestImageFile] No suitable image file found.");
+            }
+
+            return closestFile;
+        }
+
 
         public List<(string Type, string Value)> ActionSteps { get; set; } = new();
 
