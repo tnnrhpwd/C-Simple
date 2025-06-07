@@ -1188,6 +1188,7 @@ namespace CSimple.ViewModels
                     if (!string.IsNullOrEmpty(imageFileName))
                     {
                         Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] The most recent image file for this step is: {imageFileName}");
+                        contentValue = imageFileName; // Set contentValue to the image file path
                     }
                     else
                     {
