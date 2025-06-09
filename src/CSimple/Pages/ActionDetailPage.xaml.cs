@@ -52,7 +52,7 @@ namespace CSimple.Pages
         public string Duration { get; set; }
         public string KeyName { get; set; }
         public int KeyCode { get; set; }
-        public DateTime Timestamp { get; set; }
+        public string Timestamp { get; set; }
         public bool IsMouseMove { get; set; }
         public bool IsMouseButton { get; set; }
         public string MouseButtonAction { get; set; } // "Down" or "Up"
@@ -119,6 +119,24 @@ namespace CSimple.Pages
         public int PressCount { get; set; }
         public int MoveCount { get; set; }
 
+        // Add this property to hold the combined text of action steps
+        private string _actionStepsText;
+        public string ActionStepsText
+        {
+            get => _actionStepsText;
+            set
+            {
+                if (_actionStepsText != value)
+                {
+                    _actionStepsText = value;
+                    OnPropertyChanged(nameof(ActionStepsText));
+                }
+            }
+        }
+
+        // Add a command to handle saving changes
+        public ICommand SaveChangesCommand { get; }
+
         public ActionDetailViewModel(ActionGroup actionGroup, INavigation navigation)
         {
             try
@@ -167,6 +185,7 @@ namespace CSimple.Pages
                 ExecuteCommand = new Command(ExecuteAction);
                 AssignToModelCommand = new Command(AssignToModel);
                 PlayAudioCommand = new Command<string>(PlayAudio);
+                SaveChangesCommand = new Command(SaveChanges); // Initialize the SaveChangesCommand
 
                 Debug.WriteLine("ActionDetailViewModel initialized successfully");
             }
@@ -200,6 +219,7 @@ namespace CSimple.Pages
 
                     // Create temporary list for processing
                     var processedSteps = new List<StepViewModel>();
+                    var actionStepsTextBuilder = new System.Text.StringBuilder(); // StringBuilder to build the combined text
 
                     for (int i = 0; i < _actionGroup.ActionArray.Count; i++)
                     {
@@ -210,7 +230,7 @@ namespace CSimple.Pages
                         bool isMouseButton = false;
                         string mouseButtonType = "";
                         string mouseButtonAction = "";
-                        DateTime timestamp = DateTime.MinValue;
+                        string timestamp = "";
 
                         // Extract key name and code if it's a key press/release event
                         if (step.EventType == 256 || step.EventType == 257)
@@ -240,11 +260,19 @@ namespace CSimple.Pages
                         }
 
                         // Get timestamp
-                        if (step.Timestamp != null && DateTime.TryParse(step.Timestamp.ToString(), out timestamp))
+                        if (step.Timestamp != null)
                         {
-                            // Update start and end times
-                            startTime = timestamp < startTime ? timestamp : startTime;
-                            endTime = timestamp > endTime ? timestamp : endTime;
+                            timestamp = step.Timestamp.ToString();
+                            if (DateTime.TryParse(timestamp, out DateTime parsedTimestamp))
+                            {
+                                // Update start and end times
+                                startTime = parsedTimestamp < startTime ? parsedTimestamp : startTime;
+                                endTime = parsedTimestamp > endTime ? parsedTimestamp : endTime;
+                            }
+                        }
+                        else
+                        {
+                            timestamp = "N/A";
                         }
 
                         StepViewModel stepViewModel = new StepViewModel
@@ -254,7 +282,7 @@ namespace CSimple.Pages
                             Duration = $"{(new Random().NextDouble() * 0.3).ToString("0.00")}s",
                             KeyName = keyName,
                             KeyCode = keyCode,
-                            Timestamp = timestamp,
+                            Timestamp = step.Timestamp?.ToString(),
                             IsMouseMove = step.EventType == 512 || step.EventType == 0x0200,
                             IsMouseButton = isMouseButton,
                             MouseButtonType = mouseButtonType,
@@ -263,6 +291,8 @@ namespace CSimple.Pages
                         };
 
                         processedSteps.Add(stepViewModel);
+                        // Append all relevant step details to the text builder
+                        actionStepsTextBuilder.AppendLine($"Step {i + 1}: {description} | Key: {keyName} | Code: {keyCode} | MouseButton: {mouseButtonType} {mouseButtonAction} | Timestamp: {timestamp}");
                     }
 
                     // Group similar consecutive actions
@@ -276,6 +306,8 @@ namespace CSimple.Pages
                         Duration = $"{duration.TotalSeconds:0.00} seconds";
                         OnPropertyChanged(nameof(Duration));
                     }
+
+                    ActionStepsText = actionStepsTextBuilder.ToString(); // Set the combined text
                 }
 
                 // Add demo steps if we don't have any
@@ -419,10 +451,10 @@ namespace CSimple.Pages
                                 {
                                     groupedMoves.Add(steps[currentIndex + j].RawData);
 
-                                    if (steps[currentIndex + j].Timestamp < firstTimestamp)
-                                        firstTimestamp = steps[currentIndex + j].Timestamp;
-                                    if (steps[currentIndex + j].Timestamp > lastTimestamp)
-                                        lastTimestamp = steps[currentIndex + j].Timestamp;
+                                    if (DateTime.TryParse(steps[currentIndex + j].Timestamp, out DateTime timestamp) && timestamp < firstTimestamp)
+                                        firstTimestamp = timestamp;
+                                    if (DateTime.TryParse(steps[currentIndex + j].Timestamp, out timestamp) && timestamp > lastTimestamp)
+                                        lastTimestamp = timestamp;
                                 }
                             }
 
@@ -449,7 +481,7 @@ namespace CSimple.Pages
                                     GroupDuration = lastTimestamp - firstTimestamp,
                                     IsMouseMove = true,
                                     GroupedItems = groupedMoves,
-                                    Timestamp = firstTimestamp,
+                                    Timestamp = firstTimestamp.ToString(),
                                     RawData = new ActionItem
                                     {
                                         EventType = 512, // Mouse move
@@ -500,9 +532,11 @@ namespace CSimple.Pages
                             if (mouseClickCount > 3)
                             {
                                 var groupedItems = new List<ActionItem>();
-                                DateTime firstTimestamp = steps[currentIndex + 1].Timestamp;
-                                DateTime lastTimestamp = steps[currentIndex + mouseClickCount - 2 >= currentIndex + 1
-                                    ? mouseClickCount - 2 : 1].Timestamp;
+                                DateTime firstTimestamp;
+                                DateTime.TryParse(steps[currentIndex + 1].Timestamp, out firstTimestamp);
+                                DateTime lastTimestamp;
+                                DateTime.TryParse(steps[currentIndex + mouseClickCount - 2 >= currentIndex + 1
+                                    ? mouseClickCount - 2 : 1].Timestamp, out lastTimestamp);
 
                                 for (int j = 1; j < mouseClickCount - 1 && currentIndex + j < steps.Count; j++)
                                 {
@@ -524,7 +558,7 @@ namespace CSimple.Pages
                                         Duration = (lastTimestamp - firstTimestamp).TotalSeconds.ToString("0.00") + "s",
                                         GroupDuration = lastTimestamp - firstTimestamp,
                                         GroupedItems = groupedItems,
-                                        Timestamp = firstTimestamp
+                                        Timestamp = firstTimestamp.ToString()
                                     });
                                     displayIndex++;
                                 }
@@ -561,9 +595,9 @@ namespace CSimple.Pages
                             if (sameKeyCount > 3)
                             {
                                 var groupedItems = new List<ActionItem>();
-                                DateTime firstTimestamp = steps[currentIndex + 1].Timestamp;
-                                DateTime lastTimestamp = steps[currentIndex + sameKeyCount - 2 >= currentIndex + 1
-                                    ? sameKeyCount - 2 : 1].Timestamp;
+                                DateTime.TryParse(steps[currentIndex + 1].Timestamp, out DateTime firstTimestamp);
+                                DateTime.TryParse(steps[currentIndex + sameKeyCount - 2 >= currentIndex + 1
+                                    ? sameKeyCount - 2 : 1].Timestamp, out DateTime lastTimestamp);
 
                                 for (int j = 1; j < sameKeyCount - 1 && currentIndex + j < steps.Count; j++)
                                 {
@@ -585,7 +619,7 @@ namespace CSimple.Pages
                                         Duration = (lastTimestamp - firstTimestamp).TotalSeconds.ToString("0.00") + "s",
                                         GroupDuration = lastTimestamp - firstTimestamp,
                                         GroupedItems = groupedItems,
-                                        Timestamp = firstTimestamp
+                                        Timestamp = firstTimestamp.ToString()
                                     });
                                     displayIndex++;
                                 }
@@ -633,7 +667,7 @@ namespace CSimple.Pages
                 Index = "1",
                 Description = "Mouse Move to X:500, Y:300",
                 Duration = "0.12s",
-                Timestamp = DateTime.Now,
+                Timestamp = DateTime.Now.ToString(),
                 IsMouseMove = true
             });
 
@@ -648,7 +682,7 @@ namespace CSimple.Pages
                 Duration = "0.85s",
                 GroupDuration = TimeSpan.FromSeconds(0.85),
                 IsMouseMove = true,
-                Timestamp = DateTime.Now.AddSeconds(0.2)
+                Timestamp = DateTime.Now.AddSeconds(0.2).ToString()
             });
 
             ActionSteps.Add(new StepViewModel
@@ -656,7 +690,7 @@ namespace CSimple.Pages
                 Index = "3",
                 Description = "Left Click",
                 Duration = "0.05s",
-                Timestamp = DateTime.Now.AddSeconds(1.05),
+                Timestamp = DateTime.Now.AddSeconds(1.05).ToString(),
                 IsMouseButton = true,
                 MouseButtonType = "Left",
                 MouseButtonAction = "Down"
@@ -667,7 +701,7 @@ namespace CSimple.Pages
                 Index = "4",
                 Description = "Left Click",
                 Duration = "0.05s",
-                Timestamp = DateTime.Now.AddSeconds(1.1),
+                Timestamp = DateTime.Now.AddSeconds(1.1).ToString(),
                 IsMouseButton = true,
                 MouseButtonType = "Left",
                 MouseButtonAction = "Up"
@@ -684,7 +718,7 @@ namespace CSimple.Pages
                 KeyName = "A",
                 KeyCode = 65,
                 Duration = "0.6s",
-                Timestamp = DateTime.Now.AddSeconds(1.2)
+                Timestamp = DateTime.Now.AddSeconds(1.2).ToString()
             });
         }
 
@@ -1160,6 +1194,158 @@ namespace CSimple.Pages
             OnPropertyChanged(nameof(MoveCount));
         }
 
+        // Add this method to handle saving changes to the action steps
+        private void SaveChanges()
+        {
+            try
+            {
+                // Parse the ActionStepsText into individual ActionItems
+                List<ActionItem> parsedActionItems = ParseActionStepsText(ActionStepsText);
+
+                // Update the existing ActionArray with the parsed ActionItems
+                UpdateActionArray(parsedActionItems);
+
+                // Re-initialize the steps to reflect the changes
+                InitializeSteps();
+
+                // Notify the user that the changes have been saved
+                Application.Current.MainPage.DisplayAlert("Success", "Action steps have been saved.", "OK");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving changes: {ex.Message}");
+                Application.Current.MainPage.DisplayAlert("Error", "Failed to save action steps.", "OK");
+            }
+        }
+
+        private List<ActionItem> ParseActionStepsText(string actionStepsText)
+        {
+            List<ActionItem> parsedActionItems = new List<ActionItem>();
+            var lines = actionStepsText.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var line in lines)
+            {
+                // Parse the line to extract step details
+                var parts = line.Split('|');
+                if (parts.Length < 5) continue; // Skip lines that don't have enough parts
+
+                var descriptionPart = parts[0].Trim();
+                var keyNamePart = parts[1].Trim();
+                var keyCodePart = parts[2].Trim();
+                var mouseButtonPart = parts[3].Trim();
+                var timestampPart = parts[4].Trim();
+
+                // Extract relevant information from the parsed parts
+                string keyName = keyNamePart.Contains("Key:") ? keyNamePart.Split(':')[1].Trim() : string.Empty;
+                int keyCode = keyCodePart.Contains("Code:") && int.TryParse(keyCodePart.Split(':')[1].Trim(), out int code) ? code : 0;
+                string mouseButtonType = mouseButtonPart.Contains("MouseButton:") ? mouseButtonPart.Split(':')[1].Trim() : string.Empty;
+                string timestampString = timestampPart.Contains("Timestamp:") ? timestampPart.Split(':')[1].Trim() : string.Empty;
+
+                // Determine the event type based on available information
+                int eventType = 0;
+                Coordinates coordinates = null;
+
+                if (!string.IsNullOrEmpty(keyName))
+                {
+                    // Key event
+                    eventType = 256; // Or 257, depending on whether it's key down or up
+                }
+                else if (!string.IsNullOrEmpty(mouseButtonType))
+                {
+                    // Mouse button event
+                    eventType = 0x0201; // Or other mouse button event types
+                }
+                else if (descriptionPart.StartsWith("Mouse Move to X:"))
+                {
+                    // Mouse move event
+                    eventType = 512;
+                    // Extract coordinates from description
+                    try
+                    {
+                        int xStart = descriptionPart.IndexOf("X:") + 2;
+                        int yStart = descriptionPart.IndexOf("Y:") + 2;
+
+                        // Find the index of the comma separating X and Y values
+                        int commaIndex = descriptionPart.IndexOf(',', xStart);
+
+                        // Extract X value
+                        string xValueString = descriptionPart.Substring(xStart, commaIndex - xStart).Trim();
+
+                        // Extract Y value
+                        string yValueString = descriptionPart.Substring(yStart).Trim();
+
+                        if (int.TryParse(xValueString, out int x) && int.TryParse(yValueString, out int y))
+                        {
+                            coordinates = new Coordinates { X = x, Y = y };
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error parsing mouse coordinates: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    // Unknown event type
+                    eventType = 0;
+                }
+
+                // Create a new ActionItem based on the parsed data
+                var actionItem = new ActionItem
+                {
+                    EventType = eventType,
+                    KeyCode = keyCode,
+                    Timestamp = timestampString,
+                    Coordinates = coordinates,
+                    // Set other properties based on parsed information, e.g., mouse button, coordinates, etc.
+                };
+
+                parsedActionItems.Add(actionItem);
+            }
+
+            return parsedActionItems;
+        }
+
+        private void UpdateActionArray(List<ActionItem> parsedActionItems)
+        {
+            // Create a dictionary to store existing ActionItems by their Timestamp
+            Dictionary<string, ActionItem> existingActionItems = _actionGroup.ActionArray.ToDictionary(item => item.Timestamp?.ToString(), item => item);
+
+            // Iterate through the parsed ActionItems and update the existing ActionArray
+            foreach (var parsedActionItem in parsedActionItems)
+            {
+                string parsedTimestamp = parsedActionItem.Timestamp?.ToString();
+                if (existingActionItems.ContainsKey(parsedTimestamp))
+                {
+                    // Update the existing ActionItem with the new values
+                    var existingActionItem = existingActionItems[parsedTimestamp];
+                    existingActionItem.KeyCode = parsedActionItem.KeyCode;
+                    existingActionItem.Timestamp = parsedActionItem.Timestamp;
+                    // Update other properties as needed
+                }
+                else
+                {
+                    // Add the new ActionItem to the ActionArray
+                    _actionGroup.ActionArray.Add(parsedActionItem);
+                }
+            }
+
+            // Delete remaining ActionItems without matching timestamps
+            List<ActionItem> itemsToDelete = new List<ActionItem>();
+            foreach (var existingActionItem in _actionGroup.ActionArray)
+            {
+                string existingTimestamp = existingActionItem.Timestamp?.ToString();
+                if (!parsedActionItems.Any(item => item.Timestamp?.ToString() == existingTimestamp))
+                {
+                    itemsToDelete.Add(existingActionItem);
+                }
+            }
+
+            foreach (var itemToDelete in itemsToDelete)
+            {
+                _actionGroup.ActionArray.Remove(itemToDelete);
+            }
+        }
         // INotifyPropertyChanged implementation
         public event PropertyChangedEventHandler PropertyChanged;
 
