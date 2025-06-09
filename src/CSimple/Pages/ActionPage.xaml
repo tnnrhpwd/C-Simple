@@ -108,7 +108,24 @@
                     <DataTemplate>
                         <Frame Margin="0,6"
                                Padding="12"
-                               BorderColor="LightGray">
+                               BorderColor="LightGray"
+                               BackgroundColor="{AppThemeBinding Light=White, Dark=#1e1e1e}">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup Name="CommonStates">
+                                    <VisualState Name="Normal">
+                                        <VisualState.Setters>
+                                            <Setter Property="BackgroundColor"
+                                                    Value="{AppThemeBinding Light=White, Dark=#1e1e1e}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Property="BackgroundColor"
+                                                    Value="{AppThemeBinding Light=#EEEEEE, Dark=#282828}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
                             <Grid ColumnDefinitions="Auto,*,Auto">
                                 <!-- Checkbox for multi-select -->
                                 <CheckBox Grid.Column="0"
