@@ -1239,7 +1239,10 @@ namespace CSimple.Pages
                 string keyName = keyNamePart.Contains("Key:") ? keyNamePart.Split(':')[1].Trim() : string.Empty;
                 int keyCode = keyCodePart.Contains("Code:") && int.TryParse(keyCodePart.Split(':')[1].Trim(), out int code) ? code : 0;
                 string mouseButtonType = mouseButtonPart.Contains("MouseButton:") ? mouseButtonPart.Split(':')[1].Trim() : string.Empty;
-                string timestampString = timestampPart.Contains("Timestamp:") ? timestampPart.Split(':')[1].Trim() : string.Empty;
+
+                // Extract full timestamp - find everything after "Timestamp: "
+                string timestampString = timestampPart.Contains("Timestamp:") ?
+                    timestampPart.Substring(timestampPart.IndexOf("Timestamp:") + "Timestamp:".Length).Trim() : string.Empty;
 
                 // Determine the event type based on available information
                 int eventType = 0;
