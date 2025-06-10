@@ -1311,43 +1311,46 @@ namespace CSimple.Pages
 
         private void UpdateActionArray(List<ActionItem> parsedActionItems)
         {
-            // Create a dictionary to store existing ActionItems by their Timestamp
-            Dictionary<string, ActionItem> existingActionItems = _actionGroup.ActionArray.ToDictionary(item => item.Timestamp?.ToString(), item => item);
+            // Create a dictionary to store parsed ActionItems by their Timestamp
+            Dictionary<string, ActionItem> parsedActionItemsDict = parsedActionItems.ToDictionary(item => item.Timestamp?.ToString(), item => item);
 
-            // Iterate through the parsed ActionItems and update the existing ActionArray
-            foreach (var parsedActionItem in parsedActionItems)
-            {
-                string parsedTimestamp = parsedActionItem.Timestamp?.ToString();
-                if (existingActionItems.ContainsKey(parsedTimestamp))
-                {
-                    // Update the existing ActionItem with the new values
-                    var existingActionItem = existingActionItems[parsedTimestamp];
-                    existingActionItem.KeyCode = parsedActionItem.KeyCode;
-                    existingActionItem.Timestamp = parsedActionItem.Timestamp;
-                    // Update other properties as needed
-                }
-                else
-                {
-                    // Add the new ActionItem to the ActionArray
-                    _actionGroup.ActionArray.Add(parsedActionItem);
-                }
-            }
+            // Create a new list to hold the updated ActionArray
+            List<ActionItem> updatedActionArray = new List<ActionItem>();
 
-            // Delete remaining ActionItems without matching timestamps
-            List<ActionItem> itemsToDelete = new List<ActionItem>();
+            // Iterate through the existing ActionItems
             foreach (var existingActionItem in _actionGroup.ActionArray)
             {
                 string existingTimestamp = existingActionItem.Timestamp?.ToString();
-                if (!parsedActionItems.Any(item => item.Timestamp?.ToString() == existingTimestamp))
+
+                if (parsedActionItemsDict.ContainsKey(existingTimestamp))
                 {
-                    itemsToDelete.Add(existingActionItem);
+                    // Update the existing ActionItem with the new values from parsedActionItems
+                    var parsedActionItem = parsedActionItemsDict[existingTimestamp];
+                    existingActionItem.EventType = parsedActionItem.EventType;
+                    existingActionItem.KeyCode = parsedActionItem.KeyCode;
+                    existingActionItem.Coordinates = parsedActionItem.Coordinates;
+                    // Update other properties as needed
+
+                    updatedActionArray.Add(existingActionItem);
+
+                    // Remove the processed item from the dictionary
+                    parsedActionItemsDict.Remove(existingTimestamp);
+                }
+                else
+                {
+                    // Keep the existing ActionItem if it's not in parsedActionItems
+                    updatedActionArray.Add(existingActionItem);
                 }
             }
 
-            foreach (var itemToDelete in itemsToDelete)
+            // Add the remaining ActionItems from parsedActionItems that were not in the original ActionArray
+            foreach (var parsedActionItem in parsedActionItemsDict.Values)
             {
-                _actionGroup.ActionArray.Remove(itemToDelete);
+                updatedActionArray.Add(parsedActionItem);
             }
+
+            // Replace the original ActionArray with the updated ActionArray
+            _actionGroup.ActionArray = updatedActionArray;
         }
         // INotifyPropertyChanged implementation
         public event PropertyChangedEventHandler PropertyChanged;
