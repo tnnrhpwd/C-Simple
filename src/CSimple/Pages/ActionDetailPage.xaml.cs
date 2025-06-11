@@ -1235,28 +1235,127 @@ namespace CSimple.Pages
                 var mouseButtonPart = parts[3].Trim();
                 var timestampPart = parts[4].Trim();
 
-                // Extract relevant information from the parsed parts
-                string keyName = keyNamePart.Contains("Key:") ? keyNamePart.Split(':')[1].Trim() : string.Empty;
-                int keyCode = keyCodePart.Contains("Code:") && int.TryParse(keyCodePart.Split(':')[1].Trim(), out int code) ? code : 0;
-                string mouseButtonType = mouseButtonPart.Contains("MouseButton:") ? mouseButtonPart.Split(':')[1].Trim() : string.Empty;
+                Debug.WriteLine($"Parsing line: {line}");
+                Debug.WriteLine($"Parsed parts: Description='{descriptionPart}', KeyName='{keyNamePart}', " +
+                                $"KeyCode='{keyCodePart}', MouseButton='{mouseButtonPart}', Timestamp='{timestampPart}'");
 
-                // Extract full timestamp - find everything after "Timestamp: "
-                string timestampString = timestampPart.Contains("Timestamp:") ?
-                    timestampPart.Substring(timestampPart.IndexOf("Timestamp:") + "Timestamp:".Length).Trim() : string.Empty;
+                // Extract relevant information from the parsed parts - fix the extraction logic
+                string keyName = string.Empty;
+                if (keyNamePart.Contains("Key:"))
+                {
+                    var keyParts = keyNamePart.Split(':', 2);
+                    if (keyParts.Length > 1)
+                        keyName = keyParts[1].Trim();
+                }
+
+                int keyCode = 0;
+                if (keyCodePart.Contains("Code:"))
+                {
+                    var codeParts = keyCodePart.Split(':', 2);
+                    if (codeParts.Length > 1 && int.TryParse(codeParts[1].Trim(), out int code))
+                        keyCode = code;
+                }
+
+                string mouseButtonInfo = string.Empty;
+                if (mouseButtonPart.Contains("MouseButton:"))
+                {
+                    var buttonParts = mouseButtonPart.Split(':', 2);
+                    if (buttonParts.Length > 1)
+                        mouseButtonInfo = buttonParts[1].Trim();
+                }
+
+                // Extract full timestamp - fix the extraction
+                string timestampString = string.Empty;
+                if (timestampPart.Contains("Timestamp:"))
+                {
+                    var timestampParts = timestampPart.Split(':', 2);
+                    if (timestampParts.Length > 1)
+                    {
+                        // The timestamp contains multiple colons, so we need to handle it properly
+                        timestampString = timestampParts[1].Trim();
+                        // If there are still colons in the remaining part, rejoin them
+                        if (timestampString.Contains(":"))
+                        {
+                            var remainingParts = timestampPart.Substring(timestampPart.IndexOf("Timestamp:") + "Timestamp:".Length).Trim();
+                            timestampString = remainingParts;
+                        }
+                    }
+                }
+
+                Debug.WriteLine($"Extracted values: KeyName='{keyName}', KeyCode='{keyCode}', MouseButtonInfo='{mouseButtonInfo}', TimestampString='{timestampString}'");
 
                 // Determine the event type based on available information
                 int eventType = 0;
                 Coordinates coordinates = null;
+                string mouseButtonType = string.Empty;
+                bool isMouseButtonDown = false;
 
-                if (!string.IsNullOrEmpty(keyName))
+                if (!string.IsNullOrEmpty(mouseButtonInfo))
+                {
+                    // Mouse button event
+                    if (mouseButtonInfo.Contains("Left"))
+                    {
+                        mouseButtonType = "Left";
+                    }
+                    else if (mouseButtonInfo.Contains("Right"))
+                    {
+                        mouseButtonType = "Right";
+                    }
+                    else if (mouseButtonInfo.Contains("Middle"))
+                    {
+                        mouseButtonType = "Middle";
+                    }
+
+                    if (mouseButtonInfo.Contains("Down"))
+                    {
+                        isMouseButtonDown = true;
+                    }
+
+                    // Set event type based on button and action
+                    if (mouseButtonType == "Left")
+                    {
+                        eventType = isMouseButtonDown ? 0x0201 : 0x0202; // Left button down or up
+                    }
+                    else if (mouseButtonType == "Right")
+                    {
+                        eventType = isMouseButtonDown ? 0x0204 : 0x0205; // Right button down or up
+                    }
+                    else if (mouseButtonType == "Middle")
+                    {
+                        eventType = isMouseButtonDown ? 0x0207 : 0x0208; // Middle button down or up
+                    }
+
+                    // Extract coordinates from description
+                    if (descriptionPart.Contains("at X:") && descriptionPart.Contains(", Y:"))
+                    {
+                        try
+                        {
+                            int xStart = descriptionPart.IndexOf("X:") + 2;
+                            int commaIndex = descriptionPart.IndexOf(',', xStart);
+                            if (commaIndex > xStart)
+                            {
+                                string xValueString = descriptionPart.Substring(xStart, commaIndex - xStart).Trim();
+                                if (int.TryParse(xValueString, out int x))
+                                {
+                                    int yStart = descriptionPart.IndexOf("Y:") + 2;
+                                    string yValueString = descriptionPart.Substring(yStart).Trim();
+                                    if (int.TryParse(yValueString, out int y))
+                                    {
+                                        coordinates = new Coordinates { X = x, Y = y };
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error parsing mouse coordinates: {ex.Message}");
+                        }
+                    }
+                }
+                else if (!string.IsNullOrEmpty(keyName))
                 {
                     // Key event
                     eventType = 256; // Or 257, depending on whether it's key down or up
-                }
-                else if (!string.IsNullOrEmpty(mouseButtonType))
-                {
-                    // Mouse button event
-                    eventType = 0x0201; // Or other mouse button event types
                 }
                 else if (descriptionPart.StartsWith("Mouse Move to X:"))
                 {
