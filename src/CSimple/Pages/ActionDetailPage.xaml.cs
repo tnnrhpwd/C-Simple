@@ -292,7 +292,7 @@ namespace CSimple.Pages
 
                         processedSteps.Add(stepViewModel);
                         // Append all relevant step details to the text builder
-                        actionStepsTextBuilder.AppendLine($"Step {i + 1}: {description} | Key: {keyName} | Code: {keyCode} | MouseButton: {mouseButtonType} {mouseButtonAction} | Timestamp: {timestamp}");
+                        actionStepsTextBuilder.AppendLine($"Description: {description} | Key: {keyName} | Code: {keyCode} | MouseButton: {mouseButtonType} {mouseButtonAction} | Timestamp: {timestamp}");
                     }
 
                     // Group similar consecutive actions

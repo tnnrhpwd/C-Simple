@@ -179,7 +179,7 @@ namespace CSimple.Pages
             get
             {
                 bool hasSelected = ActionGroups?.Any(a => a.IsSelected) == true;
-                Debug.WriteLine($"HasSelectedActions called: {hasSelected} (ActionGroups count: {ActionGroups?.Count ?? 0})");
+                // Debug.WriteLine($"HasSelectedActions called: {hasSelected} (ActionGroups count: {ActionGroups?.Count ?? 0})");
                 return hasSelected;
             }
         }
@@ -899,7 +899,7 @@ namespace CSimple.Pages
                     foreach (var item in localItems)
                     {
                         LocalItems.Add(item);
-                        Debug.WriteLine($"Added local item: {item?.Data?.ActionGroupObject?.ActionName}");
+                        // Debug.WriteLine($"Added local item: {item?.Data?.ActionGroupObject?.ActionName}");
                     }
                 }
 
