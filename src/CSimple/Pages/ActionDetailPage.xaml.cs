@@ -1195,26 +1195,92 @@ namespace CSimple.Pages
         }
 
         // Add this method to handle saving changes to the action steps
-        private void SaveChanges()
+        private async void SaveChanges()
         {
             try
             {
+                IsLoading = true;
+
                 // Parse the ActionStepsText into individual ActionItems
                 List<ActionItem> parsedActionItems = ParseActionStepsText(ActionStepsText);
 
                 // Update the existing ActionArray with the parsed ActionItems
                 UpdateActionArray(parsedActionItems);
 
+                // Save the updated action group to the file system
+                await SaveActionGroupToFile();
+
                 // Re-initialize the steps to reflect the changes
                 InitializeSteps();
 
                 // Notify the user that the changes have been saved
-                Application.Current.MainPage.DisplayAlert("Success", "Action steps have been saved.", "OK");
+                await Application.Current.MainPage.DisplayAlert("Success", "Action steps have been saved and persisted to file.", "OK");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error saving changes: {ex.Message}");
-                Application.Current.MainPage.DisplayAlert("Error", "Failed to save action steps.", "OK");
+                await Application.Current.MainPage.DisplayAlert("Error", "Failed to save action steps.", "OK");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        private async Task SaveActionGroupToFile()
+        {
+            try
+            {
+                // Determine if this is a local action
+                bool isLocalOnly = _actionGroup?.IsLocal == true;
+
+                // Update in localDataItems.json
+                var localData = await _fileService.LoadLocalDataItemsAsync() ?? new List<DataItem>();
+                bool updatedLocal = false;
+
+                // Find and update the corresponding DataItem in localDataItems
+                var itemToUpdateLocal = localData.FirstOrDefault(x =>
+                    x.Data?.ActionGroupObject?.Id != null &&
+                    x.Data?.ActionGroupObject?.Id.ToString() == _actionGroup.Id.ToString());
+
+                if (itemToUpdateLocal != null)
+                {
+                    itemToUpdateLocal.Data.ActionGroupObject = _actionGroup;
+                    await _fileService.SaveLocalDataItemsAsync(localData);
+                    Debug.WriteLine("Updated action group in localDataItems.json");
+                    updatedLocal = true;
+                }
+
+                // Update in standard dataItems.json
+                var standardData = await _fileService.LoadDataItemsAsync() ?? new List<DataItem>();
+                bool updatedStandard = false;
+
+                // Find and update the corresponding DataItem in standard dataItems
+                var itemToUpdateStandard = standardData.FirstOrDefault(x =>
+                    x.Data?.ActionGroupObject?.Id != null &&
+                    x.Data?.ActionGroupObject?.Id.ToString() == _actionGroup.Id.ToString());
+
+                if (itemToUpdateStandard != null)
+                {
+                    itemToUpdateStandard.Data.ActionGroupObject = _actionGroup;
+                    await _fileService.SaveDataItemsAsync(standardData);
+                    Debug.WriteLine("Updated action group in dataItems.json");
+                    updatedStandard = true;
+                }
+
+                if (!updatedLocal && isLocalOnly)
+                {
+                    Debug.WriteLine("Action group not found in localDataItems.json, but is marked as local. This is unexpected.");
+                }
+
+                if (!updatedStandard && !isLocalOnly)
+                {
+                    Debug.WriteLine("Action group not found in dataItems.json, and is not marked as local. This is unexpected.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving action group to file: {ex.Message}");
             }
         }
 
