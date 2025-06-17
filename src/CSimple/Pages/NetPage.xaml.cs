@@ -197,6 +197,62 @@ namespace CSimple.Pages
             await Task.CompletedTask; // Added to match original async void signature if needed
         }
 
+        // Enhanced handler for message sending with better feedback
+        private void OnSendMessageClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                if (FindByName("MessageInput") is Entry messageInput)
+                {
+                    string message = messageInput.Text?.Trim();
+                    if (!string.IsNullOrWhiteSpace(message))
+                    {
+                        // Check if any models are active
+                        if (_viewModel.ActiveModelsCount == 0)
+                        {
+                            DisplayAlert("No Active Models", "Please activate a HuggingFace model before sending a message.", "OK");
+                            return;
+                        }
+
+                        // Execute the command
+                        if (_viewModel.CommunicateWithModelCommand.CanExecute(message))
+                        {
+                            _viewModel.CommunicateWithModelCommand.Execute(message);
+                            // Clear the input after sending
+                            messageInput.Text = string.Empty;
+
+                            // Provide immediate feedback
+                            if (_viewModel.IsModelCommunicating)
+                            {
+                                messageInput.Placeholder = "Processing your message...";
+
+                                // Reset placeholder after a delay
+                                Task.Delay(3000).ContinueWith(_ =>
+                                {
+                                    MainThread.BeginInvokeOnMainThread(() =>
+                                    {
+                                        if (!_viewModel.IsModelCommunicating)
+                                        {
+                                            messageInput.Placeholder = "Type your message here...";
+                                        }
+                                    });
+                                });
+                            }
+                        }
+                    }
+                    else
+                    {
+                        DisplayAlert("Empty Message", "Please enter a message to send to the AI model.", "OK");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error sending message: {ex.Message}");
+                DisplayAlert("Error", "Failed to send message. Please try again.", "OK");
+            }
+        }
+
         // MODIFIED: Input type change handler with better feedback
         private void OnModelInputTypeChanged(object sender, EventArgs e)
         {

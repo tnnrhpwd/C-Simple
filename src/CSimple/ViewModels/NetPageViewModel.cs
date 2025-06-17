@@ -212,15 +212,40 @@ namespace CSimple.ViewModels
                 // Get the Python executable path from the bootstrapper
                 _pythonExecutablePath = _pythonBootstrapper.PythonExecutablePath;
 
-                // Copy necessary scripts to the app data directory
-                string scriptsSourceDir = Path.Combine(AppContext.BaseDirectory, "Scripts");
-                if (Directory.Exists(scriptsSourceDir))
+                // Check multiple possible script locations
+                var possibleScriptPaths = new[]
                 {
-                    await _pythonBootstrapper.CopyScriptsAsync(scriptsSourceDir);
+                    Path.Combine(AppContext.BaseDirectory, "Scripts", "run_hf_model.py"),
+                    Path.Combine(FileSystem.AppDataDirectory, "Scripts", "run_hf_model.py"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Documents", "CSimple", "Scripts", "run_hf_model.py"),
+                    @"c:\Users\tanne\Documents\Github\C-Simple\scripts\run_hf_model.py"
+                };
+
+                string foundScriptPath = null;
+                foreach (var path in possibleScriptPaths)
+                {
+                    if (File.Exists(path))
+                    {
+                        foundScriptPath = path;
+                        Debug.WriteLine($"Found script at: {path}");
+                        break;
+                    }
                 }
 
-                // Set the script path
-                _huggingFaceScriptPath = _pythonBootstrapper.GetScriptPath("run_hf_model.py");
+                if (foundScriptPath != null)
+                {
+                    _huggingFaceScriptPath = foundScriptPath;
+                }
+                else
+                {
+                    // Create the script if it doesn't exist
+                    var scriptsDir = Path.Combine(FileSystem.AppDataDirectory, "Scripts");
+                    Directory.CreateDirectory(scriptsDir);
+                    _huggingFaceScriptPath = Path.Combine(scriptsDir, "run_hf_model.py");
+
+                    // Create a basic Python script for HuggingFace model execution
+                    await CreateHuggingFaceScript(_huggingFaceScriptPath);
+                }
 
                 // Install required packages
                 CurrentModelStatus = "Installing required Python packages...";
@@ -252,6 +277,88 @@ namespace CSimple.ViewModels
             finally
             {
                 IsLoading = false;
+            }
+        }
+
+        private async Task CreateHuggingFaceScript(string scriptPath)
+        {
+            try
+            {
+                string scriptContent = @"#!/usr/bin/env python3
+import argparse
+import sys
+import json
+import traceback
+
+def main():
+    parser = argparse.ArgumentParser(description='Run HuggingFace model')
+    parser.add_argument('--model_id', required=True, help='HuggingFace model ID')
+    parser.add_argument('--input', required=True, help='Input text')
+    
+    args = parser.parse_args()
+    
+    try:
+        # Try to import required libraries
+        from transformers import AutoTokenizer, AutoModel, pipeline
+        import torch
+        
+        print(f'Loading model: {args.model_id}')
+        
+        # Try to use pipeline first (simpler approach)
+        try:
+            # Determine task type based on model ID
+            if 'gpt' in args.model_id.lower() or 'llama' in args.model_id.lower():
+                task = 'text-generation'
+            elif 'bert' in args.model_id.lower():
+                task = 'fill-mask'
+            else:
+                task = 'text-generation'  # Default
+            
+            pipe = pipeline(task, model=args.model_id, trust_remote_code=True)
+            result = pipe(args.input, max_length=150, do_sample=True, temperature=0.7)
+            
+            if isinstance(result, list):
+                output = result[0].get('generated_text', str(result[0]))
+            else:
+                output = str(result)
+                
+            print(output)
+            
+        except Exception as pipe_error:
+            print(f'Pipeline failed, trying manual approach: {pipe_error}')
+            
+            # Fallback to manual tokenizer/model approach
+            tokenizer = AutoTokenizer.from_pretrained(args.model_id, trust_remote_code=True)
+            model = AutoModel.from_pretrained(args.model_id, trust_remote_code=True)
+            
+            inputs = tokenizer(args.input, return_tensors='pt')
+            
+            with torch.no_grad():
+                outputs = model(**inputs)
+                
+            # Basic response for demonstration
+            print(f'Model processed input successfully. Input tokens: {inputs[""input_ids""].shape[1]}')
+            
+    except ImportError as e:
+        print(f'ERROR: Missing required packages. Please install with: pip install transformers torch')
+        print(f'Details: {e}')
+        sys.exit(1)
+    except Exception as e:
+        print(f'ERROR: {e}')
+        traceback.print_exc()
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()
+";
+
+                await File.WriteAllTextAsync(scriptPath, scriptContent);
+                Debug.WriteLine($"Created HuggingFace script at: {scriptPath}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error creating HuggingFace script: {ex.Message}");
+                throw;
             }
         }
 
@@ -535,7 +642,7 @@ namespace CSimple.ViewModels
             if (activeHfModel == null)
             {
                 CurrentModelStatus = "No active HuggingFace reference model found.";
-                LastModelOutput = "No active HuggingFace model to communicate with.";
+                LastModelOutput = "Please activate a HuggingFace model first to communicate with it.";
                 return;
             }
 
@@ -562,58 +669,111 @@ namespace CSimple.ViewModels
 
             try
             {
+                // Verify the model exists in our persisted models
+                var persistedModels = await _fileService.LoadHuggingFaceModelsAsync();
+                var modelInFile = persistedModels.FirstOrDefault(m =>
+                    m.HuggingFaceModelId == activeHfModel.HuggingFaceModelId ||
+                    m.Id == activeHfModel.Id);
+
+                if (modelInFile == null)
+                {
+                    throw new InvalidOperationException($"Model {activeHfModel.Name} not found in persisted models file.");
+                }
+
+                Debug.WriteLine($"Found model in persisted file: {modelInFile.Name} (HF ID: {modelInFile.HuggingFaceModelId})");
+
                 // Check if the script exists
                 if (!File.Exists(_huggingFaceScriptPath))
                 {
-                    // Try to find or extract the script
-                    var scriptDir = Path.GetDirectoryName(_huggingFaceScriptPath);
-                    if (!Directory.Exists(scriptDir))
-                    {
-                        Directory.CreateDirectory(scriptDir);
-                    }
-
-                    // Extract scripts
-                    string scriptsSourceDir = Path.Combine(AppContext.BaseDirectory, "Scripts");
-                    if (Directory.Exists(scriptsSourceDir))
-                    {
-                        await _pythonBootstrapper.CopyScriptsAsync(scriptsSourceDir);
-
-                        // Check if script exists again after copying
-                        if (!File.Exists(_huggingFaceScriptPath))
-                        {
-                            throw new FileNotFoundException($"HuggingFace helper script not found. Please reinstall the application.");
-                        }
-                    }
-                    else
-                    {
-                        throw new DirectoryNotFoundException("Scripts directory not found in application folder.");
-                    }
+                    Debug.WriteLine($"Script not found at: {_huggingFaceScriptPath}");
+                    await CreateHuggingFaceScript(_huggingFaceScriptPath);
                 }
 
-                // Execute the Python script - no fallback to API
-                string result = await ExecuteHuggingFaceModelAsync(activeHfModel.HuggingFaceModelId, message);
-                LastModelOutput = $"Response from {activeHfModel.Name}:\n{result}";
-                CurrentModelStatus = $"Received response from {activeHfModel.Name}";
+                // Execute the Python script with the model from the JSON file
+                string result = await ExecuteHuggingFaceModelAsync(modelInFile.HuggingFaceModelId, message);
+
+                if (!string.IsNullOrEmpty(result))
+                {
+                    LastModelOutput = $"Response from {activeHfModel.Name}:\n{result}";
+                    CurrentModelStatus = $"Received response from {activeHfModel.Name}";
+                }
+                else
+                {
+                    LastModelOutput = $"No response received from {activeHfModel.Name}. The model may have executed successfully but produced no output.";
+                    CurrentModelStatus = $"Model {activeHfModel.Name} completed but returned no output";
+                }
             }
             catch (Exception ex)
             {
                 HandleError($"Error communicating with model {activeHfModel.Name}", ex);
-                LastModelOutput = $"Error processing message with {activeHfModel.Name}: {ex.Message}";
+                string errorMessage = ex.Message;
 
                 // Provide specific guidance for common errors
-                if (ex.Message.Contains("ModuleNotFoundError") || ex.Message.Contains("ImportError"))
+                if (errorMessage.Contains("accelerate") || errorMessage.Contains("FP8 quantized"))
                 {
-                    LastModelOutput += "\n\nMissing Python packages. Please install them with:\n" +
-                        "pip install transformers torch";
+                    LastModelOutput = $"Error: {activeHfModel.Name} requires additional packages.\n\n" +
+                        "This model needs 'accelerate' for FP8 quantization support.\n" +
+                        "Installing required packages...";
+
+                    CurrentModelStatus = "Installing accelerate package...";
+
+                    // Try to install accelerate package
+                    bool installed = await InstallAcceleratePackageAsync();
+
+                    if (installed)
+                    {
+                        LastModelOutput += "\n\nPackages installed successfully. Please try sending your message again.";
+                        CurrentModelStatus = "Ready - accelerate package installed";
+                    }
+                    else
+                    {
+                        LastModelOutput += "\n\nFailed to install accelerate automatically. Please install manually with:\npip install accelerate";
+                        CurrentModelStatus = "Manual package installation required";
+                    }
+                }
+                else if (errorMessage.Contains("ModuleNotFoundError") || errorMessage.Contains("ImportError"))
+                {
+                    LastModelOutput = $"Error: Missing Python packages.\n\n" +
+                        "Installing required packages: transformers, torch, accelerate...";
 
                     await ShowAlert("Python Packages Required",
-                        "Required packages are missing. Would you like to install them now?\n\n" +
-                        "This will install: transformers, torch",
+                        "Required packages are missing. Installing them now...\n\n" +
+                        "This will install: transformers, torch, accelerate",
                         "OK");
 
                     // Try to install required packages
                     CurrentModelStatus = "Installing required packages...";
-                    await _pythonBootstrapper.InstallRequiredPackagesAsync();
+                    bool installed = await _pythonBootstrapper.InstallRequiredPackagesAsync();
+
+                    if (installed)
+                    {
+                        await InstallAcceleratePackageAsync(); // Also install accelerate
+                        LastModelOutput += "\n\nPackages installed successfully. Please try sending your message again.";
+                        CurrentModelStatus = "Ready - all packages installed";
+                    }
+                    else
+                    {
+                        LastModelOutput += "\n\nFailed to install packages automatically. Please install manually.";
+                        CurrentModelStatus = "Manual package installation required";
+                    }
+                }
+                else if (errorMessage.Contains("malicious code") || errorMessage.Contains("double-check"))
+                {
+                    LastModelOutput = $"Security Warning: {activeHfModel.Name} downloaded new code files.\n\n" +
+                        "This is normal for some models but requires acknowledgment for security.\n" +
+                        "The model execution was blocked for safety. You can try again if you trust the model source.";
+                    CurrentModelStatus = "Model blocked due to security warning";
+                }
+                else if (errorMessage.Contains("not found in persisted models"))
+                {
+                    LastModelOutput = $"Error: The model may have been removed from the persisted models file.\n\n" +
+                        "Please re-import the model from HuggingFace.";
+                    CurrentModelStatus = "Model reference lost - please re-import";
+                }
+                else
+                {
+                    LastModelOutput = $"Error processing message with {activeHfModel.Name}: {errorMessage}";
+                    CurrentModelStatus = "Model execution failed";
                 }
             }
             finally
@@ -622,7 +782,56 @@ namespace CSimple.ViewModels
             }
         }
 
-        // Helper method to execute the Python script - modified for local-only execution
+        // Helper method to install the accelerate package specifically
+        private async Task<bool> InstallAcceleratePackageAsync()
+        {
+            try
+            {
+                Debug.WriteLine("Installing accelerate package...");
+
+                var processStartInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = _pythonExecutablePath,
+                    Arguments = "-m pip install accelerate",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var process = new System.Diagnostics.Process { StartInfo = processStartInfo };
+                process.Start();
+
+                var outputTask = process.StandardOutput.ReadToEndAsync();
+                var errorTask = process.StandardError.ReadToEndAsync();
+
+                bool completed = process.WaitForExit(60000); // 1 minute timeout
+
+                if (!completed)
+                {
+                    process.Kill();
+                    Debug.WriteLine("Accelerate installation timed out");
+                    return false;
+                }
+
+                string output = await outputTask;
+                string error = await errorTask;
+                int exitCode = process.ExitCode;
+
+                Debug.WriteLine($"Accelerate installation completed with exit code: {exitCode}");
+                Debug.WriteLine($"Output: {output}");
+                Debug.WriteLine($"Error: {error}");
+
+                return exitCode == 0;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error installing accelerate package: {ex.Message}");
+                return false;
+            }
+        }
+
+        // Helper method to execute the Python script - enhanced error handling
         private async Task<string> ExecuteHuggingFaceModelAsync(string modelId, string inputText)
         {
             // Ensure Python path is set
@@ -631,41 +840,82 @@ namespace CSimple.ViewModels
                 throw new InvalidOperationException("Python is not available. Please install Python and restart the application.");
             }
 
+            if (!File.Exists(_huggingFaceScriptPath))
+            {
+                throw new FileNotFoundException($"HuggingFace script not found at: {_huggingFaceScriptPath}");
+            }
+
             try
             {
-                // Always use the local Python script, never fall back to API
-                var (output, error, exitCode) = await _pythonBootstrapper.ExecuteScriptAsync(
-                    _huggingFaceScriptPath,
-                    $"--model_id \"{modelId}\" --input \"{inputText.Replace("\"", "\\\"")}\"",
-                    timeoutMs: 120000);
+                Debug.WriteLine($"Executing Python script with model: {modelId}");
+                Debug.WriteLine($"Script path: {_huggingFaceScriptPath}");
+                Debug.WriteLine($"Python path: {_pythonExecutablePath}");
+
+                // Escape quotes in input text
+                string escapedInput = inputText.Replace("\"", "\\\"");
+                string arguments = $"\"{_huggingFaceScriptPath}\" --model_id \"{modelId}\" --input \"{escapedInput}\" --max_length 150 --temperature 0.7";
+
+                var processStartInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = _pythonExecutablePath,
+                    Arguments = arguments,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                Debug.WriteLine($"Starting process: {processStartInfo.FileName} {processStartInfo.Arguments}");
+
+                using var process = new System.Diagnostics.Process { StartInfo = processStartInfo };
+                process.Start();
+
+                var outputTask = process.StandardOutput.ReadToEndAsync();
+                var errorTask = process.StandardError.ReadToEndAsync();
+
+                // Wait for process to complete with timeout
+                bool completed = process.WaitForExit(180000); // 3 minutes timeout for large models
+
+                if (!completed)
+                {
+                    process.Kill();
+                    throw new TimeoutException("Model execution timed out after 3 minutes. Large models may take longer to load initially.");
+                }
+
+                string output = await outputTask;
+                string error = await errorTask;
+                int exitCode = process.ExitCode;
+
+                Debug.WriteLine($"Process completed with exit code: {exitCode}");
+                Debug.WriteLine($"Output: {output}");
+                Debug.WriteLine($"Error: {error}");
 
                 if (exitCode != 0)
                 {
-                    Debug.WriteLine($"Python script error output:\n{error}");
-
-                    // If error indicates missing packages, try to install them and retry
-                    if (error.Contains("ModuleNotFoundError") || error.Contains("ImportError"))
+                    // Check for specific error patterns and provide better messages
+                    if (error.Contains("accelerate") && error.Contains("FP8"))
                     {
-                        CurrentModelStatus = "Installing required packages...";
-                        bool installed = await _pythonBootstrapper.InstallRequiredPackagesAsync();
-
-                        if (installed)
-                        {
-                            // Retry once
-                            return await ExecuteHuggingFaceModelAsync(modelId, inputText);
-                        }
-                        else
-                        {
-                            throw new Exception("Failed to install required packages. Please install them manually with: pip install transformers torch");
-                        }
+                        throw new Exception("Model requires 'accelerate' package for FP8 quantization support.");
                     }
-
-                    throw new Exception($"Script failed with exit code {exitCode}. Error: {error}");
+                    else if (error.Contains("ModuleNotFoundError") || error.Contains("ImportError"))
+                    {
+                        throw new Exception("Missing required Python packages. Please install: transformers torch accelerate");
+                    }
+                    else if (error.Contains("malicious code") || error.Contains("double-check"))
+                    {
+                        throw new Exception("Security warning: Model downloaded new code files. Execution blocked for safety.");
+                    }
+                    else if (error.Contains("OutOfMemoryError") || error.Contains("CUDA out of memory"))
+                    {
+                        throw new Exception("Insufficient memory to load this model. Try a smaller model or close other applications.");
+                    }
+                    else
+                    {
+                        throw new Exception($"Script failed with exit code {exitCode}. Error: {error}");
+                    }
                 }
 
-                Debug.WriteLine($"Script output:\n{output}");
-
-                // Error checking
+                // Error checking for output
                 if (output.Contains("ERROR:"))
                 {
                     throw new Exception(output);

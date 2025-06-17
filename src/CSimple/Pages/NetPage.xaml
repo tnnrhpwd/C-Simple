@@ -370,8 +370,7 @@
                                    x:Name="MessageInput" />
                             <Button Grid.Column="1"
                                     Text="Send"
-                                    Command="{Binding CommunicateWithModelCommand}"
-                                    CommandParameter="{Binding Source={x:Reference MessageInput}, Path=Text}"
+                                    Clicked="OnSendMessageClicked"
                                     BackgroundColor="{StaticResource Primary}"
                                     TextColor="{StaticResource TextOnPrimary}" />
                         </Grid>
