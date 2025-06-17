@@ -9,8 +9,10 @@ using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
+using System.Text;
 using CSimple;
 using CSimple.Models;
+using CSimple.ViewModels;
 using Microsoft.Maui.Storage;
 
 namespace CSimple.Pages
@@ -69,11 +71,11 @@ namespace CSimple.Pages
 
     public class ActionDetailViewModel : INotifyPropertyChanged
     {
-        private readonly INavigation _navigation;
-        private readonly ActionGroup _actionGroup;
+        private readonly INavigation _navigation; private readonly ActionGroup _actionGroup;
         private readonly DataService _dataService; // Add DataService
         private readonly FileService _fileService; // Add FileService for local operations
         private readonly ActionService _actionService; // Add ActionService reference
+        private readonly NetPageViewModel _netPageViewModel; // Add NetPageViewModel reference for AI models
 
         // Basic properties
         public string ActionName { get; set; }
@@ -90,14 +92,17 @@ namespace CSimple.Pages
         // Collections
         public ObservableCollection<StepViewModel> ActionSteps { get; } = new ObservableCollection<StepViewModel>();
         public ObservableCollection<ModelAssignment> AssignedModels { get; } = new ObservableCollection<ModelAssignment>();
-        public ObservableCollection<FileViewModel> AttachedFiles { get; } = new ObservableCollection<FileViewModel>();
-
-        // Commands
+        public ObservableCollection<FileViewModel> AttachedFiles { get; } = new ObservableCollection<FileViewModel>();        // Commands
         public ICommand BackCommand { get; }
         public ICommand DeleteCommand { get; }
         public ICommand ExecuteCommand { get; }
         public ICommand AssignToModelCommand { get; }
         public ICommand PlayAudioCommand { get; }
+        public ICommand SaveChangesCommand { get; }
+        // AI Model Commands
+        public ICommand SelectModelCommand { get; }
+        public ICommand ExecuteAiModelCommand { get; }
+        public ICommand UndoAiChangesCommand { get; }
 
         // Add IsLoading property
         private bool _isLoading = false;
@@ -134,8 +139,69 @@ namespace CSimple.Pages
             }
         }
 
-        // Add a command to handle saving changes
-        public ICommand SaveChangesCommand { get; }
+        // AI Model Properties
+        private string _aiPromptText;
+        public string AiPromptText
+        {
+            get => _aiPromptText;
+            set
+            {
+                if (_aiPromptText != value)
+                {
+                    _aiPromptText = value;
+                    OnPropertyChanged(nameof(AiPromptText));
+                    OnPropertyChanged(nameof(CanExecuteAiModel));
+                }
+            }
+        }
+
+        private NeuralNetworkModel _selectedAiModel;
+        public NeuralNetworkModel SelectedAiModel
+        {
+            get => _selectedAiModel;
+            set
+            {
+                if (_selectedAiModel != value)
+                {
+                    _selectedAiModel = value;
+                    OnPropertyChanged(nameof(SelectedAiModel));
+                    OnPropertyChanged(nameof(HasSelectedAiModel));
+                    OnPropertyChanged(nameof(CanExecuteAiModel));
+                }
+            }
+        }
+
+        public bool HasSelectedAiModel => SelectedAiModel != null;
+        public bool CanExecuteAiModel => HasSelectedAiModel && !string.IsNullOrWhiteSpace(AiPromptText) && !IsLoading;
+
+        private string _originalActionStepsText;
+        private bool _hasAiChangesToUndo = false;
+        public bool HasAiChangesToUndo
+        {
+            get => _hasAiChangesToUndo;
+            set
+            {
+                if (_hasAiChangesToUndo != value)
+                {
+                    _hasAiChangesToUndo = value;
+                    OnPropertyChanged(nameof(HasAiChangesToUndo));
+                }
+            }
+        }
+
+        private ObservableCollection<NeuralNetworkModel> _availableTextModels = new ObservableCollection<NeuralNetworkModel>();
+        public ObservableCollection<NeuralNetworkModel> AvailableTextModels
+        {
+            get => _availableTextModels;
+            set
+            {
+                if (_availableTextModels != value)
+                {
+                    _availableTextModels = value;
+                    OnPropertyChanged(nameof(AvailableTextModels));
+                }
+            }
+        }
 
         public ActionDetailViewModel(ActionGroup actionGroup, INavigation navigation)
         {
@@ -163,10 +229,9 @@ namespace CSimple.Pages
                 CalculateSummary();
 
                 // Initialize models (demo data)
-                InitializeModels();
-
-                // Initialize attached files
-                InitializeAttachedFiles();
+                InitializeModels();                // Initialize attached files
+                InitializeAttachedFiles();                // Initialize AI models (fire and forget since constructor can't be async)
+                _ = Task.Run(async () => await InitializeAvailableTextModels());
 
                 // Setup commands
                 BackCommand = new Command(async () =>
@@ -187,6 +252,11 @@ namespace CSimple.Pages
                 PlayAudioCommand = new Command<string>(PlayAudio);
                 SaveChangesCommand = new Command(SaveChanges); // Initialize the SaveChangesCommand
 
+                // Initialize AI model commands
+                SelectModelCommand = new Command(SelectAiModel);
+                ExecuteAiModelCommand = new Command(async () => await ExecuteAiModel());
+                UndoAiChangesCommand = new Command(UndoAiChanges);
+
                 Debug.WriteLine("ActionDetailViewModel initialized successfully");
             }
             catch (Exception ex)
@@ -198,13 +268,14 @@ namespace CSimple.Pages
                 ActionType = "Error";
                 CreatedAt = DateTime.Now.ToString("g");
                 ActionArrayFormatted = "Could not load action data";
-                Description = "Error loading action details";
-
-                // Create a fallback command
+                Description = "Error loading action details";                // Create a fallback command
                 BackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
                 DeleteCommand = new Command(() => { });
                 ExecuteCommand = new Command(() => { });
                 AssignToModelCommand = new Command(() => { });
+                SelectModelCommand = new Command(() => { });
+                ExecuteAiModelCommand = new Command(() => { });
+                UndoAiChangesCommand = new Command(() => { });
             }
         }
 
@@ -297,7 +368,7 @@ namespace CSimple.Pages
 
                     // Group similar consecutive actions
                     ActionSteps.Clear();
-                    GroupSimilarActions(processedSteps);
+                    ActionStepGrouping.GroupSimilarActions(processedSteps, ActionSteps);
 
                     // Calculate and set the duration
                     if (startTime != DateTime.MaxValue && endTime != DateTime.MinValue)
@@ -320,342 +391,6 @@ namespace CSimple.Pages
             {
                 Debug.WriteLine($"Error initializing steps: {ex.Message}");
                 ActionSteps.Add(new StepViewModel { Index = "!", Description = "Error loading steps", Duration = "N/A" });
-            }
-        }
-
-        private void GroupSimilarActions(List<StepViewModel> steps)
-        {
-            if (steps == null || steps.Count == 0)
-            {
-                Debug.WriteLine("No steps to group");
-                return;
-            }
-
-            try
-            {
-                // Constants for grouping configuration
-                const int MIN_GROUP_SIZE = 3; // Minimum number of similar actions to form a group
-                const int MAX_MOUSE_MOVES_BEFORE_GROUPING = 4; // Show this many individual moves before grouping
-
-                int currentIndex = 0;
-                int displayIndex = 1; // For user-visible indexing (starts at 1)
-
-                while (currentIndex < steps.Count)
-                {
-                    var currentStep = steps[currentIndex];
-
-                    // Check if we can start a grouping from this step
-                    bool canGroup = false;
-                    string groupType = "";
-
-                    // 1. Check for consecutive mouse movements
-                    if (currentStep.IsMouseMove && currentIndex + MIN_GROUP_SIZE <= steps.Count)
-                    {
-                        int mouseMoveCount = 1;
-                        for (int i = currentIndex + 1; i < steps.Count; i++)
-                        {
-                            if (steps[i].IsMouseMove)
-                                mouseMoveCount++;
-                            else
-                                break;
-                        }
-
-                        if (mouseMoveCount >= MIN_GROUP_SIZE)
-                        {
-                            canGroup = true;
-                            groupType = "MouseMove";
-                        }
-                    }
-                    // Grouping for Mouse Clicks
-                    else if (currentStep.IsMouseButton && currentIndex + MIN_GROUP_SIZE <= steps.Count)
-                    {
-                        int mouseClickCount = 1;
-                        for (int i = currentIndex + 1; i < steps.Count; i++)
-                        {
-                            if (steps[i].IsMouseButton &&
-                                steps[i].MouseButtonType == currentStep.MouseButtonType &&
-                                steps[i].MouseButtonAction == currentStep.MouseButtonAction)
-                                mouseClickCount++;
-                            else
-                                break;
-                        }
-
-                        if (mouseClickCount >= MIN_GROUP_SIZE)
-                        {
-                            canGroup = true;
-                            groupType = "MouseClick";
-                        }
-                    }
-
-                    // 2. Check for consecutive key presses of the same key
-                    else if (!string.IsNullOrEmpty(currentStep.KeyName) && currentIndex + MIN_GROUP_SIZE <= steps.Count)
-                    {
-                        int sameKeyCount = 1;
-                        string keyName = currentStep.KeyName;
-
-                        for (int i = currentIndex + 1; i < steps.Count; i++)
-                        {
-                            if (!string.IsNullOrEmpty(steps[i].KeyName) && steps[i].KeyName == keyName)
-                                sameKeyCount++;
-                            else
-                                break;
-                        }
-
-                        if (sameKeyCount >= MIN_GROUP_SIZE)
-                        {
-                            canGroup = true;
-                            groupType = "KeyPress";
-                        }
-                    }
-
-                    // 3. Process the grouping or individual step
-                    if (canGroup)
-                    {
-                        if (groupType == "MouseMove")
-                        {
-                            // Count consecutive mouse moves
-                            int mouseMoveCount = 0;
-                            for (int i = currentIndex; i < steps.Count; i++)
-                            {
-                                if (steps[i].IsMouseMove)
-                                    mouseMoveCount++;
-                                else
-                                    break;
-                            }
-
-                            // Add individual mouse moves at the beginning for context
-                            int individualMovesToShow = Math.Min(MAX_MOUSE_MOVES_BEFORE_GROUPING, mouseMoveCount / 2);
-                            for (int j = 0; j < individualMovesToShow && currentIndex + j < steps.Count; j++)
-                            {
-                                var step = steps[currentIndex + j];
-                                step.Index = displayIndex.ToString();
-                                ActionSteps.Add(step);
-                                displayIndex++;
-                            }
-
-                            // Skip if all moves are shown individually
-                            if (mouseMoveCount <= individualMovesToShow)
-                            {
-                                currentIndex += mouseMoveCount;
-                                continue;
-                            }
-
-                            // Create group for remaining moves
-                            var groupedMoves = new List<ActionItem>();
-                            DateTime firstTimestamp = DateTime.MaxValue;
-                            DateTime lastTimestamp = DateTime.MinValue;
-
-                            for (int j = individualMovesToShow; j < mouseMoveCount && currentIndex + j < steps.Count; j++)
-                            {
-                                if (steps[currentIndex + j].RawData != null)
-                                {
-                                    groupedMoves.Add(steps[currentIndex + j].RawData);
-
-                                    if (DateTime.TryParse(steps[currentIndex + j].Timestamp, out DateTime timestamp) && timestamp < firstTimestamp)
-                                        firstTimestamp = timestamp;
-                                    if (DateTime.TryParse(steps[currentIndex + j].Timestamp, out timestamp) && timestamp > lastTimestamp)
-                                        lastTimestamp = timestamp;
-                                }
-                            }
-
-                            if (groupedMoves.Any())
-                            {
-                                var firstPoint = groupedMoves.First().Coordinates;
-                                var lastPoint = groupedMoves.Last().Coordinates;
-
-                                // Fix: Add null checks for coordinates
-                                int firstX = firstPoint?.X ?? 0;
-                                int firstY = firstPoint?.Y ?? 0;
-                                int lastX = lastPoint?.X ?? 0;
-                                int lastY = lastPoint?.Y ?? 0;
-
-                                // Create a grouped step with null-safe coordinate handling
-                                ActionSteps.Add(new StepViewModel
-                                {
-                                    Index = displayIndex.ToString(),
-                                    Description = $"Mouse Movement Path ({groupedMoves.Count} steps)",
-                                    IsGrouped = true,
-                                    GroupCount = groupedMoves.Count,
-                                    GroupType = "Mouse Movements",
-                                    Duration = (lastTimestamp - firstTimestamp).TotalSeconds.ToString("0.00") + "s",
-                                    GroupDuration = lastTimestamp - firstTimestamp,
-                                    IsMouseMove = true,
-                                    GroupedItems = groupedMoves,
-                                    Timestamp = firstTimestamp.ToString(),
-                                    RawData = new ActionItem
-                                    {
-                                        EventType = 512, // Mouse move
-                                        Coordinates = new Coordinates { X = firstX, Y = firstY },
-                                        DeltaX = lastX - firstX,
-                                        DeltaY = lastY - firstY
-                                    }
-                                });
-                                displayIndex++;
-                            }
-
-                            // Add the last few individual moves for context
-                            int lastMovesToShow = Math.Min(2, mouseMoveCount - individualMovesToShow);
-                            for (int j = 0; j < lastMovesToShow; j++)
-                            {
-                                int index = currentIndex + mouseMoveCount - lastMovesToShow + j;
-                                if (index < steps.Count)
-                                {
-                                    var step = steps[index];
-                                    step.Index = displayIndex.ToString();
-                                    ActionSteps.Add(step);
-                                    displayIndex++;
-                                }
-                            }
-
-                            currentIndex += mouseMoveCount;
-                        }
-                        else if (groupType == "MouseClick")
-                        {
-                            // Count consecutive mouse clicks
-                            int mouseClickCount = 0;
-                            for (int i = currentIndex; i < steps.Count; i++)
-                            {
-                                if (steps[i].IsMouseButton &&
-                                    steps[i].MouseButtonType == currentStep.MouseButtonType &&
-                                    steps[i].MouseButtonAction == currentStep.MouseButtonAction)
-                                    mouseClickCount++;
-                                else
-                                    break;
-                            }
-
-                            // Add first key event individually
-                            ActionSteps.Add(steps[currentIndex]);
-                            steps[currentIndex].Index = displayIndex.ToString();
-                            displayIndex++;
-
-                            // Group the middle key events if there are enough
-                            if (mouseClickCount > 3)
-                            {
-                                var groupedItems = new List<ActionItem>();
-                                DateTime firstTimestamp;
-                                DateTime.TryParse(steps[currentIndex + 1].Timestamp, out firstTimestamp);
-                                DateTime lastTimestamp;
-                                DateTime.TryParse(steps[currentIndex + mouseClickCount - 2 >= currentIndex + 1
-                                    ? mouseClickCount - 2 : 1].Timestamp, out lastTimestamp);
-
-                                for (int j = 1; j < mouseClickCount - 1 && currentIndex + j < steps.Count; j++)
-                                {
-                                    if (steps[currentIndex + j].RawData != null)
-                                        groupedItems.Add(steps[currentIndex + j].RawData);
-                                }
-
-                                if (groupedItems.Any())
-                                {
-                                    ActionSteps.Add(new StepViewModel
-                                    {
-                                        Index = displayIndex.ToString(),
-                                        Description = $"Repeated {currentStep.MouseButtonType} Click {currentStep.MouseButtonAction} ({groupedItems.Count} times)",
-                                        IsGrouped = true,
-                                        GroupCount = groupedItems.Count,
-                                        GroupType = "Mouse Click Repetition",
-                                        MouseButtonType = currentStep.MouseButtonType,
-                                        MouseButtonAction = currentStep.MouseButtonAction,
-                                        Duration = (lastTimestamp - firstTimestamp).TotalSeconds.ToString("0.00") + "s",
-                                        GroupDuration = lastTimestamp - firstTimestamp,
-                                        GroupedItems = groupedItems,
-                                        Timestamp = firstTimestamp.ToString()
-                                    });
-                                    displayIndex++;
-                                }
-                            }
-
-                            // Add the last key event if there are at least 2 events
-                            if (currentIndex + mouseClickCount - 1 >= currentIndex + 1 && currentIndex + mouseClickCount - 1 < steps.Count)
-                            {
-                                steps[currentIndex + mouseClickCount - 1].Index = displayIndex.ToString();
-                                ActionSteps.Add(steps[currentIndex + mouseClickCount - 1]);
-                                displayIndex++;
-                            }
-
-                            currentIndex += mouseClickCount;
-                        }
-                        else if (groupType == "KeyPress")
-                        {
-                            string keyName = currentStep.KeyName;
-                            int sameKeyCount = 0;
-                            for (int i = currentIndex; i < steps.Count; i++)
-                            {
-                                if (!string.IsNullOrEmpty(steps[i].KeyName) && steps[i].KeyName == keyName)
-                                    sameKeyCount++;
-                                else
-                                    break;
-                            }
-
-                            // Add first key event individually
-                            ActionSteps.Add(steps[currentIndex]);
-                            steps[currentIndex].Index = displayIndex.ToString();
-                            displayIndex++;
-
-                            // Group the middle key events if there are enough
-                            if (sameKeyCount > 3)
-                            {
-                                var groupedItems = new List<ActionItem>();
-                                DateTime.TryParse(steps[currentIndex + 1].Timestamp, out DateTime firstTimestamp);
-                                DateTime.TryParse(steps[currentIndex + sameKeyCount - 2 >= currentIndex + 1
-                                    ? sameKeyCount - 2 : 1].Timestamp, out DateTime lastTimestamp);
-
-                                for (int j = 1; j < sameKeyCount - 1 && currentIndex + j < steps.Count; j++)
-                                {
-                                    if (steps[currentIndex + j].RawData != null)
-                                        groupedItems.Add(steps[currentIndex + j].RawData);
-                                }
-
-                                if (groupedItems.Any())
-                                {
-                                    ActionSteps.Add(new StepViewModel
-                                    {
-                                        Index = displayIndex.ToString(),
-                                        Description = $"Repeated Key {keyName} ({groupedItems.Count} times)",
-                                        IsGrouped = true,
-                                        GroupCount = groupedItems.Count,
-                                        GroupType = "Key Repetition",
-                                        KeyName = keyName,
-                                        KeyCode = currentStep.KeyCode,
-                                        Duration = (lastTimestamp - firstTimestamp).TotalSeconds.ToString("0.00") + "s",
-                                        GroupDuration = lastTimestamp - firstTimestamp,
-                                        GroupedItems = groupedItems,
-                                        Timestamp = firstTimestamp.ToString()
-                                    });
-                                    displayIndex++;
-                                }
-                            }
-
-                            // Add the last key event if there are at least 2 events
-                            if (currentIndex + sameKeyCount - 1 >= currentIndex + 1 && currentIndex + sameKeyCount - 1 < steps.Count)
-                            {
-                                steps[currentIndex + sameKeyCount - 1].Index = displayIndex.ToString();
-                                ActionSteps.Add(steps[currentIndex + sameKeyCount - 1]);
-                                displayIndex++;
-                            }
-
-                            currentIndex += sameKeyCount;
-                        }
-                    }
-                    else
-                    {
-                        // Add individual step
-                        currentStep.Index = displayIndex.ToString();
-                        ActionSteps.Add(currentStep);
-                        displayIndex++;
-                        currentIndex++;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in GroupSimilarActions: {ex.Message}");
-                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-                // If grouping fails, fall back to adding all steps individually
-                for (int i = 0; i < steps.Count; i++)
-                {
-                    steps[i].Index = (i + 1).ToString();
-                    ActionSteps.Add(steps[i]);
-                }
             }
         }
 
@@ -1780,6 +1515,330 @@ namespace CSimple.Pages
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }        // AI Model Methods
+        private async Task InitializeAvailableTextModels()
+        {
+            try
+            {
+                // Load available text processing models from the huggingFaceModels.json file
+                AvailableTextModels.Clear();
+
+                // Load models from file service
+                var allModels = await _fileService.LoadHuggingFaceModelsAsync();
+
+                // Filter for text models only (InputType == 1 is Text)
+                var textModels = allModels.Where(m => m.InputType == ModelInputType.Text).ToList();
+
+                Debug.WriteLine($"Found {textModels.Count} text models out of {allModels.Count} total models");
+
+                // Add filtered text models to the collection
+                foreach (var model in textModels)
+                {
+                    AvailableTextModels.Add(model);
+                    Debug.WriteLine($"Added text model: {model.Name} (ID: {model.HuggingFaceModelId})");
+                }
+
+                // Select the last (most recent) text model by default if any are available
+                if (AvailableTextModels.Any())
+                {
+                    SelectedAiModel = AvailableTextModels.Last();
+                    Debug.WriteLine($"Auto-selected most recent text model: {SelectedAiModel.Name}");
+                }
+                else
+                {
+                    Debug.WriteLine("No text models available for selection");
+                }
+
+                Debug.WriteLine($"Initialized {AvailableTextModels.Count} text models");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error initializing text models: {ex.Message}");
+
+                // Fall back to demo models if loading from file fails
+                AvailableTextModels.Add(new NeuralNetworkModel
+                {
+                    Id = "fallback-text-model",
+                    Name = "Fallback Text Processor",
+                    Description = "Basic text processing model (fallback)",
+                    Type = ModelType.General,
+                    InputType = ModelInputType.Text,
+                    IsActive = true
+                });
+
+                if (AvailableTextModels.Any())
+                {
+                    SelectedAiModel = AvailableTextModels.First();
+                }
+            }
+        }
+
+        private async void SelectAiModel()
+        {
+            try
+            {
+                if (!AvailableTextModels.Any())
+                {
+                    await Application.Current.MainPage.DisplayAlert(
+                        "No Models Available",
+                        "No text processing models are currently available. Please check your model configuration.",
+                        "OK");
+                    return;
+                }
+
+                // Create a list of model names for selection
+                var modelNames = AvailableTextModels.Select(m => $"{m.Name} - {m.Description}").ToArray();
+
+                var selectedOption = await Application.Current.MainPage.DisplayActionSheet(
+                    "Select AI Model",
+                    "Cancel",
+                    null,
+                    modelNames);
+
+                if (!string.IsNullOrEmpty(selectedOption) && selectedOption != "Cancel")
+                {
+                    // Find the selected model by matching the name
+                    var selectedModelIndex = Array.IndexOf(modelNames, selectedOption);
+                    if (selectedModelIndex >= 0 && selectedModelIndex < AvailableTextModels.Count)
+                    {
+                        SelectedAiModel = AvailableTextModels[selectedModelIndex];
+                        Debug.WriteLine($"Selected AI model: {SelectedAiModel.Name}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error selecting AI model: {ex.Message}");
+                await Application.Current.MainPage.DisplayAlert(
+                    "Error",
+                    $"Failed to select AI model: {ex.Message}",
+                    "OK");
+            }
+        }
+        private async Task ExecuteAiModel()
+        {
+            // Check if a model is selected
+            if (SelectedAiModel == null)
+            {
+                await Application.Current.MainPage.DisplayAlert(
+                    "No Model Selected",
+                    "Please select an AI model by pressing the model selection button (🤖) before proceeding.",
+                    "OK");
+                return;
+            }
+
+            // Check if prompt text is provided
+            if (string.IsNullOrWhiteSpace(AiPromptText))
+            {
+                await Application.Current.MainPage.DisplayAlert(
+                    "No Prompt Provided",
+                    "Please enter a prompt to tell the AI how to modify your action steps.",
+                    "OK");
+                return;
+            }
+
+            try
+            {
+                IsLoading = true;
+
+                // Store original text for undo functionality
+                _originalActionStepsText = ActionStepsText;
+
+                // Simulate AI processing with different responses based on model
+                await Task.Delay(2000); // Simulate processing time
+
+                string processedText = await ProcessTextWithAiModel(ActionStepsText, AiPromptText, SelectedAiModel);
+
+                if (!string.IsNullOrEmpty(processedText))
+                {
+                    ActionStepsText = processedText;
+                    HasAiChangesToUndo = true;
+
+                    await Application.Current.MainPage.DisplayAlert(
+                        "AI Processing Complete",
+                        $"Action steps have been modified using {SelectedAiModel.Name}.",
+                        "OK");
+                }
+                else
+                {
+                    await Application.Current.MainPage.DisplayAlert(
+                        "Processing Failed",
+                        "The AI model was unable to process the text. Please try again.",
+                        "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error executing AI model: {ex.Message}");
+                await Application.Current.MainPage.DisplayAlert(
+                    "Error",
+                    $"Failed to execute AI model: {ex.Message}",
+                    "OK");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+        private async Task<string> ProcessTextWithAiModel(string originalText, string prompt, NeuralNetworkModel model)
+        {
+            try
+            {
+                // This is a simulation of AI processing
+                // In a real implementation, this would call the actual AI model service
+
+                return await Task.Run(() =>
+                {
+                    var processedText = new StringBuilder();
+                    var lines = originalText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+                    // Process based on the actual loaded HuggingFace model
+                    if (model.HuggingFaceModelId?.Contains("deepseek", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        // DeepSeek R1 - Advanced reasoning model
+                        if (prompt.ToLower().Contains("simplify") || prompt.ToLower().Contains("shorter"))
+                        {
+                            foreach (var line in lines.Take(Math.Min(lines.Length, 15)))
+                            {
+                                if (line.Contains("Description:"))
+                                {
+                                    var simplified = SimplifyDescription(line);
+                                    processedText.AppendLine(simplified);
+                                }
+                                else
+                                {
+                                    processedText.AppendLine(line);
+                                }
+                            }
+                        }
+                        else if (prompt.ToLower().Contains("detail") || prompt.ToLower().Contains("explain"))
+                        {
+                            foreach (var line in lines.Take(Math.Min(lines.Length, 15)))
+                            {
+                                processedText.AppendLine(line);
+                                if (line.Contains("Mouse Move"))
+                                {
+                                    processedText.AppendLine("  → Precise cursor positioning for UI interaction");
+                                }
+                                else if (line.Contains("Click"))
+                                {
+                                    processedText.AppendLine("  → User input action on interface element");
+                                }
+                                else if (line.Contains("Key"))
+                                {
+                                    processedText.AppendLine("  → Keyboard input for text or command entry");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Generic improvement
+                            foreach (var line in lines.Take(Math.Min(lines.Length, 15)))
+                            {
+                                if (line.Contains("Description:"))
+                                {
+                                    var improved = line.Replace("Mouse Move to", "Navigate to")
+                                                     .Replace("Left Click at", "Select at")
+                                                     .Replace("Right Click at", "Context menu at")
+                                                     .Replace("Key ", "Input ");
+                                    processedText.AppendLine(improved);
+                                }
+                                else
+                                {
+                                    processedText.AppendLine(line);
+                                }
+                            }
+                        }
+                    }
+                    else if (model.HuggingFaceModelId?.Contains("qwen", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        // Qwen2.5 VL - Vision-Language model (good for action descriptions)
+                        foreach (var line in lines.Take(Math.Min(lines.Length, 15)))
+                        {
+                            if (line.Contains("Description:"))
+                            {
+                                var enhanced = line.Replace("Mouse Move", "Cursor navigation")
+                                                 .Replace("Left Click", "Primary selection")
+                                                 .Replace("Right Click", "Secondary menu")
+                                                 .Replace("Key ", "Keystroke ");
+                                processedText.AppendLine(enhanced);
+                            }
+                            else
+                            {
+                                processedText.AppendLine(line);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Generic text model processing or fallback models
+                        if (prompt.ToLower().Contains("format") || prompt.ToLower().Contains("clean"))
+                        {
+                            foreach (var line in lines.Take(Math.Min(lines.Length, 15)))
+                            {
+                                var cleanedLine = line.Trim();
+                                if (!string.IsNullOrEmpty(cleanedLine))
+                                {
+                                    processedText.AppendLine(cleanedLine);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Default processing
+                            processedText.AppendLine($"Processed by {model.Name}:");
+                            if (!string.IsNullOrEmpty(model.HuggingFaceModelId))
+                            {
+                                processedText.AppendLine($"Model ID: {model.HuggingFaceModelId}");
+                            }
+                            processedText.AppendLine("");
+                            foreach (var line in lines.Take(Math.Min(lines.Length, 10)))
+                            {
+                                processedText.AppendLine(line);
+                            }
+                        }
+                    }
+
+                    return processedText.ToString();
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error processing text with AI model: {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        private string SimplifyDescription(string description)
+        {
+            // Simple description simplification
+            return description.Replace("to X:", "→")
+                             .Replace("to Y:", "→")
+                             .Replace("at X:", "@")
+                             .Replace("at Y:", "@")
+                             .Replace("Mouse Move", "Move")
+                             .Replace("Left Click", "Click")
+                             .Replace("Description:", "")
+                             .Trim();
+        }
+
+        private void UndoAiChanges()
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(_originalActionStepsText))
+                {
+                    ActionStepsText = _originalActionStepsText;
+                    HasAiChangesToUndo = false;
+                    _originalActionStepsText = null;
+
+                    Debug.WriteLine("AI changes undone successfully");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error undoing AI changes: {ex.Message}");
+            }
         }
     }
 
