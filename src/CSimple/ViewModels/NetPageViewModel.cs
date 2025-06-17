@@ -853,7 +853,7 @@ if __name__ == '__main__':
 
                 // Escape quotes in input text
                 string escapedInput = inputText.Replace("\"", "\\\"");
-                string arguments = $"\"{_huggingFaceScriptPath}\" --model_id \"{modelId}\" --input \"{escapedInput}\" --max_length 150 --temperature 0.7";
+                string arguments = $"\"{_huggingFaceScriptPath}\" --model_id \"{modelId}\" --input \"{escapedInput}\"";
 
                 var processStartInfo = new System.Diagnostics.ProcessStartInfo
                 {

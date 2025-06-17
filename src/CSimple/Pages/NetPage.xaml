@@ -331,19 +331,6 @@
                         <Label Text="AI Assistant"
                                FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold" />
-                        <!-- Input Section -->
-                        <Label Text="Input"
-                               FontAttributes="Bold" />
-                        <!-- Text Input -->
-                        <Entry Placeholder="Enter text input..."
-                               x:Name="TextInput" />
-                        <!-- Image Input -->
-                        <Button Text="Select Image" />
-                        <Image x:Name="SelectedImage"
-                               HeightRequest="100"
-                               IsVisible="False" />
-                        <!-- Audio Input -->
-                        <Button Text="Select Audio" />
                         <!-- Output Section -->
                         <Label Text="Output"
                                FontAttributes="Bold" />
@@ -363,6 +350,25 @@
                                 </VerticalStackLayout>
                             </ScrollView>
                         </Frame>
+                        <!-- Input Section -->
+                        <Label Text="Input"
+                               FontAttributes="Bold" />
+                        <!-- Input Mode Selection -->
+                        <HorizontalStackLayout Spacing="{StaticResource SpacingTiny}">
+                            <Label Text="Input Mode:"
+                                   VerticalOptions="Center" />
+                            <RadioButton Content="Text"
+                                         IsChecked="True"
+                                         GroupName="InputMode"
+                                         x:Name="TextModeRadio" />
+                            <RadioButton Content="Voice"
+                                         GroupName="InputMode"
+                                         x:Name="VoiceModeRadio" />
+                            <RadioButton Content="Camera"
+                                         GroupName="InputMode"
+                                         x:Name="CameraModeRadio" />
+                        </HorizontalStackLayout>
+                        <!-- Text Input -->
                         <Grid ColumnDefinitions="*,Auto"
                               ColumnSpacing="{StaticResource SpacingSmall}">
                             <Entry Grid.Column="0"
@@ -374,18 +380,21 @@
                                     BackgroundColor="{StaticResource Primary}"
                                     TextColor="{StaticResource TextOnPrimary}" />
                         </Grid>
-                        <!-- Input Mode Selection -->
-                        <HorizontalStackLayout Spacing="{StaticResource SpacingTiny}">
-                            <Label Text="Input Mode:"
-                                   VerticalOptions="Center" />
-                            <RadioButton Content="Text"
-                                         IsChecked="True"
-                                         GroupName="InputMode" />
-                            <RadioButton Content="Voice"
-                                         GroupName="InputMode" />
-                            <RadioButton Content="Camera"
-                                         GroupName="InputMode" />
+                        <!-- Media Input Options -->
+                        <HorizontalStackLayout Spacing="{StaticResource SpacingSmall}">
+                            <Button Text="Select Image"
+                                    Clicked="OnSelectImageClicked"
+                                    BackgroundColor="{StaticResource Secondary}"
+                                    TextColor="{StaticResource TextOnSecondary}" />
+                            <Button Text="Select Audio"
+                                    Clicked="OnSelectAudioClicked"
+                                    BackgroundColor="{StaticResource Tertiary}"
+                                    TextColor="{StaticResource TextOnPrimary}" />
                         </HorizontalStackLayout>
+                        <!-- Selected Media Display -->
+                        <Image x:Name="SelectedImage"
+                               HeightRequest="100"
+                               IsVisible="False" />
                         <!-- Warning if no models active -->
                         <Frame BackgroundColor="{StaticResource WarningBackground}"
                                IsVisible="{Binding ActiveModelsCount, Converter={StaticResource IntToBoolConverter}, ConverterParameter=0}"

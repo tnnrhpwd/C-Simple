@@ -294,6 +294,71 @@ namespace CSimple.Pages
             }
         }
 
+        // NEW: Media selection event handlers
+        private async void OnSelectImageClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                var result = await FilePicker.Default.PickAsync(new PickOptions
+                {
+                    PickerTitle = "Select an image",
+                    FileTypes = FilePickerFileType.Images
+                });
+
+                if (result != null)
+                {
+                    // Update the image display
+                    if (FindByName("SelectedImage") is Image selectedImage)
+                    {
+                        selectedImage.Source = ImageSource.FromFile(result.FullPath);
+                        selectedImage.IsVisible = true;
+                    }
+
+                    // Store the selected image in the view model if needed
+                    // _viewModel.SelectedImagePath = result.FullPath;
+                    
+                    Debug.WriteLine($"Selected image: {result.FileName}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error selecting image: {ex.Message}");
+                await DisplayAlert("Error", "Failed to select image. Please try again.", "OK");
+            }
+        }
+
+        private async void OnSelectAudioClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                var result = await FilePicker.Default.PickAsync(new PickOptions
+                {
+                    PickerTitle = "Select an audio file",
+                    FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                    {
+                        { DevicePlatform.iOS, new[] { "public.audio" } },
+                        { DevicePlatform.Android, new[] { "audio/*" } },
+                        { DevicePlatform.WinUI, new[] { ".mp3", ".wav", ".m4a", ".aac" } },
+                        { DevicePlatform.macOS, new[] { "mp3", "wav", "m4a", "aac" } }
+                    })
+                });
+
+                if (result != null)
+                {
+                    // Store the selected audio file path in the view model if needed
+                    // _viewModel.SelectedAudioPath = result.FullPath;
+                    
+                    Debug.WriteLine($"Selected audio: {result.FileName}");
+                    await DisplayAlert("Audio Selected", $"Selected: {result.FileName}", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error selecting audio: {ex.Message}");
+                await DisplayAlert("Error", "Failed to select audio file. Please try again.", "OK");
+            }
+        }
+
         // --- UI Specific Helpers ---
 
         private async Task<CSimple.Models.HuggingFaceModel> ShowHuggingFaceModelSelection(List<CSimple.Models.HuggingFaceModel> searchResults)
