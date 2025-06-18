@@ -108,3 +108,34 @@ appsettings.Development.json
 # OS generated files
 .DS_Store
 *.swp
+
+# Python virtual environments and package caches
+venv/
+env/
+.venv/
+.env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# AI/ML model caches and data
+*.model
+*.pkl
+*.h5
+*.weights
+.huggingface/
+.transformers_cache/
+huggingface_cache/

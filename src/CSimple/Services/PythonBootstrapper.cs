@@ -9,37 +9,36 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
 namespace CSimple.Services
-{
-    /// <summary>
-    /// Simplified Python bootstrapper that focuses on system Python or API-only mode
-    /// </summary>
+{    /// <summary>
+     /// Python bootstrapper that creates and manages a virtual environment for ML dependencies
+     /// </summary>
     public class PythonBootstrapper
     {
         private readonly string _appDataPath;
         private readonly string _scriptsPath;
+        private readonly string _venvPath;
         private string _pythonPath = null;
+        private string _venvPythonPath = null;
+        private bool _venvCreated = false;
 
         // Events for status updates
         public event EventHandler<string> StatusChanged;
-        public event EventHandler<double> ProgressChanged;
-
-        public PythonBootstrapper()
+        public event EventHandler<double> ProgressChanged; public PythonBootstrapper()
         {
             _appDataPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "CSimple");
             _scriptsPath = Path.Combine(_appDataPath, "scripts");
+            _venvPath = Path.Combine(_appDataPath, "venv");
             Directory.CreateDirectory(_scriptsPath);
         }
 
         /// <summary>
-        /// Gets the Python executable path
+        /// Gets the Python executable path (venv python if available, otherwise system python)
         /// </summary>
-        public string PythonExecutablePath => _pythonPath;
-
-        /// <summary>
-        /// Initializes by finding an existing Python installation
-        /// </summary>
+        public string PythonExecutablePath => _venvCreated ? _venvPythonPath : _pythonPath;        /// <summary>
+                                                                                                   /// Initializes by finding Python and setting up virtual environment
+                                                                                                   /// </summary>
         public async Task<bool> InitializeAsync()
         {
             try
@@ -51,8 +50,21 @@ namespace CSimple.Services
                 if (await FindSystemPythonAsync())
                 {
                     UpdateStatus($"Found Python at: {_pythonPath}");
-                    UpdateProgress(1.0);
-                    return true;
+                    UpdateProgress(0.3);
+
+                    // Check if virtual environment exists or create it
+                    if (await SetupVirtualEnvironmentAsync())
+                    {
+                        UpdateStatus("Virtual environment ready");
+                        UpdateProgress(1.0);
+                        return true;
+                    }
+                    else
+                    {
+                        UpdateStatus("Failed to setup virtual environment, using system Python");
+                        UpdateProgress(1.0);
+                        return true; // Still return true as we have system Python
+                    }
                 }
 
                 // No Python found
@@ -66,13 +78,245 @@ namespace CSimple.Services
                 Debug.WriteLine($"Error in InitializeAsync: {ex}");
                 return false;
             }
+        }        /// <summary>
+                 /// Sets up or verifies the virtual environment
+                 /// </summary>
+        private async Task<bool> SetupVirtualEnvironmentAsync()
+        {
+            try
+            {
+                // Check if venv already exists and is valid
+                if (await IsVenvValidAsync())
+                {
+                    UpdateStatus("Using existing virtual environment");
+                    return true;
+                }
+
+                UpdateStatus("Creating virtual environment...");
+                UpdateProgress(0.4);
+
+                // Create virtual environment
+                if (await CreateVirtualEnvironmentAsync())
+                {
+                    UpdateStatus("Virtual environment created successfully");
+                    UpdateProgress(0.6);
+
+                    // Install required packages in the venv
+                    if (await InstallPackagesInVenvAsync())
+                    {
+                        UpdateStatus("Required packages installed in virtual environment");
+                        UpdateProgress(0.9);
+                        return true;
+                    }
+                    else
+                    {
+                        UpdateStatus("Failed to install packages in virtual environment");
+                        return false;
+                    }
+                }
+                else
+                {
+                    UpdateStatus("Failed to create virtual environment");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus($"Error setting up virtual environment: {ex.Message}");
+                Debug.WriteLine($"Error in SetupVirtualEnvironmentAsync: {ex}");
+                return false;
+            }
         }
 
         /// <summary>
-        /// Installs required packages for HuggingFace models
+        /// Checks if the virtual environment exists and is valid
+        /// </summary>
+        private async Task<bool> IsVenvValidAsync()
+        {
+            try
+            {
+                // Set the venv python path
+                _venvPythonPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                    ? Path.Combine(_venvPath, "Scripts", "python.exe")
+                    : Path.Combine(_venvPath, "bin", "python");
+
+                if (!File.Exists(_venvPythonPath))
+                {
+                    Debug.WriteLine($"Venv python not found at: {_venvPythonPath}");
+                    return false;
+                }
+
+                // Test if the venv python works
+                var result = await ExecuteCommandAsync(_venvPythonPath, "--version");
+                if (result.ExitCode == 0 && result.Output.Contains("Python 3"))
+                {
+                    // Check if required packages are installed
+                    var packageResult = await ExecuteCommandAsync(_venvPythonPath, "-c \"import transformers, torch; print('Packages OK')\"");
+                    if (packageResult.ExitCode == 0 && packageResult.Output.Contains("Packages OK"))
+                    {
+                        _venvCreated = true;
+                        Debug.WriteLine("Existing venv is valid and has required packages");
+                        return true;
+                    }
+                    else
+                    {
+                        Debug.WriteLine("Venv exists but missing required packages");
+                        _venvCreated = true; // Mark as created so we can install packages
+                        return false;
+                    }
+                }
+
+                Debug.WriteLine("Venv python is not working properly");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error checking venv validity: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Creates a new virtual environment
+        /// </summary>
+        private async Task<bool> CreateVirtualEnvironmentAsync()
+        {
+            try
+            {
+                // Remove existing venv if it exists but is invalid
+                if (Directory.Exists(_venvPath))
+                {
+                    try
+                    {
+                        Directory.Delete(_venvPath, recursive: true);
+                        UpdateStatus("Removed invalid virtual environment");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Could not remove existing venv: {ex.Message}");
+                        // Continue anyway
+                    }
+                }
+
+                // Create the virtual environment
+                var result = await ExecuteCommandAsync(_pythonPath, $"-m venv \"{_venvPath}\"");
+
+                if (result.ExitCode != 0)
+                {
+                    Debug.WriteLine($"Failed to create venv. Exit code: {result.ExitCode}, Error: {result.Error}");
+                    UpdateStatus("Failed to create virtual environment. Trying with system Python.");
+                    return false;
+                }
+
+                // Set the venv python path
+                _venvPythonPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                    ? Path.Combine(_venvPath, "Scripts", "python.exe")
+                    : Path.Combine(_venvPath, "bin", "python");
+
+                // Verify the venv was created
+                if (File.Exists(_venvPythonPath))
+                {
+                    _venvCreated = true;
+                    Debug.WriteLine($"Virtual environment created at: {_venvPath}");
+                    return true;
+                }
+                else
+                {
+                    Debug.WriteLine("Virtual environment creation appeared to succeed but python executable not found");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error creating virtual environment: {ex.Message}");
+                UpdateStatus($"Error creating virtual environment: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Installs required packages in the virtual environment
+        /// </summary>
+        private async Task<bool> InstallPackagesInVenvAsync()
+        {
+            if (!_venvCreated || string.IsNullOrEmpty(_venvPythonPath))
+            {
+                UpdateStatus("Virtual environment not available for package installation");
+                return false;
+            }
+
+            try
+            {
+                UpdateStatus("Installing required packages in virtual environment...");
+
+                // First, upgrade pip in the venv
+                var pipUpgradeResult = await ExecuteCommandAsync(_venvPythonPath, "-m pip install --upgrade pip");
+                if (pipUpgradeResult.ExitCode != 0)
+                {
+                    Debug.WriteLine($"Warning: Failed to upgrade pip: {pipUpgradeResult.Error}");
+                    // Continue anyway as this is not critical
+                }
+
+                // Install packages with specific versions for better compatibility
+                var packages = new[]
+                {
+                    "torch",
+                    "transformers",
+                    "accelerate",
+                    "tokenizers"
+                };
+
+                foreach (var package in packages)
+                {
+                    UpdateStatus($"Installing {package}...");
+                    var result = await ExecuteCommandAsync(_venvPythonPath, $"-m pip install {package} --no-cache-dir");
+
+                    if (result.ExitCode != 0)
+                    {
+                        Debug.WriteLine($"Failed to install {package}: {result.Error}");
+                        UpdateStatus($"Failed to install {package}. Check your internet connection and try again.");
+                        return false;
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Successfully installed {package}");
+                    }
+                }
+
+                // Verify installation
+                var verifyResult = await ExecuteCommandAsync(_venvPythonPath, "-c \"import transformers, torch, accelerate; print('All packages installed successfully')\"");
+                if (verifyResult.ExitCode == 0)
+                {
+                    UpdateStatus("All required packages installed successfully");
+                    return true;
+                }
+                else
+                {
+                    UpdateStatus("Package installation verification failed");
+                    Debug.WriteLine($"Package verification failed: {verifyResult.Error}");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus($"Error installing packages: {ex.Message}");
+                Debug.WriteLine($"Error installing packages in venv: {ex}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Installs required packages for HuggingFace models (legacy method - now uses venv)
         /// </summary>
         public async Task<bool> InstallRequiredPackagesAsync()
         {
+            // If we have a venv, use it
+            if (_venvCreated)
+            {
+                return await InstallPackagesInVenvAsync();
+            }
+
+            // Fallback to system Python installation
             if (string.IsNullOrEmpty(_pythonPath))
             {
                 UpdateStatus("Python not found. Cannot install packages.");
@@ -81,14 +325,14 @@ namespace CSimple.Services
 
             try
             {
-                UpdateStatus("Installing required packages...");
+                UpdateStatus("Installing required packages in system Python...");
                 UpdateProgress(0.2);
 
                 // Create a process to run pip
                 var processStartInfo = new ProcessStartInfo
                 {
                     FileName = _pythonPath,
-                    Arguments = "-m pip install transformers torch --upgrade",
+                    Arguments = "-m pip install transformers torch accelerate --upgrade --user",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -186,15 +430,16 @@ namespace CSimple.Services
                 Debug.WriteLine($"Error copying scripts: {ex.Message}");
                 return false;
             }
-        }
-
-        /// <summary>
-        /// Executes a Python script
-        /// </summary>
+        }        /// <summary>
+                 /// Executes a Python script using the virtual environment if available
+                 /// </summary>
         public async Task<(string Output, string Error, int ExitCode)> ExecuteScriptAsync(
             string scriptPath, string arguments, int timeoutMs = 120000)
         {
-            if (string.IsNullOrEmpty(_pythonPath))
+            // Use venv python if available, otherwise system python
+            string pythonToUse = _venvCreated ? _venvPythonPath : _pythonPath;
+
+            if (string.IsNullOrEmpty(pythonToUse))
             {
                 return ("", "Python not found. Please install Python and restart the application.", -1);
             }
@@ -203,7 +448,7 @@ namespace CSimple.Services
             {
                 var processStartInfo = new ProcessStartInfo
                 {
-                    FileName = _pythonPath,
+                    FileName = pythonToUse,
                     Arguments = $"\"{scriptPath}\" {arguments}",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -214,6 +459,7 @@ namespace CSimple.Services
                 };
 
                 Debug.WriteLine($"Executing: {processStartInfo.FileName} {processStartInfo.Arguments}");
+                Debug.WriteLine($"Using virtual environment: {_venvCreated}");
 
                 using var process = new Process { StartInfo = processStartInfo };
                 var output = new StringBuilder();

@@ -888,26 +888,36 @@ if __name__ == '__main__':
 
                 Debug.WriteLine($"Process completed with exit code: {exitCode}");
                 Debug.WriteLine($"Output: {output}");
-                Debug.WriteLine($"Error: {error}");
-
-                if (exitCode != 0)
+                Debug.WriteLine($"Error: {error}"); if (exitCode != 0)
                 {
                     // Check for specific error patterns and provide better messages
-                    if (error.Contains("accelerate") && error.Contains("FP8"))
+                    if (error.Contains("No GPU or XPU found") && error.Contains("FP8 quantization"))
+                    {
+                        throw new Exception($"Model '{modelId}' requires GPU acceleration for FP8 quantization, but no compatible GPU was found. The script will attempt to use HuggingFace API as fallback.");
+                    }
+                    else if (error.Contains("accelerate") && error.Contains("FP8"))
                     {
                         throw new Exception("Model requires 'accelerate' package for FP8 quantization support.");
                     }
                     else if (error.Contains("ModuleNotFoundError") || error.Contains("ImportError"))
                     {
-                        throw new Exception("Missing required Python packages. Please install: transformers torch accelerate");
-                    }
-                    else if (error.Contains("malicious code") || error.Contains("double-check"))
-                    {
-                        throw new Exception("Security warning: Model downloaded new code files. Execution blocked for safety.");
+                        throw new Exception("Required Python packages are missing. Please ensure transformers and torch are installed.");
                     }
                     else if (error.Contains("OutOfMemoryError") || error.Contains("CUDA out of memory"))
                     {
-                        throw new Exception("Insufficient memory to load this model. Try a smaller model or close other applications.");
+                        throw new Exception("Model is too large for available memory. Try using a smaller model or closing other applications.");
+                    }
+                    else if (error.Contains("torch.cuda.is_available()"))
+                    {
+                        throw new Exception("CUDA/GPU support is required for this model but not available on this system.");
+                    }
+                    else if (error.Contains("AUTHENTICATION_ERROR") || error.Contains("AUTHENTICATION_REQUIRED"))
+                    {
+                        throw new Exception($"Model '{modelId}' requires a HuggingFace API key for access. This is likely a gated model. Get a free API key from https://huggingface.co/settings/tokens and configure it in the app settings.");
+                    }
+                    else if (error.Contains("API Error 401") || error.Contains("Invalid username or password"))
+                    {
+                        throw new Exception($"Authentication failed for model '{modelId}'. This model requires a HuggingFace API key. Get one from https://huggingface.co/settings/tokens or try a public model like 'gpt2' or 'distilgpt2'.");
                     }
                     else
                     {
@@ -915,10 +925,29 @@ if __name__ == '__main__':
                     }
                 }
 
-                // Error checking for output
-                if (output.Contains("ERROR:"))
+                // Check if we got valid output
+                if (string.IsNullOrWhiteSpace(output))
                 {
-                    throw new Exception(output);
+                    // If no output but no error, the model might have processed but returned empty
+                    if (string.IsNullOrWhiteSpace(error))
+                    {
+                        return "Model processed the input but generated no text output. This can happen with some model types or configurations.";
+                    }
+                    else
+                    {                        // If there's error output but exit code was 0, it might be warnings
+                        if (error.Contains("AUTHENTICATION_ERROR") || error.Contains("AUTHENTICATION_REQUIRED"))
+                        {
+                            throw new Exception($"Model requires authentication. Get a HuggingFace API key from https://huggingface.co/settings/tokens or try a public model like 'gpt2'.");
+                        }
+                        else if (error.Contains("API Error") || error.Contains("Falling back to HuggingFace API"))
+                        {
+                            return $"Local execution failed, using HuggingFace API: {error}";
+                        }
+                        else
+                        {
+                            return $"Model execution completed with warnings: {error}";
+                        }
+                    }
                 }
 
                 return output.Trim();
