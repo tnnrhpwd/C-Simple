@@ -8,6 +8,53 @@ import urllib.parse
 import urllib.error
 import ssl
 import time
+import os
+from pathlib import Path
+
+def check_model_cache_status(model_id):
+    """Check if model is already cached and report download status"""
+    try:
+        from transformers.utils import TRANSFORMERS_CACHE
+        from huggingface_hub import HfApi
+        
+        # Get the default cache directory
+        cache_dir = os.environ.get('TRANSFORMERS_CACHE', TRANSFORMERS_CACHE)
+        if not cache_dir:
+            cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "transformers")
+        
+        # Check for model files in cache
+        model_cache_path = Path(cache_dir)
+        model_hash = model_id.replace("/", "--")
+        
+        # Look for any cached files related to this model
+        cached_files = []
+        if model_cache_path.exists():
+            for item in model_cache_path.rglob("*"):
+                if model_hash in item.name or model_id.split("/")[-1] in item.name:
+                    cached_files.append(item)
+        
+        if cached_files:
+            print(f"✓ Model '{model_id}' found in cache ({len(cached_files)} files)", file=sys.stderr)
+            total_size = sum(f.stat().st_size for f in cached_files if f.is_file())
+            print(f"  Cache size: {total_size / (1024*1024):.1f} MB", file=sys.stderr)
+            return True
+        else:
+            print(f"⬇ Model '{model_id}' not cached - will download from HuggingFace Hub", file=sys.stderr)
+            return False
+            
+    except Exception as e:
+        print(f"Note: Could not check cache status: {e}", file=sys.stderr)
+        return False
+
+def progress_callback():
+    """Simple progress indicator for model downloads"""
+    print(".", end="", flush=True, file=sys.stderr)
+
+def setup_download_progress_monitoring():
+    """Set up environment variables to show download progress"""
+    # Enable HuggingFace Hub progress bars
+    os.environ['HF_HUB_ENABLE_HF_TRANSFER'] = '0'  # Disable faster downloads to see progress
+    os.environ['TRANSFORMERS_VERBOSITY'] = 'info'  # Show more detailed loading info
 
 def call_huggingface_api(model_id, inputs, api_key=None, timeout=30):
     """Fallback to HuggingFace API when local execution fails"""
@@ -110,8 +157,18 @@ def main():
         import torch
         
         print(f'Loading model: {args.model_id}')
-          # Try to use pipeline first (simpler approach)
-        try:            # Determine task type based on model ID
+        
+        # Set up download progress monitoring
+        setup_download_progress_monitoring()
+        
+        # Check if model is cached or needs to be downloaded
+        is_cached = check_model_cache_status(args.model_id)
+        if not is_cached:
+            print(f"Downloading model '{args.model_id}' from HuggingFace Hub...", file=sys.stderr)
+            print("This may take several minutes depending on model size and internet speed.", file=sys.stderr)
+            print("Progress: ", end="", file=sys.stderr)          # Try to use pipeline first (simpler approach)
+        try:
+            # Determine task type based on model ID
             if 'gpt' in args.model_id.lower() or 'llama' in args.model_id.lower() or 'deepseek' in args.model_id.lower():
                 task = 'text-generation'
             elif 'bert' in args.model_id.lower():
@@ -121,20 +178,25 @@ def main():
             elif 'clip' in args.model_id.lower() or 'vit' in args.model_id.lower():
                 task = 'image-classification'
             else:
-                task = 'text-generation'  # Default
-                  # Detect available hardware and choose appropriate device
+                task = 'text-generation'  # Default                  # Detect available hardware and choose appropriate device
             device = "cpu"  # Default to CPU
             torch_dtype = torch.float32  # Default to float32 for CPU compatibility
-            
+              
             # Enhanced GPU detection with detailed diagnostics
             try:
                 if torch.cuda.is_available():
                     device = "cuda"
                     torch_dtype = torch.float16  # Use float16 for GPU efficiency
                     gpu_name = torch.cuda.get_device_name(0)
+                    compute_capability = torch.cuda.get_device_capability(0)
                     print(f"GPU detected: {gpu_name}", file=sys.stderr)
                     print(f"CUDA version: {torch.version.cuda}", file=sys.stderr)
+                    print(f"Compute capability: {compute_capability[0]}.{compute_capability[1]}", file=sys.stderr)
                     print(f"Using GPU acceleration for model: {args.model_id}", file=sys.stderr)
+                    
+                    # Check for FP8 compatibility
+                    if compute_capability[0] < 8 or (compute_capability[0] == 8 and compute_capability[1] < 9):
+                        print(f"Note: GPU compute capability {compute_capability[0]}.{compute_capability[1]} < 8.9. FP8 quantization will be disabled.", file=sys.stderr)
                 else:
                     print(f"No GPU detected, using CPU for model: {args.model_id}", file=sys.stderr)
                     print(f"PyTorch version: {torch.__version__}", file=sys.stderr)
@@ -157,9 +219,7 @@ def main():
             
             if is_gpu_preferred and device == "cpu":
                 print(f"Warning: Model {args.model_id} prefers GPU acceleration but only CPU is available.", file=sys.stderr)
-                print("Performance may be slower. Consider using a CPU-friendly model like 'gpt2' or 'distilgpt2'.", file=sys.stderr)
-            
-            # Enhanced model configuration based on available hardware
+                print("Performance may be slower. Consider using a CPU-friendly model like 'gpt2' or 'distilgpt2'.", file=sys.stderr)              # Enhanced model configuration based on available hardware
             model_kwargs = {
                 "trust_remote_code": True,
                 "torch_dtype": torch_dtype,
@@ -169,6 +229,10 @@ def main():
             # Configure device mapping based on available hardware
             if device == "cuda":
                 model_kwargs["device_map"] = "auto"  # Let transformers handle GPU mapping
+                # Disable FP8 quantization for GPUs with compute capability < 8.9 (like RTX 3090)
+                model_kwargs["attn_implementation"] = "flash_attention_2" if torch.cuda.get_device_capability()[0] >= 8 else "eager"
+                # Force disable quantization for older GPUs
+                model_kwargs["quantization_config"] = None
             else:
                 model_kwargs["device_map"] = None  # Don't use device mapping for CPU
             
@@ -180,28 +244,42 @@ def main():
                 })
                 print(f"CPU optimization enabled for model {args.model_id}", file=sys.stderr)
             else:
-                model_kwargs["low_cpu_mem_usage"] = True
-              # Try without quantization first
+                model_kwargs["low_cpu_mem_usage"] = True# Try without quantization first
             try:
                 if device == "cuda":
-                    pipe = pipeline(task, model=args.model_id, device=0, **model_kwargs)  # Use GPU device 0
+                    # Don't specify device when using device_map to avoid conflicts
+                    print("Creating GPU pipeline...", file=sys.stderr)
+                    pipe = pipeline(task, model=args.model_id, **model_kwargs)
+                    print(f"✓ Model '{args.model_id}' loaded successfully on GPU", file=sys.stderr)
                 else:
+                    print("Creating CPU pipeline...", file=sys.stderr)
                     pipe = pipeline(task, model=args.model_id, device=-1, **model_kwargs)  # Use CPU (-1)
+                    print(f"✓ Model '{args.model_id}' loaded successfully on CPU", file=sys.stderr)
+                
+                if not is_cached:
+                    print(f"\n✓ Model download and caching completed for '{args.model_id}'", file=sys.stderr)
             except Exception as e:
-                if "quantization" in str(e).lower() or "fp8" in str(e).lower():
-                    print(f"Quantization not supported, trying without special features...", file=sys.stderr)
-                    # Try with minimal configuration
+                if "quantization" in str(e).lower() or "fp8" in str(e).lower() or "compute capability" in str(e).lower():
+                    print(f"Quantization not supported on this GPU, trying without quantization features...", file=sys.stderr)                    # Try with minimal configuration for RTX 3090 compatibility
                     basic_kwargs = {
                         "trust_remote_code": True,
-                        "torch_dtype": torch.float32,
+                        "torch_dtype": torch.float16 if device == "cuda" else torch.float32,
+                        "device_map": "auto" if device == "cuda" else None,
+                        "quantization_config": None,  # Explicitly disable quantization
                     }
                     if device == "cuda":
-                        pipe = pipeline(task, model=args.model_id, device=0, **basic_kwargs)
+                        print("Retrying with basic GPU configuration...", file=sys.stderr)
+                        pipe = pipeline(task, model=args.model_id, **basic_kwargs)
+                        print(f"✓ Model '{args.model_id}' loaded successfully on GPU (basic config)", file=sys.stderr)
                     else:
+                        print("Retrying with basic CPU configuration...", file=sys.stderr)
                         pipe = pipeline(task, model=args.model_id, device=-1, **basic_kwargs)
+                        print(f"✓ Model '{args.model_id}' loaded successfully on CPU (basic config)", file=sys.stderr)
+                    
+                    if not is_cached:
+                        print(f"\n✓ Model download and caching completed for '{args.model_id}'", file=sys.stderr)
                 else:
-                    raise
-            
+                    raise            
             if task == 'text-generation':
                 # Use dynamic parameters from command line arguments
                 generation_kwargs = {
@@ -210,7 +288,7 @@ def main():
                     'temperature': args.temperature,
                     'pad_token_id': pipe.tokenizer.eos_token_id,
                     'no_repeat_ngram_size': 2,
-                    'early_stopping': True,
+                    'truncation': True,  # Add explicit truncation
                 }
                 
                 # Additional CPU optimization settings
@@ -219,7 +297,8 @@ def main():
                         'num_beams': 1,  # Faster generation on CPU
                         'max_new_tokens': min(100, args.max_length),  # Limit tokens for speed
                     })
-                    
+                
+                print("Generating text with pipeline...", file=sys.stderr)
                 result = pipe(args.input, **generation_kwargs)
             else:
                 result = pipe(args.input)
@@ -239,8 +318,7 @@ def main():
                     output = str(result)
             else:
                 output = str(result)
-                
-            # Ensure we have meaningful output
+                  # Ensure we have meaningful output
             if output and len(output.strip()) > 0:
                 print(output.strip())
             else:
@@ -251,7 +329,9 @@ def main():
             
             try:
                 # Fallback to manual tokenizer/model approach with CPU-specific settings
+                print("Trying manual tokenizer/model loading approach...", file=sys.stderr)
                 tokenizer = AutoTokenizer.from_pretrained(args.model_id, trust_remote_code=True)
+                print("✓ Tokenizer loaded successfully", file=sys.stderr)
                 
                 # Add padding token if it doesn't exist
                 if tokenizer.pad_token is None:
@@ -259,28 +339,87 @@ def main():
                 model_load_kwargs = {
                     "trust_remote_code": True,
                     "torch_dtype": torch_dtype,
-                    "low_cpu_mem_usage": True
+                    "low_cpu_mem_usage": True,
+                    "quantization_config": None,  # Explicitly disable quantization
                 }
                 
                 # Configure device mapping based on available hardware
                 if device == "cuda":
                     model_load_kwargs["device_map"] = "auto"
+                    # Disable attention optimizations that might cause issues on RTX 3090
+                    model_load_kwargs["attn_implementation"] = "eager"
                 else:
-                    model_load_kwargs["device_map"] = None
+                    model_load_kwargs["device_map"] = None                
+                print("Loading model with manual approach...", file=sys.stderr)
                 
-                model = AutoModel.from_pretrained(args.model_id, **model_load_kwargs)
-                
-                inputs = tokenizer(args.input, return_tensors='pt', padding=True, truncation=True, max_length=512)
-                
-                # Move inputs to the same device as the model
-                if device == "cuda" and torch.cuda.is_available():
-                    inputs = {k: v.to("cuda") for k, v in inputs.items()}
-                
-                with torch.no_grad():
-                    outputs = model(**inputs)
+                # For text generation models, we need to use AutoModelForCausalLM
+                try:
+                    from transformers import AutoModelForCausalLM
+                    model = AutoModelForCausalLM.from_pretrained(args.model_id, **model_load_kwargs)
+                    print("✓ Model loaded successfully (manual approach)", file=sys.stderr)
                     
-                # Basic response for demonstration
-                print(f'Model "{args.model_id}" processed input successfully. Response: The model has analyzed your input and processed {inputs["input_ids"].shape[1]} tokens.')
+                    if not is_cached:
+                        print(f"\n✓ Model download and caching completed for '{args.model_id}'", file=sys.stderr)
+                    
+                    # Prepare inputs for text generation
+                    inputs = tokenizer(args.input, return_tensors='pt', padding=True, truncation=True, max_length=512)
+                    
+                    # Move inputs to the same device as the model
+                    if device == "cuda" and torch.cuda.is_available():
+                        inputs = {k: v.to("cuda") for k, v in inputs.items()}
+                    
+                    # Generate text
+                    print("Generating text...", file=sys.stderr)
+                    with torch.no_grad():
+                        # Use generate method for text generation
+                        generated_ids = model.generate(
+                            inputs["input_ids"],
+                            attention_mask=inputs.get("attention_mask"),
+                            max_length=min(args.max_length, len(args.input.split()) + args.max_length),
+                            do_sample=True,
+                            temperature=args.temperature,
+                            pad_token_id=tokenizer.eos_token_id,
+                            no_repeat_ngram_size=2,
+                            num_return_sequences=1
+                        )
+                        
+                        # Decode the generated text
+                        generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+                        
+                        # Remove the input prompt from the output if it's included
+                        if generated_text.startswith(args.input):
+                            output = generated_text[len(args.input):].strip()
+                        else:
+                            output = generated_text.strip()
+                        
+                        # Clean up extra whitespace and newlines
+                        output = ' '.join(output.split())
+                        
+                        if output and len(output.strip()) > 0:
+                            print(output.strip())
+                        else:
+                            print("Model generated empty response. This may be normal for some inputs or model configurations.")
+                            
+                except ImportError:
+                    # Fallback to AutoModel if AutoModelForCausalLM is not available
+                    print("AutoModelForCausalLM not available, using AutoModel fallback...", file=sys.stderr)
+                    model = AutoModel.from_pretrained(args.model_id, **model_load_kwargs)
+                    print("✓ Model loaded successfully (manual approach)", file=sys.stderr)
+                    
+                    if not is_cached:
+                        print(f"\n✓ Model download and caching completed for '{args.model_id}'", file=sys.stderr)
+                    
+                    inputs = tokenizer(args.input, return_tensors='pt', padding=True, truncation=True, max_length=512)
+                    
+                    # Move inputs to the same device as the model
+                    if device == "cuda" and torch.cuda.is_available():
+                        inputs = {k: v.to("cuda") for k, v in inputs.items()}
+                    
+                    with torch.no_grad():
+                        outputs = model(**inputs)
+                        
+                    # Basic response for demonstration
+                    print(f'Model "{args.model_id}" processed input successfully. Response: The model has analyzed your input and processed {inputs["input_ids"].shape[1]} tokens.')
                 
             except Exception as manual_error:
                 print(f'Manual approach also failed: {manual_error}', file=sys.stderr)
@@ -288,16 +427,24 @@ def main():
                 if args.offline_mode:
                     print('ERROR: All local execution methods failed and offline mode is enabled (API fallback disabled).', file=sys.stderr)
                     print(f"Model '{args.model_id}' cannot be run locally on this system.", file=sys.stderr)
-                    
-                    # Check if this is a GPU-related issue and provide CUDA setup guidance
+                      # Check if this is a GPU-related issue and provide specific guidance
                     is_gpu_preferred = any(model.lower() in args.model_id.lower() for model in [
                         'deepseek-ai/DeepSeek-R1', 'deepseek-ai/deepseek-r1',
                         'microsoft/DialoGPT-large', 'facebook/opt-66b', 'EleutherAI/gpt-j-6B'
                     ])
                     
-                    if is_gpu_preferred and "No GPU or XPU found" in str(manual_error):
+                    if is_gpu_preferred and ("compute capability" in str(manual_error) or "FP8" in str(manual_error)):
+                        print(f"\nDETECTED: {args.model_id} requires FP8 quantization (compute capability 8.9+)", file=sys.stderr)
+                        print("Your GPU was detected but doesn't support FP8 quantization.", file=sys.stderr)
+                        print("\nAlternative solutions:", file=sys.stderr)
+                        print("1. Use the model via API (switch to online mode)", file=sys.stderr)
+                        print("2. Try a different DeepSeek model variant without FP8 requirements", file=sys.stderr)
+                        print("3. Use a CPU-friendly model like 'gpt2' or 'distilgpt2'", file=sys.stderr)
+                    elif is_gpu_preferred and "No GPU or XPU found" in str(manual_error):
                         print(f"\nDETECTED: {args.model_id} requires GPU acceleration but no GPU was found.", file=sys.stderr)
                         check_and_suggest_cuda_setup()
+                    else:
+                        print(f"\nModel execution failed: {str(manual_error)[:200]}...", file=sys.stderr)
                     
                     print("\nTo resolve this issue:", file=sys.stderr)
                     print("1. Try a CPU-friendly model like 'gpt2' or 'distilgpt2'", file=sys.stderr)

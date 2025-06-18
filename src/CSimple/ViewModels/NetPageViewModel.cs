@@ -923,12 +923,15 @@ if __name__ == '__main__':
 
                 Debug.WriteLine($"Process completed with exit code: {exitCode}");
                 Debug.WriteLine($"Output: {output}");
-                Debug.WriteLine($"Error: {error}");
-
-                if (exitCode != 0)
+                Debug.WriteLine($"Error: {error}"); if (exitCode != 0)
                 {
                     // Enhanced error handling with specific suggestions
-                    if (error.Contains("No GPU or XPU found") && error.Contains("FP8 quantization"))
+                    if (error.Contains("compute capability") && error.Contains("FP8"))
+                    {
+                        throw new Exception($"Model '{modelId}' requires FP8 quantization (GPU compute capability 8.9+). " +
+                            "Your RTX 3090 (8.6) is detected but doesn't support FP8. Switch to online mode or try a different model variant.");
+                    }
+                    else if (error.Contains("No GPU or XPU found") && error.Contains("FP8 quantization"))
                     {
                         throw new Exception($"Model '{modelId}' requires GPU acceleration for FP8 quantization. " +
                             "Consider trying a CPU-friendly model like 'gpt2' or 'distilgpt2' for local execution.");
