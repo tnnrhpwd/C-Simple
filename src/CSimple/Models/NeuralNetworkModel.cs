@@ -35,6 +35,7 @@ namespace CSimple.Models
 
         public double AccuracyScore { get; set; } = 0.75;
         public DateTime LastTrainedDate { get; set; } = DateTime.Now.AddDays(-10);
+        public DateTime LastUsed { get; set; } = DateTime.MinValue;
 
         // Calculated properties
         public string TrainingStatus => AccuracyScore > 0.9 ? "Excellent" : AccuracyScore > 0.8 ? "Good" : "Needs Training";

@@ -828,17 +828,37 @@ if __name__ == '__main__':
                 {
                     Debug.WriteLine($"Script not found at: {_huggingFaceScriptPath}");
                     await CreateHuggingFaceScript(_huggingFaceScriptPath);
-                }                // Show progress indicator for model loading with performance tip
+                }
+                // Show progress indicator for model loading with performance tip
                 CurrentModelStatus = $"Loading {activeHfModel.Name} (first run may take longer)...";
 
                 // Add performance tip to output for user guidance
                 string performanceTip = GetPerformanceTip(activeHfModel.HuggingFaceModelId);
-                LastModelOutput = $"Processing '{message}' with {activeHfModel.Name}...\n\n{performanceTip}";                // Execute the Python script with enhanced parameters
-                string result = await ExecuteHuggingFaceModelAsyncEnhanced(modelInFile.HuggingFaceModelId, message, activeHfModel);                // Update the processing message with the actual response
+                LastModelOutput = $"Processing '{message}' with {activeHfModel.Name}...\n\n{performanceTip}";
+                // Execute the Python script with enhanced parameters
+                string result = await ExecuteHuggingFaceModelAsyncEnhanced(modelInFile.HuggingFaceModelId, message, activeHfModel);
+
+                // Determine LLM source
+                string llmSource = "local";
+                if (_appModeService.CurrentMode != AppMode.Offline && result != null && result.Contains("used HuggingFace API"))
+                {
+                    llmSource = "api";
+                }
+                else if (_appModeService.CurrentMode != AppMode.Offline && result != null && result.ToLower().Contains("api fallback"))
+                {
+                    llmSource = "api";
+                }
+                else if (_appModeService.CurrentMode == AppMode.Offline)
+                {
+                    llmSource = "local";
+                }
+
+                // Update the processing message with the actual response
                 if (!string.IsNullOrEmpty(result))
                 {
                     processingMessage.Content = result;
                     processingMessage.IsProcessing = false;
+                    processingMessage.LLMSource = llmSource;
                     Debug.WriteLine($"Updated processing message with AI response. Content length: {result.Length}");
                     Debug.WriteLine($"AI response content: '{result.Substring(0, Math.Min(100, result.Length))}...'");
                     LastModelOutput = $"Response from {activeHfModel.Name}:\n{result}";
@@ -1985,15 +2005,16 @@ if __name__ == '__main__':
             var name = modelId.Contains('/') ? modelId.Split('/').Last() : modelId;
             name = name.Replace("-", " ").Replace("_", " ");
             return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name);
-        }        private string GetModelDirectoryPath(string modelId)
+        }
+        private string GetModelDirectoryPath(string modelId)
         {
             string safeModelId = (modelId ?? "unknown_model").Replace("/", "_").Replace("\\", "_");
             var modelDirectory = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace", safeModelId);
             Directory.CreateDirectory(modelDirectory); // Ensure it exists
-            
+
             // Log the model directory for user awareness
             Debug.WriteLine($"[Model Directory] {modelId} -> {modelDirectory}");
-            
+
             return modelDirectory;
         }
 
@@ -2210,8 +2231,8 @@ if __name__ == '__main__':
             Debug.WriteLine($"ViewModel Error - {context}: {ex.Message}\n{ex.StackTrace}");
             CurrentModelStatus = $"Error: {context}";
         }        /// <summary>
-        /// Checks if a download should proceed based on offline mode, file existence, and file size
-        /// </summary>
+                 /// Checks if a download should proceed based on offline mode, file existence, and file size
+                 /// </summary>
         private async Task<bool> ShouldProceedWithDownloadAsync(string modelId, string fileName, long sizeBytes = -1)
         {
             // Check offline mode first
@@ -2241,7 +2262,7 @@ if __name__ == '__main__':
                     "Large Download Warning",
                     $"The file '{fileName}' is {sizeGB:F2} GB. This is a large download that may take significant time and storage space.\n\nDo you want to proceed?",
                     "Download", "Cancel");
-                
+
                 if (!proceed)
                 {
                     Debug.WriteLine($"[Download Check] User cancelled large download for {fileName}");

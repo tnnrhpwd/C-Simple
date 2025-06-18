@@ -66,6 +66,9 @@ namespace CSimple.Pages
             await _viewModel.LoadDataAsync(); // Load data when page appears
             CheckConverters(); // Keep converter check here
 
+            // Automatically select and activate the most recent text model
+            SelectAndActivateRecentTextModel();
+
             // Add delay to ensure UI is rendered before refreshing pickers
             await Task.Delay(500);
             EnsurePickersHaveCorrectValues();
@@ -353,6 +356,39 @@ namespace CSimple.Pages
                 else { Debug.WriteLine("Application.Current?.Resources is null"); }
             }
             catch (Exception ex) { Debug.WriteLine($"Error checking converters: {ex.Message}"); }
+        }
+
+        private void SelectAndActivateRecentTextModel()
+        {
+            try
+            {
+                // Find the most recently used model with InputType == Text
+                var recentTextModel = _viewModel.AvailableModels
+                    .Where(m => m.InputType == ModelInputType.Text)
+                    .OrderByDescending(m => m.LastUsed)
+                    .FirstOrDefault();
+
+                // Fallback: if none found, pick the first text model
+                if (recentTextModel == null)
+                {
+                    recentTextModel = _viewModel.AvailableModels
+                        .FirstOrDefault(m => m.InputType == ModelInputType.Text);
+                }
+
+                // Activate if not already active
+                if (recentTextModel != null && !_viewModel.ActiveModels.Contains(recentTextModel))
+                {
+                    if (_viewModel.ActivateModelCommand.CanExecute(recentTextModel))
+                    {
+                        _viewModel.ActivateModelCommand.Execute(recentTextModel);
+                        Debug.WriteLine($"Auto-activated recent text model: {recentTextModel.Name}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error auto-activating recent text model: {ex.Message}");
+            }
         }
 
         // Remove properties, commands, and methods that were moved to the ViewModel
