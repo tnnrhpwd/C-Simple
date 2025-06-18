@@ -37,11 +37,17 @@ namespace CSimple.ViewModels
 
         // Declare the missing fields
         private string _pythonExecutablePath = "python"; // Default value
-        private string _huggingFaceScriptPath = string.Empty; // Default value
-
-        // Add these new properties
+        private string _huggingFaceScriptPath = string.Empty; // Default value        // Add these new properties
         private bool _useFallbackScript = false;
-        private string _fallbackScriptPath;
+        private string _fallbackScriptPath;        // Chat-related backing fields
+        private string _currentMessage = string.Empty;
+        private bool _isAiTyping = false;
+
+        // Media input backing fields
+        private string _selectedImagePath = null;
+        private string _selectedImageName = null;
+        private string _selectedAudioPath = null;
+        private string _selectedAudioName = null;
 
         // --- Observable Properties ---
         public ObservableCollection<NeuralNetworkModel> AvailableModels { get; } = new();
@@ -95,6 +101,99 @@ namespace CSimple.ViewModels
 
         public List<string> HuggingFaceCategories { get; }
 
+        // Chat-related properties
+        public string CurrentMessage
+        {
+            get => _currentMessage;
+            set => SetProperty(ref _currentMessage, value);
+        }
+
+        public bool IsAiTyping
+        {
+            get => _isAiTyping;
+            set => SetProperty(ref _isAiTyping, value);
+        }
+
+        public bool CanSendMessage => !string.IsNullOrWhiteSpace(CurrentMessage) && !IsAiTyping && ActiveModelsCount > 0;
+
+        // Media input properties
+        public string SelectedImagePath
+        {
+            get => _selectedImagePath;
+            set => SetProperty(ref _selectedImagePath, value);
+        }
+
+        public string SelectedImageName
+        {
+            get => _selectedImageName;
+            set => SetProperty(ref _selectedImageName, value);
+        }
+
+        public string SelectedAudioPath
+        {
+            get => _selectedAudioPath;
+            set => SetProperty(ref _selectedAudioPath, value);
+        }
+
+        public string SelectedAudioName
+        {
+            get => _selectedAudioName;
+            set => SetProperty(ref _selectedAudioName, value);
+        }
+
+        // Computed properties for UI state
+        public bool HasSelectedImage => !string.IsNullOrEmpty(SelectedImagePath);
+        public bool HasSelectedAudio => !string.IsNullOrEmpty(SelectedAudioPath);
+        public bool HasSelectedMedia => HasSelectedImage || HasSelectedAudio;        // Input mode intelligence based on active models
+        public bool SupportsTextInput => ActiveModels.Any(m => m.InputType == ModelInputType.Text);
+        public bool SupportsImageInput => ActiveModels.Any(m => m.InputType == ModelInputType.Image);
+        public bool SupportsAudioInput => ActiveModels.Any(m => m.InputType == ModelInputType.Audio);
+
+        public string CurrentInputModeDescription
+        {
+            get
+            {
+                if (ActiveModelsCount == 0)
+                    return "No active models - activate a model to start chatting";
+
+                var supportedTypes = new List<string>();
+                if (SupportsTextInput) supportedTypes.Add("Text");
+                if (SupportsImageInput) supportedTypes.Add("Image");
+                if (SupportsAudioInput) supportedTypes.Add("Audio");
+
+                if (supportedTypes.Count == 0)
+                    return "Active models don't support standard input types";
+
+                if (HasSelectedMedia)
+                {
+                    if (HasSelectedImage && HasSelectedAudio)
+                        return "🎛️ Multimodal: Text + Image + Audio";
+                    else if (HasSelectedImage)
+                        return "🖼️ Vision Mode: Text + Image";
+                    else if (HasSelectedAudio)
+                        return "🎧 Audio Mode: Text + Audio";
+                }
+
+                return $"💬 Available: {string.Join(", ", supportedTypes)}";
+            }
+        }
+
+        public string SupportedInputTypesText
+        {
+            get
+            {
+                if (ActiveModelsCount == 0)
+                    return "";
+
+                var activeInputTypes = ActiveModels
+                    .Select(m => m.InputType.ToString())
+                    .Distinct()
+                    .ToList();
+
+                return $"Active model types: {string.Join(", ", activeInputTypes)}";
+            }
+        }
+
         // --- Commands ---
         public ICommand ToggleGeneralModeCommand { get; }
         public ICommand ToggleSpecificModeCommand { get; }
@@ -108,7 +207,14 @@ namespace CSimple.ViewModels
         public ICommand HuggingFaceSearchCommand { get; } // Triggered by View
         public ICommand ImportFromHuggingFaceCommand { get; } // Triggered by View
         public ICommand GoToOrientCommand { get; } // ADDED: Command to navigate
-        public ICommand UpdateModelInputTypeCommand { get; } // ADDED: Command to update input type        // --- Constructor ---
+        public ICommand UpdateModelInputTypeCommand { get; } // ADDED: Command to update input type        // Chat-related commands
+        public ICommand SendMessageCommand { get; }
+        public ICommand ClearChatCommand { get; }
+
+        // Media-related commands
+        public ICommand SelectImageCommand { get; }
+        public ICommand SelectAudioCommand { get; }
+        public ICommand ClearMediaCommand { get; }// --- Constructor ---
         public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService)
         {
             _fileService = fileService;
@@ -153,11 +259,16 @@ namespace CSimple.ViewModels
                     Debug.WriteLine("Cannot navigate to Orient page: Model or Model ID is null/empty.");
                     await ShowAlert("Navigation Error", "Cannot navigate without a valid model selected.", "OK");
                 }
-            });
-
-            // Add new command for updating model input type
+            });            // Add new command for updating model input type
             UpdateModelInputTypeCommand = new Command<(NeuralNetworkModel, ModelInputType)>(
-                param => UpdateModelInputType(param.Item1, param.Item2));
+                param => UpdateModelInputType(param.Item1, param.Item2));            // Initialize chat commands
+            SendMessageCommand = new Command(async () => await SendMessageAsync(), () => CanSendMessage);
+            ClearChatCommand = new Command(ClearChat);
+
+            // Initialize media commands
+            SelectImageCommand = new Command(async () => await SelectImageAsync());
+            SelectAudioCommand = new Command(async () => await SelectAudioAsync());
+            ClearMediaCommand = new Command(ClearMedia);
 
             // Populate categories
             HuggingFaceCategories = new List<string> { "All Categories" };
@@ -628,7 +739,8 @@ if __name__ == '__main__':
             {
                 HandleError($"Error sharing model: {model?.Name}", ex);
             }
-        }        private async Task CommunicateWithModelAsync(string message)
+        }
+        private async Task CommunicateWithModelAsync(string message)
         {
             if (string.IsNullOrWhiteSpace(message))
             {
@@ -641,7 +753,7 @@ if __name__ == '__main__':
             ChatMessages.Add(userMessage);
 
             // Find the best active HuggingFace reference model (prioritize CPU-friendly ones)
-            var activeHfModel = GetBestActiveModel();if (activeHfModel == null)
+            var activeHfModel = GetBestActiveModel(); if (activeHfModel == null)
             {
                 if (_appModeService.CurrentMode == AppMode.Offline)
                 {
@@ -682,7 +794,8 @@ if __name__ == '__main__':
                     "3. Restart this application after installation", "OK");
 
                 return;
-            }            CurrentModelStatus = $"Sending message to {activeHfModel.Name}...";
+            }
+            CurrentModelStatus = $"Sending message to {activeHfModel.Name}...";
             LastModelOutput = $"Processing '{message}' with {activeHfModel.Name}...";
             IsModelCommunicating = true;
 
@@ -736,7 +849,8 @@ if __name__ == '__main__':
                     LastModelOutput = $"No response received from {activeHfModel.Name}. The model may have executed successfully but produced no output.";
                     CurrentModelStatus = $"Model {activeHfModel.Name} completed but returned no output";
                 }
-            }            catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 HandleError($"Error communicating with model {activeHfModel.Name}", ex);
                 string errorMessage = ex.Message;
@@ -1937,9 +2051,189 @@ if __name__ == '__main__':
                 }
             }, null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
         }
-
         private void StartModelMonitoring(NeuralNetworkModel model) => Debug.WriteLine($"VM: Starting monitoring for {model.Name}");
         private void StopModelMonitoring(NeuralNetworkModel model) => Debug.WriteLine($"VM: Stopping monitoring for {model.Name}");
+
+        // --- Chat Methods ---
+        private async Task SendMessageAsync()
+        {
+            if (string.IsNullOrWhiteSpace(CurrentMessage) || IsAiTyping || ActiveModelsCount == 0)
+                return;
+
+            var userMessage = CurrentMessage.Trim();
+            CurrentMessage = string.Empty; // Clear input
+
+            // Add user message to chat
+            var chatMessage = new ChatMessage(userMessage, true);
+            ChatMessages.Add(chatMessage);
+
+            // Update UI properties
+            IsAiTyping = true;
+            OnPropertyChanged(nameof(CanSendMessage));
+
+            try
+            {
+                // Simulate AI thinking time
+                await Task.Delay(1000);
+
+                // Get response from active model(s)
+                var response = await GetAiResponseAsync(userMessage);
+
+                // Add AI response to chat
+                var aiMessage = new ChatMessage(response, false, "AI Assistant");
+                ChatMessages.Add(aiMessage);
+
+                // Update LastModelOutput for compatibility
+                LastModelOutput = response;
+            }
+            catch (Exception ex)
+            {
+                var errorMessage = $"Sorry, I encountered an error: {ex.Message}";
+                var aiMessage = new ChatMessage(errorMessage, false, "AI Assistant");
+                ChatMessages.Add(aiMessage);
+
+                LastModelOutput = errorMessage;
+                Debug.WriteLine($"Chat error: {ex}");
+            }
+            finally
+            {
+                IsAiTyping = false;
+                OnPropertyChanged(nameof(CanSendMessage));
+
+                // Scroll to bottom of chat (will be handled by view)
+                ScrollToBottom?.Invoke();
+            }
+        }
+
+        private async Task<string> GetAiResponseAsync(string userMessage)
+        {
+            if (ActiveModels.Count == 0)
+                return "No active models available to process your request.";
+
+            // Use the first active model for response
+            var activeModel = ActiveModels.First();
+
+            try
+            {
+                // Try to communicate with the actual model
+                await CommunicateWithModelAsync(userMessage);
+
+                // For now, return a simulated response
+                // In a real implementation, this would get the actual model response
+                var responses = new[]
+                {
+                    $"I understand you said: '{userMessage}'. How can I help you further?",
+                    $"That's an interesting point about '{userMessage}'. Let me think about that...",
+                    $"Based on your input '{userMessage}', I suggest we explore this topic more.",
+                    $"I've processed your message '{userMessage}' and here's my analysis...",
+                    $"Regarding '{userMessage}', I think there are several ways to approach this."
+                };
+
+                return responses[new Random().Next(responses.Length)];
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Model communication error: {ex}");
+                return $"I'm having trouble processing your request right now. Please try again later.";
+            }
+        }
+        private void ClearChat()
+        {
+            ChatMessages.Clear();
+            LastModelOutput = "Chat history cleared.";
+        }
+
+        // --- Media Methods ---
+        private async Task SelectImageAsync()
+        {
+            try
+            {
+                var result = await FilePicker.Default.PickAsync(new PickOptions
+                {
+                    PickerTitle = "Select an image",
+                    FileTypes = FilePickerFileType.Images
+                });
+
+                if (result != null)
+                {
+                    SelectedImagePath = result.FullPath;
+                    SelectedImageName = result.FileName;
+
+                    // Clear audio if image is selected (for simplicity, can be multimodal later)
+                    SelectedAudioPath = null;
+                    SelectedAudioName = null;
+
+                    // Trigger UI updates
+                    OnPropertyChanged(nameof(HasSelectedImage));
+                    OnPropertyChanged(nameof(HasSelectedAudio));
+                    OnPropertyChanged(nameof(HasSelectedMedia));
+                    OnPropertyChanged(nameof(CurrentInputModeDescription));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error selecting image: {ex}");
+                await ShowAlert?.Invoke("Error", "Failed to select image. Please try again.", "OK");
+            }
+        }
+
+        private async Task SelectAudioAsync()
+        {
+            try
+            {
+                var result = await FilePicker.Default.PickAsync(new PickOptions
+                {
+                    PickerTitle = "Select an audio file",
+                    FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                    {
+                        { DevicePlatform.iOS, new[] { "public.audio" } },
+                        { DevicePlatform.Android, new[] { "audio/*" } },
+                        { DevicePlatform.WinUI, new[] { ".mp3", ".wav", ".m4a", ".aac" } },
+                        { DevicePlatform.Tizen, new[] { "audio/*" } },
+                        { DevicePlatform.macOS, new[] { "mp3", "wav", "m4a", "aac" } },
+                    })
+                });
+
+                if (result != null)
+                {
+                    SelectedAudioPath = result.FullPath;
+                    SelectedAudioName = result.FileName;
+
+                    // Clear image if audio is selected (for simplicity, can be multimodal later)
+                    SelectedImagePath = null;
+                    SelectedImageName = null;
+
+                    // Trigger UI updates
+                    OnPropertyChanged(nameof(HasSelectedImage));
+                    OnPropertyChanged(nameof(HasSelectedAudio));
+                    OnPropertyChanged(nameof(HasSelectedMedia));
+                    OnPropertyChanged(nameof(CurrentInputModeDescription));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error selecting audio: {ex}");
+                await ShowAlert?.Invoke("Error", "Failed to select audio file. Please try again.", "OK");
+            }
+        }
+
+        private void ClearMedia()
+        {
+            SelectedImagePath = null;
+            SelectedImageName = null;
+            SelectedAudioPath = null;
+            SelectedAudioName = null;
+
+            // Trigger UI updates
+            OnPropertyChanged(nameof(HasSelectedImage));
+            OnPropertyChanged(nameof(HasSelectedAudio));
+            OnPropertyChanged(nameof(HasSelectedMedia));
+            OnPropertyChanged(nameof(CurrentInputModeDescription));
+        }
+
+        // Action to scroll chat to bottom (to be set by view)
+        public Action ScrollToBottom { get; set; }
+
         private void HandleError(string context, Exception ex)
         {
             Debug.WriteLine($"ViewModel Error - {context}: {ex.Message}\n{ex.StackTrace}");
@@ -1958,15 +2252,24 @@ if __name__ == '__main__':
 
 
         // --- INotifyPropertyChanged Implementation ---
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected bool SetProperty<T>(ref T backingStore, T value, [CallerMemberName] string propertyName = "", Action onChanged = null)
+        public event PropertyChangedEventHandler PropertyChanged; protected bool SetProperty<T>(ref T backingStore, T value, [CallerMemberName] string propertyName = "", Action onChanged = null)
         {
             if (EqualityComparer<T>.Default.Equals(backingStore, value)) return false;
             backingStore = value;
             onChanged?.Invoke();
-            OnPropertyChanged(propertyName);
-            // Also notify dependent properties like ActiveModelsCount
-            if (propertyName == nameof(ActiveModels)) OnPropertyChanged(nameof(ActiveModelsCount));
+            OnPropertyChanged(propertyName);            // Also notify dependent properties
+            if (propertyName == nameof(ActiveModels))
+            {
+                OnPropertyChanged(nameof(ActiveModelsCount));
+                OnPropertyChanged(nameof(SupportsTextInput));
+                OnPropertyChanged(nameof(SupportsImageInput));
+                OnPropertyChanged(nameof(SupportsAudioInput));
+                OnPropertyChanged(nameof(CurrentInputModeDescription));
+                OnPropertyChanged(nameof(SupportedInputTypesText));
+            }
+            if (propertyName == nameof(CurrentMessage) || propertyName == nameof(IsAiTyping) || propertyName == nameof(ActiveModels))
+                OnPropertyChanged(nameof(CanSendMessage));
+
             return true;
         }
         protected void OnPropertyChanged([CallerMemberName] string propertyName = "") =>

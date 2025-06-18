@@ -37,9 +37,20 @@ namespace CSimple.Pages
             _viewModel.ShowConfirmation = (title, message, accept, cancel) => DisplayAlert(title, message, accept, cancel);
             _viewModel.ShowActionSheet = (title, cancel, destruction, buttons) => DisplayActionSheet(title, cancel, destruction, buttons);
             _viewModel.ShowPrompt = (title, message, accept, cancel, initialValue) => DisplayPromptAsync(title, message, accept, cancel, initialValue: initialValue);
-            _viewModel.PickFile = async () => await FilePicker.Default.PickAsync(new PickOptions());
-            _viewModel.NavigateTo = async (route) => await Shell.Current.GoToAsync(route);
+            _viewModel.PickFile = async () => await FilePicker.Default.PickAsync(new PickOptions()); _viewModel.NavigateTo = async (route) => await Shell.Current.GoToAsync(route);
             _viewModel.ShowModelSelectionDialog = ShowHuggingFaceModelSelection; // Custom method for this UI
+
+            // Set up chat scroll functionality
+            _viewModel.ScrollToBottom = () =>
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    if (FindByName("ChatScrollView") is ScrollView scrollView)
+                    {
+                        scrollView.ScrollToAsync(0, double.MaxValue, true);
+                    }
+                });
+            };
 
             // Check login status (can remain here or move to VM if navigation service is used)
             CheckUserLoggedIn();
@@ -195,65 +206,7 @@ namespace CSimple.Pages
                 _viewModel.ImportFromHuggingFaceCommand.Execute(null);
             }
             await Task.CompletedTask; // Added to match original async void signature if needed
-        }
-
-        // Enhanced handler for message sending with better feedback
-        private void OnSendMessageClicked(object sender, EventArgs e)
-        {
-            try
-            {
-                if (FindByName("MessageInput") is Entry messageInput)
-                {
-                    string message = messageInput.Text?.Trim();
-                    if (!string.IsNullOrWhiteSpace(message))
-                    {
-                        // Check if any models are active
-                        if (_viewModel.ActiveModelsCount == 0)
-                        {
-                            DisplayAlert("No Active Models", "Please activate a HuggingFace model before sending a message.", "OK");
-                            return;
-                        }
-
-                        // Execute the command
-                        if (_viewModel.CommunicateWithModelCommand.CanExecute(message))
-                        {
-                            _viewModel.CommunicateWithModelCommand.Execute(message);
-                            // Clear the input after sending
-                            messageInput.Text = string.Empty;
-
-                            // Provide immediate feedback
-                            if (_viewModel.IsModelCommunicating)
-                            {
-                                messageInput.Placeholder = "Processing your message...";
-
-                                // Reset placeholder after a delay
-                                Task.Delay(3000).ContinueWith(_ =>
-                                {
-                                    MainThread.BeginInvokeOnMainThread(() =>
-                                    {
-                                        if (!_viewModel.IsModelCommunicating)
-                                        {
-                                            messageInput.Placeholder = "Type your message here...";
-                                        }
-                                    });
-                                });
-                            }
-                        }
-                    }
-                    else
-                    {
-                        DisplayAlert("Empty Message", "Please enter a message to send to the AI model.", "OK");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error sending message: {ex.Message}");
-                DisplayAlert("Error", "Failed to send message. Please try again.", "OK");
-            }
-        }
-
-        // MODIFIED: Input type change handler with better feedback
+        }        // MODIFIED: Input type change handler with better feedback
         private void OnModelInputTypeChanged(object sender, EventArgs e)
         {
             try
@@ -316,7 +269,7 @@ namespace CSimple.Pages
 
                     // Store the selected image in the view model if needed
                     // _viewModel.SelectedImagePath = result.FullPath;
-                    
+
                     Debug.WriteLine($"Selected image: {result.FileName}");
                 }
             }
@@ -347,7 +300,7 @@ namespace CSimple.Pages
                 {
                     // Store the selected audio file path in the view model if needed
                     // _viewModel.SelectedAudioPath = result.FullPath;
-                    
+
                     Debug.WriteLine($"Selected audio: {result.FileName}");
                     await DisplayAlert("Audio Selected", $"Selected: {result.FileName}", "OK");
                 }

@@ -331,81 +331,233 @@
                         <Label Text="AI Assistant"
                                FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold" />
-                        <!-- Output Section -->
-                        <Label Text="Output"
+                        <!-- Chat History Section -->
+                        <Label Text="Chat History"
                                FontAttributes="Bold" />
                         <Frame BackgroundColor="{StaticResource BackgroundSecondary}"
                                CornerRadius="{StaticResource CornerRadiusSmall}"
                                Padding="{StaticResource CardContentPadding}"
-                               HeightRequest="{StaticResource CardHeight}">
-                            <ScrollView>
-                                <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                                    <Frame BackgroundColor="{StaticResource BackgroundPrimary}"
+                               HeightRequest="300">
+                            <ScrollView x:Name="ChatScrollView"
+                                        VerticalScrollBarVisibility="Always">
+                                <CollectionView ItemsSource="{Binding ChatMessages}"
+                                                SelectionMode="None"
+                                                VerticalOptions="End">
+                                    <CollectionView.ItemTemplate>
+                                        <DataTemplate x:DataType="models:ChatMessage">
+                                            <Grid Padding="{StaticResource SpacingSmall}"
+                                                  Margin="{StaticResource MarginBottomTiny}">
+                                                <!-- User Message (Right-aligned) -->
+                                                <Frame IsVisible="{Binding IsFromUser}"
+                                                       BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                       Padding="{StaticResource CardContentPadding}"
+                                                       CornerRadius="15,15,5,15"
+                                                       Margin="50,0,0,0"
+                                                       HorizontalOptions="End">
+                                                    <VerticalStackLayout>
+                                                        <Label Text="You"
+                                                               FontSize="{StaticResource FontSizeCaption}"
+                                                               FontAttributes="Bold"
+                                                               TextColor="{StaticResource TextOnPrimary}"
+                                                               HorizontalOptions="End" />
+                                                        <Label Text="{Binding Content}"
+                                                               TextColor="{StaticResource TextOnPrimary}"
+                                                               LineBreakMode="WordWrap" />
+                                                        <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
+                                                               FontSize="{StaticResource FontSizeCaption}"
+                                                               TextColor="{StaticResource TextOnPrimary}"
+                                                               Opacity="0.7"
+                                                               HorizontalOptions="End" />
+                                                    </VerticalStackLayout>
+                                                </Frame>
+                                                <!-- AI Response (Left-aligned) -->
+                                                <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource InverseBoolConverter}}"
+                                                       BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
+                                                       Padding="{StaticResource CardContentPadding}"
+                                                       CornerRadius="15,15,15,5"
+                                                       Margin="0,0,50,0"
+                                                       HorizontalOptions="Start"
+                                                       BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
+                                                    <VerticalStackLayout>
+                                                        <Label Text="AI Assistant"
+                                                               FontSize="{StaticResource FontSizeCaption}"
+                                                               FontAttributes="Bold"
+                                                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                               HorizontalOptions="Start" />
+                                                        <Label Text="{Binding Content}"
+                                                               TextColor="{StaticResource TextPrimary}"
+                                                               LineBreakMode="WordWrap" />
+                                                        <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
+                                                               FontSize="{StaticResource FontSizeCaption}"
+                                                               TextColor="{StaticResource TextSecondary}"
+                                                               Opacity="0.7"
+                                                               HorizontalOptions="Start" />
+                                                    </VerticalStackLayout>
+                                                </Frame>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </CollectionView.ItemTemplate>
+                                    <CollectionView.EmptyView>
+                                        <VerticalStackLayout HorizontalOptions="Center"
+                                                             VerticalOptions="Center"
+                                                             Spacing="{StaticResource SpacingSmall}">
+                                            <Label Text="💬"
+                                                   FontSize="48"
+                                                   HorizontalOptions="Center" />
+                                            <Label Text="Start a conversation with your AI assistant"
+                                                   TextColor="{StaticResource TextSecondary}"
+                                                   HorizontalOptions="Center"
+                                                   FontSize="{StaticResource FontSizeSmall}" />
+                                        </VerticalStackLayout>
+                                    </CollectionView.EmptyView>
+                                </CollectionView>
+                                <!-- Typing Indicator -->
+                                <Grid IsVisible="{Binding IsAiTyping}"
+                                      Padding="{StaticResource SpacingSmall}"
+                                      Margin="{StaticResource MarginBottomTiny}">
+                                    <Frame BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
                                            Padding="{StaticResource CardContentPadding}"
-                                           CornerRadius="{StaticResource CornerRadiusMedium}"
-                                           BorderColor="{StaticResource Primary}">
-                                        <Label Text="{Binding LastModelOutput}"
-                                               TextColor="{StaticResource TextPrimary}" />
+                                           CornerRadius="15,15,15,5"
+                                           Margin="0,0,50,0"
+                                           HorizontalOptions="Start"
+                                           BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
+                                        <StackLayout Orientation="Horizontal"
+                                                     Spacing="{StaticResource SpacingTiny}">
+                                            <Label Text="AI Assistant is typing"
+                                                   TextColor="{StaticResource TextSecondary}"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   VerticalOptions="Center" />
+                                            <ActivityIndicator IsRunning="True"
+                                                               WidthRequest="16"
+                                                               HeightRequest="16"
+                                                               Color="{StaticResource Primary}" />
+                                        </StackLayout>
                                     </Frame>
-                                </VerticalStackLayout>
+                                </Grid>
                             </ScrollView>
                         </Frame>
                         <!-- Input Section -->
                         <Label Text="Input"
                                FontAttributes="Bold" />
-                        <!-- Input Mode Selection -->
-                        <HorizontalStackLayout Spacing="{StaticResource SpacingTiny}">
-                            <Label Text="Input Mode:"
-                                   VerticalOptions="Center" />
-                            <RadioButton Content="Text"
-                                         IsChecked="True"
-                                         GroupName="InputMode"
-                                         x:Name="TextModeRadio" />
-                            <RadioButton Content="Voice"
-                                         GroupName="InputMode"
-                                         x:Name="VoiceModeRadio" />
-                            <RadioButton Content="Camera"
-                                         GroupName="InputMode"
-                                         x:Name="CameraModeRadio" />
-                        </HorizontalStackLayout>
+                        <!-- Input Mode Status Display -->
+                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
+                               CornerRadius="{StaticResource CornerRadiusSmall}"
+                               Padding="{StaticResource CardContentPadding}"
+                               Margin="{StaticResource MarginBottomTiny}">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding CurrentInputModeDescription}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                       HorizontalOptions="Center" />
+                                <Label Text="{Binding SupportedInputTypesText}"
+                                       FontSize="{StaticResource FontSizeCaption}"
+                                       TextColor="{StaticResource TextSecondary}"
+                                       HorizontalOptions="Center" />
+                            </VerticalStackLayout>
+                        </Frame>
                         <!-- Text Input -->
-                        <Grid ColumnDefinitions="*,Auto"
+                        <Grid ColumnDefinitions="*,Auto,Auto"
                               ColumnSpacing="{StaticResource SpacingSmall}">
                             <Entry Grid.Column="0"
                                    Placeholder="Type your message here..."
-                                   x:Name="MessageInput" />
+                                   Text="{Binding CurrentMessage, Mode=TwoWay}"
+                                   x:Name="MessageInput"
+                                   ReturnType="Send"
+                                   ReturnCommand="{Binding SendMessageCommand}" />
                             <Button Grid.Column="1"
                                     Text="Send"
-                                    Clicked="OnSendMessageClicked"
+                                    Command="{Binding SendMessageCommand}"
                                     BackgroundColor="{StaticResource Primary}"
-                                    TextColor="{StaticResource TextOnPrimary}" />
+                                    TextColor="{StaticResource TextOnPrimary}"
+                                    IsEnabled="{Binding CanSendMessage}" />
+                            <Button Grid.Column="2"
+                                    Text="Clear"
+                                    Command="{Binding ClearChatCommand}"
+                                    BackgroundColor="{StaticResource Error}"
+                                    TextColor="{StaticResource TextOnPrimary}"
+                                    FontSize="{StaticResource FontSizeSmall}" />
                         </Grid>
                         <!-- Media Input Options -->
+                        <Label Text="Media Input (Optional)"
+                               FontAttributes="Bold"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               Margin="{StaticResource MarginTopSmall}" />
                         <HorizontalStackLayout Spacing="{StaticResource SpacingSmall}">
-                            <Button Text="Select Image"
-                                    Clicked="OnSelectImageClicked"
+                            <Button Text="📷 Add Image"
+                                    Command="{Binding SelectImageCommand}"
                                     BackgroundColor="{StaticResource Secondary}"
-                                    TextColor="{StaticResource TextOnSecondary}" />
-                            <Button Text="Select Audio"
-                                    Clicked="OnSelectAudioClicked"
+                                    TextColor="{StaticResource TextOnSecondary}"
+                                    IsVisible="{Binding SupportsImageInput}" />
+                            <Button Text="🎤 Add Audio"
+                                    Command="{Binding SelectAudioCommand}"
                                     BackgroundColor="{StaticResource Tertiary}"
-                                    TextColor="{StaticResource TextOnPrimary}" />
+                                    TextColor="{StaticResource TextOnPrimary}"
+                                    IsVisible="{Binding SupportsAudioInput}" />
+                            <Button Text="🗑️ Clear Media"
+                                    Command="{Binding ClearMediaCommand}"
+                                    BackgroundColor="{StaticResource Error}"
+                                    TextColor="{StaticResource TextOnPrimary}"
+                                    FontSize="{StaticResource FontSizeSmall}"
+                                    IsVisible="{Binding HasSelectedMedia}" />
                         </HorizontalStackLayout>
                         <!-- Selected Media Display -->
-                        <Image x:Name="SelectedImage"
-                               HeightRequest="100"
-                               IsVisible="False" />
+                        <Frame IsVisible="{Binding HasSelectedMedia}"
+                               BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
+                               CornerRadius="{StaticResource CornerRadiusSmall}"
+                               Padding="{StaticResource CardContentPadding}"
+                               Margin="{StaticResource MarginTopSmall}">
+                            <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                                <Label Text="Selected Media:"
+                                       FontAttributes="Bold"
+                                       FontSize="{StaticResource FontSizeSmall}" />
+                                <!-- Selected Image -->
+                                <Grid IsVisible="{Binding HasSelectedImage}"
+                                      ColumnDefinitions="Auto,*,Auto">
+                                    <Image Grid.Column="0"
+                                           Source="{Binding SelectedImagePath}"
+                                           WidthRequest="60"
+                                           HeightRequest="60"
+                                           Aspect="AspectFit" />
+                                    <VerticalStackLayout Grid.Column="1"
+                                                         VerticalOptions="Center"
+                                                         Margin="{StaticResource MarginLeftMedium}">
+                                        <Label Text="📷 Image attached"
+                                               FontSize="{StaticResource FontSizeSmall}" />
+                                        <Label Text="{Binding SelectedImageName}"
+                                               FontSize="{StaticResource FontSizeCaption}"
+                                               TextColor="{StaticResource TextSecondary}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                                <!-- Selected Audio -->
+                                <Grid IsVisible="{Binding HasSelectedAudio}"
+                                      ColumnDefinitions="Auto,*">
+                                    <Label Grid.Column="0"
+                                           Text="🎤"
+                                           FontSize="32"
+                                           VerticalOptions="Center" />
+                                    <VerticalStackLayout Grid.Column="1"
+                                                         VerticalOptions="Center"
+                                                         Margin="{StaticResource MarginLeftMedium}">
+                                        <Label Text="Audio file attached"
+                                               FontSize="{StaticResource FontSizeSmall}" />
+                                        <Label Text="{Binding SelectedAudioName}"
+                                               FontSize="{StaticResource FontSizeCaption}"
+                                               TextColor="{StaticResource TextSecondary}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </VerticalStackLayout>
+                        </Frame>
                         <!-- Warning if no models active -->
-                        <Frame BackgroundColor="{StaticResource WarningBackground}"
+                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource WarningBackgroundLight}, Dark={StaticResource WarningBackgroundDark}}"
                                IsVisible="{Binding ActiveModelsCount, Converter={StaticResource IntToBoolConverter}, ConverterParameter=0}"
                                Padding="{StaticResource CardContentPadding}"
                                CornerRadius="{StaticResource CornerRadiusSmall}">
                             <VerticalStackLayout>
                                 <Label Text="No Active Models"
                                        FontAttributes="Bold"
-                                       TextColor="{StaticResource WarningText}" />
+                                       TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
                                 <Label Text="Activate a model above to enable the AI assistant"
-                                       TextColor="{StaticResource WarningText}"
+                                       TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}"
                                        FontSize="{StaticResource FontSizeSmall}" />
                             </VerticalStackLayout>
                         </Frame>

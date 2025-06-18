@@ -78,6 +78,7 @@
             <Color x:Key="CardBackgroundDark">#1e1e1e</Color>
             <Color x:Key="BorderColor">#DDDDDD</Color>
             <!-- Warning Panel Colors -->
+            <!-- Note: WarningBackground and WarningText are used directly with AppThemeBinding in controls -->
             <!-- Spacing Values -->
             <x:Double x:Key="SpacingTiny">4</x:Double>
             <x:Double x:Key="SpacingSmall">8</x:Double>
@@ -92,6 +93,7 @@
             <Thickness x:Key="MarginLarge">24</Thickness>
             <Thickness x:Key="MarginTopMedium">0,16,0,0</Thickness>
             <Thickness x:Key="MarginBottomMedium">0,0,0,16</Thickness>
+            <Thickness x:Key="MarginBottomTiny">0,0,0,4</Thickness>
             <Thickness x:Key="MarginLeftMedium">16,0,0,0</Thickness>
             <Thickness x:Key="MarginRightMedium">0,0,16,0</Thickness>
             <!-- Font Sizes -->
