@@ -47,6 +47,7 @@ namespace CSimple.ViewModels
         public ObservableCollection<NeuralNetworkModel> AvailableModels { get; } = new();
         public ObservableCollection<NeuralNetworkModel> ActiveModels { get; } = new();
         public ObservableCollection<SpecificGoal> AvailableGoals { get; } = new();
+        public ObservableCollection<ChatMessage> ChatMessages { get; } = new();
 
         public bool IsGeneralModeActive
         {
@@ -627,15 +628,20 @@ if __name__ == '__main__':
             {
                 HandleError($"Error sharing model: {model?.Name}", ex);
             }
-        }
-        private async Task CommunicateWithModelAsync(string message)
+        }        private async Task CommunicateWithModelAsync(string message)
         {
             if (string.IsNullOrWhiteSpace(message))
             {
                 CurrentModelStatus = "Cannot send empty message.";
                 return;
-            }            // Find the best active HuggingFace reference model (prioritize CPU-friendly ones)
-            var activeHfModel = GetBestActiveModel(); if (activeHfModel == null)
+            }
+
+            // Add user message to chat history
+            var userMessage = new ChatMessage(message, isFromUser: true);
+            ChatMessages.Add(userMessage);
+
+            // Find the best active HuggingFace reference model (prioritize CPU-friendly ones)
+            var activeHfModel = GetBestActiveModel();if (activeHfModel == null)
             {
                 if (_appModeService.CurrentMode == AppMode.Offline)
                 {
@@ -676,11 +682,16 @@ if __name__ == '__main__':
                     "3. Restart this application after installation", "OK");
 
                 return;
-            }
-
-            CurrentModelStatus = $"Sending message to {activeHfModel.Name}...";
+            }            CurrentModelStatus = $"Sending message to {activeHfModel.Name}...";
             LastModelOutput = $"Processing '{message}' with {activeHfModel.Name}...";
             IsModelCommunicating = true;
+
+            // Add processing message to chat history
+            var processingMessage = new ChatMessage("Processing your request...", isFromUser: false, modelName: activeHfModel.Name)
+            {
+                IsProcessing = true
+            };
+            ChatMessages.Add(processingMessage);
 
             try
             {
@@ -707,34 +718,40 @@ if __name__ == '__main__':
 
                 // Add performance tip to output for user guidance
                 string performanceTip = GetPerformanceTip(activeHfModel.HuggingFaceModelId);
-                LastModelOutput = $"Processing '{message}' with {activeHfModel.Name}...\n\n{performanceTip}";
-
-                // Execute the Python script with enhanced parameters
+                LastModelOutput = $"Processing '{message}' with {activeHfModel.Name}...\n\n{performanceTip}";                // Execute the Python script with enhanced parameters
                 string result = await ExecuteHuggingFaceModelAsyncEnhanced(modelInFile.HuggingFaceModelId, message, activeHfModel);
 
+                // Update the processing message with the actual response
                 if (!string.IsNullOrEmpty(result))
                 {
+                    processingMessage.Content = result;
+                    processingMessage.IsProcessing = false;
                     LastModelOutput = $"Response from {activeHfModel.Name}:\n{result}";
                     CurrentModelStatus = $"✓ Response received from {activeHfModel.Name}";
                 }
                 else
                 {
+                    processingMessage.Content = "No response received. The model may have executed successfully but produced no output.";
+                    processingMessage.IsProcessing = false;
                     LastModelOutput = $"No response received from {activeHfModel.Name}. The model may have executed successfully but produced no output.";
                     CurrentModelStatus = $"Model {activeHfModel.Name} completed but returned no output";
                 }
-            }
-            catch (Exception ex)
+            }            catch (Exception ex)
             {
                 HandleError($"Error communicating with model {activeHfModel.Name}", ex);
                 string errorMessage = ex.Message;
 
+                // Update processing message with error information
+                string errorResponse = "";
+
                 // Provide specific guidance for common errors
                 if (errorMessage.Contains("accelerate") || errorMessage.Contains("FP8 quantized"))
                 {
-                    LastModelOutput = $"Error: {activeHfModel.Name} requires additional packages.\n\n" +
+                    errorResponse = $"Error: {activeHfModel.Name} requires additional packages.\n\n" +
                         "This model needs 'accelerate' for FP8 quantization support.\n" +
                         "Installing required packages...";
 
+                    LastModelOutput = errorResponse;
                     CurrentModelStatus = "Installing accelerate package...";
 
                     // Try to install accelerate package
@@ -742,19 +759,23 @@ if __name__ == '__main__':
 
                     if (installed)
                     {
+                        errorResponse += "\n\nPackages installed successfully. Please try sending your message again.";
                         LastModelOutput += "\n\nPackages installed successfully. Please try sending your message again.";
                         CurrentModelStatus = "Ready - accelerate package installed";
                     }
                     else
                     {
+                        errorResponse += "\n\nFailed to install accelerate automatically. Please install manually with:\npip install accelerate";
                         LastModelOutput += "\n\nFailed to install accelerate automatically. Please install manually with:\npip install accelerate";
                         CurrentModelStatus = "Manual package installation required";
                     }
                 }
                 else if (errorMessage.Contains("ModuleNotFoundError") || errorMessage.Contains("ImportError"))
                 {
-                    LastModelOutput = $"Error: Missing Python packages.\n\n" +
+                    errorResponse = $"Error: Missing Python packages.\n\n" +
                         "Installing required packages: transformers, torch, accelerate...";
+
+                    LastModelOutput = errorResponse;
 
                     await ShowAlert("Python Packages Required",
                         "Required packages are missing. Installing them now...\n\n" +
@@ -768,33 +789,42 @@ if __name__ == '__main__':
                     if (installed)
                     {
                         await InstallAcceleratePackageAsync(); // Also install accelerate
+                        errorResponse += "\n\nPackages installed successfully. Please try sending your message again.";
                         LastModelOutput += "\n\nPackages installed successfully. Please try sending your message again.";
                         CurrentModelStatus = "Ready - all packages installed";
                     }
                     else
                     {
+                        errorResponse += "\n\nFailed to install packages automatically. Please install manually.";
                         LastModelOutput += "\n\nFailed to install packages automatically. Please install manually.";
                         CurrentModelStatus = "Manual package installation required";
                     }
                 }
                 else if (errorMessage.Contains("malicious code") || errorMessage.Contains("double-check"))
                 {
-                    LastModelOutput = $"Security Warning: {activeHfModel.Name} downloaded new code files.\n\n" +
+                    errorResponse = $"Security Warning: {activeHfModel.Name} downloaded new code files.\n\n" +
                         "This is normal for some models but requires acknowledgment for security.\n" +
                         "The model execution was blocked for safety. You can try again if you trust the model source.";
+                    LastModelOutput = errorResponse;
                     CurrentModelStatus = "Model blocked due to security warning";
                 }
                 else if (errorMessage.Contains("not found in persisted models"))
                 {
-                    LastModelOutput = $"Error: The model may have been removed from the persisted models file.\n\n" +
+                    errorResponse = $"Error: The model may have been removed from the persisted models file.\n\n" +
                         "Please re-import the model from HuggingFace.";
+                    LastModelOutput = errorResponse;
                     CurrentModelStatus = "Model reference lost - please re-import";
                 }
                 else
                 {
-                    LastModelOutput = $"Error processing message with {activeHfModel.Name}: {errorMessage}";
+                    errorResponse = $"Error processing message with {activeHfModel.Name}: {errorMessage}";
+                    LastModelOutput = errorResponse;
                     CurrentModelStatus = "Model execution failed";
                 }
+
+                // Update the processing message with the error
+                processingMessage.Content = errorResponse;
+                processingMessage.IsProcessing = false;
             }
             finally
             {
