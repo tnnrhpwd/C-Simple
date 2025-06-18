@@ -1,457 +1,457 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:local="clr-namespace:CSimple.Pages"
-             xmlns:viewmodels="clr-namespace:CSimple.ViewModels"
-             xmlns:models="clr-namespace:CSimple.Models"
-             xmlns:behaviors="clr-namespace:CSimple.Behaviors"
-             x:DataType="viewmodels:NetPageViewModel"
-             x:Class="CSimple.Pages.NetPage"
-             Title="Net">
-    <ContentPage.Resources>
-        <!-- Ensure converters are defined, preferably in App.xaml -->
-        <!-- Example: <converters:InverseBoolConverter x:Key="InverseBoolConverter" /> -->
-    </ContentPage.Resources>
-    <ContentPage.Content>
-        <ScrollView>
-            <VerticalStackLayout Padding="{StaticResource PagePadding}"
-                                 Spacing="{StaticResource SpacingLarge}">
-                <Label Text="Neural Network Hub"
-                       FontSize="{StaticResource FontSizeTitle}"
-                       FontAttributes="Bold"
-                       HorizontalOptions="Center" />
-                <!-- Mode Toggle Panel -->
-                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                       CornerRadius="{StaticResource CornerRadiusLarge}"
-                       Padding="{StaticResource CardPadding}">
-                    <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
-                        <Label Text="AI Model Operation Modes"
-                               FontSize="{StaticResource FontSizeSubtitle}"
-                               FontAttributes="Bold" />
-                        <Grid ColumnDefinitions="*,*"
-                              ColumnSpacing="{StaticResource SpacingMedium}">
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:local="clr-namespace:CSimple.Pages"
+       xmlns:viewmodels="clr-namespace:CSimple.ViewModels"
+       xmlns:models="clr-namespace:CSimple.Models"
+       xmlns:behaviors="clr-namespace:CSimple.Behaviors"
+       x:DataType="viewmodels:NetPageViewModel"
+       x:Class="CSimple.Pages.NetPage"
+       Title="Net">
+<ContentPage.Resources>
+       <!-- Ensure converters are defined, preferably in App.xaml -->
+       <!-- Example: <converters:InverseBoolConverter x:Key="InverseBoolConverter" /> -->
+</ContentPage.Resources>
+<ContentPage.Content>
+       <ScrollView>
+       <VerticalStackLayout Padding="{StaticResource PagePadding}"
+                            Spacing="{StaticResource SpacingLarge}">
+              <Label Text="Neural Network Hub"
+                     FontSize="{StaticResource FontSizeTitle}"
+                     FontAttributes="Bold"
+                     HorizontalOptions="Center" />
+              <!-- Mode Toggle Panel -->
+              <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                     CornerRadius="{StaticResource CornerRadiusLarge}"
+                     Padding="{StaticResource CardPadding}">
+              <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
+                     <Label Text="AI Model Operation Modes"
+                            FontSize="{StaticResource FontSizeSubtitle}"
+                            FontAttributes="Bold" />
+                     <Grid ColumnDefinitions="*,*"
+                            ColumnSpacing="{StaticResource SpacingMedium}">
                             <Frame Grid.Column="0"
                                    BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
                                    Padding="{StaticResource CardPadding}"
                                    CornerRadius="{StaticResource CornerRadiusMedium}">
-                                <VerticalStackLayout>
-                                    <Label Text="General Assistant Mode"
-                                           FontAttributes="Bold"
-                                           HorizontalOptions="Center" />
-                                    <Label Text="Watches all inputs and responds based on learned patterns"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           HorizontalOptions="Center"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
-                                    <Switch IsToggled="{Binding IsGeneralModeActive, Mode=TwoWay}"
-                                            OnColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                            HorizontalOptions="Center"
-                                            Toggled="OnGeneralModeToggled" />
-                                </VerticalStackLayout>
+                            <VerticalStackLayout>
+                                   <Label Text="General Assistant Mode"
+                                          FontAttributes="Bold"
+                                          HorizontalOptions="Center" />
+                                   <Label Text="Watches all inputs and responds based on learned patterns"
+                                          FontSize="{StaticResource FontSizeSmall}"
+                                          HorizontalOptions="Center"
+                                          TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                                   <Switch IsToggled="{Binding IsGeneralModeActive, Mode=TwoWay}"
+                                          OnColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                          HorizontalOptions="Center"
+                                          Toggled="OnGeneralModeToggled" />
+                            </VerticalStackLayout>
                             </Frame>
                             <Frame Grid.Column="1"
                                    BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryExtraLight}, Dark={StaticResource SecondaryDark}}"
                                    Padding="{StaticResource CardPadding}"
                                    CornerRadius="{StaticResource CornerRadiusMedium}">
-                                <VerticalStackLayout>
-                                    <Label Text="Specific Goal Mode"
-                                           FontAttributes="Bold"
-                                           HorizontalOptions="Center" />
-                                    <Label Text="Execute predefined models for specific tasks"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           HorizontalOptions="Center"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
-                                    <Switch IsToggled="{Binding IsSpecificModeActive, Mode=TwoWay}"
-                                            OnColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
-                                            HorizontalOptions="Center"
-                                            Toggled="OnSpecificModeToggled" />
-                                </VerticalStackLayout>
-                            </Frame>
-                        </Grid>
-                        <!-- Status Display -->
-                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
-                               CornerRadius="{StaticResource CornerRadiusSmall}"
-                               Padding="{StaticResource CardContentPadding}">
                             <VerticalStackLayout>
-                                <Label Text="System Status"
-                                       FontSize="{StaticResource FontSizeSmall}"
-                                       FontAttributes="Bold" />
-                                <Label Text="{Binding CurrentModelStatus}"
-                                       TextColor="{AppThemeBinding Light={StaticResource PrimaryDark}, Dark={StaticResource Primary}}" />
-                                <Label Text="Active Models:"
-                                       FontSize="{StaticResource FontSizeSmall}" />
-                                <Label Text="{Binding ActiveModelsCount, StringFormat='{0} models running'}"
-                                       TextColor="{Binding ActiveModelsCount, Converter={StaticResource IntToColorConverter}, ConverterParameter=0|{StaticResource Error}|{StaticResource Success}}" />
+                                   <Label Text="Specific Goal Mode"
+                                          FontAttributes="Bold"
+                                          HorizontalOptions="Center" />
+                                   <Label Text="Execute predefined models for specific tasks"
+                                          FontSize="{StaticResource FontSizeSmall}"
+                                          HorizontalOptions="Center"
+                                          TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                                   <Switch IsToggled="{Binding IsSpecificModeActive, Mode=TwoWay}"
+                                          OnColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
+                                          HorizontalOptions="Center"
+                                          Toggled="OnSpecificModeToggled" />
                             </VerticalStackLayout>
-                        </Frame>
-                    </VerticalStackLayout>
-                </Frame>
-                <!-- COMBINED COMPONENT: Model Management Center -->
-                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                       CornerRadius="{StaticResource CornerRadiusLarge}"
-                       Padding="{StaticResource CardPadding}">
-                    <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
-                        <Label Text="Model Management Center"
-                               FontSize="{StaticResource FontSizeSubtitle}"
-                               FontAttributes="Bold" />
-                        <!-- Network Stats -->
-                        <Grid ColumnDefinitions="*,*,*"
-                              RowDefinitions="Auto,Auto">
+                            </Frame>
+                     </Grid>
+                     <!-- Status Display -->
+                     <Frame BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
+                            CornerRadius="{StaticResource CornerRadiusSmall}"
+                            Padding="{StaticResource CardContentPadding}">
+                            <VerticalStackLayout>
+                            <Label Text="System Status"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   FontAttributes="Bold" />
+                            <Label Text="{Binding CurrentModelStatus}"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryDark}, Dark={StaticResource Primary}}" />
+                            <Label Text="Active Models:"
+                                   FontSize="{StaticResource FontSizeSmall}" />
+                            <Label Text="{Binding ActiveModelsCount, StringFormat='{0} models running'}"
+                                   TextColor="{Binding ActiveModelsCount, Converter={StaticResource IntToColorConverter}, ConverterParameter=0|{StaticResource Error}|{StaticResource Success}}" />
+                            </VerticalStackLayout>
+                     </Frame>
+              </VerticalStackLayout>
+              </Frame>
+              <!-- COMBINED COMPONENT: Model Management Center -->
+              <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                     CornerRadius="{StaticResource CornerRadiusLarge}"
+                     Padding="{StaticResource CardPadding}">
+              <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
+                     <Label Text="Model Management Center"
+                            FontSize="{StaticResource FontSizeSubtitle}"
+                            FontAttributes="Bold" />
+                     <!-- Network Stats -->
+                     <Grid ColumnDefinitions="*,*,*"
+                            RowDefinitions="Auto,Auto">
                             <Frame Grid.Column="0"
                                    BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
                                    Padding="{StaticResource CardContentPadding}"
                                    Margin="{StaticResource SpacingTiny}"
                                    CornerRadius="{StaticResource CornerRadiusSmall}">
-                                <VerticalStackLayout>
-                                    <Label Text="Active Models"
-                                           FontSize="{StaticResource FontSizeCaption}" />
-                                    <Label Text="{Binding ActiveModelsCount}"
-                                           FontSize="{StaticResource FontSizeTitle}"
-                                           HorizontalOptions="Center"
-                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-                                </VerticalStackLayout>
+                            <VerticalStackLayout>
+                                   <Label Text="Active Models"
+                                          FontSize="{StaticResource FontSizeCaption}" />
+                                   <Label Text="{Binding ActiveModelsCount}"
+                                          FontSize="{StaticResource FontSizeTitle}"
+                                          HorizontalOptions="Center"
+                                          TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                            </VerticalStackLayout>
                             </Frame>
                             <Frame Grid.Column="1"
                                    BackgroundColor="{AppThemeBinding Light={StaticResource ErrorLight}, Dark={StaticResource Error}}"
                                    Padding="{StaticResource CardContentPadding}"
                                    Margin="{StaticResource SpacingTiny}"
                                    CornerRadius="{StaticResource CornerRadiusSmall}">
-                                <VerticalStackLayout>
-                                    <Label Text="Available Models"
-                                           FontSize="{StaticResource FontSizeCaption}" />
-                                    <Label Text="{Binding AvailableModels.Count}"
-                                           FontSize="{StaticResource FontSizeTitle}"
-                                           HorizontalOptions="Center"
-                                           TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorLight}}" />
-                                </VerticalStackLayout>
+                            <VerticalStackLayout>
+                                   <Label Text="Available Models"
+                                          FontSize="{StaticResource FontSizeCaption}" />
+                                   <Label Text="{Binding AvailableModels.Count}"
+                                          FontSize="{StaticResource FontSizeTitle}"
+                                          HorizontalOptions="Center"
+                                          TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorLight}}" />
+                            </VerticalStackLayout>
                             </Frame>
                             <Frame Grid.Column="2"
                                    BackgroundColor="{AppThemeBinding Light={StaticResource TertiaryLight}, Dark={StaticResource TertiaryDark}}"
                                    Padding="{StaticResource CardContentPadding}"
                                    Margin="{StaticResource SpacingTiny}"
                                    CornerRadius="{StaticResource CornerRadiusSmall}">
-                                <VerticalStackLayout>
-                                    <Label Text="Available Goals"
-                                           FontSize="{StaticResource FontSizeCaption}" />
-                                    <Label Text="{Binding AvailableGoals.Count}"
-                                           FontSize="{StaticResource FontSizeTitle}"
-                                           HorizontalOptions="Center"
-                                           TextColor="{AppThemeBinding Light={StaticResource TertiaryDark}, Dark={StaticResource Tertiary}}" />
-                                </VerticalStackLayout>
+                            <VerticalStackLayout>
+                                   <Label Text="Available Goals"
+                                          FontSize="{StaticResource FontSizeCaption}" />
+                                   <Label Text="{Binding AvailableGoals.Count}"
+                                          FontSize="{StaticResource FontSizeTitle}"
+                                          HorizontalOptions="Center"
+                                          TextColor="{AppThemeBinding Light={StaticResource TertiaryDark}, Dark={StaticResource Tertiary}}" />
+                            </VerticalStackLayout>
                             </Frame>
-                        </Grid>
-                        <!-- Active Models List -->
-                        <Label Text="Currently Active Models"
-                               FontAttributes="Bold"
-                               Margin="{StaticResource MarginTopMedium}" />
-                        <CollectionView ItemsSource="{Binding ActiveModels}"
-                                        EmptyView="No active models.">
+                     </Grid>
+                     <!-- Active Models List -->
+                     <Label Text="Currently Active Models"
+                            FontAttributes="Bold"
+                            Margin="{StaticResource MarginTopMedium}" />
+                     <CollectionView ItemsSource="{Binding ActiveModels}"
+                                   EmptyView="No active models.">
                             <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="models:NeuralNetworkModel">
-                                    <Grid Padding="{StaticResource SpacingTiny}"
+                            <DataTemplate x:DataType="models:NeuralNetworkModel">
+                                   <Grid Padding="{StaticResource SpacingTiny}"
                                           ColumnDefinitions="*,Auto">
-                                        <VerticalStackLayout Grid.Column="0">
-                                            <Label Text="{Binding Name}"
-                                                   FontAttributes="Bold" />
-                                            <Label Text="{Binding Description}"
-                                                   FontSize="{StaticResource FontSizeSmall}" />
-                                            <Label Text="{Binding Type}"
-                                                   FontSize="{StaticResource FontSizeSmall}"
-                                                   TextColor="{StaticResource TextSecondary}" />
-                                        </VerticalStackLayout>
-                                        <Button Grid.Column="1"
-                                                Text="Stop"
-                                                BackgroundColor="{StaticResource Error}"
-                                                TextColor="{StaticResource TextOnPrimary}"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeactivateModelCommand}"
-                                                CommandParameter="{Binding .}"
-                                                VerticalOptions="Center" />
-                                    </Grid>
-                                </DataTemplate>
+                                   <VerticalStackLayout Grid.Column="0">
+                                          <Label Text="{Binding Name}"
+                                                 FontAttributes="Bold" />
+                                          <Label Text="{Binding Description}"
+                                                 FontSize="{StaticResource FontSizeSmall}" />
+                                          <Label Text="{Binding Type}"
+                                                 FontSize="{StaticResource FontSizeSmall}"
+                                                 TextColor="{StaticResource TextSecondary}" />
+                                   </VerticalStackLayout>
+                                   <Button Grid.Column="1"
+                                          Text="Stop"
+                                          BackgroundColor="{StaticResource Error}"
+                                          TextColor="{StaticResource TextOnPrimary}"
+                                          Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeactivateModelCommand}"
+                                          CommandParameter="{Binding .}"
+                                          VerticalOptions="Center" />
+                                   </Grid>
+                            </DataTemplate>
                             </CollectionView.ItemTemplate>
-                        </CollectionView>
-                        <!-- Available Models Section -->
-                        <Label Text="General Purpose Models"
-                               FontAttributes="Bold"
-                               IsVisible="{Binding IsGeneralModeActive}" />
-                        <CollectionView ItemsSource="{Binding AvailableModels}"
-                                        IsVisible="{Binding IsGeneralModeActive}"
-                                        EmptyView="No general models available.">
+                     </CollectionView>
+                     <!-- Available Models Section -->
+                     <Label Text="General Purpose Models"
+                            FontAttributes="Bold"
+                            IsVisible="{Binding IsGeneralModeActive}" />
+                     <CollectionView ItemsSource="{Binding AvailableModels}"
+                                   IsVisible="{Binding IsGeneralModeActive}"
+                                   EmptyView="No general models available.">
                             <CollectionView.ItemsLayout>
-                                <LinearItemsLayout Orientation="Vertical"
-                                                   ItemSpacing="{StaticResource SpacingSmall}" />
+                            <LinearItemsLayout Orientation="Vertical"
+                                                 ItemSpacing="{StaticResource SpacingSmall}" />
                             </CollectionView.ItemsLayout>
                             <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="models:NeuralNetworkModel">
-                                    <Frame BorderColor="LightGray"
-                                           Padding="{StaticResource CardContentPadding}"
-                                           Margin="{StaticResource MarginTiny}"
-                                           CornerRadius="{StaticResource CornerRadiusSmall}">
-                                        <!-- Use Grid for better layout with the new dropdown -->
-                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto"
-                                              ColumnSpacing="{StaticResource SpacingSmall}">
-                                            <VerticalStackLayout Grid.Column="0">
-                                                <Label Text="{Binding Name}"
-                                                       FontAttributes="Bold" />
-                                                <Label Text="{Binding Description}"
-                                                       FontSize="{StaticResource FontSizeSmall}" />
-                                                <!-- Optional: Display brief status -->
-                                                <Label Text="{Binding TrainingStatus, StringFormat='Status: {0}'}"
-                                                       FontSize="{StaticResource FontSizeCaption}"
-                                                       TextColor="{StaticResource TextSecondary}" />
-                                            </VerticalStackLayout>
-                                            <!-- Input Type Dropdown -->
-                                            <VerticalStackLayout Grid.Column="1"
-                                                                 VerticalOptions="Center">
-                                                <Label Text="Input Type:"
-                                                       FontSize="{StaticResource FontSizeCaption}"
-                                                       TextColor="{StaticResource TextSecondary}"
-                                                       Margin="{StaticResource MarginBottomTiny}"
-                                                       HorizontalOptions="Center" />
-                                                <Picker Title="Input Type"
+                            <DataTemplate x:DataType="models:NeuralNetworkModel">
+                                   <Frame BorderColor="LightGray"
+                                          Padding="{StaticResource CardContentPadding}"
+                                          Margin="{StaticResource MarginTiny}"
+                                          CornerRadius="{StaticResource CornerRadiusSmall}">
+                                   <!-- Use Grid for better layout with the new dropdown -->
+                                   <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+                                          ColumnSpacing="{StaticResource SpacingSmall}">
+                                          <VerticalStackLayout Grid.Column="0">
+                                          <Label Text="{Binding Name}"
+                                                 FontAttributes="Bold" />
+                                          <Label Text="{Binding Description}"
+                                                 FontSize="{StaticResource FontSizeSmall}" />
+                                          <!-- Optional: Display brief status -->
+                                          <Label Text="{Binding TrainingStatus, StringFormat='Status: {0}'}"
+                                                 FontSize="{StaticResource FontSizeCaption}"
+                                                 TextColor="{StaticResource TextSecondary}" />
+                                          </VerticalStackLayout>
+                                          <!-- Input Type Dropdown -->
+                                          <VerticalStackLayout Grid.Column="1"
+                                                               VerticalOptions="Center">
+                                          <Label Text="Input Type:"
+                                                 FontSize="{StaticResource FontSizeCaption}"
+                                                 TextColor="{StaticResource TextSecondary}"
+                                                 Margin="{StaticResource MarginBottomTiny}"
+                                                 HorizontalOptions="Center" />
+                                          <Picker Title="Input Type"
                                                         SelectedItem="{Binding InputType, Mode=TwoWay}"
                                                         ItemsSource="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ModelInputTypes}"
                                                         SelectedIndexChanged="OnModelInputTypeChanged"
                                                         WidthRequest="120">
-                                                    <Picker.Behaviors>
+                                                 <Picker.Behaviors>
                                                         <behaviors:EnumBindingBehavior />
-                                                    </Picker.Behaviors>
-                                                </Picker>
-                                            </VerticalStackLayout>
-                                            <!-- Train/Refine Button -->
-                                            <Button Grid.Column="2"
-                                                    Text="Train"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=GoToOrientCommand}"
-                                                    CommandParameter="{Binding .}"
-                                                    BackgroundColor="{StaticResource Tertiary}"
-                                                    TextColor="{StaticResource TextOnPrimary}"
-                                                    VerticalOptions="Center" />
-                                            <!-- Activate Button -->
-                                            <Button Grid.Column="3"
-                                                    Text="Activate"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ActivateModelCommand}"
-                                                    CommandParameter="{Binding .}"
-                                                    BackgroundColor="{StaticResource Primary}"
-                                                    TextColor="{StaticResource TextOnPrimary}"
-                                                    VerticalOptions="Center" />
-                                        </Grid>
-                                    </Frame>
-                                </DataTemplate>
+                                                 </Picker.Behaviors>
+                                          </Picker>
+                                          </VerticalStackLayout>
+                                          <!-- Train/Refine Button -->
+                                          <Button Grid.Column="2"
+                                                 Text="Train"
+                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=GoToOrientCommand}"
+                                                 CommandParameter="{Binding .}"
+                                                 BackgroundColor="{StaticResource Tertiary}"
+                                                 TextColor="{StaticResource TextOnPrimary}"
+                                                 VerticalOptions="Center" />
+                                          <!-- Activate Button -->
+                                          <Button Grid.Column="3"
+                                                 Text="Activate"
+                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ActivateModelCommand}"
+                                                 CommandParameter="{Binding .}"
+                                                 BackgroundColor="{StaticResource Primary}"
+                                                 TextColor="{StaticResource TextOnPrimary}"
+                                                 VerticalOptions="Center" />
+                                   </Grid>
+                                   </Frame>
+                            </DataTemplate>
                             </CollectionView.ItemTemplate>
-                        </CollectionView>
-                        <!-- Specific Goal Section -->
-                        <Label Text="Available Goal Models"
-                               FontAttributes="Bold"
-                               IsVisible="{Binding IsSpecificModeActive}" />
-                        <CollectionView ItemsSource="{Binding AvailableGoals}"
-                                        IsVisible="{Binding IsSpecificModeActive}"
-                                        EmptyView="No goals available.">
+                     </CollectionView>
+                     <!-- Specific Goal Section -->
+                     <Label Text="Available Goal Models"
+                            FontAttributes="Bold"
+                            IsVisible="{Binding IsSpecificModeActive}" />
+                     <CollectionView ItemsSource="{Binding AvailableGoals}"
+                                   IsVisible="{Binding IsSpecificModeActive}"
+                                   EmptyView="No goals available.">
                             <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="models:SpecificGoal">
-                                    <Frame BorderColor="LightGray"
-                                           Padding="{StaticResource CardContentPadding}"
-                                           Margin="{StaticResource MarginTiny}"
-                                           CornerRadius="{StaticResource CornerRadiusSmall}">
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <VerticalStackLayout Grid.Column="0">
-                                                <Label Text="{Binding Name}"
-                                                       FontAttributes="Bold" />
-                                                <Label Text="{Binding Description}"
-                                                       FontSize="{StaticResource FontSizeSmall}" />
-                                            </VerticalStackLayout>
-                                            <Button Grid.Column="1"
-                                                    Text="Load Goal"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.LoadSpecificGoalCommand}"
-                                                    CommandParameter="{Binding .}"
-                                                    BackgroundColor="{StaticResource Secondary}"
-                                                    TextColor="{StaticResource TextOnSecondary}" />
-                                        </Grid>
-                                    </Frame>
-                                </DataTemplate>
+                            <DataTemplate x:DataType="models:SpecificGoal">
+                                   <Frame BorderColor="LightGray"
+                                          Padding="{StaticResource CardContentPadding}"
+                                          Margin="{StaticResource MarginTiny}"
+                                          CornerRadius="{StaticResource CornerRadiusSmall}">
+                                   <Grid ColumnDefinitions="*,Auto">
+                                          <VerticalStackLayout Grid.Column="0">
+                                          <Label Text="{Binding Name}"
+                                                 FontAttributes="Bold" />
+                                          <Label Text="{Binding Description}"
+                                                 FontSize="{StaticResource FontSizeSmall}" />
+                                          </VerticalStackLayout>
+                                          <Button Grid.Column="1"
+                                                 Text="Load Goal"
+                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.LoadSpecificGoalCommand}"
+                                                 CommandParameter="{Binding .}"
+                                                 BackgroundColor="{StaticResource Secondary}"
+                                                 TextColor="{StaticResource TextOnSecondary}" />
+                                   </Grid>
+                                   </Frame>
+                            </DataTemplate>
                             </CollectionView.ItemTemplate>
-                        </CollectionView>
-                        <!-- Model Sharing Controls -->
-                        <Label Text="Model Sharing"
-                               FontAttributes="Bold"
-                               Margin="{StaticResource MarginTopMedium}" />
-                        <Picker Title="Select Model to Share"
-                                ItemDisplayBinding="{Binding Name}"
-                                ItemsSource="{Binding AvailableModels}"
-                                x:Name="ShareModelPicker" />
-                        <Grid ColumnDefinitions="*,*"
-                              ColumnSpacing="{StaticResource SpacingSmall}">
+                     </CollectionView>
+                     <!-- Model Sharing Controls -->
+                     <Label Text="Model Sharing"
+                            FontAttributes="Bold"
+                            Margin="{StaticResource MarginTopMedium}" />
+                     <Picker Title="Select Model to Share"
+                            ItemDisplayBinding="{Binding Name}"
+                            ItemsSource="{Binding AvailableModels}"
+                            x:Name="ShareModelPicker" />
+                     <Grid ColumnDefinitions="*,*"
+                            ColumnSpacing="{StaticResource SpacingSmall}">
                             <Button Grid.Column="0"
-                                    Text="Share Model"
-                                    Command="{Binding ShareModelCommand}"
-                                    CommandParameter="{Binding Source={x:Reference ShareModelPicker}, Path=SelectedItem}"
-                                    BackgroundColor="{StaticResource Tertiary}"
-                                    TextColor="{StaticResource TextOnPrimary}" />
+                                   Text="Share Model"
+                                   Command="{Binding ShareModelCommand}"
+                                   CommandParameter="{Binding Source={x:Reference ShareModelPicker}, Path=SelectedItem}"
+                                   BackgroundColor="{StaticResource Tertiary}"
+                                   TextColor="{StaticResource TextOnPrimary}" />
                             <Button Grid.Column="1"
-                                    Text="Import Model"
-                                    Clicked="OnImportModelClicked"
-                                    IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}"
-                                    BackgroundColor="{StaticResource Primary}"
-                                    TextColor="{StaticResource TextOnPrimary}" />
-                        </Grid>
-                        <ActivityIndicator IsRunning="{Binding IsLoading}"
-                                           IsVisible="{Binding IsLoading}"
-                                           HorizontalOptions="Center"
-                                           Margin="{StaticResource MarginTopSmall}" />
-                        <Entry Placeholder="Enter share code to import model"
-                               Margin="{StaticResource MarginTopMedium}"
-                               IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}" />
-                        <Label Text="HuggingFace Model Import"
-                               FontAttributes="Bold"
-                               Margin="{StaticResource MarginTopMedium}" />
-                        <Grid ColumnDefinitions="*,Auto"
-                              ColumnSpacing="{StaticResource SpacingSmall}">
+                                   Text="Import Model"
+                                   Clicked="OnImportModelClicked"
+                                   IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}"
+                                   BackgroundColor="{StaticResource Primary}"
+                                   TextColor="{StaticResource TextOnPrimary}" />
+                     </Grid>
+                     <ActivityIndicator IsRunning="{Binding IsLoading}"
+                                          IsVisible="{Binding IsLoading}"
+                                          HorizontalOptions="Center"
+                                          Margin="{StaticResource MarginTopSmall}" />
+                     <Entry Placeholder="Enter share code to import model"
+                            Margin="{StaticResource MarginTopMedium}"
+                            IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}" />
+                     <Label Text="HuggingFace Model Import"
+                            FontAttributes="Bold"
+                            Margin="{StaticResource MarginTopMedium}" />
+                     <Grid ColumnDefinitions="*,Auto"
+                            ColumnSpacing="{StaticResource SpacingSmall}">
                             <Entry Grid.Column="0"
                                    Placeholder="Search HuggingFace models..."
                                    Text="{Binding HuggingFaceSearchQuery}" />
                             <Button Grid.Column="1"
-                                    Text="Search"
-                                    Clicked="OnHuggingFaceSearchClicked"
-                                    BackgroundColor="{StaticResource Secondary}"
-                                    TextColor="{StaticResource TextOnPrimary}" />
-                        </Grid>
-                        <Picker Title="Model Category"
-                                ItemsSource="{Binding HuggingFaceCategories}"
-                                SelectedItem="{Binding SelectedHuggingFaceCategory}"
-                                Margin="{StaticResource MarginTopSmall}" />
-                        <Button Text="Import from HuggingFace by ID"
-                                Clicked="OnImportFromHuggingFaceClicked"
-                                BackgroundColor="{StaticResource Success}"
-                                TextColor="{StaticResource TextOnPrimary}"
-                                Margin="{StaticResource MarginTopSmall}" />
-                    </VerticalStackLayout>
-                </Frame>
-                <!-- AI Assistant Chat -->
-                <Frame BorderColor="{StaticResource Primary}"
-                       CornerRadius="{StaticResource CornerRadiusLarge}"
-                       Padding="{StaticResource CardPadding}">
-                    <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                        <Label Text="AI Assistant"
-                               FontSize="{StaticResource FontSizeSubtitle}"
-                               FontAttributes="Bold" />
-                        <!-- Chat History Section -->
-                        <Label Text="Chat History"
-                               FontAttributes="Bold" />
-                        <Frame BackgroundColor="{StaticResource BackgroundSecondary}"
-                               CornerRadius="{StaticResource CornerRadiusSmall}"
-                               Padding="{StaticResource CardContentPadding}"
-                               HeightRequest="300">
+                                   Text="Search"
+                                   Clicked="OnHuggingFaceSearchClicked"
+                                   BackgroundColor="{StaticResource Secondary}"
+                                   TextColor="{StaticResource TextOnPrimary}" />
+                     </Grid>
+                     <Picker Title="Model Category"
+                            ItemsSource="{Binding HuggingFaceCategories}"
+                            SelectedItem="{Binding SelectedHuggingFaceCategory}"
+                            Margin="{StaticResource MarginTopSmall}" />
+                     <Button Text="Import from HuggingFace by ID"
+                            Clicked="OnImportFromHuggingFaceClicked"
+                            BackgroundColor="{StaticResource Success}"
+                            TextColor="{StaticResource TextOnPrimary}"
+                            Margin="{StaticResource MarginTopSmall}" />
+              </VerticalStackLayout>
+              </Frame>
+              <!-- AI Assistant Chat -->
+              <Frame BorderColor="{StaticResource Primary}"
+                     CornerRadius="{StaticResource CornerRadiusLarge}"
+                     Padding="{StaticResource CardPadding}">
+              <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                     <Label Text="AI Assistant"
+                            FontSize="{StaticResource FontSizeSubtitle}"
+                            FontAttributes="Bold" />
+                     <!-- Chat History Section -->
+                     <Label Text="Chat History"
+                            FontAttributes="Bold" />
+                     <Frame BackgroundColor="{StaticResource BackgroundSecondary}"
+                            CornerRadius="{StaticResource CornerRadiusSmall}"
+                            Padding="{StaticResource CardContentPadding}"
+                            HeightRequest="300">
                             <CollectionView ItemsSource="{Binding ChatMessages}"
-                                            SelectionMode="None"
-                                            x:Name="ChatCollectionView">
-                                <CollectionView.ItemTemplate>
-                                    <DataTemplate x:DataType="models:ChatMessage">
-                                        <Grid Padding="{StaticResource SpacingSmall}"
-                                              Margin="{StaticResource MarginBottomTiny}">
-                                            <!-- User Message (Right-aligned) -->
-                                            <Frame IsVisible="{Binding IsFromUser}"
-                                                   BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                                   Padding="{StaticResource CardContentPadding}"
-                                                   CornerRadius="15,15,5,15"
-                                                   Margin="50,0,0,0"
-                                                   HorizontalOptions="End">
-                                                <VerticalStackLayout>
-                                                    <Label Text="You"
-                                                           FontSize="{StaticResource FontSizeCaption}"
-                                                           FontAttributes="Bold"
-                                                           TextColor="{StaticResource TextOnPrimary}"
-                                                           HorizontalOptions="End" />
-                                                    <Label Text="{Binding Content}"
-                                                           TextColor="{StaticResource TextOnPrimary}"
-                                                           LineBreakMode="WordWrap" />
-                                                    <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
-                                                           FontSize="{StaticResource FontSizeCaption}"
-                                                           TextColor="{StaticResource TextOnPrimary}"
-                                                           Opacity="0.7"
-                                                           HorizontalOptions="End" />
-                                                </VerticalStackLayout>
-                                            </Frame>
-                                            <!-- AI Response (Left-aligned) -->
-                                            <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource InverseBoolConverter}}"
-                                                   BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
-                                                   Padding="{StaticResource CardContentPadding}"
-                                                   CornerRadius="15,15,15,5"
-                                                   Margin="0,0,50,0"
-                                                   HorizontalOptions="Start"
-                                                   BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
-                                                <VerticalStackLayout>
-                                                    <Label Text="AI Assistant"
-                                                           FontSize="{StaticResource FontSizeCaption}"
-                                                           FontAttributes="Bold"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                                           HorizontalOptions="Start" />
-                                                    <Label Text="{Binding Content}"
-                                                           TextColor="{StaticResource TextPrimary}"
-                                                           LineBreakMode="WordWrap" />
-                                                    <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
-                                                           FontSize="{StaticResource FontSizeCaption}"
-                                                           TextColor="{StaticResource TextSecondary}"
-                                                           Opacity="0.7"
-                                                           HorizontalOptions="Start" />
-                                                </VerticalStackLayout>
-                                            </Frame>
-                                        </Grid>
-                                    </DataTemplate>
-                                </CollectionView.ItemTemplate>
-                                <CollectionView.EmptyView>
-                                    <VerticalStackLayout HorizontalOptions="Center"
-                                                         VerticalOptions="Center"
-                                                         Spacing="{StaticResource SpacingSmall}">
-                                        <Label Text="💬"
-                                               FontSize="48"
-                                               HorizontalOptions="Center" />
-                                        <Label Text="Start a conversation with your AI assistant"
-                                               TextColor="{StaticResource TextSecondary}"
-                                               HorizontalOptions="Center"
-                                               FontSize="{StaticResource FontSizeSmall}" />
-                                    </VerticalStackLayout>
-                                </CollectionView.EmptyView>
+                                          SelectionMode="None"
+                                          x:Name="ChatCollectionView">
+                            <CollectionView.ItemTemplate>
+                                   <DataTemplate x:DataType="models:ChatMessage">
+                                   <Grid Padding="{StaticResource SpacingSmall}"
+                                          Margin="{StaticResource MarginBottomTiny}">
+                                          <!-- User Message (Right-aligned) -->
+                                          <Frame IsVisible="{Binding IsFromUser}"
+                                                 BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                 Padding="{StaticResource CardContentPadding}"
+                                                 CornerRadius="15,15,5,15"
+                                                 Margin="50,0,0,0"
+                                                 HorizontalOptions="End">
+                                          <VerticalStackLayout>
+                                                 <Label Text="You"
+                                                        FontSize="{StaticResource FontSizeCaption}"
+                                                        FontAttributes="Bold"
+                                                        TextColor="{StaticResource TextOnPrimary}"
+                                                        HorizontalOptions="End" />
+                                                 <Label Text="{Binding Content}"
+                                                        TextColor="{StaticResource TextOnPrimary}"
+                                                        LineBreakMode="WordWrap" />
+                                                 <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
+                                                        FontSize="{StaticResource FontSizeCaption}"
+                                                        TextColor="{StaticResource TextOnPrimary}"
+                                                        Opacity="0.7"
+                                                        HorizontalOptions="End" />
+                                          </VerticalStackLayout>
+                                          </Frame>
+                                          <!-- AI Response (Left-aligned) -->
+                                          <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource InverseBoolConverter}}"
+                                                 BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
+                                                 Padding="{StaticResource CardContentPadding}"
+                                                 CornerRadius="15,15,15,5"
+                                                 Margin="0,0,50,0"
+                                                 HorizontalOptions="Start"
+                                                 BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
+                                          <VerticalStackLayout>
+                                                 <Label Text="AI Assistant"
+                                                        FontSize="{StaticResource FontSizeCaption}"
+                                                        FontAttributes="Bold"
+                                                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                        HorizontalOptions="Start" />
+                                                 <Label Text="{Binding Content}"
+                                                        TextColor="{StaticResource TextPrimary}"
+                                                        LineBreakMode="WordWrap" />
+                                                 <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
+                                                        FontSize="{StaticResource FontSizeCaption}"
+                                                        TextColor="{StaticResource TextSecondary}"
+                                                        Opacity="0.7"
+                                                        HorizontalOptions="Start" />
+                                          </VerticalStackLayout>
+                                          </Frame>
+                                   </Grid>
+                                   </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                            <CollectionView.EmptyView>
+                                   <VerticalStackLayout HorizontalOptions="Center"
+                                                        VerticalOptions="Center"
+                                                        Spacing="{StaticResource SpacingSmall}">
+                                   <Label Text="💬"
+                                          FontSize="48"
+                                          HorizontalOptions="Center" />
+                                   <Label Text="Start a conversation with your AI assistant"
+                                          TextColor="{StaticResource TextSecondary}"
+                                          HorizontalOptions="Center"
+                                          FontSize="{StaticResource FontSizeSmall}" />
+                                   </VerticalStackLayout>
+                            </CollectionView.EmptyView>
                             </CollectionView>
-                        </Frame>
-                        <!-- Typing Indicator -->
-                        <Frame IsVisible="{Binding IsAiTyping}"
-                               BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
-                               Padding="{StaticResource CardContentPadding}"
-                               CornerRadius="15,15,15,5"
-                               Margin="0,0,50,0"
-                               HorizontalOptions="Start"
-                               BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
+                     </Frame>
+                     <!-- Typing Indicator -->
+                     <Frame IsVisible="{Binding IsAiTyping}"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
+                            Padding="{StaticResource CardContentPadding}"
+                            CornerRadius="15,15,15,5"
+                            Margin="0,0,50,0"
+                            HorizontalOptions="Start"
+                            BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
                             <StackLayout Orientation="Horizontal"
-                                         Spacing="{StaticResource SpacingTiny}">
-                                <Label Text="AI Assistant is typing"
-                                       TextColor="{StaticResource TextSecondary}"
-                                       FontSize="{StaticResource FontSizeSmall}"
-                                       VerticalOptions="Center" />
-                                <ActivityIndicator IsRunning="True"
-                                                   WidthRequest="16"
-                                                   HeightRequest="16"
-                                                   Color="{StaticResource Primary}" />
+                                   Spacing="{StaticResource SpacingTiny}">
+                            <Label Text="AI Assistant is typing"
+                                   TextColor="{StaticResource TextSecondary}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   VerticalOptions="Center" />
+                            <ActivityIndicator IsRunning="True"
+                                                 WidthRequest="16"
+                                                 HeightRequest="16"
+                                                 Color="{StaticResource Primary}" />
                             </StackLayout>
-                        </Frame>
-                        <!-- Input Section -->
-                        <Label Text="Input"
-                               FontAttributes="Bold" />
-                        <!-- Input Mode Status Display -->
-                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
-                               CornerRadius="{StaticResource CornerRadiusSmall}"
-                               Padding="{StaticResource CardContentPadding}"
-                               Margin="{StaticResource MarginBottomTiny}">
+                     </Frame>
+                     <!-- Input Section -->
+                     <Label Text="Input"
+                            FontAttributes="Bold" />
+                     <!-- Input Mode Status Display -->
+                     <Frame BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
+                            CornerRadius="{StaticResource CornerRadiusSmall}"
+                            Padding="{StaticResource CardContentPadding}"
+                            Margin="{StaticResource MarginBottomTiny}">
                             <VerticalStackLayout>
-                                <Label Text="{Binding CurrentInputModeDescription}"
-                                       FontSize="{StaticResource FontSizeSmall}"
-                                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                       HorizontalOptions="Center" />
-                                <Label Text="{Binding SupportedInputTypesText}"
-                                       FontSize="{StaticResource FontSizeCaption}"
-                                       TextColor="{StaticResource TextSecondary}"
-                                       HorizontalOptions="Center" />
+                            <Label Text="{Binding CurrentInputModeDescription}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                   HorizontalOptions="Center" />
+                            <Label Text="{Binding SupportedInputTypesText}"
+                                   FontSize="{StaticResource FontSizeCaption}"
+                                   TextColor="{StaticResource TextSecondary}"
+                                   HorizontalOptions="Center" />
                             </VerticalStackLayout>
-                        </Frame>
-                        <!-- Text Input -->
-                        <Grid ColumnDefinitions="*,Auto,Auto"
-                              ColumnSpacing="{StaticResource SpacingSmall}">
+                     </Frame>
+                     <!-- Text Input -->
+                     <Grid ColumnDefinitions="*,Auto,Auto"
+                            ColumnSpacing="{StaticResource SpacingSmall}">
                             <Entry Grid.Column="0"
                                    Placeholder="Type your message here..."
                                    Text="{Binding CurrentMessage, Mode=TwoWay}"
@@ -459,147 +459,147 @@
                                    ReturnType="Send"
                                    ReturnCommand="{Binding SendMessageCommand}" />
                             <Button Grid.Column="1"
-                                    Text="Send"
-                                    Command="{Binding SendMessageCommand}"
-                                    BackgroundColor="{StaticResource Primary}"
-                                    TextColor="{StaticResource TextOnPrimary}"
-                                    IsEnabled="{Binding CanSendMessage}" />
+                                   Text="Send"
+                                   Command="{Binding SendMessageCommand}"
+                                   BackgroundColor="{StaticResource Primary}"
+                                   TextColor="{StaticResource TextOnPrimary}"
+                                   IsEnabled="{Binding CanSendMessage}" />
                             <Button Grid.Column="2"
-                                    Text="Clear"
-                                    Command="{Binding ClearChatCommand}"
-                                    BackgroundColor="{StaticResource Error}"
-                                    TextColor="{StaticResource TextOnPrimary}"
-                                    FontSize="{StaticResource FontSizeSmall}" />
-                        </Grid>
-                        <!-- Media Input Options -->
-                        <Label Text="Media Input (Optional)"
-                               FontAttributes="Bold"
-                               FontSize="{StaticResource FontSizeSmall}"
-                               Margin="{StaticResource MarginTopSmall}" />
-                        <HorizontalStackLayout Spacing="{StaticResource SpacingSmall}">
+                                   Text="Clear"
+                                   Command="{Binding ClearChatCommand}"
+                                   BackgroundColor="{StaticResource Error}"
+                                   TextColor="{StaticResource TextOnPrimary}"
+                                   FontSize="{StaticResource FontSizeSmall}" />
+                     </Grid>
+                     <!-- Media Input Options -->
+                     <Label Text="Media Input (Optional)"
+                            FontAttributes="Bold"
+                            FontSize="{StaticResource FontSizeSmall}"
+                            Margin="{StaticResource MarginTopSmall}" />
+                     <HorizontalStackLayout Spacing="{StaticResource SpacingSmall}">
                             <Button Text="📷 Add Image"
-                                    Command="{Binding SelectImageCommand}"
-                                    BackgroundColor="{StaticResource Secondary}"
-                                    TextColor="{StaticResource TextOnSecondary}"
-                                    IsVisible="{Binding SupportsImageInput}" />
+                                   Command="{Binding SelectImageCommand}"
+                                   BackgroundColor="{StaticResource Secondary}"
+                                   TextColor="{StaticResource TextOnSecondary}"
+                                   IsVisible="{Binding SupportsImageInput}" />
                             <Button Text="🎤 Add Audio"
-                                    Command="{Binding SelectAudioCommand}"
-                                    BackgroundColor="{StaticResource Tertiary}"
-                                    TextColor="{StaticResource TextOnPrimary}"
-                                    IsVisible="{Binding SupportsAudioInput}" />
+                                   Command="{Binding SelectAudioCommand}"
+                                   BackgroundColor="{StaticResource Tertiary}"
+                                   TextColor="{StaticResource TextOnPrimary}"
+                                   IsVisible="{Binding SupportsAudioInput}" />
                             <Button Text="🗑️ Clear Media"
-                                    Command="{Binding ClearMediaCommand}"
-                                    BackgroundColor="{StaticResource Error}"
-                                    TextColor="{StaticResource TextOnPrimary}"
-                                    FontSize="{StaticResource FontSizeSmall}"
-                                    IsVisible="{Binding HasSelectedMedia}" />
-                        </HorizontalStackLayout>
-                        <!-- Selected Media Display -->
-                        <Frame IsVisible="{Binding HasSelectedMedia}"
-                               BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
-                               CornerRadius="{StaticResource CornerRadiusSmall}"
-                               Padding="{StaticResource CardContentPadding}"
-                               Margin="{StaticResource MarginTopSmall}">
+                                   Command="{Binding ClearMediaCommand}"
+                                   BackgroundColor="{StaticResource Error}"
+                                   TextColor="{StaticResource TextOnPrimary}"
+                                   FontSize="{StaticResource FontSizeSmall}"
+                                   IsVisible="{Binding HasSelectedMedia}" />
+                     </HorizontalStackLayout>
+                     <!-- Selected Media Display -->
+                     <Frame IsVisible="{Binding HasSelectedMedia}"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
+                            CornerRadius="{StaticResource CornerRadiusSmall}"
+                            Padding="{StaticResource CardContentPadding}"
+                            Margin="{StaticResource MarginTopSmall}">
                             <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                                <Label Text="Selected Media:"
-                                       FontAttributes="Bold"
-                                       FontSize="{StaticResource FontSizeSmall}" />
-                                <!-- Selected Image -->
-                                <Grid IsVisible="{Binding HasSelectedImage}"
-                                      ColumnDefinitions="Auto,*,Auto">
-                                    <Image Grid.Column="0"
-                                           Source="{Binding SelectedImagePath}"
-                                           WidthRequest="60"
-                                           HeightRequest="60"
-                                           Aspect="AspectFit" />
-                                    <VerticalStackLayout Grid.Column="1"
-                                                         VerticalOptions="Center"
-                                                         Margin="{StaticResource MarginLeftMedium}">
-                                        <Label Text="📷 Image attached"
-                                               FontSize="{StaticResource FontSizeSmall}" />
-                                        <Label Text="{Binding SelectedImageName}"
-                                               FontSize="{StaticResource FontSizeCaption}"
-                                               TextColor="{StaticResource TextSecondary}" />
-                                    </VerticalStackLayout>
-                                </Grid>
-                                <!-- Selected Audio -->
-                                <Grid IsVisible="{Binding HasSelectedAudio}"
-                                      ColumnDefinitions="Auto,*">
-                                    <Label Grid.Column="0"
-                                           Text="🎤"
-                                           FontSize="32"
-                                           VerticalOptions="Center" />
-                                    <VerticalStackLayout Grid.Column="1"
-                                                         VerticalOptions="Center"
-                                                         Margin="{StaticResource MarginLeftMedium}">
-                                        <Label Text="Audio file attached"
-                                               FontSize="{StaticResource FontSizeSmall}" />
-                                        <Label Text="{Binding SelectedAudioName}"
-                                               FontSize="{StaticResource FontSizeCaption}"
-                                               TextColor="{StaticResource TextSecondary}" />
-                                    </VerticalStackLayout>
-                                </Grid>
+                            <Label Text="Selected Media:"
+                                   FontAttributes="Bold"
+                                   FontSize="{StaticResource FontSizeSmall}" />
+                            <!-- Selected Image -->
+                            <Grid IsVisible="{Binding HasSelectedImage}"
+                                   ColumnDefinitions="Auto,*,Auto">
+                                   <Image Grid.Column="0"
+                                          Source="{Binding SelectedImagePath}"
+                                          WidthRequest="60"
+                                          HeightRequest="60"
+                                          Aspect="AspectFit" />
+                                   <VerticalStackLayout Grid.Column="1"
+                                                        VerticalOptions="Center"
+                                                        Margin="{StaticResource MarginLeftMedium}">
+                                   <Label Text="📷 Image attached"
+                                          FontSize="{StaticResource FontSizeSmall}" />
+                                   <Label Text="{Binding SelectedImageName}"
+                                          FontSize="{StaticResource FontSizeCaption}"
+                                          TextColor="{StaticResource TextSecondary}" />
+                                   </VerticalStackLayout>
+                            </Grid>
+                            <!-- Selected Audio -->
+                            <Grid IsVisible="{Binding HasSelectedAudio}"
+                                   ColumnDefinitions="Auto,*">
+                                   <Label Grid.Column="0"
+                                          Text="🎤"
+                                          FontSize="32"
+                                          VerticalOptions="Center" />
+                                   <VerticalStackLayout Grid.Column="1"
+                                                        VerticalOptions="Center"
+                                                        Margin="{StaticResource MarginLeftMedium}">
+                                   <Label Text="Audio file attached"
+                                          FontSize="{StaticResource FontSizeSmall}" />
+                                   <Label Text="{Binding SelectedAudioName}"
+                                          FontSize="{StaticResource FontSizeCaption}"
+                                          TextColor="{StaticResource TextSecondary}" />
+                                   </VerticalStackLayout>
+                            </Grid>
                             </VerticalStackLayout>
-                        </Frame>
-                        <!-- Warning if no models active -->
-                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource WarningBackgroundLight}, Dark={StaticResource WarningBackgroundDark}}"
-                               IsVisible="{Binding ActiveModelsCount, Converter={StaticResource IntToBoolConverter}, ConverterParameter=0}"
-                               Padding="{StaticResource CardContentPadding}"
-                               CornerRadius="{StaticResource CornerRadiusSmall}">
+                     </Frame>
+                     <!-- Warning if no models active -->
+                     <Frame BackgroundColor="{AppThemeBinding Light={StaticResource WarningBackgroundLight}, Dark={StaticResource WarningBackgroundDark}}"
+                            IsVisible="{Binding ActiveModelsCount, Converter={StaticResource IntToBoolConverter}, ConverterParameter=0}"
+                            Padding="{StaticResource CardContentPadding}"
+                            CornerRadius="{StaticResource CornerRadiusSmall}">
                             <VerticalStackLayout>
-                                <Label Text="No Active Models"
-                                       FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
-                                <Label Text="Activate a model above to enable the AI assistant"
-                                       TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}"
-                                       FontSize="{StaticResource FontSizeSmall}" />
+                            <Label Text="No Active Models"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
+                            <Label Text="Activate a model above to enable the AI assistant"
+                                   TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}"
+                                   FontSize="{StaticResource FontSizeSmall}" />
                             </VerticalStackLayout>
-                        </Frame>
-                    </VerticalStackLayout>
-                </Frame>
-                <!-- Safety & Security -->
-                <Frame BorderColor="{StaticResource Primary}"
-                       CornerRadius="{StaticResource CornerRadiusLarge}"
-                       Padding="{StaticResource CardPadding}">
-                    <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                        <Label Text="Security Settings"
-                               FontSize="{StaticResource FontSizeSubtitle}"
-                               FontAttributes="Bold" />
-                        <Grid ColumnDefinitions="*,Auto"
-                              RowDefinitions="Auto,Auto,Auto"
-                              RowSpacing="{StaticResource SpacingMedium}">
+                     </Frame>
+              </VerticalStackLayout>
+              </Frame>
+              <!-- Safety & Security -->
+              <Frame BorderColor="{StaticResource Primary}"
+                     CornerRadius="{StaticResource CornerRadiusLarge}"
+                     Padding="{StaticResource CardPadding}">
+              <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                     <Label Text="Security Settings"
+                            FontSize="{StaticResource FontSizeSubtitle}"
+                            FontAttributes="Bold" />
+                     <Grid ColumnDefinitions="*,Auto"
+                            RowDefinitions="Auto,Auto,Auto"
+                            RowSpacing="{StaticResource SpacingMedium}">
                             <Label Text="Require Confirmation Before Actions"
                                    Grid.Row="0"
                                    Grid.Column="0"
                                    VerticalOptions="Center" />
                             <Switch Grid.Row="0"
-                                    Grid.Column="1"
-                                    IsToggled="True"
-                                    OnColor="{StaticResource Primary}" />
+                                   Grid.Column="1"
+                                   IsToggled="True"
+                                   OnColor="{StaticResource Primary}" />
                             <Label Text="Limit to Non-Critical Applications"
                                    Grid.Row="1"
                                    Grid.Column="0"
                                    VerticalOptions="Center" />
                             <Switch Grid.Row="1"
-                                    Grid.Column="1"
-                                    IsToggled="True"
-                                    OnColor="{StaticResource Primary}" />
+                                   Grid.Column="1"
+                                   IsToggled="True"
+                                   OnColor="{StaticResource Primary}" />
                             <Label Text="Restrict To Current User Session"
                                    Grid.Row="2"
                                    Grid.Column="0"
                                    VerticalOptions="Center" />
                             <Switch Grid.Row="2"
-                                    Grid.Column="1"
-                                    IsToggled="True"
-                                    OnColor="{StaticResource Primary}" />
-                        </Grid>
-                        <Button Text="Reset Permissions"
-                                BackgroundColor="{StaticResource Error}"
-                                TextColor="{StaticResource TextOnPrimary}"
-                                Margin="{StaticResource MarginTopMedium}" />
-                    </VerticalStackLayout>
-                </Frame>
-            </VerticalStackLayout>
-        </ScrollView>
-    </ContentPage.Content>
+                                   Grid.Column="1"
+                                   IsToggled="True"
+                                   OnColor="{StaticResource Primary}" />
+                     </Grid>
+                     <Button Text="Reset Permissions"
+                            BackgroundColor="{StaticResource Error}"
+                            TextColor="{StaticResource TextOnPrimary}"
+                            Margin="{StaticResource MarginTopMedium}" />
+              </VerticalStackLayout>
+              </Frame>
+       </VerticalStackLayout>
+       </ScrollView>
+</ContentPage.Content>
 </ContentPage>
