@@ -1,8 +1,9 @@
 ﻿using CSimple.ViewModels;
 using System.Diagnostics;
 namespace CSimple.Pages;
+
 using Microsoft.Maui.Controls;
-using Microsoft.Maui.Storage;
+using Microsoft.Maui.Storage; // For Preferences
 using System;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -18,6 +19,18 @@ public partial class SettingsPage : ContentPage
     private Dictionary<string, Switch> _permissionSwitches;
     private Dictionary<string, Switch> _featureSwitches;
     private MembershipTier _currentTier = MembershipTier.Free;
+
+    private readonly string[] _gpuCapabilityLevels = new[]
+    {
+        "CPU Only",
+        "NVIDIA GTX 10xx (6GB+)",
+        "NVIDIA RTX 20xx/30xx (8GB+)",
+        "NVIDIA RTX 40xx (12GB+)",
+        "Apple M1/M2",
+        "AMD RDNA2 (8GB+)",
+        "A100/H100/FP8 (24GB+)",
+        "Other/Unknown"
+    };
 
     public SettingsPage(DataService dataService)
     {
@@ -44,6 +57,11 @@ public partial class SettingsPage : ContentPage
             { "PlanMode", PlanModeSwitch },
             { "ActionMode", ActionModeSwitch }
         };
+
+        // Set GPU capability picker items
+        GpuCapabilityPicker.ItemsSource = _gpuCapabilityLevels;
+        // Default to CPU Only if not set
+        GpuCapabilityPicker.SelectedIndex = Preferences.Get("ModelCompat_GpuCapabilityIndex", 0);
     }
 
     protected override async void OnAppearing()
@@ -67,6 +85,8 @@ public partial class SettingsPage : ContentPage
         // Initialize AI settings
         await InitializeAISettings();
         await LoadMembershipDataAsync();
+
+        LoadModelCompatibilitySettings();
     }
 
     private async Task InitializeAISettings()
@@ -361,5 +381,24 @@ public partial class SettingsPage : ContentPage
             Debug.WriteLine($"Error loading membership data: {ex.Message}");
             await DisplayAlert("Error", "Failed to load membership data", "OK");
         }
+    }
+
+    private void LoadModelCompatibilitySettings()
+    {
+        GpuCapabilityPicker.SelectedIndex = Preferences.Get("ModelCompat_GpuCapabilityIndex", 0);
+        MaxVramEntry.Text = Preferences.Get("ModelCompat_MaxVram", "4");
+        AllowLargeModelsSwitch.IsToggled = Preferences.Get("ModelCompat_AllowLargeModels", false);
+    }
+
+    private void SaveModelCompatibilitySettings()
+    {
+        Preferences.Set("ModelCompat_GpuCapabilityIndex", GpuCapabilityPicker.SelectedIndex);
+        Preferences.Set("ModelCompat_MaxVram", MaxVramEntry.Text ?? "4");
+        Preferences.Set("ModelCompat_AllowLargeModels", AllowLargeModelsSwitch.IsToggled);
+    }
+
+    private void OnModelCompatSettingChanged(object sender, EventArgs e)
+    {
+        SaveModelCompatibilitySettings();
     }
 }

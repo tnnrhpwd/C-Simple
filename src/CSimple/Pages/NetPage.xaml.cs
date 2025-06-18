@@ -362,17 +362,58 @@ namespace CSimple.Pages
         {
             try
             {
-                // Find the most recently used model with InputType == Text
-                var recentTextModel = _viewModel.AvailableModels
-                    .Where(m => m.InputType == ModelInputType.Text)
-                    .OrderByDescending(m => m.LastUsed)
-                    .FirstOrDefault();
+                int gpuCapabilityIndex = Preferences.Get("ModelCompat_GpuCapabilityIndex", 0);
+                string[] gpuLevels = {
+                    "CPU Only",
+                    "NVIDIA GTX 10xx (6GB+)",
+                    "NVIDIA RTX 20xx/30xx (8GB+)",
+                    "NVIDIA RTX 40xx (12GB+)",
+                    "Apple M1/M2",
+                    "AMD RDNA2 (8GB+)",
+                    "A100/H100/FP8 (24GB+)",
+                    "Other/Unknown"
+                };
+                string gpuLevel = gpuLevels[Math.Clamp(gpuCapabilityIndex, 0, gpuLevels.Length - 1)];
+                string vramStr = Preferences.Get("ModelCompat_MaxVram", "4");
+                int parsedVram;
+                int maxVram = int.TryParse(vramStr, out parsedVram) ? parsedVram : 4;
+                bool allowLargeModels = Preferences.Get("ModelCompat_AllowLargeModels", false);
 
-                // Fallback: if none found, pick the first text model
+                bool IsModelCompatible(NeuralNetworkModel model)
+                {
+                    var name = (model.HuggingFaceModelId ?? model.Name ?? "").ToLowerInvariant();
+                    // CPU Only: block all models that mention GPU, CUDA, Llama, DeepSeek, etc.
+                    if (gpuLevel == "CPU Only" && (name.Contains("cuda") || name.Contains("gpu") || name.Contains("llama") || name.Contains("deepseek")))
+                        return false;
+                    // Block large models if not allowed
+                    if (!allowLargeModels && (name.Contains("70b") || name.Contains("65b") || name.Contains("33b") || name.Contains("large")))
+                        return false;
+                    // VRAM check
+                    if (model.Description != null && model.Description.ToLower().Contains("requires"))
+                    {
+                        var desc = model.Description.ToLower();
+                        if (desc.Contains("8gb") && maxVram < 8) return false;
+                        if (desc.Contains("12gb") && maxVram < 12) return false;
+                        if (desc.Contains("16gb") && maxVram < 16) return false;
+                        if (desc.Contains("24gb") && maxVram < 24) return false;
+                    }
+                    // Optionally, add more granular checks for GPU level if your models have metadata for this
+                    // e.g., if (gpuLevel.Contains("A100") && !name.Contains("a100")) return false;
+                    return true;
+                }
+
+                // Find the most recent compatible text model
+                var recentTextModel = _viewModel.AvailableModels
+                    .Where(m => m.InputType == ModelInputType.Text && IsModelCompatible(m))
+                    .OrderByDescending(m => m.LastUsed)
+                    .LastOrDefault(); // Closest to end of file
+
+                // Fallback: if none found, pick the last compatible text model
                 if (recentTextModel == null)
                 {
                     recentTextModel = _viewModel.AvailableModels
-                        .FirstOrDefault(m => m.InputType == ModelInputType.Text);
+                        .Where(m => m.InputType == ModelInputType.Text && IsModelCompatible(m))
+                        .LastOrDefault();
                 }
 
                 // Activate if not already active
@@ -381,13 +422,13 @@ namespace CSimple.Pages
                     if (_viewModel.ActivateModelCommand.CanExecute(recentTextModel))
                     {
                         _viewModel.ActivateModelCommand.Execute(recentTextModel);
-                        Debug.WriteLine($"Auto-activated recent text model: {recentTextModel.Name}");
+                        Debug.WriteLine($"Auto-activated recent compatible text model: {recentTextModel.Name}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error auto-activating recent text model: {ex.Message}");
+                Debug.WriteLine($"Error auto-activating recent compatible text model: {ex.Message}");
             }
         }
 
