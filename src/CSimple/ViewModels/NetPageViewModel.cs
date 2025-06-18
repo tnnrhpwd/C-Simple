@@ -1,5 +1,6 @@
 using CSimple.Models;
 using CSimple.Services;
+using CSimple.Services.AppModeService;
 using Microsoft.Maui.Storage;
 using System;
 using System.Collections.Generic;
@@ -21,6 +22,7 @@ namespace CSimple.ViewModels
         private readonly FileService _fileService;
         private readonly HuggingFaceService _huggingFaceService;
         private readonly PythonBootstrapper _pythonBootstrapper; // Changed from PythonDependencyManager
+        private readonly AppModeService _appModeService; // Add offline mode service
         // Consider injecting navigation and dialog services for better testability
 
         // --- Backing Fields ---
@@ -105,14 +107,13 @@ namespace CSimple.ViewModels
         public ICommand HuggingFaceSearchCommand { get; } // Triggered by View
         public ICommand ImportFromHuggingFaceCommand { get; } // Triggered by View
         public ICommand GoToOrientCommand { get; } // ADDED: Command to navigate
-        public ICommand UpdateModelInputTypeCommand { get; } // ADDED: Command to update input type
-
-        // --- Constructor ---
-        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper)
+        public ICommand UpdateModelInputTypeCommand { get; } // ADDED: Command to update input type        // --- Constructor ---
+        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
             _pythonBootstrapper = pythonBootstrapper; // Changed from PythonDependencyManager
+            _appModeService = appModeService;
 
             // Subscribe to Python setup status updates
             _pythonBootstrapper.StatusChanged += (s, msg) =>
@@ -627,23 +628,37 @@ if __name__ == '__main__':
                 HandleError($"Error sharing model: {model?.Name}", ex);
             }
         }
-
         private async Task CommunicateWithModelAsync(string message)
         {
             if (string.IsNullOrWhiteSpace(message))
             {
                 CurrentModelStatus = "Cannot send empty message.";
                 return;
-            }
-
-            // Find the first active HuggingFace reference model
-            var activeHfModel = ActiveModels.FirstOrDefault(m => m.IsHuggingFaceReference && !string.IsNullOrEmpty(m.HuggingFaceModelId));
-
-            if (activeHfModel == null)
+            }            // Find the best active HuggingFace reference model (prioritize CPU-friendly ones)
+            var activeHfModel = GetBestActiveModel(); if (activeHfModel == null)
             {
-                CurrentModelStatus = "No active HuggingFace reference model found.";
-                LastModelOutput = "Please activate a HuggingFace model first to communicate with it.";
-                return;
+                if (_appModeService.CurrentMode == AppMode.Offline)
+                {
+                    CurrentModelStatus = "No active models available.";
+                    LastModelOutput = "In offline mode, local models will be executed on your hardware.\n\n" +
+                        "Please activate a model to get started. Models that work well locally include:\n" +
+                        "• gpt2 - Fast, lightweight text generation (CPU-friendly)\n" +
+                        "• distilgpt2 - Even faster version of GPT-2 (CPU-friendly)\n" +
+                        "• microsoft/DialoGPT-small - Good for conversations (CPU-friendly)\n" +
+                        "• deepseek-ai/DeepSeek-R1 - Advanced model (requires GPU)\n\n" +
+                        "GPU models will attempt to use your graphics card for acceleration.\n" +
+                        "Switch to online mode if you prefer to use cloud-based execution.";
+
+                    // Offer to suggest CPU-friendly models
+                    await SuggestCpuFriendlyModelsAsync();
+                    return;
+                }
+                else
+                {
+                    CurrentModelStatus = "No active HuggingFace reference model found.";
+                    LastModelOutput = "Please activate a HuggingFace model first to communicate with it.";
+                    return;
+                }
             }
 
             // Check if Python is available
@@ -687,15 +702,20 @@ if __name__ == '__main__':
                 {
                     Debug.WriteLine($"Script not found at: {_huggingFaceScriptPath}");
                     await CreateHuggingFaceScript(_huggingFaceScriptPath);
-                }
+                }                // Show progress indicator for model loading with performance tip
+                CurrentModelStatus = $"Loading {activeHfModel.Name} (first run may take longer)...";
 
-                // Execute the Python script with the model from the JSON file
-                string result = await ExecuteHuggingFaceModelAsync(modelInFile.HuggingFaceModelId, message);
+                // Add performance tip to output for user guidance
+                string performanceTip = GetPerformanceTip(activeHfModel.HuggingFaceModelId);
+                LastModelOutput = $"Processing '{message}' with {activeHfModel.Name}...\n\n{performanceTip}";
+
+                // Execute the Python script with enhanced parameters
+                string result = await ExecuteHuggingFaceModelAsyncEnhanced(modelInFile.HuggingFaceModelId, message, activeHfModel);
 
                 if (!string.IsNullOrEmpty(result))
                 {
                     LastModelOutput = $"Response from {activeHfModel.Name}:\n{result}";
-                    CurrentModelStatus = $"Received response from {activeHfModel.Name}";
+                    CurrentModelStatus = $"✓ Response received from {activeHfModel.Name}";
                 }
                 else
                 {
@@ -779,6 +799,290 @@ if __name__ == '__main__':
             finally
             {
                 IsModelCommunicating = false;
+            }
+        }
+
+        // Helper method to find the best active model for local execution
+        private NeuralNetworkModel GetBestActiveModel()
+        {
+            var activeHfModels = ActiveModels.Where(m => m.IsHuggingFaceReference && !string.IsNullOrEmpty(m.HuggingFaceModelId)).ToList();
+
+            if (!activeHfModels.Any())
+                return null;
+
+            // Define CPU-friendly models (prioritize these for local execution)
+            var cpuFriendlyModels = new[]
+            {
+                "gpt2", "distilgpt2", "microsoft/DialoGPT-small", "microsoft/DialoGPT-medium",
+                "huggingface/CodeBERTa-small-v1", "distilbert-base-uncased", "bert-base-uncased"
+            };
+
+            // Define models that require GPU acceleration (but can work with proper hardware)
+            var gpuRequiredModels = new[]
+            {
+                "deepseek-ai/DeepSeek-R1", "deepseek-ai/deepseek-r1",
+                "microsoft/DialoGPT-large", "facebook/opt-66b", "EleutherAI/gpt-j-6B"
+            };
+
+            // In offline mode, check if we should exclude GPU-required models
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                // Only exclude GPU-required models if no GPU is detected
+                // For now, we'll be more permissive and allow GPU models in offline mode
+                // The Python script will handle the actual GPU availability check
+                Debug.WriteLine("Offline mode: Allowing GPU models - hardware compatibility will be checked during execution");
+            }
+
+            // First, try to find a CPU-friendly model
+            var bestModel = activeHfModels.FirstOrDefault(m =>
+                cpuFriendlyModels.Any(cpu => m.HuggingFaceModelId.Contains(cpu, StringComparison.OrdinalIgnoreCase)));
+
+            // If no CPU-friendly model found, return the first active model
+            // Let the Python script handle hardware compatibility
+            return bestModel ?? activeHfModels.First();
+        }
+
+        // Enhanced model execution with better error handling and performance optimizations
+        private async Task<string> ExecuteHuggingFaceModelAsyncEnhanced(string modelId, string inputText, NeuralNetworkModel model)
+        {
+            // Ensure Python path is set
+            if (string.IsNullOrEmpty(_pythonExecutablePath))
+            {
+                throw new InvalidOperationException("Python is not available. Please install Python and restart the application.");
+            }
+
+            if (!File.Exists(_huggingFaceScriptPath))
+            {
+                throw new FileNotFoundException($"HuggingFace script not found at: {_huggingFaceScriptPath}");
+            }
+
+            try
+            {
+                Debug.WriteLine($"Executing Python script with model: {modelId}");
+                Debug.WriteLine($"Script path: {_huggingFaceScriptPath}");
+                Debug.WriteLine($"Python path: {_pythonExecutablePath}");
+
+                // Escape quotes in input text and handle special characters
+                string escapedInput = inputText.Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "");                // Build arguments with enhanced parameters
+                var argumentsBuilder = new StringBuilder();
+                argumentsBuilder.Append($"\"{_huggingFaceScriptPath}\" --model_id \"{modelId}\" --input \"{escapedInput}\"");
+
+                // Add CPU optimization flag for better local performance
+                argumentsBuilder.Append(" --cpu_optimize");
+
+                // Add max length parameter to prevent overly long responses
+                int maxLength = Math.Min(200, inputText.Split(' ').Length + 100);
+                argumentsBuilder.Append($" --max_length {maxLength}");
+
+                // Add offline mode flag when in offline mode to disable API fallback
+                if (_appModeService.CurrentMode == AppMode.Offline)
+                {
+                    argumentsBuilder.Append(" --offline_mode");
+                }
+
+                string arguments = argumentsBuilder.ToString();
+
+                var processStartInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = _pythonExecutablePath,
+                    Arguments = arguments,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    // Set working directory to script location for better relative path handling
+                    WorkingDirectory = Path.GetDirectoryName(_huggingFaceScriptPath)
+                };
+
+                Debug.WriteLine($"Starting process: {processStartInfo.FileName} {processStartInfo.Arguments}");
+
+                using var process = new System.Diagnostics.Process { StartInfo = processStartInfo };
+                process.Start();
+
+                var outputTask = process.StandardOutput.ReadToEndAsync();
+                var errorTask = process.StandardError.ReadToEndAsync();
+
+                // Determine timeout based on model type (CPU-friendly models get less time)
+                var cpuFriendlyModels = new[] { "gpt2", "distilgpt2", "microsoft/DialoGPT" };
+                bool isCpuFriendly = cpuFriendlyModels.Any(cpu => modelId.Contains(cpu, StringComparison.OrdinalIgnoreCase));
+                int timeoutMs = isCpuFriendly ? 120000 : 300000; // 2 minutes for CPU-friendly, 5 minutes for others
+
+                // Wait for process to complete with dynamic timeout
+                bool completed = process.WaitForExit(timeoutMs);
+
+                if (!completed)
+                {
+                    process.Kill();
+                    throw new TimeoutException($"Model execution timed out after {timeoutMs / 1000} seconds. " +
+                        (isCpuFriendly ? "Try a shorter input message." : "Large models may require more time on first run."));
+                }
+
+                string output = await outputTask;
+                string error = await errorTask;
+                int exitCode = process.ExitCode;
+
+                Debug.WriteLine($"Process completed with exit code: {exitCode}");
+                Debug.WriteLine($"Output: {output}");
+                Debug.WriteLine($"Error: {error}");
+
+                if (exitCode != 0)
+                {
+                    // Enhanced error handling with specific suggestions
+                    if (error.Contains("No GPU or XPU found") && error.Contains("FP8 quantization"))
+                    {
+                        throw new Exception($"Model '{modelId}' requires GPU acceleration for FP8 quantization. " +
+                            "Consider trying a CPU-friendly model like 'gpt2' or 'distilgpt2' for local execution.");
+                    }
+                    else if (error.Contains("accelerate") && error.Contains("FP8"))
+                    {
+                        throw new Exception("Model requires 'accelerate' package for FP8 quantization support. " +
+                            "Installing this package automatically...");
+                    }
+                    else if (error.Contains("ModuleNotFoundError") || error.Contains("ImportError"))
+                    {
+                        throw new Exception("Required Python packages are missing. Installing them now...");
+                    }
+                    else if (error.Contains("OutOfMemoryError") || error.Contains("CUDA out of memory"))
+                    {
+                        throw new Exception($"Model '{modelId}' is too large for available memory. " +
+                            "Try closing other applications or switching to a smaller model like 'distilgpt2'.");
+                    }
+                    else if (error.Contains("AUTHENTICATION_ERROR") || error.Contains("AUTHENTICATION_REQUIRED"))
+                    {
+                        if (_appModeService.CurrentMode == AppMode.Offline)
+                        {
+                            throw new Exception($"Model '{modelId}' requires authentication and cannot be used in offline mode. " +
+                                "Switch to online mode or try a public model like 'gpt2' or 'distilgpt2'.");
+                        }
+                        else
+                        {
+                            throw new Exception($"Model '{modelId}' requires a HuggingFace API key for access. " +
+                                "Get a free API key from https://huggingface.co/settings/tokens or try a public model like 'gpt2'.");
+                        }
+                    }
+                    else if (error.Contains("API Error 401") || error.Contains("Invalid username or password"))
+                    {
+                        if (_appModeService.CurrentMode == AppMode.Offline)
+                        {
+                            throw new Exception($"Authentication failed for model '{modelId}' and API fallback is disabled in offline mode. " +
+                                "Switch to online mode or try a public model like 'gpt2' or 'distilgpt2'.");
+                        }
+                        else
+                        {
+                            throw new Exception($"Authentication failed for model '{modelId}'. " +
+                                "This model requires a HuggingFace API key or try a public model like 'gpt2' or 'distilgpt2'.");
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception($"Script failed with exit code {exitCode}. Error: {error}");
+                    }
+                }
+
+                // Enhanced output processing
+                if (string.IsNullOrWhiteSpace(output))
+                {
+                    if (string.IsNullOrWhiteSpace(error))
+                    {
+                        return "Model processed the input but generated no text output. Try rephrasing your input or using a different model.";
+                    }
+                    else
+                    {
+                        // Handle various warning/info scenarios
+                        if (error.Contains("AUTHENTICATION_ERROR") || error.Contains("AUTHENTICATION_REQUIRED"))
+                        {
+                            throw new Exception($"Model requires authentication. Get a HuggingFace API key from https://huggingface.co/settings/tokens or try a public model like 'gpt2'.");
+                        }
+                        else if (error.Contains("API Error") || error.Contains("Falling back to HuggingFace API"))
+                        {
+                            if (_appModeService.CurrentMode == AppMode.Offline)
+                            {
+                                throw new Exception($"Model '{modelId}' failed to run locally and API fallback is disabled in offline mode. " +
+                                    "Switch to online mode or try a CPU-friendly model like 'gpt2' or 'distilgpt2'.");
+                            }
+                            else
+                            {
+                                // Extract meaningful response from API fallback
+                                var lines = error.Split('\n');
+                                var responseLine = lines.FirstOrDefault(l => l.Contains("Response:") || l.Contains("Output:"));
+                                if (!string.IsNullOrEmpty(responseLine))
+                                {
+                                    return responseLine.Substring(responseLine.IndexOf(':') + 1).Trim();
+                                }
+                                return $"Local execution failed, used HuggingFace API: {error}";
+                            }
+                        }
+                        else
+                        {
+                            return $"Model execution completed with warnings: {error}";
+                        }
+                    }
+                }
+
+                // Clean up and format the output
+                string cleanedOutput = output.Trim();
+
+                // Remove any debug prefixes that might have been added
+                if (cleanedOutput.StartsWith("Loading model:") || cleanedOutput.StartsWith("Model:"))
+                {
+                    var lines = cleanedOutput.Split('\n');
+                    cleanedOutput = string.Join('\n', lines.Skip(1)).Trim();
+                }
+                return cleanedOutput;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error running model: {ex.Message}");
+                throw; // Re-throw to be handled by caller
+            }
+        }
+
+        // Helper method to suggest CPU-friendly models to the user
+        private async Task SuggestCpuFriendlyModelsAsync()
+        {
+            var suggestedModels = new[]
+            {
+                "gpt2 - Fast, lightweight text generation",
+                "distilgpt2 - Even faster version of GPT-2",
+                "microsoft/DialoGPT-small - Good for conversations",
+                "microsoft/DialoGPT-medium - Better conversations (larger)",
+                "distilbert-base-uncased - Good for text understanding"
+            };
+
+            var message = "For better local performance, consider using these CPU-friendly models:\n\n" +
+                string.Join("\n", suggestedModels) +
+                "\n\nThese models run faster on CPU and don't require GPU acceleration.";
+
+            await ShowAlert("CPU-Friendly Model Suggestions", message, "OK");
+        }
+
+        // Helper method to provide model-specific performance tips
+        private string GetPerformanceTip(string modelId)
+        {
+            if (modelId.Contains("gpt2", StringComparison.OrdinalIgnoreCase))
+            {
+                return "💡 Tip: GPT-2 models work great on CPU and load quickly!";
+            }
+            else if (modelId.Contains("distil", StringComparison.OrdinalIgnoreCase))
+            {
+                return "💡 Tip: Distilled models are optimized for speed and efficiency!";
+            }
+            else if (modelId.Contains("DialoGPT", StringComparison.OrdinalIgnoreCase))
+            {
+                return "💡 Tip: DialoGPT is designed for conversations and works well locally!";
+            }
+            else if (modelId.Contains("bert", StringComparison.OrdinalIgnoreCase))
+            {
+                return "💡 Tip: BERT models are excellent for understanding text!";
+            }
+            else if (modelId.Contains("deepseek", StringComparison.OrdinalIgnoreCase) ||
+                     modelId.Contains("llama", StringComparison.OrdinalIgnoreCase))
+            {
+                return "⚠️ Note: This model may require significant resources. Consider trying GPT-2 for faster local execution.";
+            }
+            else
+            {
+                return "💡 Tip: For faster local execution, try CPU-friendly models like GPT-2 or DistilGPT-2!";
             }
         }
 

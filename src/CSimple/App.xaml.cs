@@ -9,6 +9,7 @@ using CSimple.Converters;
 using CSimple.Views;
 using Microsoft.Maui.Controls.PlatformConfiguration;
 using CSimple.Services;
+using CSimple.Services.AppModeService;
 using Microsoft.Maui.Platform;
 // Add this using statement
 using CSimple.ViewModels;
@@ -41,10 +42,8 @@ public partial class App : Application
     public ICommand ToggleFlyoutCommand { get; }
 
     // Add this property
-    public NetPageViewModel NetPageViewModel { get; private set; }
-
-    // Inject services via constructor - Change PythonDependencyManager to PythonBootstrapper
-    public App(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper)
+    public NetPageViewModel NetPageViewModel { get; private set; }    // Inject services via constructor - Change PythonDependencyManager to PythonBootstrapper
+    public App(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService)
     {
         try
         {
@@ -58,10 +57,8 @@ public partial class App : Application
 
             InitializeComponent();
 
-            Debug.WriteLine("App constructor: InitializeComponent completed");
-
-            // Instantiate NetPageViewModel using injected services - Pass pythonBootstrapper
-            NetPageViewModel = new NetPageViewModel(fileService, huggingFaceService, pythonBootstrapper);
+            Debug.WriteLine("App constructor: InitializeComponent completed");            // Instantiate NetPageViewModel using injected services - Pass pythonBootstrapper
+            NetPageViewModel = new NetPageViewModel(fileService, huggingFaceService, pythonBootstrapper, appModeService);
             Debug.WriteLine("App constructor: NetPageViewModel instantiated");
 
             // Extract bundled scripts to app data directory
