@@ -1822,9 +1822,7 @@ if __name__ == '__main__':
 
                     IsLoading = false;
                     return; // Python reference added, workflow complete
-                }
-
-                // *** REMOVED/COMMENTED OUT: File Download Case ***
+                }                // *** REMOVED/COMMENTED OUT: File Download Case ***
                 /*
                 // Handle File Download Case (Only if not a Python Reference)
                 if (filesToDownload.Count == 0 && !isPythonReference)
@@ -1838,8 +1836,21 @@ if __name__ == '__main__':
                     // ... (show alert) ...
                 }
 
-                // Download files
-                // ... (download loop) ...
+                // Download files with safety checks
+                foreach (var fileUrl in filesToDownload)
+                {
+                    var fileName = Path.GetFileName(fileUrl);
+                    
+                    // Use safety check before downloading
+                    bool shouldDownload = await ShouldProceedWithDownloadAsync(model.ModelId ?? model.Id, fileName);
+                    if (!shouldDownload)
+                    {
+                        continue; // Skip this download
+                    }
+                    
+                    // Proceed with actual download logic here...
+                    // ... (download implementation) ...
+                }
 
                 if (!anyDownloadSucceeded)
                 {
@@ -1974,13 +1985,15 @@ if __name__ == '__main__':
             var name = modelId.Contains('/') ? modelId.Split('/').Last() : modelId;
             name = name.Replace("-", " ").Replace("_", " ");
             return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name);
-        }
-
-        private string GetModelDirectoryPath(string modelId)
+        }        private string GetModelDirectoryPath(string modelId)
         {
             string safeModelId = (modelId ?? "unknown_model").Replace("/", "_").Replace("\\", "_");
             var modelDirectory = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace", safeModelId);
             Directory.CreateDirectory(modelDirectory); // Ensure it exists
+            
+            // Log the model directory for user awareness
+            Debug.WriteLine($"[Model Directory] {modelId} -> {modelDirectory}");
+            
             return modelDirectory;
         }
 
@@ -2196,6 +2209,47 @@ if __name__ == '__main__':
         {
             Debug.WriteLine($"ViewModel Error - {context}: {ex.Message}\n{ex.StackTrace}");
             CurrentModelStatus = $"Error: {context}";
+        }        /// <summary>
+        /// Checks if a download should proceed based on offline mode, file existence, and file size
+        /// </summary>
+        private async Task<bool> ShouldProceedWithDownloadAsync(string modelId, string fileName, long sizeBytes = -1)
+        {
+            // Check offline mode first
+            if (_appModeService?.CurrentMode == AppMode.Offline)
+            {
+                Debug.WriteLine($"[Download Check] Offline mode enabled - blocking download of {fileName}");
+                await ShowAlert("Offline Mode", $"Cannot download '{fileName}' while in offline mode. You can still reference the model for Python usage.", "OK");
+                return false;
+            }
+
+            // Check if file already exists
+            var modelDir = GetModelDirectoryPath(modelId);
+            var filePath = Path.Combine(modelDir, fileName);
+            if (File.Exists(filePath))
+            {
+                Debug.WriteLine($"[Download Check] File already exists: {filePath}");
+                await ShowAlert("File Exists", $"'{fileName}' already exists locally and will not be downloaded again.", "OK");
+                return false;
+            }
+
+            // Check for large files (>1GB) and ask user confirmation
+            if (sizeBytes > 1_000_000_000)
+            {
+                var sizeGB = sizeBytes / 1_073_741_824.0;
+                Debug.WriteLine($"[Download Check] Large file detected: {fileName} ({sizeGB:F2} GB)");
+                bool proceed = await ShowConfirmation(
+                    "Large Download Warning",
+                    $"The file '{fileName}' is {sizeGB:F2} GB. This is a large download that may take significant time and storage space.\n\nDo you want to proceed?",
+                    "Download", "Cancel");
+                
+                if (!proceed)
+                {
+                    Debug.WriteLine($"[Download Check] User cancelled large download for {fileName}");
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         // --- UI Interaction Abstractions (to be implemented by the View) ---
