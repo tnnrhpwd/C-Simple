@@ -209,12 +209,15 @@ namespace CSimple.ViewModels
         public ICommand GoToOrientCommand { get; } // ADDED: Command to navigate
         public ICommand UpdateModelInputTypeCommand { get; } // ADDED: Command to update input type        // Chat-related commands
         public ICommand SendMessageCommand { get; }
-        public ICommand ClearChatCommand { get; }
-
-        // Media-related commands
+        public ICommand ClearChatCommand { get; }        // Media-related commands
         public ICommand SelectImageCommand { get; }
         public ICommand SelectAudioCommand { get; }
-        public ICommand ClearMediaCommand { get; }// --- Constructor ---
+        public ICommand ClearMediaCommand { get; }
+
+        // Debug command for testing chat UI
+        public ICommand TestAddChatMessageCommand { get; }
+
+        // --- Constructor ---
         public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService)
         {
             _fileService = fileService;
@@ -746,11 +749,11 @@ if __name__ == '__main__':
             {
                 CurrentModelStatus = "Cannot send empty message.";
                 return;
-            }
-
-            // Add user message to chat history
+            }            // Add user message to chat history
             var userMessage = new ChatMessage(message, isFromUser: true);
             ChatMessages.Add(userMessage);
+            Debug.WriteLine($"Added user message to chat. ChatMessages count: {ChatMessages.Count}");
+            Debug.WriteLine($"User message content: '{userMessage.Content}', IsFromUser: {userMessage.IsFromUser}");
 
             // Find the best active HuggingFace reference model (prioritize CPU-friendly ones)
             var activeHfModel = GetBestActiveModel(); if (activeHfModel == null)
@@ -797,14 +800,13 @@ if __name__ == '__main__':
             }
             CurrentModelStatus = $"Sending message to {activeHfModel.Name}...";
             LastModelOutput = $"Processing '{message}' with {activeHfModel.Name}...";
-            IsModelCommunicating = true;
-
-            // Add processing message to chat history
+            IsModelCommunicating = true;            // Add processing message to chat history
             var processingMessage = new ChatMessage("Processing your request...", isFromUser: false, modelName: activeHfModel.Name)
             {
                 IsProcessing = true
             };
             ChatMessages.Add(processingMessage);
+            Debug.WriteLine($"Added processing message to chat. ChatMessages count: {ChatMessages.Count}");
 
             try
             {
@@ -832,13 +834,13 @@ if __name__ == '__main__':
                 // Add performance tip to output for user guidance
                 string performanceTip = GetPerformanceTip(activeHfModel.HuggingFaceModelId);
                 LastModelOutput = $"Processing '{message}' with {activeHfModel.Name}...\n\n{performanceTip}";                // Execute the Python script with enhanced parameters
-                string result = await ExecuteHuggingFaceModelAsyncEnhanced(modelInFile.HuggingFaceModelId, message, activeHfModel);
-
-                // Update the processing message with the actual response
+                string result = await ExecuteHuggingFaceModelAsyncEnhanced(modelInFile.HuggingFaceModelId, message, activeHfModel);                // Update the processing message with the actual response
                 if (!string.IsNullOrEmpty(result))
                 {
                     processingMessage.Content = result;
                     processingMessage.IsProcessing = false;
+                    Debug.WriteLine($"Updated processing message with AI response. Content length: {result.Length}");
+                    Debug.WriteLine($"AI response content: '{result.Substring(0, Math.Min(100, result.Length))}...'");
                     LastModelOutput = $"Response from {activeHfModel.Name}:\n{result}";
                     CurrentModelStatus = $"✓ Response received from {activeHfModel.Name}";
                 }
@@ -2063,9 +2065,7 @@ if __name__ == '__main__':
             var userMessage = CurrentMessage.Trim();
             CurrentMessage = string.Empty; // Clear input
 
-            // Add user message to chat
-            var chatMessage = new ChatMessage(userMessage, true);
-            ChatMessages.Add(chatMessage);
+            Debug.WriteLine($"Chat: Sending message '{userMessage}' to active models (count: {ActiveModelsCount})");
 
             // Update UI properties
             IsAiTyping = true;
@@ -2073,26 +2073,17 @@ if __name__ == '__main__':
 
             try
             {
-                // Simulate AI thinking time
-                await Task.Delay(1000);
-
-                // Get response from active model(s)
-                var response = await GetAiResponseAsync(userMessage);
-
-                // Add AI response to chat
-                var aiMessage = new ChatMessage(response, false, "AI Assistant");
-                ChatMessages.Add(aiMessage);
-
-                // Update LastModelOutput for compatibility
-                LastModelOutput = response;
+                // Use the existing CommunicateWithModelAsync method which handles the full chat flow
+                await CommunicateWithModelAsync(userMessage);
+                Debug.WriteLine($"Chat: Message processed successfully. ChatMessages count: {ChatMessages.Count}");
             }
             catch (Exception ex)
             {
-                var errorMessage = $"Sorry, I encountered an error: {ex.Message}";
-                var aiMessage = new ChatMessage(errorMessage, false, "AI Assistant");
-                ChatMessages.Add(aiMessage);
+                // Add error message to chat if something goes wrong
+                var errorMessage = new ChatMessage($"Sorry, I encountered an error: {ex.Message}", false, "System");
+                ChatMessages.Add(errorMessage);
 
-                LastModelOutput = errorMessage;
+                LastModelOutput = $"Error: {ex.Message}";
                 Debug.WriteLine($"Chat error: {ex}");
             }
             finally
@@ -2102,39 +2093,6 @@ if __name__ == '__main__':
 
                 // Scroll to bottom of chat (will be handled by view)
                 ScrollToBottom?.Invoke();
-            }
-        }
-
-        private async Task<string> GetAiResponseAsync(string userMessage)
-        {
-            if (ActiveModels.Count == 0)
-                return "No active models available to process your request.";
-
-            // Use the first active model for response
-            var activeModel = ActiveModels.First();
-
-            try
-            {
-                // Try to communicate with the actual model
-                await CommunicateWithModelAsync(userMessage);
-
-                // For now, return a simulated response
-                // In a real implementation, this would get the actual model response
-                var responses = new[]
-                {
-                    $"I understand you said: '{userMessage}'. How can I help you further?",
-                    $"That's an interesting point about '{userMessage}'. Let me think about that...",
-                    $"Based on your input '{userMessage}', I suggest we explore this topic more.",
-                    $"I've processed your message '{userMessage}' and here's my analysis...",
-                    $"Regarding '{userMessage}', I think there are several ways to approach this."
-                };
-
-                return responses[new Random().Next(responses.Length)];
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Model communication error: {ex}");
-                return $"I'm having trouble processing your request right now. Please try again later.";
             }
         }
         private void ClearChat()

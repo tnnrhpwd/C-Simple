@@ -77,6 +77,10 @@
             <Color x:Key="CardBackgroundLight">#ffffff</Color>
             <Color x:Key="CardBackgroundDark">#1e1e1e</Color>
             <Color x:Key="BorderColor">#DDDDDD</Color>
+            <!-- Gray Scale Colors -->
+            <Color x:Key="Gray300">#E0E0E0</Color>
+            <Color x:Key="Gray500">#9E9E9E</Color>
+            <Color x:Key="Gray600">#757575</Color>
             <!-- Warning Panel Colors -->
             <!-- Note: WarningBackground and WarningText are used directly with AppThemeBinding in controls -->
             <!-- Spacing Values -->

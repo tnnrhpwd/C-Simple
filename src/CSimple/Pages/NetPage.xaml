@@ -338,103 +338,97 @@
                                CornerRadius="{StaticResource CornerRadiusSmall}"
                                Padding="{StaticResource CardContentPadding}"
                                HeightRequest="300">
-                            <ScrollView x:Name="ChatScrollView"
-                                        VerticalScrollBarVisibility="Always">
-                                <CollectionView ItemsSource="{Binding ChatMessages}"
-                                                SelectionMode="None"
-                                                VerticalOptions="End">
-                                    <CollectionView.ItemTemplate>
-                                        <DataTemplate x:DataType="models:ChatMessage">
-                                            <Grid Padding="{StaticResource SpacingSmall}"
-                                                  Margin="{StaticResource MarginBottomTiny}">
-                                                <!-- User Message (Right-aligned) -->
-                                                <Frame IsVisible="{Binding IsFromUser}"
-                                                       BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                                       Padding="{StaticResource CardContentPadding}"
-                                                       CornerRadius="15,15,5,15"
-                                                       Margin="50,0,0,0"
-                                                       HorizontalOptions="End">
-                                                    <VerticalStackLayout>
-                                                        <Label Text="You"
-                                                               FontSize="{StaticResource FontSizeCaption}"
-                                                               FontAttributes="Bold"
-                                                               TextColor="{StaticResource TextOnPrimary}"
-                                                               HorizontalOptions="End" />
-                                                        <Label Text="{Binding Content}"
-                                                               TextColor="{StaticResource TextOnPrimary}"
-                                                               LineBreakMode="WordWrap" />
-                                                        <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
-                                                               FontSize="{StaticResource FontSizeCaption}"
-                                                               TextColor="{StaticResource TextOnPrimary}"
-                                                               Opacity="0.7"
-                                                               HorizontalOptions="End" />
-                                                    </VerticalStackLayout>
-                                                </Frame>
-                                                <!-- AI Response (Left-aligned) -->
-                                                <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource InverseBoolConverter}}"
-                                                       BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
-                                                       Padding="{StaticResource CardContentPadding}"
-                                                       CornerRadius="15,15,15,5"
-                                                       Margin="0,0,50,0"
-                                                       HorizontalOptions="Start"
-                                                       BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
-                                                    <VerticalStackLayout>
-                                                        <Label Text="AI Assistant"
-                                                               FontSize="{StaticResource FontSizeCaption}"
-                                                               FontAttributes="Bold"
-                                                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                                               HorizontalOptions="Start" />
-                                                        <Label Text="{Binding Content}"
-                                                               TextColor="{StaticResource TextPrimary}"
-                                                               LineBreakMode="WordWrap" />
-                                                        <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
-                                                               FontSize="{StaticResource FontSizeCaption}"
-                                                               TextColor="{StaticResource TextSecondary}"
-                                                               Opacity="0.7"
-                                                               HorizontalOptions="Start" />
-                                                    </VerticalStackLayout>
-                                                </Frame>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </CollectionView.ItemTemplate>
-                                    <CollectionView.EmptyView>
-                                        <VerticalStackLayout HorizontalOptions="Center"
-                                                             VerticalOptions="Center"
-                                                             Spacing="{StaticResource SpacingSmall}">
-                                            <Label Text="💬"
-                                                   FontSize="48"
-                                                   HorizontalOptions="Center" />
-                                            <Label Text="Start a conversation with your AI assistant"
-                                                   TextColor="{StaticResource TextSecondary}"
-                                                   HorizontalOptions="Center"
-                                                   FontSize="{StaticResource FontSizeSmall}" />
-                                        </VerticalStackLayout>
-                                    </CollectionView.EmptyView>
-                                </CollectionView>
-                                <!-- Typing Indicator -->
-                                <Grid IsVisible="{Binding IsAiTyping}"
-                                      Padding="{StaticResource SpacingSmall}"
-                                      Margin="{StaticResource MarginBottomTiny}">
-                                    <Frame BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
-                                           Padding="{StaticResource CardContentPadding}"
-                                           CornerRadius="15,15,15,5"
-                                           Margin="0,0,50,0"
-                                           HorizontalOptions="Start"
-                                           BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
-                                        <StackLayout Orientation="Horizontal"
-                                                     Spacing="{StaticResource SpacingTiny}">
-                                            <Label Text="AI Assistant is typing"
-                                                   TextColor="{StaticResource TextSecondary}"
-                                                   FontSize="{StaticResource FontSizeSmall}"
-                                                   VerticalOptions="Center" />
-                                            <ActivityIndicator IsRunning="True"
-                                                               WidthRequest="16"
-                                                               HeightRequest="16"
-                                                               Color="{StaticResource Primary}" />
-                                        </StackLayout>
-                                    </Frame>
-                                </Grid>
-                            </ScrollView>
+                            <CollectionView ItemsSource="{Binding ChatMessages}"
+                                            SelectionMode="None"
+                                            x:Name="ChatCollectionView">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="models:ChatMessage">
+                                        <Grid Padding="{StaticResource SpacingSmall}"
+                                              Margin="{StaticResource MarginBottomTiny}">
+                                            <!-- User Message (Right-aligned) -->
+                                            <Frame IsVisible="{Binding IsFromUser}"
+                                                   BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                   Padding="{StaticResource CardContentPadding}"
+                                                   CornerRadius="15,15,5,15"
+                                                   Margin="50,0,0,0"
+                                                   HorizontalOptions="End">
+                                                <VerticalStackLayout>
+                                                    <Label Text="You"
+                                                           FontSize="{StaticResource FontSizeCaption}"
+                                                           FontAttributes="Bold"
+                                                           TextColor="{StaticResource TextOnPrimary}"
+                                                           HorizontalOptions="End" />
+                                                    <Label Text="{Binding Content}"
+                                                           TextColor="{StaticResource TextOnPrimary}"
+                                                           LineBreakMode="WordWrap" />
+                                                    <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
+                                                           FontSize="{StaticResource FontSizeCaption}"
+                                                           TextColor="{StaticResource TextOnPrimary}"
+                                                           Opacity="0.7"
+                                                           HorizontalOptions="End" />
+                                                </VerticalStackLayout>
+                                            </Frame>
+                                            <!-- AI Response (Left-aligned) -->
+                                            <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource InverseBoolConverter}}"
+                                                   BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
+                                                   Padding="{StaticResource CardContentPadding}"
+                                                   CornerRadius="15,15,15,5"
+                                                   Margin="0,0,50,0"
+                                                   HorizontalOptions="Start"
+                                                   BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
+                                                <VerticalStackLayout>
+                                                    <Label Text="AI Assistant"
+                                                           FontSize="{StaticResource FontSizeCaption}"
+                                                           FontAttributes="Bold"
+                                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                           HorizontalOptions="Start" />
+                                                    <Label Text="{Binding Content}"
+                                                           TextColor="{StaticResource TextPrimary}"
+                                                           LineBreakMode="WordWrap" />
+                                                    <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
+                                                           FontSize="{StaticResource FontSizeCaption}"
+                                                           TextColor="{StaticResource TextSecondary}"
+                                                           Opacity="0.7"
+                                                           HorizontalOptions="Start" />
+                                                </VerticalStackLayout>
+                                            </Frame>
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                                <CollectionView.EmptyView>
+                                    <VerticalStackLayout HorizontalOptions="Center"
+                                                         VerticalOptions="Center"
+                                                         Spacing="{StaticResource SpacingSmall}">
+                                        <Label Text="💬"
+                                               FontSize="48"
+                                               HorizontalOptions="Center" />
+                                        <Label Text="Start a conversation with your AI assistant"
+                                               TextColor="{StaticResource TextSecondary}"
+                                               HorizontalOptions="Center"
+                                               FontSize="{StaticResource FontSizeSmall}" />
+                                    </VerticalStackLayout>
+                                </CollectionView.EmptyView>
+                            </CollectionView>
+                        </Frame>
+                        <!-- Typing Indicator -->
+                        <Frame IsVisible="{Binding IsAiTyping}"
+                               BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
+                               Padding="{StaticResource CardContentPadding}"
+                               CornerRadius="15,15,15,5"
+                               Margin="0,0,50,0"
+                               HorizontalOptions="Start"
+                               BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
+                            <StackLayout Orientation="Horizontal"
+                                         Spacing="{StaticResource SpacingTiny}">
+                                <Label Text="AI Assistant is typing"
+                                       TextColor="{StaticResource TextSecondary}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       VerticalOptions="Center" />
+                                <ActivityIndicator IsRunning="True"
+                                                   WidthRequest="16"
+                                                   HeightRequest="16"
+                                                   Color="{StaticResource Primary}" />
+                            </StackLayout>
                         </Frame>
                         <!-- Input Section -->
                         <Label Text="Input"

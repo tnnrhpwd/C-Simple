@@ -38,16 +38,19 @@ namespace CSimple.Pages
             _viewModel.ShowActionSheet = (title, cancel, destruction, buttons) => DisplayActionSheet(title, cancel, destruction, buttons);
             _viewModel.ShowPrompt = (title, message, accept, cancel, initialValue) => DisplayPromptAsync(title, message, accept, cancel, initialValue: initialValue);
             _viewModel.PickFile = async () => await FilePicker.Default.PickAsync(new PickOptions()); _viewModel.NavigateTo = async (route) => await Shell.Current.GoToAsync(route);
-            _viewModel.ShowModelSelectionDialog = ShowHuggingFaceModelSelection; // Custom method for this UI
-
-            // Set up chat scroll functionality
+            _viewModel.ShowModelSelectionDialog = ShowHuggingFaceModelSelection; // Custom method for this UI            // Set up chat scroll functionality
             _viewModel.ScrollToBottom = () =>
             {
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    if (FindByName("ChatScrollView") is ScrollView scrollView)
+                    if (FindByName("ChatCollectionView") is CollectionView collectionView &&
+                        _viewModel.ChatMessages.Count > 0)
                     {
-                        scrollView.ScrollToAsync(0, double.MaxValue, true);
+                        var lastItem = _viewModel.ChatMessages.LastOrDefault();
+                        if (lastItem != null)
+                        {
+                            collectionView.ScrollTo(lastItem, animate: true);
+                        }
                     }
                 });
             };
