@@ -978,7 +978,7 @@ if __name__ == '__main__':
 
                 // Determine LLM source for error cases
                 string errorLlmSource = _appModeService.CurrentMode == AppMode.Offline ? "local" : "local";
-                
+
                 // Update the processing message with the error
                 processingMessage.Content = errorResponse;
                 processingMessage.IsProcessing = false;
@@ -1929,7 +1929,7 @@ if __name__ == '__main__':
                 await ShowAlert("File Selected", $"Name: {fileResult.FileName}", "Continue");
 
                 var modelDestinationPath = await CopyModelToAppDirectoryAsync(fileResult);
-                               if (string.IsNullOrEmpty(modelDestinationPath))
+                if (string.IsNullOrEmpty(modelDestinationPath))
                 {
                     CurrentModelStatus = "Failed to copy model file"; return;
                 }

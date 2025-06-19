@@ -436,22 +436,6 @@
                         <!-- Input Section -->
                         <Label Text="Input"
                                FontAttributes="Bold" />
-                        <!-- Input Mode Status Display -->
-                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
-                               CornerRadius="{StaticResource CornerRadiusSmall}"
-                               Padding="{StaticResource CardContentPadding}"
-                               Margin="{StaticResource MarginBottomTiny}">
-                            <VerticalStackLayout>
-                                <Label Text="{Binding CurrentInputModeDescription}"
-                                       FontSize="{StaticResource FontSizeSmall}"
-                                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                       HorizontalOptions="Center" />
-                                <Label Text="{Binding SupportedInputTypesText}"
-                                       FontSize="{StaticResource FontSizeCaption}"
-                                       TextColor="{StaticResource TextSecondary}"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Frame>
                         <!-- Text Input -->
                         <Grid ColumnDefinitions="*,Auto,Auto"
                               ColumnSpacing="{StaticResource SpacingSmall}">
@@ -545,17 +529,20 @@
                             </VerticalStackLayout>
                         </Frame>
                         <!-- Warning if no models active -->
-                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource WarningBackgroundLight}, Dark={StaticResource WarningBackgroundDark}}"
+                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
                                IsVisible="{Binding ActiveModelsCount, Converter={StaticResource IntToBoolConverter}, ConverterParameter=0}"
                                Padding="{StaticResource CardContentPadding}"
-                               CornerRadius="{StaticResource CornerRadiusSmall}">
+                               CornerRadius="{StaticResource CornerRadiusSmall}"
+                               BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
                             <VerticalStackLayout>
-                                <Label Text="No Active Models"
+                                <Label Text="💡 Activate a model to start chatting"
                                        FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
-                                <Label Text="Activate a model above to enable the AI assistant"
-                                       TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}"
-                                       FontSize="{StaticResource FontSizeSmall}" />
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                       HorizontalOptions="Center" />
+                                <Label Text="Choose a model from the Model Management section above"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       HorizontalOptions="Center" />
                             </VerticalStackLayout>
                         </Frame>
                     </VerticalStackLayout>
