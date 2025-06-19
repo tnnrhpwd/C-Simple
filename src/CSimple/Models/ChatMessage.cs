@@ -15,6 +15,7 @@ namespace CSimple.Models
         private string _modelName;
         private string _llmSource; // New: local or api
         private bool _isEditing;
+        private bool _includeInHistory = true; // New: whether to include this message in chat history for models
 
         public string Content
         {
@@ -64,6 +65,12 @@ namespace CSimple.Models
         {
             get => _isEditing;
             set => SetProperty(ref _isEditing, value);
+        }
+
+        public bool IncludeInHistory
+        {
+            get => _includeInHistory;
+            set => SetProperty(ref _includeInHistory, value);
         }
 
         public string FormattedTimestamp => Timestamp.ToString("HH:mm");
@@ -128,13 +135,13 @@ namespace CSimple.Models
         {
             Timestamp = DateTime.Now;
         }
-
-        public ChatMessage(string content, bool isFromUser, string modelName = null, string llmSource = null) : this()
+        public ChatMessage(string content, bool isFromUser, string modelName = null, string llmSource = null, bool includeInHistory = true) : this()
         {
             Content = content;
             IsFromUser = isFromUser;
             ModelName = modelName;
             LLMSource = llmSource;
+            IncludeInHistory = includeInHistory;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

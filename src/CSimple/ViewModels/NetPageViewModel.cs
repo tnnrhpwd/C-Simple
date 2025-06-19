@@ -756,7 +756,7 @@ if __name__ == '__main__':
                 CurrentModelStatus = "Cannot send empty message.";
                 return;
             }            // Add user message to chat history
-            var userMessage = new ChatMessage(message, isFromUser: true);
+            var userMessage = new ChatMessage(message, isFromUser: true, includeInHistory: true);
             ChatMessages.Add(userMessage);
             Debug.WriteLine($"Added user message to chat. ChatMessages count: {ChatMessages.Count}");
             Debug.WriteLine($"User message content: '{userMessage.Content}', IsFromUser: {userMessage.IsFromUser}");
@@ -805,9 +805,13 @@ if __name__ == '__main__':
                 return;
             }
             CurrentModelStatus = $"Sending message to {activeHfModel.Name}...";
-            LastModelOutput = $"Processing '{message}' with {activeHfModel.Name}...";
-            IsModelCommunicating = true;            // Add processing message to chat history
-            var processingMessage = new ChatMessage("Processing your request...", isFromUser: false, modelName: activeHfModel.Name)
+            LastModelOutput = $"Processing conversation with {activeHfModel.Name}...";
+            IsModelCommunicating = true;            // Build complete chat history for model context
+            string fullChatHistory = BuildChatHistoryForModel(); Debug.WriteLine($"Built chat history with {ChatMessages.Where(m => m.IncludeInHistory && !m.IsProcessing).Count()} included messages. History length: {fullChatHistory.Length} characters");
+            if (fullChatHistory.Length > 0)
+                Debug.WriteLine($"Chat history preview: {fullChatHistory.Substring(0, Math.Min(300, fullChatHistory.Length))}...");
+            // Add processing message to chat history
+            var processingMessage = new ChatMessage("Processing your request...", isFromUser: false, modelName: activeHfModel.Name, includeInHistory: false)
             {
                 IsProcessing = true,
                 // Set initial LLM source based on app mode
@@ -838,13 +842,12 @@ if __name__ == '__main__':
                     await CreateHuggingFaceScript(_huggingFaceScriptPath);
                 }
                 // Show progress indicator for model loading with performance tip
-                CurrentModelStatus = $"Loading {activeHfModel.Name} (first run may take longer)...";
-
-                // Add performance tip to output for user guidance
+                CurrentModelStatus = $"Loading {activeHfModel.Name} (first run may take longer)...";                // Add performance tip to output for user guidance
                 string performanceTip = GetPerformanceTip(activeHfModel.HuggingFaceModelId);
-                LastModelOutput = $"Processing '{message}' with {activeHfModel.Name}...\n\n{performanceTip}";
-                // Execute the Python script with enhanced parameters
-                string result = await ExecuteHuggingFaceModelAsyncEnhanced(modelInFile.HuggingFaceModelId, message, activeHfModel);
+                LastModelOutput = $"Processing conversation with {activeHfModel.Name}...\n\n{performanceTip}";
+
+                // Execute the Python script with enhanced parameters using full chat history
+                string result = await ExecuteHuggingFaceModelAsyncEnhanced(modelInFile.HuggingFaceModelId, fullChatHistory, activeHfModel);
 
                 // Determine LLM source based on app mode and execution results
                 string llmSource;
@@ -868,7 +871,6 @@ if __name__ == '__main__':
                         llmSource = "local";
                     }
                 }
-
                 Debug.WriteLine($"Determined LLM Source: {llmSource} (App Mode: {_appModeService.CurrentMode})");
 
                 // Update the processing message with the actual response
@@ -876,6 +878,7 @@ if __name__ == '__main__':
                 {
                     processingMessage.Content = result;
                     processingMessage.IsProcessing = false;
+                    processingMessage.IncludeInHistory = true; // Include AI response in history
                     processingMessage.LLMSource = llmSource;
                     Debug.WriteLine($"Updated processing message with AI response. LLM Source: {llmSource}");
                     Debug.WriteLine($"Processing message LLMSource after update: '{processingMessage.LLMSource}'");
@@ -886,6 +889,7 @@ if __name__ == '__main__':
                 {
                     processingMessage.Content = "No response received. The model may have executed successfully but produced no output.";
                     processingMessage.IsProcessing = false;
+                    processingMessage.IncludeInHistory = true; // Include error message in history
                     processingMessage.LLMSource = llmSource;
                     Debug.WriteLine($"Updated processing message with no response. LLM Source: {llmSource}");
                     Debug.WriteLine($"Processing message LLMSource after update: '{processingMessage.LLMSource}'");
@@ -983,11 +987,10 @@ if __name__ == '__main__':
                 }
 
                 // Determine LLM source for error cases
-                string errorLlmSource = _appModeService.CurrentMode == AppMode.Offline ? "local" : "local";
-
-                // Update the processing message with the error
+                string errorLlmSource = _appModeService.CurrentMode == AppMode.Offline ? "local" : "local";                // Update the processing message with the error
                 processingMessage.Content = errorResponse;
                 processingMessage.IsProcessing = false;
+                processingMessage.IncludeInHistory = true; // Include error message in history
                 processingMessage.LLMSource = errorLlmSource;
                 Debug.WriteLine($"Set error LLM Source: {errorLlmSource}");
 
@@ -998,6 +1001,56 @@ if __name__ == '__main__':
             {
                 IsModelCommunicating = false;
             }
+        }        // Helper method to build chat history for model input
+        private string BuildChatHistoryForModel()
+        {
+            if (ChatMessages.Count == 0)
+                return string.Empty;
+
+            var historyBuilder = new StringBuilder();
+
+            // Get ALL messages that should be included in history (both user and AI responses)
+            // Exclude only processing messages
+            var allMessages = ChatMessages
+                .Where(msg => msg.IncludeInHistory && !msg.IsProcessing)
+                .ToList();
+
+            Debug.WriteLine($"BuildChatHistoryForModel: Total ChatMessages: {ChatMessages.Count}, Filtered messages: {allMessages.Count}");
+
+            // Debug each message
+            foreach (var msg in allMessages)
+            {
+                Debug.WriteLine($"Message - IsFromUser: {msg.IsFromUser}, Content: '{msg.Content.Substring(0, Math.Min(50, msg.Content.Length))}...', IncludeInHistory: {msg.IncludeInHistory}");
+            }
+
+            // Limit to last 20 messages to prevent extremely long context
+            const int maxMessages = 20;
+            if (allMessages.Count > maxMessages)
+            {
+                allMessages = allMessages.Skip(allMessages.Count - maxMessages).ToList();
+                historyBuilder.AppendLine("(Conversation history truncated to recent exchanges)");
+                historyBuilder.AppendLine();
+            }
+
+            if (allMessages.Any())
+            {
+                // Add all messages without prefixes, separated only by line breaks
+                for (int i = 0; i < allMessages.Count; i++)
+                {
+                    var msg = allMessages[i];
+                    historyBuilder.AppendLine(msg.Content);
+
+                    // Add blank line between messages, but not after the last one
+                    if (i < allMessages.Count - 1)
+                    {
+                        historyBuilder.AppendLine();
+                    }
+                }
+            }
+
+            string result = historyBuilder.ToString();
+            Debug.WriteLine($"BuildChatHistoryForModel - Final result length: {result.Length}");
+            return result;
         }
 
         // Helper method to find the best active model for local execution
@@ -2145,9 +2198,8 @@ if __name__ == '__main__':
                 Debug.WriteLine($"Chat: Message processed successfully. ChatMessages count: {ChatMessages.Count}");
             }
             catch (Exception ex)
-            {
-                // Add error message to chat if something goes wrong
-                var errorMessage = new ChatMessage($"Sorry, I encountered an error: {ex.Message}", false, "System");
+            {                // Add error message to chat if something goes wrong
+                var errorMessage = new ChatMessage($"Sorry, I encountered an error: {ex.Message}", false, "System", includeInHistory: true);
                 ChatMessages.Add(errorMessage);
 
                 LastModelOutput = $"Error: {ex.Message}";
@@ -2158,7 +2210,7 @@ if __name__ == '__main__':
                 IsAiTyping = false;
                 OnPropertyChanged(nameof(CanSendMessage));
 
-                // Scroll to bottom of chat (will be handled by view)
+                // Scroll to bottom of chat (to be handled by view)
                 ScrollToBottom?.Invoke();
             }
         }
