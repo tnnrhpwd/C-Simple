@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace CSimple.Models
@@ -49,7 +50,13 @@ namespace CSimple.Models
         public string LLMSource
         {
             get => _llmSource;
-            set => SetProperty(ref _llmSource, value);
+            set => SetProperty(ref _llmSource, value, onChanged: () =>
+            {
+                // Notify dependent properties when LLMSource changes
+                OnPropertyChanged(nameof(ModelDisplayNameWithSource));
+                OnPropertyChanged(nameof(ModelDisplayNameWithSourcePrefixed));
+                Debug.WriteLine($"LLMSource updated to: '{value}' for message with ModelName: '{ModelName}'");
+            });
         }
 
         public string FormattedTimestamp => Timestamp.ToString("HH:mm");
@@ -72,6 +79,44 @@ namespace CSimple.Models
             }
         }
 
+        public string ModelDisplayNameWithSourcePrefixed
+        {
+            get
+            {
+                Debug.WriteLine($"ModelDisplayNameWithSourcePrefixed called: IsFromUser={IsFromUser}, ModelName='{ModelName}', LLMSource='{LLMSource}'");
+                if (IsFromUser || string.IsNullOrEmpty(ModelName))
+                    return string.Empty;
+
+                if (string.IsNullOrEmpty(LLMSource))
+                {
+                    Debug.WriteLine($"LLMSource is empty, returning ModelName: '{ModelName}'");
+                    return ModelName;
+                }
+
+                var prefix = LLMSource.Equals("local", StringComparison.OrdinalIgnoreCase)
+                    ? "Local"
+                    : LLMSource.Equals("api", StringComparison.OrdinalIgnoreCase)
+                        ? "API"
+                        : char.ToUpper(LLMSource[0]) + LLMSource.Substring(1).ToLower();
+
+                // Clean up the model name (remove any existing prefixes)
+                var cleanModelName = ModelName;
+                if (cleanModelName.StartsWith("Local ", StringComparison.OrdinalIgnoreCase) ||
+                    cleanModelName.StartsWith("API ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var spaceIndex = cleanModelName.IndexOf(' ');
+                    if (spaceIndex > 0 && spaceIndex < cleanModelName.Length - 1)
+                    {
+                        cleanModelName = cleanModelName.Substring(spaceIndex + 1);
+                    }
+                }
+
+                var result = $"{prefix} {cleanModelName}";
+                Debug.WriteLine($"ModelDisplayNameWithSourcePrefixed: prefix='{prefix}', cleanModelName='{cleanModelName}', result='{result}'");
+                return result;
+            }
+        }
+
         public ChatMessage()
         {
             Timestamp = DateTime.Now;
@@ -85,7 +130,9 @@ namespace CSimple.Models
             LLMSource = llmSource;
         }
 
-        public event PropertyChangedEventHandler PropertyChanged; protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        public virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }

@@ -434,14 +434,14 @@ def main():
             result = pipe(args.input, max_length=150, do_sample=True, temperature=0.7)
             
             if isinstance(result, list):
-                output = result[0].get('generated_text', str(result[0]))
+                output = result[0].get('generated_text', str(result[0]));
             else:
-                output = str(result)
+                output = str(result);
                 
-            print(output)
+            print(output);
             
         except Exception as pipe_error:
-            print(f'Pipeline failed, trying manual approach: {pipe_error}')
+            print(f'Pipeline failed, trying manual approach: {pipe_error}');
             
             # Fallback to manual tokenizer/model approach
             tokenizer = AutoTokenizer.from_pretrained(args.model_id, trust_remote_code=True)
@@ -803,7 +803,9 @@ if __name__ == '__main__':
             IsModelCommunicating = true;            // Add processing message to chat history
             var processingMessage = new ChatMessage("Processing your request...", isFromUser: false, modelName: activeHfModel.Name)
             {
-                IsProcessing = true
+                IsProcessing = true,
+                // Set initial LLM source based on app mode
+                LLMSource = _appModeService.CurrentMode == AppMode.Offline ? "local" : "local" // Default to local, will update if API is used
             };
             ChatMessages.Add(processingMessage);
             Debug.WriteLine($"Added processing message to chat. ChatMessages count: {ChatMessages.Count}");
@@ -838,20 +840,30 @@ if __name__ == '__main__':
                 // Execute the Python script with enhanced parameters
                 string result = await ExecuteHuggingFaceModelAsyncEnhanced(modelInFile.HuggingFaceModelId, message, activeHfModel);
 
-                // Determine LLM source
-                string llmSource = "local";
-                if (_appModeService.CurrentMode != AppMode.Offline && result != null && result.Contains("used HuggingFace API"))
+                // Determine LLM source based on app mode and execution results
+                string llmSource;
+                if (_appModeService.CurrentMode == AppMode.Offline)
                 {
-                    llmSource = "api";
-                }
-                else if (_appModeService.CurrentMode != AppMode.Offline && result != null && result.ToLower().Contains("api fallback"))
-                {
-                    llmSource = "api";
-                }
-                else if (_appModeService.CurrentMode == AppMode.Offline)
-                {
+                    // In offline mode, everything should be local
                     llmSource = "local";
                 }
+                else
+                {
+                    // In online mode, check if the result indicates API usage
+                    if (result != null && (result.Contains("used HuggingFace API") ||
+                                         result.Contains("api fallback") ||
+                                         result.Contains("Falling back to HuggingFace API")))
+                    {
+                        llmSource = "api";
+                    }
+                    else
+                    {
+                        // Default to local if no API indicators found
+                        llmSource = "local";
+                    }
+                }
+
+                Debug.WriteLine($"Determined LLM Source: {llmSource} (App Mode: {_appModeService.CurrentMode})");
 
                 // Update the processing message with the actual response
                 if (!string.IsNullOrEmpty(result))
@@ -859,8 +871,8 @@ if __name__ == '__main__':
                     processingMessage.Content = result;
                     processingMessage.IsProcessing = false;
                     processingMessage.LLMSource = llmSource;
-                    Debug.WriteLine($"Updated processing message with AI response. Content length: {result.Length}");
-                    Debug.WriteLine($"AI response content: '{result.Substring(0, Math.Min(100, result.Length))}...'");
+                    Debug.WriteLine($"Updated processing message with AI response. LLM Source: {llmSource}");
+                    Debug.WriteLine($"Processing message LLMSource after update: '{processingMessage.LLMSource}'");
                     LastModelOutput = $"Response from {activeHfModel.Name}:\n{result}";
                     CurrentModelStatus = $"✓ Response received from {activeHfModel.Name}";
                 }
@@ -868,9 +880,15 @@ if __name__ == '__main__':
                 {
                     processingMessage.Content = "No response received. The model may have executed successfully but produced no output.";
                     processingMessage.IsProcessing = false;
+                    processingMessage.LLMSource = llmSource;
+                    Debug.WriteLine($"Updated processing message with no response. LLM Source: {llmSource}");
+                    Debug.WriteLine($"Processing message LLMSource after update: '{processingMessage.LLMSource}'");
                     LastModelOutput = $"No response received from {activeHfModel.Name}. The model may have executed successfully but produced no output.";
                     CurrentModelStatus = $"Model {activeHfModel.Name} completed but returned no output";
                 }
+
+                // Force property change notification to update UI
+                processingMessage.OnPropertyChanged(nameof(processingMessage.ModelDisplayNameWithSourcePrefixed));
             }
             catch (Exception ex)
             {
@@ -958,9 +976,17 @@ if __name__ == '__main__':
                     CurrentModelStatus = "Model execution failed";
                 }
 
+                // Determine LLM source for error cases
+                string errorLlmSource = _appModeService.CurrentMode == AppMode.Offline ? "local" : "local";
+                
                 // Update the processing message with the error
                 processingMessage.Content = errorResponse;
                 processingMessage.IsProcessing = false;
+                processingMessage.LLMSource = errorLlmSource;
+                Debug.WriteLine($"Set error LLM Source: {errorLlmSource}");
+
+                // Force property change notification to update UI
+                processingMessage.OnPropertyChanged(nameof(processingMessage.ModelDisplayNameWithSourcePrefixed));
             }
             finally
             {
@@ -1109,7 +1135,7 @@ if __name__ == '__main__':
                     }
                     else if (error.Contains("ModuleNotFoundError") || error.Contains("ImportError"))
                     {
-                        throw new Exception("Required Python packages are missing. Installing them now...");
+                        throw new Exception("Required Python packages are missing. Please install transformers and torch.");
                     }
                     else if (error.Contains("OutOfMemoryError") || error.Contains("CUDA out of memory"))
                     {
@@ -1903,7 +1929,7 @@ if __name__ == '__main__':
                 await ShowAlert("File Selected", $"Name: {fileResult.FileName}", "Continue");
 
                 var modelDestinationPath = await CopyModelToAppDirectoryAsync(fileResult);
-                if (string.IsNullOrEmpty(modelDestinationPath))
+                               if (string.IsNullOrEmpty(modelDestinationPath))
                 {
                     CurrentModelStatus = "Failed to copy model file"; return;
                 }

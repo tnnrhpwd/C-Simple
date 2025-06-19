@@ -374,7 +374,7 @@
                                                    HorizontalOptions="Start"
                                                    BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
                                                 <VerticalStackLayout>
-                                                    <Label Text="{Binding ModelDisplayNameWithSource}"
+                                                    <Label Text="{Binding ModelDisplayNameWithSourcePrefixed}"
                                                            FontSize="{StaticResource FontSizeCaption}"
                                                            FontAttributes="Bold"
                                                            TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
