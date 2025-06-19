@@ -14,6 +14,7 @@ namespace CSimple.Models
         private bool _isProcessing;
         private string _modelName;
         private string _llmSource; // New: local or api
+        private bool _isEditing;
 
         public string Content
         {
@@ -57,6 +58,12 @@ namespace CSimple.Models
                 OnPropertyChanged(nameof(ModelDisplayNameWithSourcePrefixed));
                 Debug.WriteLine($"LLMSource updated to: '{value}' for message with ModelName: '{ModelName}'");
             });
+        }
+
+        public bool IsEditing
+        {
+            get => _isEditing;
+            set => SetProperty(ref _isEditing, value);
         }
 
         public string FormattedTimestamp => Timestamp.ToString("HH:mm");

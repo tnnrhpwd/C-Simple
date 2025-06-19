@@ -343,7 +343,7 @@
                                         <Grid Padding="{StaticResource SpacingSmall}"
                                               Margin="{StaticResource MarginBottomTiny}">
                                             <!-- User Message (Right-aligned) -->
-                                            <Frame IsVisible="{Binding IsFromUser}"
+                                            <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource BoolConverter}}"
                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                                    Padding="{StaticResource CardContentPadding}"
                                                    CornerRadius="8"
@@ -355,14 +355,57 @@
                                                            FontAttributes="Bold"
                                                            TextColor="{StaticResource TextOnPrimary}"
                                                            HorizontalOptions="End" />
-                                                    <Label Text="{Binding Content}"
-                                                           TextColor="{StaticResource TextOnPrimary}"
-                                                           LineBreakMode="WordWrap" />
+                                                    <!-- Display either the label or the editor based on IsEditing -->
+                                                    <ContentView>
+                                                        <ContentView.Triggers>
+                                                            <DataTrigger TargetType="ContentView"
+                                                                         Binding="{Binding IsEditing}"
+                                                                         Value="False">
+                                                                <Setter Property="Content">
+                                                                    <Setter.Value>
+                                                                        <Label Text="{Binding Content}"
+                                                                               TextColor="{StaticResource TextOnPrimary}"
+                                                                               LineBreakMode="WordWrap" />
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </DataTrigger>
+                                                            <DataTrigger TargetType="ContentView"
+                                                                         Binding="{Binding IsEditing}"
+                                                                         Value="True">
+                                                                <Setter Property="Content">
+                                                                    <Setter.Value>
+                                                                        <Entry Text="{Binding Content}"
+                                                                               TextColor="{StaticResource TextOnPrimary}"
+                                                                               HorizontalOptions="FillAndExpand" />
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </DataTrigger>
+                                                        </ContentView.Triggers>
+                                                    </ContentView>
                                                     <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
                                                            FontSize="{StaticResource FontSizeCaption}"
                                                            TextColor="{StaticResource TextOnPrimary}"
                                                            Opacity="0.7"
                                                            HorizontalOptions="End" />
+                                                    <!-- Edit and Save Buttons -->
+                                                    <HorizontalStackLayout HorizontalOptions="End"
+                                                                           IsVisible="{Binding IsEditing, Converter={StaticResource InverseBoolConverter}}">
+                                                        <Button Text="Edit"
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditMessageCommand}"
+                                                                CommandParameter="{Binding .}"
+                                                                BackgroundColor="{StaticResource Secondary}"
+                                                                TextColor="{StaticResource TextOnPrimary}"
+                                                                FontSize="{StaticResource FontSizeSmall}" />
+                                                    </HorizontalStackLayout>
+                                                    <HorizontalStackLayout HorizontalOptions="End"
+                                                                           IsVisible="{Binding IsEditing}">
+                                                        <Button Text="Save"
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SaveMessageCommand}"
+                                                                CommandParameter="{Binding .}"
+                                                                BackgroundColor="{StaticResource Success}"
+                                                                TextColor="{StaticResource TextOnPrimary}"
+                                                                FontSize="{StaticResource FontSizeSmall}" />
+                                                    </HorizontalStackLayout>
                                                 </VerticalStackLayout>
                                             </Frame>
                                             <!-- AI Response (Left-aligned) -->
@@ -379,9 +422,33 @@
                                                            FontAttributes="Bold"
                                                            TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                                            HorizontalOptions="Start" />
-                                                    <Label Text="{Binding Content}"
-                                                           TextColor="{StaticResource TextPrimary}"
-                                                           LineBreakMode="WordWrap" />
+                                                    <!-- Display either the label or the editor based on IsEditing -->
+                                                    <ContentView>
+                                                        <ContentView.Triggers>
+                                                            <DataTrigger TargetType="ContentView"
+                                                                         Binding="{Binding IsEditing}"
+                                                                         Value="False">
+                                                                <Setter Property="Content">
+                                                                    <Setter.Value>
+                                                                        <Label Text="{Binding Content}"
+                                                                               TextColor="{StaticResource TextPrimary}"
+                                                                               LineBreakMode="WordWrap" />
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </DataTrigger>
+                                                            <DataTrigger TargetType="ContentView"
+                                                                         Binding="{Binding IsEditing}"
+                                                                         Value="True">
+                                                                <Setter Property="Content">
+                                                                    <Setter.Value>
+                                                                        <Entry Text="{Binding Content}"
+                                                                               TextColor="{StaticResource TextPrimary}"
+                                                                               HorizontalOptions="FillAndExpand" />
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </DataTrigger>
+                                                        </ContentView.Triggers>
+                                                    </ContentView>
                                                     <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
                                                            FontSize="{StaticResource FontSizeCaption}"
                                                            TextColor="{StaticResource TextSecondary}"
@@ -393,6 +460,25 @@
                                                            Opacity="0.7"
                                                            HorizontalOptions="Start"
                                                            IsVisible="{Binding LLMSource, Converter={StaticResource NullToBoolConverter}}" />
+                                                    <!-- Edit and Save Buttons -->
+                                                    <HorizontalStackLayout HorizontalOptions="End"
+                                                                           IsVisible="{Binding IsEditing, Converter={StaticResource InverseBoolConverter}}">
+                                                        <Button Text="Edit"
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditMessageCommand}"
+                                                                CommandParameter="{Binding .}"
+                                                                BackgroundColor="{StaticResource Secondary}"
+                                                                TextColor="{StaticResource TextOnPrimary}"
+                                                                FontSize="{StaticResource FontSizeSmall}" />
+                                                    </HorizontalStackLayout>
+                                                    <HorizontalStackLayout HorizontalOptions="End"
+                                                                           IsVisible="{Binding IsEditing}">
+                                                        <Button Text="Save"
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SaveMessageCommand}"
+                                                                CommandParameter="{Binding .}"
+                                                                BackgroundColor="{StaticResource Success}"
+                                                                TextColor="{StaticResource TextOnPrimary}"
+                                                                FontSize="{StaticResource FontSizeSmall}" />
+                                                    </HorizontalStackLayout>
                                                 </VerticalStackLayout>
                                             </Frame>
                                         </Grid>

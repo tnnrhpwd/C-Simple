@@ -209,7 +209,11 @@ namespace CSimple.ViewModels
         public ICommand GoToOrientCommand { get; } // ADDED: Command to navigate
         public ICommand UpdateModelInputTypeCommand { get; } // ADDED: Command to update input type        // Chat-related commands
         public ICommand SendMessageCommand { get; }
-        public ICommand ClearChatCommand { get; }        // Media-related commands
+        public ICommand ClearChatCommand { get; }
+        public ICommand EditMessageCommand { get; } // Add Edit Message Command
+        public ICommand SaveMessageCommand { get; } // Add Save Message Command
+
+        // Media input commands
         public ICommand SelectImageCommand { get; }
         public ICommand SelectAudioCommand { get; }
         public ICommand ClearMediaCommand { get; }
@@ -267,6 +271,8 @@ namespace CSimple.ViewModels
                 param => UpdateModelInputType(param.Item1, param.Item2));            // Initialize chat commands
             SendMessageCommand = new Command(async () => await SendMessageAsync(), () => CanSendMessage);
             ClearChatCommand = new Command(ClearChat);
+            EditMessageCommand = new Command<ChatMessage>(EditMessage); // Initialize Edit Message Command
+            SaveMessageCommand = new Command<ChatMessage>(SaveMessage); // Initialize Save Message Command
 
             // Initialize media commands
             SelectImageCommand = new Command(async () => await SelectImageAsync());
@@ -1930,6 +1936,7 @@ if __name__ == '__main__':
 
                 var modelDestinationPath = await CopyModelToAppDirectoryAsync(fileResult);
                 if (string.IsNullOrEmpty(modelDestinationPath))
+
                 {
                     CurrentModelStatus = "Failed to copy model file"; return;
                 }
@@ -2159,6 +2166,38 @@ if __name__ == '__main__':
         {
             ChatMessages.Clear();
             LastModelOutput = "Chat history cleared.";
+        }
+
+        private void EditMessage(ChatMessage message)
+        {
+            if (message == null) return;
+
+            try
+            {
+                // Set IsEditing to true for the selected message
+                message.IsEditing = true;
+                Debug.WriteLine($"Started editing message: {message.Content}");
+            }
+            catch (Exception ex)
+            {
+                HandleError($"Error starting edit for message: {message?.Content}", ex);
+            }
+        }
+
+        private void SaveMessage(ChatMessage message)
+        {
+            if (message == null) return;
+
+            try
+            {
+                // Set IsEditing to false for the selected message
+                message.IsEditing = false;
+                Debug.WriteLine($"Saved edited message: {message.Content}");
+            }
+            catch (Exception ex)
+            {
+                HandleError($"Error saving edited message: {message?.Content}", ex);
+            }
         }
 
         // --- Media Methods ---
