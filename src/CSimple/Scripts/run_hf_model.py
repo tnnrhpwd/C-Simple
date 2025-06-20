@@ -11,6 +11,13 @@ import sys
 import traceback
 import os
 import subprocess
+import urllib.request
+import urllib.parse
+import urllib.error
+import ssl
+import time
+import json  # Add missing import for JSON handling
+from pathlib import Path
 from typing import Dict, Any, Optional
 import importlib.util
 
@@ -175,6 +182,125 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any]) 
             return "ERROR: Model requires trust_remote_code=True but was blocked for security."
         else:
             return f"ERROR: {error_msg}"
+
+
+def check_model_cache_status(model_id):
+    """Check if model is already cached and report download status"""
+    try:
+        from transformers.utils import TRANSFORMERS_CACHE
+        from huggingface_hub import HfApi
+
+        # Get the default cache directory
+        cache_dir = os.environ.get('TRANSFORMERS_CACHE', TRANSFORMERS_CACHE)
+        if not cache_dir:
+            cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "transformers")
+
+        # Check for model files in cache
+        model_cache_path = Path(cache_dir)
+        model_hash = model_id.replace("/", "--")
+
+        # Look for any cached files related to this model
+        cached_files = []
+        if model_cache_path.exists():
+            for item in model_cache_path.rglob("*"):
+                if model_hash in item.name or model_id.split("/")[-1] in item.name:
+                    cached_files.append(item)
+
+        if cached_files:
+            print(f"✓ Model '{model_id}' found in cache ({len(cached_files)} files)", file=sys.stderr)
+            total_size = sum(f.stat().st_size for f in cached_files if f.is_file())
+            print(f"  Cache size: {total_size / (1024*1024):.1f} MB", file=sys.stderr)
+            return True
+        else:
+            print(f"⬇ Model '{model_id}' not cached - will download from HuggingFace Hub", file=sys.stderr)
+            return False
+
+    except Exception as e:
+        print(f"Note: Could not check cache status: {e}", file=sys.stderr)
+        return False
+
+
+def call_huggingface_api(model_id, inputs, api_key=None, timeout=30):
+    """Fallback to HuggingFace API when local execution fails"""
+    api_url = f"https://api-inference.huggingface.co/models/{model_id}"
+    payload = {"inputs": inputs}
+    data = json.dumps(payload).encode('utf-8')
+    headers = {'Content-Type': 'application/json'}
+
+    # Add API key if provided
+    if api_key:
+        headers['Authorization'] = f'Bearer {api_key}'
+
+    ssl_context = ssl._create_unverified_context()
+    try:
+        req = urllib.request.Request(api_url, data=data, headers=headers, method='POST')
+        with urllib.request.urlopen(req, timeout=timeout, context=ssl_context) as response:
+            response_data = response.read().decode('utf-8')
+            return json.loads(response_data)
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            print("Model is loading on HuggingFace servers, waiting...", file=sys.stderr)
+            time.sleep(20)
+            return call_huggingface_api(model_id, inputs, api_key, timeout)
+        elif e.code == 401:
+            print(f"AUTHENTICATION_ERROR: Model '{model_id}' requires a HuggingFace API key for access.", file=sys.stderr)
+            print("This model is either gated or requires authentication.", file=sys.stderr)
+            print("Get a free API key from: https://huggingface.co/settings/tokens", file=sys.stderr)
+            print("Then run with: --api_key YOUR_API_KEY", file=sys.stderr)
+            return {"error": f"Authentication required for model {model_id}", "error_type": "authentication"}
+        elif e.code == 404:
+            print(f"Model '{model_id}' not found or not accessible via API.", file=sys.stderr)
+            return {"error": f"Model {model_id} not found"}
+        else:
+            error_body = e.read().decode('utf-8')
+            print(f"API Error: {e.code} - {error_body}", file=sys.stderr)
+            return {"error": f"API Error {e.code}", "details": error_body}
+    except Exception as e:
+        print(f"API request error: {str(e)}", file=sys.stderr)
+        return {"error": str(e)}
+
+
+def extract_text_from_api_response(response):
+    """Extract text from HuggingFace API response"""
+    if isinstance(response, list) and len(response) > 0:
+        if isinstance(response[0], dict) and "generated_text" in response[0]:
+            return response[0]["generated_text"]
+    elif isinstance(response, dict):
+        if "generated_text" in response:
+            return response["generated_text"]
+        if "error" in response:
+            return f"API Error: {response['error']}"
+    return str(response)
+
+
+def check_and_suggest_cuda_setup():
+    """Check CUDA setup and provide installation instructions if needed"""
+    try:
+        import torch
+        if not torch.cuda.is_available():
+            print("\n" + "="*60, file=sys.stderr)
+            print("CUDA SETUP REQUIRED FOR GPU ACCELERATION", file=sys.stderr)
+            print("="*60, file=sys.stderr)
+            print("Your system may have an NVIDIA GPU, but PyTorch can't access it.", file=sys.stderr)
+            print("Current PyTorch version:", torch.__version__, file=sys.stderr)
+
+            if torch.version.cuda:
+                print("PyTorch is installed but CUDA is not configured.", file=sys.stderr)
+            else:
+                print("PyTorch is installed but does not support CUDA.", file=sys.stderr)
+
+            print("\nTo enable GPU acceleration:", file=sys.stderr)
+            print("1. Check your NVIDIA driver version with: nvidia-smi", file=sys.stderr)
+            print("2. Install PyTorch with CUDA support:", file=sys.stderr)
+            print("   pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121", file=sys.stderr)
+            print("3. Or visit: https://pytorch.org/get-started/locally/", file=sys.stderr)
+            print("="*60, file=sys.stderr)
+            return False
+        else:
+            return True
+    except Exception as e:
+        print(f"Error checking CUDA setup: {e}", file=sys.stderr)
+        return False
 
 
 def main() -> int:
