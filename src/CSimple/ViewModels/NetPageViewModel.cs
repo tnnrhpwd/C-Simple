@@ -24,6 +24,7 @@ namespace CSimple.ViewModels
         private readonly PythonBootstrapper _pythonBootstrapper; // Changed from PythonDependencyManager
         private readonly AppModeService _appModeService; // Add offline mode service
         private readonly PythonEnvironmentService _pythonEnvironmentService;
+        private readonly ModelCommunicationService _modelCommunicationService;
         // Consider injecting navigation and dialog services for better testability
 
         // --- Backing Fields ---
@@ -238,17 +239,24 @@ namespace CSimple.ViewModels
         // Command for deleting the reference (removes from UI, not just device)
         public ICommand DeleteModelReferenceCommand { get; }        // --- Constructor ---
         // Note: PythonEnvironmentService handles Python setup and script creation (extracted for maintainability)
-        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService)
+        // Note: ModelCommunicationService handles model communication logic (extracted for maintainability)
+        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
             _pythonBootstrapper = pythonBootstrapper;
             _appModeService = appModeService;
             _pythonEnvironmentService = pythonEnvironmentService;
+            _modelCommunicationService = modelCommunicationService;
 
             // Subscribe to Python environment service events
             _pythonEnvironmentService.StatusChanged += (s, status) => CurrentModelStatus = status;
             _pythonEnvironmentService.LoadingChanged += (s, isLoading) => IsLoading = isLoading;
+
+            // Subscribe to model communication service events
+            _modelCommunicationService.StatusChanged += (s, status) => CurrentModelStatus = status;
+            _modelCommunicationService.OutputChanged += (s, output) => LastModelOutput = output;
+            _modelCommunicationService.CommunicatingChanged += (s, isCommunicating) => IsModelCommunicating = isCommunicating;
 
             _pythonBootstrapper.ProgressChanged += (s, progress) =>
             {
@@ -650,308 +658,20 @@ namespace CSimple.ViewModels
         }
         private async Task CommunicateWithModelAsync(string message)
         {
-            if (string.IsNullOrWhiteSpace(message))
-            {
-                CurrentModelStatus = "Cannot send empty message.";
-                return;
-            }            // Add user message to chat history
-            var userMessage = new ChatMessage(message, isFromUser: true, includeInHistory: true);
-            ChatMessages.Add(userMessage);
-            Debug.WriteLine($"Added user message to chat. ChatMessages count: {ChatMessages.Count}");
-            Debug.WriteLine($"User message content: '{userMessage.Content}', IsFromUser: {userMessage.IsFromUser}");
+            var activeHfModel = GetBestActiveModel();
 
-            // Find the best active HuggingFace reference model (prioritize CPU-friendly ones)
-            var activeHfModel = GetBestActiveModel(); if (activeHfModel == null)
-            {
-                if (_appModeService.CurrentMode == AppMode.Offline)
-                {
-                    CurrentModelStatus = "No active models available.";
-                    LastModelOutput = "In offline mode, local models will be executed on your hardware.\n\n" +
-                        "Please activate a model to get started. Models that work well locally include:\n" +
-                        "• gpt2 - Fast, lightweight text generation (CPU-friendly)\n" +
-                        "• distilgpt2 - Even faster version of GPT-2 (CPU-friendly)\n" +
-                        "• microsoft/DialoGPT-small - Good for conversations (CPU-friendly)\n" +
-                        "• deepseek-ai/DeepSeek-R1 - Advanced model (requires GPU)\n\n" +
-                        "GPU models will attempt to use your graphics card for acceleration.\n" +
-                        "Switch to online mode if you prefer to use cloud-based execution.";
-
-                    // Offer to suggest CPU-friendly models
-                    await SuggestCpuFriendlyModelsAsync();
-                    return;
-                }
-                else
-                {
-                    CurrentModelStatus = "No active HuggingFace reference model found.";
-                    LastModelOutput = "Please activate a HuggingFace model first to communicate with it.";
-                    return;
-                }
-            }
-
-            // Check if Python is available
-            if (string.IsNullOrEmpty(_pythonExecutablePath))
-            {
-                CurrentModelStatus = "Python is not available. Cannot run models.";
-                LastModelOutput = "Python 3.8 to 3.11 is required to run HuggingFace models locally. Please install from python.org and restart the application.";
-
-                await ShowAlert("Python Required",
-                    "Python is required to run HuggingFace models locally.\n\n" +
-                    "1. Download Python 3.8 to 3.11 from https://python.org/downloads/\n" +
-                    "   * We recommend Python 3.10 for best compatibility\n" +
-                    "   * Avoid Python 3.12+ as it may have compatibility issues\n" +
-                    "2. During installation, check 'Add Python to PATH'\n" +
-                    "3. Restart this application after installation", "OK");
-
-                return;
-            }
-            CurrentModelStatus = $"Sending message to {activeHfModel.Name}...";
-            LastModelOutput = $"Processing conversation with {activeHfModel.Name}...";
-            IsModelCommunicating = true;            // Build complete chat history for model context
-            string fullChatHistory = BuildChatHistoryForModel(); Debug.WriteLine($"Built chat history with {ChatMessages.Where(m => m.IncludeInHistory && !m.IsProcessing).Count()} included messages. History length: {fullChatHistory.Length} characters");
-            if (fullChatHistory.Length > 0)
-                Debug.WriteLine($"Chat history preview: {fullChatHistory.Substring(0, Math.Min(300, fullChatHistory.Length))}...");
-            // Add processing message to chat history
-            var processingMessage = new ChatMessage("Processing your request...", isFromUser: false, modelName: activeHfModel.Name, includeInHistory: false)
-            {
-                IsProcessing = true,
-                // Set initial LLM source based on app mode
-                LLMSource = _appModeService.CurrentMode == AppMode.Offline ? "local" : "local" // Default to local, will update if API is used
-            };
-            ChatMessages.Add(processingMessage);
-            Debug.WriteLine($"Added processing message to chat. ChatMessages count: {ChatMessages.Count}");
-
-            try
-            {
-                // Verify the model exists in our persisted models
-                var persistedModels = await _fileService.LoadHuggingFaceModelsAsync();
-                var modelInFile = persistedModels.FirstOrDefault(m =>
-                    m.HuggingFaceModelId == activeHfModel.HuggingFaceModelId ||
-                    m.Id == activeHfModel.Id);
-
-                if (modelInFile == null)
-                {
-                    throw new InvalidOperationException($"Model {activeHfModel.Name} not found in persisted models file.");
-                }
-
-                Debug.WriteLine($"Found model in persisted file: {modelInFile.Name} (HF ID: {modelInFile.HuggingFaceModelId})");                // Check if the script exists (get from service)
-                if (string.IsNullOrEmpty(_huggingFaceScriptPath) || !File.Exists(_huggingFaceScriptPath))
-                {
-                    Debug.WriteLine($"Script not found, re-initializing Python environment...");
-                    await _pythonEnvironmentService.SetupPythonEnvironmentAsync(ShowAlert);
-                    _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
-                }
-                // Show progress indicator for model loading with performance tip
-                CurrentModelStatus = $"Loading {activeHfModel.Name} (first run may take longer)...";                // Add performance tip to output for user guidance
-                string performanceTip = GetPerformanceTip(activeHfModel.HuggingFaceModelId);
-                LastModelOutput = $"Processing conversation with {activeHfModel.Name}...\n\n{performanceTip}";
-
-                // Execute the Python script with enhanced parameters using full chat history
-                string result = await ExecuteHuggingFaceModelAsyncEnhanced(modelInFile.HuggingFaceModelId, fullChatHistory, activeHfModel);
-
-                // Determine LLM source based on app mode and execution results
-                string llmSource;
-                if (_appModeService.CurrentMode == AppMode.Offline)
-                {
-                    // In offline mode, everything should be local
-                    llmSource = "local";
-                }
-                else
-                {
-                    // In online mode, check if the result indicates API usage
-                    if (result != null && (result.Contains("used HuggingFace API") ||
-                                         result.Contains("api fallback") ||
-                                         result.Contains("Falling back to HuggingFace API")))
-                    {
-                        llmSource = "api";
-                    }
-                    else
-                    {
-                        // Default to local if no API indicators found
-                        llmSource = "local";
-                    }
-                }
-                Debug.WriteLine($"Determined LLM Source: {llmSource} (App Mode: {_appModeService.CurrentMode})");
-
-                // Update the processing message with the actual response
-                if (!string.IsNullOrEmpty(result))
-                {
-                    processingMessage.Content = result;
-                    processingMessage.IsProcessing = false;
-                    processingMessage.IncludeInHistory = true; // Include AI response in history
-                    processingMessage.LLMSource = llmSource;
-                    Debug.WriteLine($"Updated processing message with AI response. LLM Source: {llmSource}");
-                    Debug.WriteLine($"Processing message LLMSource after update: '{processingMessage.LLMSource}'");
-                    LastModelOutput = $"Response from {activeHfModel.Name}:\n{result}";
-                    CurrentModelStatus = $"✓ Response received from {activeHfModel.Name}";
-                }
-                else
-                {
-                    processingMessage.Content = "No response received. The model may have executed successfully but produced no output.";
-                    processingMessage.IsProcessing = false;
-                    processingMessage.IncludeInHistory = true; // Include error message in history
-                    processingMessage.LLMSource = llmSource;
-                    Debug.WriteLine($"Updated processing message with no response. LLM Source: {llmSource}");
-                    Debug.WriteLine($"Processing message LLMSource after update: '{processingMessage.LLMSource}'");
-                    LastModelOutput = $"No response received from {activeHfModel.Name}. The model may have executed successfully but produced no output.";
-                    CurrentModelStatus = $"Model {activeHfModel.Name} completed but returned no output";
-                }
-
-                // Force property change notification to update UI
-                processingMessage.OnPropertyChanged(nameof(processingMessage.ModelDisplayNameWithSourcePrefixed));
-            }
-            catch (Exception ex)
-            {
-                HandleError($"Error communicating with model {activeHfModel.Name}", ex);
-                string errorMessage = ex.Message;
-
-                // Update processing message with error information
-                string errorResponse = "";
-
-                // Provide specific guidance for common errors
-                if (errorMessage.Contains("accelerate") || errorMessage.Contains("FP8 quantized"))
-                {
-                    errorResponse = $"Error: {activeHfModel.Name} requires additional packages.\n\n" +
-                        "This model needs 'accelerate' for FP8 quantization support.\n" +
-                        "Installing required packages...";
-
-                    LastModelOutput = errorResponse;
-                    CurrentModelStatus = "Installing accelerate package...";
-
-                    // Try to install accelerate package
-                    bool installed = await InstallAcceleratePackageAsync();
-
-                    if (installed)
-                    {
-                        errorResponse += "\n\nPackages installed successfully. Please try sending your message again.";
-                        LastModelOutput += "\n\nPackages installed successfully. Please try sending your message again.";
-                        CurrentModelStatus = "Ready - accelerate package installed";
-                    }
-                    else
-                    {
-                        errorResponse += "\n\nFailed to install accelerate automatically. Please install manually with:\npip install accelerate";
-                        LastModelOutput += "\n\nFailed to install accelerate automatically. Please install manually with:\npip install accelerate";
-                        CurrentModelStatus = "Manual package installation required";
-                    }
-                }
-                else if (errorMessage.Contains("ModuleNotFoundError") || errorMessage.Contains("ImportError"))
-                {
-                    errorResponse = $"Error: Missing Python packages.\n\n" +
-                        "Installing required packages: transformers, torch, accelerate...";
-
-                    LastModelOutput = errorResponse;
-
-                    await ShowAlert("Python Packages Required",
-                        "Required packages are missing. Installing them now...\n\n" +
-                        "This will install: transformers, torch, accelerate",
-                        "OK");
-
-                    // Try to install required packages
-                    CurrentModelStatus = "Installing required packages...";
-                    bool installed = await _pythonBootstrapper.InstallRequiredPackagesAsync();
-
-                    if (installed)
-                    {
-                        await InstallAcceleratePackageAsync(); // Also install accelerate
-                        errorResponse += "\n\nPackages installed successfully. Please try sending your message again.";
-                        LastModelOutput += "\n\nPackages installed successfully. Please try sending your message again.";
-                        CurrentModelStatus = "Ready - all packages installed";
-                    }
-                    else
-                    {
-                        errorResponse += "\n\nFailed to install packages automatically. Please install manually.";
-                        LastModelOutput += "\n\nFailed to install packages automatically. Please install manually.";
-                        CurrentModelStatus = "Manual package installation required";
-                    }
-                }
-                else if (errorMessage.Contains("malicious code") || errorMessage.Contains("double-check"))
-                {
-                    errorResponse = $"Security Warning: {activeHfModel.Name} downloaded new code files.\n\n" +
-                        "This is normal for some models but requires acknowledgment for security.\n" +
-                        "The model execution was blocked for safety. You can try again if you trust the model source.";
-                    LastModelOutput = errorResponse;
-                    CurrentModelStatus = "Model blocked due to security warning";
-                }
-                else if (errorMessage.Contains("not found in persisted models"))
-                {
-                    errorResponse = $"Error: The model may have been removed from the persisted models file.\n\n" +
-                        "Please re-import the model from HuggingFace.";
-                    LastModelOutput = errorResponse;
-                    CurrentModelStatus = "Model reference lost - please re-import";
-                }
-                else
-                {
-                    errorResponse = $"Error processing message with {activeHfModel.Name}: {errorMessage}";
-                    LastModelOutput = errorResponse;
-                    CurrentModelStatus = "Model execution failed";
-                }
-
-                // Determine LLM source for error cases
-                string errorLlmSource = _appModeService.CurrentMode == AppMode.Offline ? "local" : "local";                // Update the processing message with the error
-                processingMessage.Content = errorResponse;
-                processingMessage.IsProcessing = false;
-                processingMessage.IncludeInHistory = true; // Include error message in history
-                processingMessage.LLMSource = errorLlmSource;
-                Debug.WriteLine($"Set error LLM Source: {errorLlmSource}");
-
-                // Force property change notification to update UI
-                processingMessage.OnPropertyChanged(nameof(processingMessage.ModelDisplayNameWithSourcePrefixed));
-            }
-            finally
-            {
-                IsModelCommunicating = false;
-            }
-        }        // Helper method to build chat history for model input
-        private string BuildChatHistoryForModel()
-        {
-            if (ChatMessages.Count == 0)
-                return string.Empty;
-
-            var historyBuilder = new StringBuilder();
-
-            // Get ALL messages that should be included in history (both user and AI responses)
-            // Exclude only processing messages
-            var allMessages = ChatMessages
-                .Where(msg => msg.IncludeInHistory && !msg.IsProcessing)
-                .ToList();
-
-            Debug.WriteLine($"BuildChatHistoryForModel: Total ChatMessages: {ChatMessages.Count}, Filtered messages: {allMessages.Count}");
-
-            // Debug each message
-            foreach (var msg in allMessages)
-            {
-                Debug.WriteLine($"Message - IsFromUser: {msg.IsFromUser}, Content: '{msg.Content.Substring(0, Math.Min(50, msg.Content.Length))}...', IncludeInHistory: {msg.IncludeInHistory}");
-            }
-
-            // Limit to last 20 messages to prevent extremely long context
-            const int maxMessages = 20;
-            if (allMessages.Count > maxMessages)
-            {
-                allMessages = allMessages.Skip(allMessages.Count - maxMessages).ToList();
-                historyBuilder.AppendLine("(Conversation history truncated to recent exchanges)");
-                historyBuilder.AppendLine();
-            }
-
-            if (allMessages.Any())
-            {
-                // Add all messages without prefixes, separated only by line breaks
-                for (int i = 0; i < allMessages.Count; i++)
-                {
-                    var msg = allMessages[i];
-                    historyBuilder.AppendLine(msg.Content);
-
-                    // Add blank line between messages, but not after the last one
-                    if (i < allMessages.Count - 1)
-                    {
-                        historyBuilder.AppendLine();
-                    }
-                }
-            }
-
-            string result = historyBuilder.ToString();
-            Debug.WriteLine($"BuildChatHistoryForModel - Final result length: {result.Length}");
-            return result;
-        }
-
-        // Helper method to find the best active model for local execution
+            await _modelCommunicationService.CommunicateWithModelAsync(
+                message,
+                activeHfModel,
+                ChatMessages,
+                _pythonExecutablePath,
+                _huggingFaceScriptPath,
+                ShowAlert,
+                SuggestCpuFriendlyModelsAsync,
+                InstallAcceleratePackageAsync,
+                GetPerformanceTip,
+                ExecuteHuggingFaceModelAsyncEnhanced);
+        }// Helper method to build chat history for model input        // Helper method to find the best active model for local execution
         private NeuralNetworkModel GetBestActiveModel()
         {
             var activeHfModels = ActiveModels.Where(m => m.IsHuggingFaceReference && !string.IsNullOrEmpty(m.HuggingFaceModelId)).ToList();
