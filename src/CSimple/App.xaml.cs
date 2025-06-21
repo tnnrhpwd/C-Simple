@@ -43,7 +43,7 @@ public partial class App : Application
 
     // Add this property
     public NetPageViewModel NetPageViewModel { get; private set; }    // Inject services via constructor - Change PythonDependencyManager to PythonBootstrapper
-    public App(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService)
+    public App(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService)
     {
         try
         {
@@ -58,7 +58,7 @@ public partial class App : Application
             InitializeComponent();
 
             Debug.WriteLine("App constructor: InitializeComponent completed");            // Instantiate NetPageViewModel using injected services - Pass pythonBootstrapper
-            NetPageViewModel = new NetPageViewModel(fileService, huggingFaceService, pythonBootstrapper, appModeService);
+            NetPageViewModel = new NetPageViewModel(fileService, huggingFaceService, pythonBootstrapper, appModeService, pythonEnvironmentService, modelCommunicationService, modelExecutionService, modelImportExportService);
             Debug.WriteLine("App constructor: NetPageViewModel instantiated");
 
             // Extract bundled scripts to app data directory

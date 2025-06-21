@@ -25,6 +25,8 @@ namespace CSimple.ViewModels
         private readonly AppModeService _appModeService; // Add offline mode service
         private readonly PythonEnvironmentService _pythonEnvironmentService;
         private readonly ModelCommunicationService _modelCommunicationService;
+        private readonly ModelExecutionService _modelExecutionService;
+        private readonly ModelImportExportService _modelImportExportService;
         // Consider injecting navigation and dialog services for better testability
 
         // --- Backing Fields ---
@@ -237,10 +239,13 @@ namespace CSimple.ViewModels
         // Command for download/delete toggle button
         public ICommand DownloadOrDeleteModelCommand { get; }
         // Command for deleting the reference (removes from UI, not just device)
-        public ICommand DeleteModelReferenceCommand { get; }        // --- Constructor ---
-        // Note: PythonEnvironmentService handles Python setup and script creation (extracted for maintainability)
+        public ICommand DeleteModelReferenceCommand { get; }
+
+        // --- Constructor ---        // Note: PythonEnvironmentService handles Python setup and script creation (extracted for maintainability)
         // Note: ModelCommunicationService handles model communication logic (extracted for maintainability)
-        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService)
+        // Note: ModelExecutionService handles model execution with enhanced error handling (extracted for maintainability)
+        // Note: ModelImportExportService handles model import/export and file operations (extracted for maintainability)
+        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -248,6 +253,8 @@ namespace CSimple.ViewModels
             _appModeService = appModeService;
             _pythonEnvironmentService = pythonEnvironmentService;
             _modelCommunicationService = modelCommunicationService;
+            _modelExecutionService = modelExecutionService;
+            _modelImportExportService = modelImportExportService;
 
             // Subscribe to Python environment service events
             _pythonEnvironmentService.StatusChanged += (s, status) => CurrentModelStatus = status;
@@ -257,6 +264,16 @@ namespace CSimple.ViewModels
             _modelCommunicationService.StatusChanged += (s, status) => CurrentModelStatus = status;
             _modelCommunicationService.OutputChanged += (s, output) => LastModelOutput = output;
             _modelCommunicationService.CommunicatingChanged += (s, isCommunicating) => IsModelCommunicating = isCommunicating;
+
+            // Subscribe to model execution service events
+            _modelExecutionService.StatusUpdated += status => CurrentModelStatus = status;
+            _modelExecutionService.OutputReceived += output => LastModelOutput = output;
+            _modelExecutionService.ErrorOccurred += (message, ex) => HandleError(message, ex);
+
+            // Subscribe to model import/export service events
+            _modelImportExportService.StatusUpdated += status => CurrentModelStatus = status;
+            _modelImportExportService.LoadingChanged += isLoading => IsLoading = isLoading;
+            _modelImportExportService.ErrorOccurred += (message, ex) => HandleError(message, ex);
 
             _pythonBootstrapper.ProgressChanged += (s, progress) =>
             {
@@ -342,12 +359,14 @@ namespace CSimple.ViewModels
             var files = _huggingFaceService.RefreshDownloadedModelsList();
             _downloadedModelIds = new HashSet<string>(files.Select(f => Path.GetFileNameWithoutExtension(f)));
         }
-
         private async Task DownloadModelAsync(NeuralNetworkModel model)
         {
             var modelPath = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace", (model.HuggingFaceModelId ?? model.Id).Replace("/", "_") + ".bin");
             await _huggingFaceService.DownloadModelAsync(model.HuggingFaceModelId, modelPath);
             _downloadedModelIds.Add(model.HuggingFaceModelId);
+
+            // Trigger UI update for button text
+            NotifyModelDownloadStatusChanged();
         }
 
         private async Task DeleteModelAsync(NeuralNetworkModel model)
@@ -355,6 +374,9 @@ namespace CSimple.ViewModels
             var modelPath = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace", (model.HuggingFaceModelId ?? model.Id).Replace("/", "_") + ".bin");
             await _huggingFaceService.DeleteModelAsync(model.HuggingFaceModelId, modelPath);
             _downloadedModelIds.Remove(model.HuggingFaceModelId);
+
+            // Trigger UI update for button text
+            NotifyModelDownloadStatusChanged();
         }
 
         private async Task DownloadOrDeleteModelAsync(NeuralNetworkModel model)
@@ -371,6 +393,16 @@ namespace CSimple.ViewModels
                 await DeleteModelAsync(model);
             AvailableModels.Remove(model);
             await SavePersistedModelsAsync();
+        }
+
+        /// <summary>
+        /// Notifies the UI that model download status has changed to update button text
+        /// </summary>
+        private void NotifyModelDownloadStatusChanged()
+        {
+            // Force the UI to refresh by notifying that the AvailableModels collection has changed
+            // This will cause the converter to re-evaluate for all model buttons
+            OnPropertyChanged(nameof(AvailableModels));
         }
 
         // ADDED: List of available input types for binding to dropdown
@@ -660,18 +692,20 @@ namespace CSimple.ViewModels
         {
             var activeHfModel = GetBestActiveModel();
 
-            await _modelCommunicationService.CommunicateWithModelAsync(
-                message,
+            await _modelCommunicationService.CommunicateWithModelAsync(message,
                 activeHfModel,
                 ChatMessages,
                 _pythonExecutablePath,
                 _huggingFaceScriptPath,
                 ShowAlert,
-                SuggestCpuFriendlyModelsAsync,
-                InstallAcceleratePackageAsync,
-                GetPerformanceTip,
-                ExecuteHuggingFaceModelAsyncEnhanced);
-        }// Helper method to build chat history for model input        // Helper method to find the best active model for local execution
+                () => Task.CompletedTask, /* CPU-friendly models suggestion handled by service */
+                async () => await _modelExecutionService.InstallAcceleratePackageAsync(_pythonExecutablePath),
+                (modelId) => "Consider using smaller models for better CPU performance.",
+                async (modelId, inputText, model) => await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(modelId, inputText, model, _pythonExecutablePath, _huggingFaceScriptPath));
+        }
+
+        // Helper method to build chat history for model input
+        // Helper method to find the best active model for local execution
         private NeuralNetworkModel GetBestActiveModel()
         {
             var activeHfModels = ActiveModels.Where(m => m.IsHuggingFaceReference && !string.IsNullOrEmpty(m.HuggingFaceModelId)).ToList();
@@ -709,217 +743,18 @@ namespace CSimple.ViewModels
             // If no CPU-friendly model found, return the first active model
             // Let the Python script handle hardware compatibility
             return bestModel ?? activeHfModels.First();
-        }
-
-        // Enhanced model execution with better error handling and performance optimizations
+        }        // Enhanced model execution with better error handling and performance optimizations
         private async Task<string> ExecuteHuggingFaceModelAsyncEnhanced(string modelId, string inputText, NeuralNetworkModel model)
         {
-            // Ensure Python path is set
-            if (string.IsNullOrEmpty(_pythonExecutablePath))
-            {
-                throw new InvalidOperationException("Python is not available. Please install Python and restart the application.");
-            }
-
-            if (!File.Exists(_huggingFaceScriptPath))
-            {
-                throw new FileNotFoundException($"HuggingFace script not found at: {_huggingFaceScriptPath}");
-            }
-
-            try
-            {
-                Debug.WriteLine($"Executing Python script with model: {modelId}");
-                Debug.WriteLine($"Script path: {_huggingFaceScriptPath}");
-                Debug.WriteLine($"Python path: {_pythonExecutablePath}");
-
-                // Escape quotes in input text and handle special characters
-                string escapedInput = inputText.Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "");                // Build arguments with enhanced parameters
-                var argumentsBuilder = new StringBuilder();
-                argumentsBuilder.Append($"\"{_huggingFaceScriptPath}\" --model_id \"{modelId}\" --input \"{escapedInput}\"");
-
-                // Add CPU optimization flag for better local performance
-                argumentsBuilder.Append(" --cpu_optimize");
-
-                // Add max length parameter to prevent overly long responses
-                int maxLength = Math.Min(200, inputText.Split(' ').Length + 100);
-                argumentsBuilder.Append($" --max_length {maxLength}");
-
-                // Add offline mode flag when in offline mode to disable API fallback
-                if (_appModeService.CurrentMode == AppMode.Offline)
-                {
-                    argumentsBuilder.Append(" --offline_mode");
-                }
-
-                string arguments = argumentsBuilder.ToString();
-
-                var processStartInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = _pythonExecutablePath,
-                    Arguments = arguments,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    // Set working directory to script location for better relative path handling
-                    WorkingDirectory = Path.GetDirectoryName(_huggingFaceScriptPath)
-                };
-
-                Debug.WriteLine($"Starting process: {processStartInfo.FileName} {processStartInfo.Arguments}");
-
-                using var process = new System.Diagnostics.Process { StartInfo = processStartInfo };
-                process.Start();
-
-                var outputTask = process.StandardOutput.ReadToEndAsync();
-                var errorTask = process.StandardError.ReadToEndAsync();
-
-                // Determine timeout based on model type (CPU-friendly models get less time)
-                var cpuFriendlyModels = new[] { "gpt2", "distilgpt2", "microsoft/DialoGPT" };
-                bool isCpuFriendly = cpuFriendlyModels.Any(cpu => modelId.Contains(cpu, StringComparison.OrdinalIgnoreCase));
-                int timeoutMs = isCpuFriendly ? 120000 : 300000; // 2 minutes for CPU-friendly, 5 minutes for others
-
-                // Wait for process to complete with dynamic timeout
-                bool completed = process.WaitForExit(timeoutMs);
-
-                if (!completed)
-                {
-                    process.Kill();
-                    throw new TimeoutException($"Model execution timed out after {timeoutMs / 1000} seconds. " +
-                        (isCpuFriendly ? "Try a shorter input message." : "Large models may require more time on first run."));
-                }
-
-                string output = await outputTask;
-                string error = await errorTask;
-                int exitCode = process.ExitCode;
-
-                Debug.WriteLine($"Process completed with exit code: {exitCode}");
-                Debug.WriteLine($"Output: {output}");
-                Debug.WriteLine($"Error: {error}"); if (exitCode != 0)
-                {
-                    // Enhanced error handling with specific suggestions
-                    if (error.Contains("compute capability") && error.Contains("FP8"))
-                    {
-                        throw new Exception($"Model '{modelId}' requires FP8 quantization (GPU compute capability 8.9+). " +
-                            "Your RTX 3090 (8.6) is detected but doesn't support FP8. Switch to online mode or try a different model variant.");
-                    }
-                    else if (error.Contains("No GPU or XPU found") && error.Contains("FP8 quantization"))
-                    {
-                        throw new Exception($"Model '{modelId}' requires GPU acceleration for FP8 quantization. " +
-                            "Consider trying a CPU-friendly model like 'gpt2' or 'distilgpt2' for local execution.");
-                    }
-                    else if (error.Contains("accelerate") && error.Contains("FP8"))
-                    {
-                        throw new Exception("Model requires 'accelerate' package for FP8 quantization support. " +
-                            "Installing this package automatically...");
-                    }
-                    else if (error.Contains("ModuleNotFoundError") || error.Contains("ImportError"))
-                    {
-                        throw new Exception("Required Python packages are missing. Please install transformers and torch.");
-                    }
-                    else if (error.Contains("OutOfMemoryError") || error.Contains("CUDA out of memory"))
-                    {
-                        throw new Exception($"Model '{modelId}' is too large for available memory. " +
-                            "Try closing other applications or switching to a smaller model like 'distilgpt2'.");
-                    }
-                    else if (error.Contains("AUTHENTICATION_ERROR") || error.Contains("AUTHENTICATION_REQUIRED"))
-                    {
-                        if (_appModeService.CurrentMode == AppMode.Offline)
-                        {
-                            throw new Exception($"Model '{modelId}' requires authentication and cannot be used in offline mode. " +
-                                "Switch to online mode or try a public model like 'gpt2' or 'distilgpt2'.");
-                        }
-                        else
-                        {
-                            throw new Exception($"Model '{modelId}' requires a HuggingFace API key for access. " +
-                                "Get a free API key from https://huggingface.co/settings/tokens or try a public model like 'gpt2'.");
-                        }
-                    }
-                    else if (error.Contains("API Error 401") || error.Contains("Invalid username or password"))
-                    {
-                        if (_appModeService.CurrentMode == AppMode.Offline)
-                        {
-                            throw new Exception($"Authentication failed for model '{modelId}' and API fallback is disabled in offline mode. " +
-                                "Switch to online mode or try a public model like 'gpt2' or 'distilgpt2'.");
-                        }
-                        else
-                        {
-                            throw new Exception($"Authentication failed for model '{modelId}'. " +
-                                "This model requires a HuggingFace API key or try a public model like 'gpt2' or 'distilgpt2'.");
-                        }
-                    }
-                    else
-                    {
-                        throw new Exception($"Script failed with exit code {exitCode}. Error: {error}");
-                    }
-                }
-
-                // Enhanced output processing
-                if (string.IsNullOrWhiteSpace(output))
-                {
-                    if (string.IsNullOrWhiteSpace(error))
-                    {
-                        return "Model processed the input but generated no text output. Try rephrasing your input or using a different model.";
-                    }
-                    else
-                    {
-                        // Handle various warning/info scenarios
-                        if (error.Contains("AUTHENTICATION_ERROR") || error.Contains("AUTHENTICATION_REQUIRED"))
-                        {
-                            throw new Exception($"Model requires authentication. Get a HuggingFace API key from https://huggingface.co/settings/tokens or try a public model like 'gpt2'.");
-                        }
-                        else if (error.Contains("API Error") || error.Contains("Falling back to HuggingFace API"))
-                        {
-                            if (_appModeService.CurrentMode == AppMode.Offline)
-                            {
-                                throw new Exception($"Model '{modelId}' failed to run locally and API fallback is disabled in offline mode. " +
-                                    "Switch to online mode or try a CPU-friendly model like 'gpt2' or 'distilgpt2'.");
-                            }
-                            else
-                            {
-                                // Extract meaningful response from API fallback
-                                var lines = error.Split('\n');
-                                var responseLine = lines.FirstOrDefault(l => l.Contains("Response:") || l.Contains("Output:"));
-                                if (!string.IsNullOrEmpty(responseLine))
-                                {
-                                    return responseLine.Substring(responseLine.IndexOf(':') + 1).Trim();
-                                }
-                                return $"Local execution failed, used HuggingFace API: {error}";
-                            }
-                        }
-                        else
-                        {
-                            return $"Model execution completed with warnings: {error}";
-                        }
-                    }
-                }
-
-                // Clean up and format the output
-                string cleanedOutput = output.Trim();
-
-                // Remove any debug prefixes that might have been added
-                if (cleanedOutput.StartsWith("Loading model:") || cleanedOutput.StartsWith("Model:"))
-                {
-                    var lines = cleanedOutput.Split('\n');
-                    cleanedOutput = string.Join('\n', lines.Skip(1)).Trim();
-                }
-                return cleanedOutput;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error running model: {ex.Message}");
-                throw; // Re-throw to be handled by caller
-            }
+            return await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(
+                modelId, inputText, model, _pythonExecutablePath, _huggingFaceScriptPath);
         }
 
         // Helper method to suggest CPU-friendly models to the user
         private async Task SuggestCpuFriendlyModelsAsync()
         {
-            var suggestedModels = new[]
-            {
-                "gpt2 - Fast, lightweight text generation",
-                "distilgpt2 - Even faster version of GPT-2",
-                "microsoft/DialoGPT-small - Good for conversations",
-                "microsoft/DialoGPT-medium - Better conversations (larger)",
-                "distilbert-base-uncased - Good for text understanding"
-            };
+            var suggestions = await _modelExecutionService.GetCpuFriendlyModelSuggestions();
+            var suggestedModels = suggestions.Select((model, index) => $"• {model}").ToArray();
 
             var message = "For better local performance, consider using these CPU-friendly models:\n\n" +
                 string.Join("\n", suggestedModels) +
@@ -956,183 +791,15 @@ namespace CSimple.ViewModels
             {
                 return "💡 Tip: For faster local execution, try CPU-friendly models like GPT-2 or DistilGPT-2!";
             }
-        }
-
-        // Helper method to install the accelerate package specifically
+        }        // Helper method to install the accelerate package specifically
         private async Task<bool> InstallAcceleratePackageAsync()
         {
-            try
-            {
-                Debug.WriteLine("Installing accelerate package...");
-
-                var processStartInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = _pythonExecutablePath,
-                    Arguments = "-m pip install accelerate",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using var process = new System.Diagnostics.Process { StartInfo = processStartInfo };
-                process.Start();
-
-                var outputTask = process.StandardOutput.ReadToEndAsync();
-                var errorTask = process.StandardError.ReadToEndAsync();
-
-                bool completed = process.WaitForExit(60000); // 1 minute timeout
-
-                if (!completed)
-                {
-                    process.Kill();
-                    Debug.WriteLine("Accelerate installation timed out");
-                    return false;
-                }
-
-                string output = await outputTask;
-                string error = await errorTask;
-                int exitCode = process.ExitCode;
-
-                Debug.WriteLine($"Accelerate installation completed with exit code: {exitCode}");
-                Debug.WriteLine($"Output: {output}");
-                Debug.WriteLine($"Error: {error}");
-
-                return exitCode == 0;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error installing accelerate package: {ex.Message}");
-                return false;
-            }
-        }
-
-        // Helper method to execute the Python script - enhanced error handling
+            return await _modelExecutionService.InstallAcceleratePackageAsync(_pythonExecutablePath);
+        }        // Helper method to execute the Python script - enhanced error handling
         private async Task<string> ExecuteHuggingFaceModelAsync(string modelId, string inputText)
         {
-            // Ensure Python path is set
-            if (string.IsNullOrEmpty(_pythonExecutablePath))
-            {
-                throw new InvalidOperationException("Python is not available. Please install Python and restart the application.");
-            }
-
-            if (!File.Exists(_huggingFaceScriptPath))
-            {
-                throw new FileNotFoundException($"HuggingFace script not found at: {_huggingFaceScriptPath}");
-            }
-
-            try
-            {
-                Debug.WriteLine($"Executing Python script with model: {modelId}");
-                Debug.WriteLine($"Script path: {_huggingFaceScriptPath}");
-                Debug.WriteLine($"Python path: {_pythonExecutablePath}");
-
-                // Escape quotes in input text
-                string escapedInput = inputText.Replace("\"", "\\\"");
-                string arguments = $"\"{_huggingFaceScriptPath}\" --model_id \"{modelId}\" --input \"{escapedInput}\"";
-
-                var processStartInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = _pythonExecutablePath,
-                    Arguments = arguments,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                Debug.WriteLine($"Starting process: {processStartInfo.FileName} {processStartInfo.Arguments}");
-
-                using var process = new System.Diagnostics.Process { StartInfo = processStartInfo };
-                process.Start();
-
-                var outputTask = process.StandardOutput.ReadToEndAsync();
-                var errorTask = process.StandardError.ReadToEndAsync();
-
-                // Wait for process to complete with timeout
-                bool completed = process.WaitForExit(180000); // 3 minutes timeout for large models
-
-                if (!completed)
-                {
-                    process.Kill();
-                    throw new TimeoutException("Model execution timed out after 3 minutes. Large models may take longer to load initially.");
-                }
-
-                string output = await outputTask;
-                string error = await errorTask;
-                int exitCode = process.ExitCode;
-
-                Debug.WriteLine($"Process completed with exit code: {exitCode}");
-                Debug.WriteLine($"Output: {output}");
-                Debug.WriteLine($"Error: {error}"); if (exitCode != 0)
-                {
-                    // Check for specific error patterns and provide better messages
-                    if (error.Contains("No GPU or XPU found") && error.Contains("FP8 quantization"))
-                    {
-                        throw new Exception($"Model '{modelId}' requires GPU acceleration for FP8 quantization, but no compatible GPU was found. The script will attempt to use HuggingFace API as fallback.");
-                    }
-                    else if (error.Contains("accelerate") && error.Contains("FP8"))
-                    {
-                        throw new Exception("Model requires 'accelerate' package for FP8 quantization support.");
-                    }
-                    else if (error.Contains("ModuleNotFoundError") || error.Contains("ImportError"))
-                    {
-                        throw new Exception("Required Python packages are missing. Please ensure transformers and torch are installed.");
-                    }
-                    else if (error.Contains("OutOfMemoryError") || error.Contains("CUDA out of memory"))
-                    {
-                        throw new Exception("Model is too large for available memory. Try using a smaller model or closing other applications.");
-                    }
-                    else if (error.Contains("torch.cuda.is_available()"))
-                    {
-                        throw new Exception("CUDA/GPU support is required for this model but not available on this system.");
-                    }
-                    else if (error.Contains("AUTHENTICATION_ERROR") || error.Contains("AUTHENTICATION_REQUIRED"))
-                    {
-                        throw new Exception($"Model '{modelId}' requires a HuggingFace API key for access. This is likely a gated model. Get a free API key from https://huggingface.co/settings/tokens and configure it in the app settings.");
-                    }
-                    else if (error.Contains("API Error 401") || error.Contains("Invalid username or password"))
-                    {
-                        throw new Exception($"Authentication failed for model '{modelId}'. This model requires a HuggingFace API key. Get one from https://huggingface.co/settings/tokens or try a public model like 'gpt2' or 'distilgpt2'.");
-                    }
-                    else
-                    {
-                        throw new Exception($"Script failed with exit code {exitCode}. Error: {error}");
-                    }
-                }
-
-                // Check if we got valid output
-                if (string.IsNullOrWhiteSpace(output))
-                {
-                    // If no output but no error, the model might have processed but returned empty
-                    if (string.IsNullOrWhiteSpace(error))
-                    {
-                        return "Model processed the input but generated no text output. This can happen with some model types or configurations.";
-                    }
-                    else
-                    {                        // If there's error output but exit code was 0, it might be warnings
-                        if (error.Contains("AUTHENTICATION_ERROR") || error.Contains("AUTHENTICATION_REQUIRED"))
-                        {
-                            throw new Exception($"Model requires authentication. Get a HuggingFace API key from https://huggingface.co/settings/tokens or try a public model like 'gpt2'.");
-                        }
-                        else if (error.Contains("API Error") || error.Contains("Falling back to HuggingFace API"))
-                        {
-                            return $"Local execution failed, using HuggingFace API: {error}";
-                        }
-                        else
-                        {
-                            return $"Model execution completed with warnings: {error}";
-                        }
-                    }
-                }
-
-                return output.Trim();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error running model: {ex.Message}");
-                throw; // Re-throw to be handled by caller
-            }
+            return await _modelExecutionService.ExecuteHuggingFaceModelAsync(
+                modelId, inputText, _pythonExecutablePath, _huggingFaceScriptPath);
         }
 
         private async Task ExportModel(NeuralNetworkModel model)
@@ -1302,117 +969,22 @@ namespace CSimple.ViewModels
 
             return ModelInputType.Unknown;
         }
-
-        // --- Private Helper Methods ---
-
         private async Task LoadPersistedModelsAsync()
         {
-            // Logic moved from NetPage.xaml.cs
-            try
+            var loadedModels = await _modelImportExportService.LoadPersistedModelsAsync();
+            Debug.WriteLine($"ViewModel: LoadPersistedModelsAsync loaded {loadedModels?.Count ?? 0} models from service.");
+
+            // Update AvailableModels on the main thread
+            MainThread.BeginInvokeOnMainThread(() =>
             {
-                IsLoading = true;
-                Debug.WriteLine("ViewModel: Loading persisted HuggingFace models...");
-                var loadedModels = await _fileService.LoadHuggingFaceModelsAsync();
-
-                // Filter out duplicate Python references based on HuggingFaceModelId
-                var uniquePythonRefs = new Dictionary<string, NeuralNetworkModel>();
-                var otherModels = new List<NeuralNetworkModel>();
-                bool duplicatesFound = false;
-
-                if (loadedModels != null)
+                AvailableModels.Clear();
+                foreach (var model in loadedModels)
                 {
-                    foreach (var model in loadedModels)
-                    {
-                        if (model.IsHuggingFaceReference && !string.IsNullOrEmpty(model.HuggingFaceModelId))
-                        {
-                            if (!uniquePythonRefs.ContainsKey(model.HuggingFaceModelId))
-                            {
-                                uniquePythonRefs.Add(model.HuggingFaceModelId, model);
-                            }
-                            else
-                            {
-                                duplicatesFound = true; // Mark that we found duplicates
-                                Debug.WriteLine($"ViewModel: Duplicate Python reference found and removed for HuggingFaceModelId: {model.HuggingFaceModelId}");
-                            }
-                        }
-                        else
-                        {
-                            otherModels.Add(model);
-                        }
-                    }
+                    AvailableModels.Add(model);
+                    Debug.WriteLine($"ViewModel: Added model '{model.Name}' to AvailableModels collection.");
                 }
-
-                var cleanedModels = otherModels.Concat(uniquePythonRefs.Values).ToList();
-
-                // Log loaded input types for debugging
-                foreach (var model in cleanedModels)
-                {
-                    Debug.WriteLine($"Loaded model: {model.Name}, Input Type: {model.InputType}");
-                }
-
-                // Use dispatcher if modifying ObservableCollection from non-UI thread
-                MainThread.BeginInvokeOnMainThread(() =>
-                {
-                    // Clear existing HF models before loading
-                    var hfModelsToRemove = AvailableModels.Where(m => m.IsHuggingFaceReference || !string.IsNullOrEmpty(m.HuggingFaceModelId)).ToList();
-                    foreach (var model in hfModelsToRemove)
-                    {
-                        AvailableModels.Remove(model);
-                    }
-
-                    if (cleanedModels.Count > 0)
-                    {
-                        foreach (var model in cleanedModels)
-                        {
-                            // Double-check uniqueness within AvailableModels before adding
-                            if (!AvailableModels.Any(m => m.Id == model.Id ||
-                                (m.IsHuggingFaceReference && m.HuggingFaceModelId == model.HuggingFaceModelId) ||
-                                (!m.IsHuggingFaceReference && m.Name == model.Name))) // Check name for non-refs
-                            {
-                                // Ensure InputType is properly set
-                                if (model.InputType == ModelInputType.Unknown)
-                                {
-                                    if (model.IsHuggingFaceReference && !string.IsNullOrEmpty(model.HuggingFaceModelId))
-                                    {
-                                        // Try to guess if it's unknown
-                                        var hfModel = new HuggingFaceModel
-                                        {
-                                            ModelId = model.HuggingFaceModelId,
-                                            Description = model.Description,
-                                            Pipeline_tag = null // We don't have this info anymore
-                                        };
-                                        model.InputType = GuessInputType(hfModel);
-                                        Debug.WriteLine($"Re-guessed input type for {model.Name}: {model.InputType}");
-                                    }
-                                }
-
-                                AvailableModels.Add(model);
-                                Debug.WriteLine($"Added model to UI: {model.Name}, Input Type: {model.InputType}");
-                            }
-                        }
-                        Debug.WriteLine($"ViewModel: Loaded {cleanedModels.Count} unique persisted HuggingFace models.");
-                    }
-                    else
-                    {
-                        Debug.WriteLine("ViewModel: No persisted HuggingFace models found or loaded.");
-                    }
-                });
-
-                // If duplicates were found, save the cleaned list back to the file
-                if (duplicatesFound)
-                {
-                    Debug.WriteLine("ViewModel: Saving cleaned model list back to file due to duplicates found.");
-                    await SavePersistedModelsAsync(cleanedModels); // Pass the cleaned list
-                }
-            }
-            catch (Exception ex)
-            {
-                HandleError("Error loading persisted models", ex);
-            }
-            finally
-            {
-                IsLoading = false;
-            }
+                Debug.WriteLine($"ViewModel: AvailableModels collection now has {AvailableModels.Count} models.");
+            });
         }
 
         private void LoadSampleGoals()
@@ -1565,14 +1137,14 @@ namespace CSimple.ViewModels
                 foreach (var fileUrl in filesToDownload)
                 {
                     var fileName = Path.GetFileName(fileUrl);
-                    
+
                     // Use safety check before downloading
                     bool shouldDownload = await ShouldProceedWithDownloadAsync(model.ModelId ?? model.Id, fileName);
                     if (!shouldDownload)
                     {
                         continue; // Skip this download
                     }
-                    
+
                     // Proceed with actual download logic here...
                     // ... (download implementation) ...
                 }
@@ -1648,41 +1220,9 @@ namespace CSimple.ViewModels
                 await ShowAlert("Import Failed", $"Error processing model file: {ex.Message}", "OK");
             }
         }
-
         private async Task SavePersistedModelsAsync(List<NeuralNetworkModel> modelsToSave)
         {
-            try
-            {
-                Debug.WriteLine($"ViewModel: SavePersistedModelsAsync (specific list) starting with {modelsToSave?.Count ?? 0} models.");
-
-                // Ensure uniqueness for Python references before saving
-                var uniquePythonRefs = new Dictionary<string, NeuralNetworkModel>();
-                var otherModels = new List<NeuralNetworkModel>();
-                if (modelsToSave != null)
-                {
-                    foreach (var model in modelsToSave)
-                    {
-                        if (model.IsHuggingFaceReference && !string.IsNullOrEmpty(model.HuggingFaceModelId))
-                        {
-                            if (!uniquePythonRefs.ContainsKey(model.HuggingFaceModelId))
-                            {
-                                uniquePythonRefs.Add(model.HuggingFaceModelId, model);
-                            }
-                            // else: Skip duplicate
-                        }
-                        else
-                        {
-                            otherModels.Add(model);
-                        }
-                    }
-                }
-                var finalModelsToSave = otherModels.Concat(uniquePythonRefs.Values).ToList();
-
-                Debug.WriteLine($"ViewModel: Saving {finalModelsToSave.Count} unique models.");
-                await _fileService.SaveHuggingFaceModelsAsync(finalModelsToSave);
-                Debug.WriteLine($"ViewModel: Called FileService to save {finalModelsToSave.Count} models.");
-            }
-            catch (Exception ex) { HandleError("Error saving specific list of persisted models", ex); }
+            await _modelImportExportService.SavePersistedModelsAsync(modelsToSave);
         }
 
         // Original method now calls the overload
@@ -1786,13 +1326,13 @@ namespace CSimple.ViewModels
                     MainThread.BeginInvokeOnMainThread(() =>
                     {
                         IsModelCommunicating = true;
-                        var messages = new[] { "Detected pattern, suggesting action...", "Analyzing input...", "Processing..." };
-                        LastModelOutput = messages[new Random().Next(messages.Length)];
+                        var messages = new[] { "Detected pattern, suggesting action...", "Analyzing input...", "Processing..." }; LastModelOutput = messages[new Random().Next(messages.Length)];
                         Task.Delay(3000).ContinueWith(__ => MainThread.BeginInvokeOnMainThread(() => IsModelCommunicating = false));
                     });
                 }
             }, null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
         }
+
         private void StartModelMonitoring(NeuralNetworkModel model) => Debug.WriteLine($"VM: Starting monitoring for {model.Name}");
         private void StopModelMonitoring(NeuralNetworkModel model) => Debug.WriteLine($"VM: Stopping monitoring for {model.Name}");
 
@@ -1914,13 +1454,13 @@ namespace CSimple.ViewModels
                 {
                     PickerTitle = "Select an audio file",
                     FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
-                    {
-                        { DevicePlatform.iOS, new[] { "public.audio" } },
-                        { DevicePlatform.Android, new[] { "audio/*" } },
-                        { DevicePlatform.WinUI, new[] { ".mp3", ".wav", ".m4a", ".aac" } },
-                        { DevicePlatform.Tizen, new[] { "audio/*" } },
-                        { DevicePlatform.macOS, new[] { "mp3", "wav", "m4a", "aac" } },
-                    })
+                            {
+                                { DevicePlatform.iOS, new[] { "public.audio" } },
+                                { DevicePlatform.Android, new[] { "audio/*" } },
+                                { DevicePlatform.WinUI, new[] { ".mp3", ".wav", ".m4a", ".aac" } },
+                                { DevicePlatform.Tizen, new[] { "audio/*" } },
+                                { DevicePlatform.macOS, new[] { "mp3", "wav", "m4a", "aac" } },
+                            })
                 });
 
                 if (result != null)
@@ -1958,18 +1498,18 @@ namespace CSimple.ViewModels
             OnPropertyChanged(nameof(HasSelectedAudio));
             OnPropertyChanged(nameof(HasSelectedMedia));
             OnPropertyChanged(nameof(CurrentInputModeDescription));
-        }
-
-        // Action to scroll chat to bottom (to be set by view)
+        }        // Action to scroll chat to bottom (to be set by view)
         public Action ScrollToBottom { get; set; }
 
         private void HandleError(string context, Exception ex)
         {
             Debug.WriteLine($"ViewModel Error - {context}: {ex.Message}\n{ex.StackTrace}");
             CurrentModelStatus = $"Error: {context}";
-        }        /// <summary>
-                 /// Checks if a download should proceed based on offline mode, file existence, and file size
-                 /// </summary>
+        }
+
+        /// <summary>
+        /// Checks if a download should proceed based on offline mode, file existence, and file size
+        /// </summary>
         private async Task<bool> ShouldProceedWithDownloadAsync(string modelId, string fileName, long sizeBytes = -1)
         {
             // Check offline mode first
@@ -2018,16 +1558,17 @@ namespace CSimple.ViewModels
         public Func<string, string, string, string, string, Task<string>> ShowPrompt { get; set; } = async (t, m, a, c, iv) => { await Task.CompletedTask; return null; }; // Default no-op
         public Func<Task<FileResult>> PickFile { get; set; } = async () => { await Task.CompletedTask; return null; }; // Default no-op
         public Func<string, Task> NavigateTo { get; set; } = async (r) => { await Task.CompletedTask; }; // Default no-op
-        public Func<List<CSimple.Models.HuggingFaceModel>, Task<CSimple.Models.HuggingFaceModel>> ShowModelSelectionDialog { get; set; } = async (m) => { await Task.CompletedTask; return null; }; // Default no-op
+        public Func<List<CSimple.Models.HuggingFaceModel>, Task<CSimple.Models.HuggingFaceModel>> ShowModelSelectionDialog { get; set; } = async (m) => { await Task.CompletedTask; return null; }; // Default no-op// --- INotifyPropertyChanged Implementation ---
+        public event PropertyChangedEventHandler PropertyChanged;
 
-
-        // --- INotifyPropertyChanged Implementation ---
-        public event PropertyChangedEventHandler PropertyChanged; protected bool SetProperty<T>(ref T backingStore, T value, [CallerMemberName] string propertyName = "", Action onChanged = null)
+        protected bool SetProperty<T>(ref T backingStore, T value, [CallerMemberName] string propertyName = "", Action onChanged = null)
         {
             if (EqualityComparer<T>.Default.Equals(backingStore, value)) return false;
             backingStore = value;
             onChanged?.Invoke();
-            OnPropertyChanged(propertyName);            // Also notify dependent properties
+            OnPropertyChanged(propertyName);
+
+            // Also notify dependent properties
             if (propertyName == nameof(ActiveModels))
             {
                 OnPropertyChanged(nameof(ActiveModelsCount));
@@ -2042,6 +1583,7 @@ namespace CSimple.ViewModels
 
             return true;
         }
+
         protected void OnPropertyChanged([CallerMemberName] string propertyName = "") =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }

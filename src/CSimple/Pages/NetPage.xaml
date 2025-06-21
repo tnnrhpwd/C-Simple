@@ -13,6 +13,7 @@
         <converters:StringFormatConverter x:Key="StringFormatConverter" />
         <converters:BoolConverter x:Key="BoolConverter" />
         <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
+        <converters:ModelDownloadButtonTextConverter x:Key="ModelDownloadButtonTextConverter" />
     </ContentPage.Resources>
     <ContentPage.Content>
         <ScrollView>
@@ -221,7 +222,7 @@
                                             </VerticalStackLayout>
                                             <!-- HuggingFace Model Download/Delete Button -->
                                             <Button Grid.Column="2"
-                                                    Text="{Binding HuggingFaceModelId, Converter={StaticResource StringFormatConverter}, ConverterParameter='Download', StringFormat='{0}'}"
+                                                    Text="{Binding HuggingFaceModelId, Converter={StaticResource ModelDownloadButtonTextConverter}, ConverterParameter={Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}}}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=DownloadOrDeleteModelCommand}"
                                                     CommandParameter="{Binding .}"
                                                     BackgroundColor="{StaticResource Secondary}"

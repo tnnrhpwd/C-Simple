@@ -39,8 +39,7 @@ public static class MauiProgram
         {
             var actionService = sp.GetRequiredService<ActionService>();
             return new InputCaptureService(actionService);
-        });
-        services.AddSingleton<AppModeService>();
+        }); services.AddSingleton<AppModeService>();
         services.AddSingleton<ActionGroupService>();
         services.AddSingleton<GameSettingsService>();
         services.AddSingleton<ActionGroupCopierService>();
@@ -50,6 +49,12 @@ public static class MauiProgram
         services.AddSingleton<ObserveDataService>();
         services.AddSingleton<MouseTrackingService>();
         services.AddSingleton<VoiceAssistantService>();
+
+        // Add the refactored services
+        services.AddSingleton<PythonEnvironmentService>();
+        services.AddSingleton<ModelCommunicationService>();
+        services.AddSingleton<ModelExecutionService>();
+        services.AddSingleton<ModelImportExportService>();
 
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<LoginViewModel>();
