@@ -351,12 +351,11 @@ namespace CSimple.Services
                 throw;
             }
         }
-
         public void EnsureHFModelCacheDirectoryExists()
         {
             try
             {
-                string cacheDirectory = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace");
+                string cacheDirectory = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
                 if (!Directory.Exists(cacheDirectory))
                 {
                     Directory.CreateDirectory(cacheDirectory);
@@ -369,12 +368,11 @@ namespace CSimple.Services
                 throw;
             }
         }
-
         public List<string> RefreshDownloadedModelsList()
         {
             try
             {
-                string cacheDirectory = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace");
+                string cacheDirectory = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
                 if (Directory.Exists(cacheDirectory))
                 {
                     var downloadedModels = Directory.GetFiles(cacheDirectory).Select(Path.GetFileName).ToList();

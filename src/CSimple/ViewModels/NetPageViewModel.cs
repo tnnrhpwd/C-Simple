@@ -361,7 +361,9 @@ namespace CSimple.ViewModels
         }
         private async Task DownloadModelAsync(NeuralNetworkModel model)
         {
-            var modelPath = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace", (model.HuggingFaceModelId ?? model.Id).Replace("/", "_") + ".bin");
+            var modelPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels", (model.HuggingFaceModelId ?? model.Id).Replace("/", "_") + ".bin");
+            // Ensure the directory exists
+            Directory.CreateDirectory(Path.GetDirectoryName(modelPath));
             await _huggingFaceService.DownloadModelAsync(model.HuggingFaceModelId, modelPath);
             _downloadedModelIds.Add(model.HuggingFaceModelId);
 
@@ -371,7 +373,7 @@ namespace CSimple.ViewModels
 
         private async Task DeleteModelAsync(NeuralNetworkModel model)
         {
-            var modelPath = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace", (model.HuggingFaceModelId ?? model.Id).Replace("/", "_") + ".bin");
+            var modelPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels", (model.HuggingFaceModelId ?? model.Id).Replace("/", "_") + ".bin");
             await _huggingFaceService.DeleteModelAsync(model.HuggingFaceModelId, modelPath);
             _downloadedModelIds.Remove(model.HuggingFaceModelId);
 
@@ -1255,7 +1257,7 @@ namespace CSimple.ViewModels
         private string GetModelDirectoryPath(string modelId)
         {
             string safeModelId = (modelId ?? "unknown_model").Replace("/", "_").Replace("\\", "_");
-            var modelDirectory = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace", safeModelId);
+            var modelDirectory = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels", safeModelId);
             Directory.CreateDirectory(modelDirectory); // Ensure it exists
 
             // Log the model directory for user awareness
