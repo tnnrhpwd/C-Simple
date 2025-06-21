@@ -147,31 +147,25 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any]) 
             model_kwargs["device_map"] = device_map
         
         model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
-          # Move model to CPU if force_cpu is enabled
+        
+        # Move model to CPU if force_cpu is enabled
         if force_cpu and device_map is None:
             model = model.to("cpu")
         
         print("Tokenizing input...", file=sys.stderr)
-        
-        # Clean and validate input text
-        clean_input = input_text.strip()
-        if not clean_input:
-            return "ERROR: Empty input provided"
-        
-        print(f"Clean input: '{clean_input}'", file=sys.stderr)
         
         # Handle tokenization
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         
         inputs = tokenizer(
-            clean_input, 
+            input_text, 
             return_tensors="pt", 
             truncation=True, 
-            max_length=512,
-            add_special_tokens=True
+            max_length=512
         )
-          # Move inputs to the same device as model
+        
+        # Move inputs to the same device as model
         if force_cpu:
             inputs = {k: v.to("cpu") for k, v in inputs.items()}
         else:
@@ -180,51 +174,27 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any]) 
         
         print("Generating response...", file=sys.stderr)
         
-        # Validate inputs before generation
-        print(f"Input shape: {inputs['input_ids'].shape}", file=sys.stderr)
-        print(f"Input tokens: {inputs['input_ids'].tolist()}", file=sys.stderr)
-          # Generate with improved parameters
+        # Generate with improved parameters
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
-                max_new_tokens=min(params.get("max_length", 100), 50),  # Cap at 50 tokens for cleaner output
-                temperature=0.8,  # Slightly higher temperature for more natural output
-                top_p=0.9,
-                top_k=50,  # Add top-k filtering
+                max_new_tokens=params.get("max_length", 100),
+                temperature=params.get("temperature", 0.7),
+                top_p=params.get("top_p", 0.9),
                 do_sample=True,
                 num_return_sequences=1,
                 pad_token_id=tokenizer.eos_token_id,
-                eos_token_id=tokenizer.eos_token_id,
-                repetition_penalty=1.2,  # Stronger repetition penalty
-                no_repeat_ngram_size=3,  # Prevent 3-gram repetition
-                early_stopping=True  # Stop at natural endings
-            )        # Decode the generated text
+                eos_token_id=tokenizer.eos_token_id
+            )
+        
+        # Decode the generated text
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         
-        print(f"Raw generated text: '{generated_text}'", file=sys.stderr)
-        
         # Remove the input text from the output if it's included
-        if generated_text.startswith(clean_input):
-            generated_text = generated_text[len(clean_input):].strip()
+        if generated_text.startswith(input_text):
+            generated_text = generated_text[len(input_text):].strip()
         
-        print(f"Cleaned generated text: '{generated_text}'", file=sys.stderr)
-        
-        # Ensure we have a reasonable response
-        if not generated_text or len(generated_text.strip()) == 0:
-            return f"Model processed '{clean_input}' successfully but generated no additional text."
-        
-        # Check for repeated patterns that might indicate corruption
-        words = generated_text.split()
-        if len(set(words)) < 3 and len(words) > 5:
-            print("Warning: Detected repetitive output, possibly corrupted", file=sys.stderr)
-            return f"Model response may be corrupted. Original input: '{clean_input}'"
-        
-        # Check for technical/config file patterns that suggest corruption
-        if any(pattern in generated_text.lower() for pattern in ['.cfg', 'kernel_', 'lib64', 'steam', 'program files']):
-            print("Warning: Detected system file patterns, regenerating...", file=sys.stderr)
-            return f"Model produced system file output for input '{clean_input}'. This may indicate a corrupted model cache."
-        
-        return generated_text
+        return generated_text if generated_text else f"Model processed '{input_text}' successfully but generated no additional text."
         
     except Exception as e:
         error_msg = str(e)

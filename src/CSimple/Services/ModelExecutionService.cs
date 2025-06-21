@@ -46,10 +46,9 @@ namespace CSimple.Services
                 Debug.WriteLine($"Script path: {huggingFaceScriptPath}");
                 Debug.WriteLine($"Python path: {pythonExecutablePath}");
 
-                StatusUpdated?.Invoke($"Executing model {modelId}...");
-
-                // Escape quotes in input text and handle special characters
-                string escapedInput = inputText.Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "");
+                StatusUpdated?.Invoke($"Executing model {modelId}...");                // Escape quotes in input text and clean up whitespace
+                string cleanedInput = inputText.Trim().Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
+                string escapedInput = cleanedInput.Replace("\"", "\\\"");
 
                 // Build arguments with enhanced parameters
                 var argumentsBuilder = new StringBuilder();

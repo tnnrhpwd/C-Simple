@@ -53,44 +53,52 @@ namespace CSimple.Services
                     // Set a flag that Python is not available
                     PythonExecutablePath = null;
                     return false;
-                }
-
-                // Get the Python executable path from the bootstrapper
+                }                // Get the Python executable path from the bootstrapper
                 PythonExecutablePath = _pythonBootstrapper.PythonExecutablePath;
 
-                // Check multiple possible script locations
-                var possibleScriptPaths = new[]
-                {
-                    Path.Combine(AppContext.BaseDirectory, "Scripts", "run_hf_model.py"),
-                    Path.Combine(FileSystem.AppDataDirectory, "Scripts", "run_hf_model.py"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Documents", "CSimple", "Scripts", "run_hf_model.py"),
-                    @"c:\Users\tanne\Documents\Github\C-Simple\scripts\run_hf_model.py"
-                };
+                // Use the script from the project directory first
+                var projectScriptPath = @"c:\Users\tanne\Documents\Github\C-Simple\src\CSimple\Scripts\run_hf_model.py";
 
-                string foundScriptPath = null;
-                foreach (var path in possibleScriptPaths)
+                if (File.Exists(projectScriptPath))
                 {
-                    if (File.Exists(path))
-                    {
-                        foundScriptPath = path;
-                        Debug.WriteLine($"Found script at: {path}");
-                        break;
-                    }
-                }
-
-                if (foundScriptPath != null)
-                {
-                    HuggingFaceScriptPath = foundScriptPath;
+                    HuggingFaceScriptPath = projectScriptPath;
+                    Debug.WriteLine($"Using project script at: {projectScriptPath}");
                 }
                 else
                 {
-                    // Create the script if it doesn't exist
-                    var scriptsDir = Path.Combine(FileSystem.AppDataDirectory, "Scripts");
-                    Directory.CreateDirectory(scriptsDir);
-                    HuggingFaceScriptPath = Path.Combine(scriptsDir, "run_hf_model.py");
+                    // Check fallback locations
+                    var possibleScriptPaths = new[]
+                    {
+                        Path.Combine(AppContext.BaseDirectory, "Scripts", "run_hf_model.py"),
+                        Path.Combine(FileSystem.AppDataDirectory, "Scripts", "run_hf_model.py"),
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Documents", "CSimple", "Scripts", "run_hf_model.py")
+                    };
 
-                    // Create a basic Python script for HuggingFace model execution
-                    await CreateHuggingFaceScriptAsync(HuggingFaceScriptPath);
+                    string foundScriptPath = null;
+                    foreach (var path in possibleScriptPaths)
+                    {
+                        if (File.Exists(path))
+                        {
+                            foundScriptPath = path;
+                            Debug.WriteLine($"Found fallback script at: {path}");
+                            break;
+                        }
+                    }
+
+                    if (foundScriptPath != null)
+                    {
+                        HuggingFaceScriptPath = foundScriptPath;
+                    }
+                    else
+                    {
+                        // Create the script in a dedicated scripts directory
+                        var scriptsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Documents", "CSimple", "Scripts");
+                        Directory.CreateDirectory(scriptsDir);
+                        HuggingFaceScriptPath = Path.Combine(scriptsDir, "run_hf_model.py");
+
+                        // Create an updated Python script for HuggingFace model execution
+                        await CreateHuggingFaceScriptAsync(HuggingFaceScriptPath);
+                    }
                 }
 
                 // Install required packages
