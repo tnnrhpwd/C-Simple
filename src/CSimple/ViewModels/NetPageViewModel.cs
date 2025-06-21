@@ -221,6 +221,22 @@ namespace CSimple.ViewModels
         // Debug command for testing chat UI
         public ICommand TestAddChatMessageCommand { get; }
 
+        // New: Download model command
+        public ICommand DownloadModelCommand { get; }
+        // New: Delete model command
+        public ICommand DeleteModelCommand { get; }
+
+        // Helper: Get download/delete button text for a model
+        public string GetDownloadOrDeleteButtonText(string modelId)
+        {
+            return IsModelDownloaded(modelId) ? "Delete from device" : "Download to device";
+        }
+
+        // Command for download/delete toggle button
+        public ICommand DownloadOrDeleteModelCommand { get; }
+        // Command for deleting the reference (removes from UI, not just device)
+        public ICommand DeleteModelReferenceCommand { get; }
+
         // --- Constructor ---
         public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService)
         {
@@ -285,6 +301,15 @@ namespace CSimple.ViewModels
 
             // Load initial data
             // Note: Loading is triggered by OnAppearing in the View
+        }
+
+        // New: Track downloaded model IDs for UI state
+        private HashSet<string> _downloadedModelIds = new();
+
+        // New: Public property to expose downloaded state for each model
+        public bool IsModelDownloaded(string modelId)
+        {
+            return _downloadedModelIds.Contains(modelId);
         }
 
         // ADDED: List of available input types for binding to dropdown
@@ -1885,7 +1910,7 @@ if __name__ == '__main__':
                 {
                     // ... (python ref logic - now default) ...
                 }
-                // ... (other file download options handling removed) ...
+                                                             // ... (other file download options handling removed) ...
                 */
                 // *** END REMOVED/COMMENTED OUT ***
 
@@ -1896,6 +1921,8 @@ if __name__ == '__main__':
                     // Check if a Python reference with this HuggingFaceModelId already exists
                     if (AvailableModels.Any(m => m.IsHuggingFaceReference && m.HuggingFaceModelId == (model.ModelId ?? model.Id)))
                     {
+
+
                         CurrentModelStatus = $"Python reference for '{model.ModelId ?? model.Id}' already exists.";
                         await ShowAlert("Duplicate Reference", $"A Python reference for this model ID already exists.", "OK");
                         IsLoading = false;

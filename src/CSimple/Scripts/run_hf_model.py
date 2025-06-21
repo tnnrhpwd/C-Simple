@@ -190,10 +190,9 @@ def check_model_cache_status(model_id):
         from transformers.utils import TRANSFORMERS_CACHE
         from huggingface_hub import HfApi
 
-        # Get the default cache directory
-        cache_dir = os.environ.get('TRANSFORMERS_CACHE', TRANSFORMERS_CACHE)
-        if not cache_dir:
-            cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "transformers")
+        # Set custom cache directory
+        cache_dir = os.path.join("C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels")
+        os.environ['TRANSFORMERS_CACHE'] = cache_dir
 
         # Check for model files in cache
         model_cache_path = Path(cache_dir)
