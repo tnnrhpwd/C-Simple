@@ -23,6 +23,7 @@ namespace CSimple.ViewModels
         private readonly HuggingFaceService _huggingFaceService;
         private readonly PythonBootstrapper _pythonBootstrapper; // Changed from PythonDependencyManager
         private readonly AppModeService _appModeService; // Add offline mode service
+        private readonly PythonEnvironmentService _pythonEnvironmentService;
         // Consider injecting navigation and dialog services for better testability
 
         // --- Backing Fields ---
@@ -235,15 +236,19 @@ namespace CSimple.ViewModels
         // Command for download/delete toggle button
         public ICommand DownloadOrDeleteModelCommand { get; }
         // Command for deleting the reference (removes from UI, not just device)
-        public ICommand DeleteModelReferenceCommand { get; }
-
-        // --- Constructor ---
-        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService)
+        public ICommand DeleteModelReferenceCommand { get; }        // --- Constructor ---
+        // Note: PythonEnvironmentService handles Python setup and script creation (extracted for maintainability)
+        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
             _pythonBootstrapper = pythonBootstrapper;
             _appModeService = appModeService;
+            _pythonEnvironmentService = pythonEnvironmentService;
+
+            // Subscribe to Python environment service events
+            _pythonEnvironmentService.StatusChanged += (s, status) => CurrentModelStatus = status;
+            _pythonEnvironmentService.LoadingChanged += (s, isLoading) => IsLoading = isLoading;
 
             _pythonBootstrapper.ProgressChanged += (s, progress) =>
             {
@@ -365,196 +370,17 @@ namespace CSimple.ViewModels
 
         // Configuration for Python execution (Consider moving to a config file/service)
         private const string PythonExecutablePath = "python"; // Or full path e.g., @"C:\Python311\python.exe"
-        private const string HuggingFaceScriptPath = @"c:\Users\tanne\Documents\Github\C-Simple\scripts\run_hf_model.py"; // Updated path to the script
-
-        // --- Public Methods (called from View or Commands) ---
+        private const string HuggingFaceScriptPath = @"c:\Users\tanne\Documents\Github\C-Simple\scripts\run_hf_model.py"; // Updated path to the script        // --- Public Methods (called from View or Commands) ---
 
         public async Task LoadDataAsync()
         {
-            await SetupPythonEnvironmentAsync();
+            await _pythonEnvironmentService.SetupPythonEnvironmentAsync(ShowAlert);
+            _pythonExecutablePath = _pythonEnvironmentService.PythonExecutablePath;
+            _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
+
             await LoadPersistedModelsAsync();
             LoadSampleGoals(); // Load sample goals separately
             SubscribeToInputNotifications(); // Start background simulation
-        }
-
-        private async Task SetupPythonEnvironmentAsync()
-        {
-            try
-            {
-                IsLoading = true;
-                CurrentModelStatus = "Checking for Python installation...";
-
-                // Look for Python installations on the system
-                bool pythonFound = await _pythonBootstrapper.InitializeAsync();
-
-                if (!pythonFound)
-                {
-                    // Don't fall back to API mode - instead show clear instructions
-                    CurrentModelStatus = "Python not found. Local models require Python to run.";
-                    await ShowAlert("Python Required",
-                        "Python 3.8 to 3.11 is required to run HuggingFace models locally.\n\n" +
-                        "1. Download Python from https://python.org/downloads/\n" +
-                        "2. We recommend Python 3.10 for best compatibility with AI libraries\n" +
-                        "3. Avoid Python 3.12+ as some AI libraries may have compatibility issues\n" +
-                        "4. During installation, check 'Add Python to PATH'\n" +
-                        "5. Restart this application after installation", "OK");
-
-                    // Set a flag that Python is not available
-                    _pythonExecutablePath = null;
-                    return;
-                }
-
-                // Get the Python executable path from the bootstrapper
-                _pythonExecutablePath = _pythonBootstrapper.PythonExecutablePath;
-
-                // Check multiple possible script locations
-                var possibleScriptPaths = new[]
-                {
-                    Path.Combine(AppContext.BaseDirectory, "Scripts", "run_hf_model.py"),
-                    Path.Combine(FileSystem.AppDataDirectory, "Scripts", "run_hf_model.py"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Documents", "CSimple", "Scripts", "run_hf_model.py"),
-                    @"c:\Users\tanne\Documents\Github\C-Simple\scripts\run_hf_model.py"
-                };
-
-                string foundScriptPath = null;
-                foreach (var path in possibleScriptPaths)
-                {
-                    if (File.Exists(path))
-                    {
-                        foundScriptPath = path;
-                        Debug.WriteLine($"Found script at: {path}");
-                        break;
-                    }
-                }
-
-                if (foundScriptPath != null)
-                {
-                    _huggingFaceScriptPath = foundScriptPath;
-                }
-                else
-                {
-                    // Create the script if it doesn't exist
-                    var scriptsDir = Path.Combine(FileSystem.AppDataDirectory, "Scripts");
-                    Directory.CreateDirectory(scriptsDir);
-                    _huggingFaceScriptPath = Path.Combine(scriptsDir, "run_hf_model.py");
-
-                    // Create a basic Python script for HuggingFace model execution
-                    await CreateHuggingFaceScript(_huggingFaceScriptPath);
-                }
-
-                // Install required packages
-                CurrentModelStatus = "Installing required Python packages...";
-                bool packagesInstalled = await _pythonBootstrapper.InstallRequiredPackagesAsync();
-
-                if (!packagesInstalled)
-                {
-                    CurrentModelStatus = "Failed to install required Python packages.";
-                    await ShowAlert("Package Installation Failed",
-                        "The application failed to install the required Python packages. " +
-                        "You may need to manually install them by running:\n\n" +
-                        "pip install transformers torch", "OK");
-                }
-                else
-                {
-                    CurrentModelStatus = "Python environment ready";
-                }
-            }
-            catch (Exception ex)
-            {
-                HandleError("Error setting up Python environment", ex);
-                CurrentModelStatus = "Failed to set up Python environment. See error log for details.";
-
-                await ShowAlert("Python Setup Error",
-                    "There was an error setting up the Python environment. " +
-                    "Please make sure Python is installed correctly and 'pip' is available.\n\n" +
-                    $"Error details: {ex.Message}", "OK");
-            }
-            finally
-            {
-                IsLoading = false;
-            }
-        }
-
-        private async Task CreateHuggingFaceScript(string scriptPath)
-        {
-            try
-            {
-                string scriptContent = @"#!/usr/bin/env python3
-import argparse
-import sys
-import json
-import traceback
-
-def main():
-    parser = argparse.ArgumentParser(description='Run HuggingFace model')
-    parser.add_argument('--model_id', required=True, help='HuggingFace model ID')
-    parser.add_argument('--input', required=True, help='Input text')
-    
-    args = parser.parse_args()
-    
-    try:
-        # Try to import required libraries
-        from transformers import AutoTokenizer, AutoModel, pipeline
-        import torch
-        
-        print(f'Loading model: {args.model_id}')
-        
-        # Try to use pipeline first (simpler approach)
-        try:
-            # Determine task type based on model ID
-            if 'gpt' in args.model_id.lower() or 'llama' in args.model_id.lower():
-                task = 'text-generation'
-            elif 'bert' in args.model_id.lower():
-                task = 'fill-mask'
-            else:
-                task = 'text-generation'  # Default
-            
-            pipe = pipeline(task, model=args.model_id, trust_remote_code=True)
-            result = pipe(args.input, max_length=150, do_sample=True, temperature=0.7)
-            
-            if isinstance(result, list):
-                output = result[0].get('generated_text', str(result[0]));
-            else:
-                output = str(result);
-                
-            print(output);
-            
-        except Exception as pipe_error:
-            print(f'Pipeline failed, trying manual approach: {pipe_error}');
-            
-            # Fallback to manual tokenizer/model approach
-            tokenizer = AutoTokenizer.from_pretrained(args.model_id, trust_remote_code=True)
-            model = AutoModel.from_pretrained(args.model_id, trust_remote_code=True)
-            
-            inputs = tokenizer(args.input, return_tensors='pt')
-            
-            with torch.no_grad():
-                outputs = model(**inputs)
-                
-            # Basic response for demonstration
-            print(f'Model processed input successfully. Input tokens: {inputs[""input_ids""].shape[1]}')
-            
-    except ImportError as e:
-        print(f'ERROR: Missing required packages. Please install with: pip install transformers torch')
-        print(f'Details: {e}')
-        sys.exit(1)
-    except Exception as e:
-        print(f'ERROR: {e}')
-        traceback.print_exc()
-        sys.exit(1)
-
-if __name__ == '__main__':
-    main()
-";
-
-                await File.WriteAllTextAsync(scriptPath, scriptContent);
-                Debug.WriteLine($"Created HuggingFace script at: {scriptPath}");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error creating HuggingFace script: {ex.Message}");
-                throw;
-            }
         }
 
         public async Task SearchHuggingFaceAsync()
@@ -906,13 +732,12 @@ if __name__ == '__main__':
                     throw new InvalidOperationException($"Model {activeHfModel.Name} not found in persisted models file.");
                 }
 
-                Debug.WriteLine($"Found model in persisted file: {modelInFile.Name} (HF ID: {modelInFile.HuggingFaceModelId})");
-
-                // Check if the script exists
-                if (!File.Exists(_huggingFaceScriptPath))
+                Debug.WriteLine($"Found model in persisted file: {modelInFile.Name} (HF ID: {modelInFile.HuggingFaceModelId})");                // Check if the script exists (get from service)
+                if (string.IsNullOrEmpty(_huggingFaceScriptPath) || !File.Exists(_huggingFaceScriptPath))
                 {
-                    Debug.WriteLine($"Script not found at: {_huggingFaceScriptPath}");
-                    await CreateHuggingFaceScript(_huggingFaceScriptPath);
+                    Debug.WriteLine($"Script not found, re-initializing Python environment...");
+                    await _pythonEnvironmentService.SetupPythonEnvironmentAsync(ShowAlert);
+                    _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
                 }
                 // Show progress indicator for model loading with performance tip
                 CurrentModelStatus = $"Loading {activeHfModel.Name} (first run may take longer)...";                // Add performance tip to output for user guidance
