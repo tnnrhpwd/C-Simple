@@ -1,85 +1,94 @@
-using Microsoft.Maui.Controls;
 using System;
-using System.Diagnostics;
-using System.Reflection;
+using Microsoft.Maui.Controls;
 
 namespace CSimple.Behaviors
 {
+    /// <summary>
+    /// Behavior that helps bind Enum values to Pickers.
+    /// This behavior automatically converts between the enum values and their string representations.
+    /// </summary>
     public class EnumBindingBehavior : Behavior<Picker>
     {
-        protected override void OnAttachedTo(Picker picker)
+        private Picker _picker;
+        private Type _enumType;
+        private bool _isAttached;
+
+        /// <summary>
+        /// Called when the behavior is attached to a control.
+        /// </summary>
+        protected override void OnAttachedTo(Picker bindable)
         {
-            base.OnAttachedTo(picker);
-            picker.Loaded += Picker_Loaded;
-            picker.BindingContextChanged += Picker_BindingContextChanged;
+            base.OnAttachedTo(bindable);
+            _picker = bindable;
+            _isAttached = true;
+
+            // Subscribe to necessary events
+            _picker.BindingContextChanged += OnBindingContextChanged;
+            _picker.PropertyChanged += OnPickerPropertyChanged;
         }
 
-        protected override void OnDetachingFrom(Picker picker)
+        /// <summary>
+        /// Called when the behavior is detached from a control.
+        /// </summary>
+        protected override void OnDetachingFrom(Picker bindable)
         {
-            picker.Loaded -= Picker_Loaded;
-            picker.BindingContextChanged -= Picker_BindingContextChanged;
-            base.OnDetachingFrom(picker);
-        }
+            base.OnDetachingFrom(bindable);
 
-        private void Picker_BindingContextChanged(object sender, EventArgs e)
-        {
-            UpdatePickerSelection((Picker)sender);
-        }
-
-        private void Picker_Loaded(object sender, EventArgs e)
-        {
-            UpdatePickerSelection((Picker)sender);
-        }
-
-        private void UpdatePickerSelection(Picker picker)
-        {
-            if (picker.BindingContext == null || picker.ItemsSource == null) return;
-
-            try
+            // Unsubscribe from events
+            if (_picker != null)
             {
-                // MAUI doesn't have a GetBinding method, so we need to use reflection
-                // or just assume the binding is always "InputType" for our specific use case
-                string bindingPropertyName = "InputType"; // Hard-coded assumption for our use case
+                _picker.BindingContextChanged -= OnBindingContextChanged;
+                _picker.PropertyChanged -= OnPickerPropertyChanged;
+            }
 
-                var propInfo = picker.BindingContext.GetType().GetProperty(bindingPropertyName);
-                if (propInfo == null)
-                {
-                    Debug.WriteLine($"Property {bindingPropertyName} not found on {picker.BindingContext.GetType().Name}");
-                    return;
-                }
+            _picker = null;
+            _isAttached = false;
+        }
 
-                var currentValue = propInfo.GetValue(picker.BindingContext);
-                if (currentValue == null)
+        private void OnBindingContextChanged(object sender, EventArgs e)
+        {
+            if (_isAttached && _picker != null)
+            {
+                // Check if ItemsSource is an Enum and update enum type
+                if (_picker.ItemsSource != null && _picker.ItemsSource is Array array && array.Length > 0)
                 {
-                    Debug.WriteLine($"Current value of {bindingPropertyName} is null");
-                    return;
-                }
-
-                // Find the index of the current value in the ItemsSource
-                int index = -1;
-                for (int i = 0; i < picker.ItemsSource.Count; i++)
-                {
-                    if (picker.ItemsSource[i].Equals(currentValue))
+                    var firstItem = array.GetValue(0);
+                    if (firstItem != null && firstItem.GetType().IsEnum)
                     {
-                        index = i;
-                        break;
+                        _enumType = firstItem.GetType();
                     }
                 }
+            }
+        }
 
-                // Set the selected index
-                if (index >= 0)
+        private void OnPickerPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (!_isAttached || _picker == null) return;
+
+            // Handle SelectedItem change
+            if (e.PropertyName == nameof(Picker.SelectedItem) && _enumType != null)
+            {                // Get the selected enum value
+                var selectedValue = _picker.SelectedItem;
+                if (selectedValue != null && selectedValue is Enum enumValue)
                 {
-                    picker.SelectedIndex = index;
-                    Debug.WriteLine($"EnumBindingBehavior: Set picker to index {index} for value {currentValue}");
-                }
-                else
-                {
-                    Debug.WriteLine($"Value {currentValue} not found in ItemsSource");
+                    // Make sure the selected value is properly set as the enum value
+                    // This ensures proper binding even when displaying string representations
+                    _picker.SetValue(Picker.SelectedItemProperty, enumValue);
                 }
             }
-            catch (Exception ex)
+
+            // Handle ItemsSource change
+            else if (e.PropertyName == nameof(Picker.ItemsSource))
             {
-                Debug.WriteLine($"Error in EnumBindingBehavior: {ex.Message}\n{ex.StackTrace}");
+                // Update enum type if ItemsSource is an enum array
+                if (_picker.ItemsSource != null && _picker.ItemsSource is Array array && array.Length > 0)
+                {
+                    var firstItem = array.GetValue(0);
+                    if (firstItem != null && firstItem.GetType().IsEnum)
+                    {
+                        _enumType = firstItem.GetType();
+                    }
+                }
             }
         }
     }

@@ -8,6 +8,10 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using CSimple.Pages; // For ModelType enum
 using CSimple.Models; // Add this using directive
+using System.IO;
+using System.Linq;
+using static System.Net.Mime.MediaTypeNames;
+using Microsoft.Maui.Storage;
 
 namespace CSimple.Services
 {
@@ -304,6 +308,90 @@ namespace CSimple.Services
             await Task.Delay(10); // Simulate async work
             // Replace with actual logic to get filenames if needed
             return new List<string> { "config.json", "pytorch_model.bin", "tokenizer.json" };
+        }
+
+        public async Task DownloadModelAsync(string modelId, string destinationPath)
+        {
+            try
+            {
+                // Simulate downloading the model
+                Debug.WriteLine($"Downloading model {modelId} to {destinationPath}...");
+                await Task.Delay(2000); // Simulate download delay
+
+                // Create a dummy file to represent the downloaded model
+                File.WriteAllText(destinationPath, $"Model {modelId} downloaded successfully.");
+                Debug.WriteLine($"Model {modelId} downloaded successfully.");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error downloading model {modelId}: {ex.Message}");
+                throw;
+            }
+        }
+        public async Task DeleteModelAsync(string modelId, string modelPath)
+        {
+            try
+            {
+                // Simulate deleting the model
+                Debug.WriteLine($"Deleting model {modelId} at {modelPath}...");
+                if (File.Exists(modelPath))
+                {
+                    // Use async File operations to ensure this truly is async
+                    await Task.Run(() => File.Delete(modelPath));
+                    Debug.WriteLine($"Model {modelId} deleted successfully.");
+                }
+                else
+                {
+                    Debug.WriteLine($"Model {modelId} not found at {modelPath}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error deleting model {modelId}: {ex.Message}");
+                throw;
+            }
+        }
+
+        public void EnsureHFModelCacheDirectoryExists()
+        {
+            try
+            {
+                string cacheDirectory = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace");
+                if (!Directory.Exists(cacheDirectory))
+                {
+                    Directory.CreateDirectory(cacheDirectory);
+                    Debug.WriteLine($"Created HuggingFace model cache directory at {cacheDirectory}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error ensuring HuggingFace model cache directory exists: {ex.Message}");
+                throw;
+            }
+        }
+
+        public List<string> RefreshDownloadedModelsList()
+        {
+            try
+            {
+                string cacheDirectory = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace");
+                if (Directory.Exists(cacheDirectory))
+                {
+                    var downloadedModels = Directory.GetFiles(cacheDirectory).Select(Path.GetFileName).ToList();
+                    Debug.WriteLine($"Found {downloadedModels.Count} downloaded models.");
+                    return downloadedModels;
+                }
+                else
+                {
+                    Debug.WriteLine("HuggingFace model cache directory does not exist.");
+                    return new List<string>();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error refreshing downloaded models list: {ex.Message}");
+                throw;
+            }
         }
     }
 

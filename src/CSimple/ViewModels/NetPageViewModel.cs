@@ -242,18 +242,11 @@ namespace CSimple.ViewModels
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
-            _pythonBootstrapper = pythonBootstrapper; // Changed from PythonDependencyManager
+            _pythonBootstrapper = pythonBootstrapper;
             _appModeService = appModeService;
-
-            // Subscribe to Python setup status updates
-            _pythonBootstrapper.StatusChanged += (s, msg) =>
-            {
-                CurrentModelStatus = $"Python setup: {msg}";
-            };
 
             _pythonBootstrapper.ProgressChanged += (s, progress) =>
             {
-                // You could update a progress bar if needed
                 Debug.WriteLine($"Python setup progress: {progress:P0}");
             };
 
@@ -282,9 +275,13 @@ namespace CSimple.ViewModels
                     Debug.WriteLine("Cannot navigate to Orient page: Model or Model ID is null/empty.");
                     await ShowAlert("Navigation Error", "Cannot navigate without a valid model selected.", "OK");
                 }
-            });            // Add new command for updating model input type
+            });
+
+            // Add new command for updating model input type
             UpdateModelInputTypeCommand = new Command<(NeuralNetworkModel, ModelInputType)>(
-                param => UpdateModelInputType(param.Item1, param.Item2));            // Initialize chat commands
+                param => UpdateModelInputType(param.Item1, param.Item2));
+
+            // Initialize chat commands
             SendMessageCommand = new Command(async () => await SendMessageAsync(), () => CanSendMessage);
             ClearChatCommand = new Command(ClearChat);
             EditMessageCommand = new Command<ChatMessage>(EditMessage); // Initialize Edit Message Command
@@ -295,21 +292,72 @@ namespace CSimple.ViewModels
             SelectAudioCommand = new Command(async () => await SelectAudioAsync());
             ClearMediaCommand = new Command(ClearMedia);
 
+            // HuggingFace model download/delete commands
+            DownloadModelCommand = new Command<NeuralNetworkModel>(async (model) => await DownloadModelAsync(model));
+            DeleteModelCommand = new Command<NeuralNetworkModel>(async (model) => await DeleteModelAsync(model));
+            DownloadOrDeleteModelCommand = new Command<NeuralNetworkModel>(async (model) => await DownloadOrDeleteModelAsync(model));
+            DeleteModelReferenceCommand = new Command<NeuralNetworkModel>(async (model) => await DeleteModelReferenceAsync(model));
+
+            // Check cache directory
+            EnsureHFModelCacheDirectoryExists();
+
             // Populate categories
             HuggingFaceCategories = new List<string> { "All Categories" };
             HuggingFaceCategories.AddRange(_huggingFaceService.GetModelCategoryFilters().Keys);
 
+            // Initialize downloaded models state
+            _downloadedModelIds = new HashSet<string>();
+            RefreshDownloadedModelsList();
+
             // Load initial data
             // Note: Loading is triggered by OnAppearing in the View
-        }
-
-        // New: Track downloaded model IDs for UI state
-        private HashSet<string> _downloadedModelIds = new();
+        }        // New: Track downloaded model IDs for UI state
+        private HashSet<string> _downloadedModelIds = new HashSet<string>();
 
         // New: Public property to expose downloaded state for each model
         public bool IsModelDownloaded(string modelId)
         {
             return _downloadedModelIds.Contains(modelId);
+        }        // Integrate HuggingFaceService cache and download wrappers
+        private void EnsureHFModelCacheDirectoryExists()
+        {
+            _huggingFaceService.EnsureHFModelCacheDirectoryExists();
+        }
+
+        private void RefreshDownloadedModelsList()
+        {
+            var files = _huggingFaceService.RefreshDownloadedModelsList();
+            _downloadedModelIds = new HashSet<string>(files.Select(f => Path.GetFileNameWithoutExtension(f)));
+        }
+
+        private async Task DownloadModelAsync(NeuralNetworkModel model)
+        {
+            var modelPath = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace", (model.HuggingFaceModelId ?? model.Id).Replace("/", "_") + ".bin");
+            await _huggingFaceService.DownloadModelAsync(model.HuggingFaceModelId, modelPath);
+            _downloadedModelIds.Add(model.HuggingFaceModelId);
+        }
+
+        private async Task DeleteModelAsync(NeuralNetworkModel model)
+        {
+            var modelPath = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace", (model.HuggingFaceModelId ?? model.Id).Replace("/", "_") + ".bin");
+            await _huggingFaceService.DeleteModelAsync(model.HuggingFaceModelId, modelPath);
+            _downloadedModelIds.Remove(model.HuggingFaceModelId);
+        }
+
+        private async Task DownloadOrDeleteModelAsync(NeuralNetworkModel model)
+        {
+            if (IsModelDownloaded(model.HuggingFaceModelId))
+                await DeleteModelAsync(model);
+            else
+                await DownloadModelAsync(model);
+        }
+
+        private async Task DeleteModelReferenceAsync(NeuralNetworkModel model)
+        {
+            if (IsModelDownloaded(model.HuggingFaceModelId))
+                await DeleteModelAsync(model);
+            AvailableModels.Remove(model);
+            await SavePersistedModelsAsync();
         }
 
         // ADDED: List of available input types for binding to dropdown

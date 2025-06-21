@@ -10,6 +10,9 @@
              Title="Net">
     <ContentPage.Resources>
         <converters:NullToBoolConverter x:Key="NullToBoolConverter" />
+        <converters:StringFormatConverter x:Key="StringFormatConverter" />
+        <converters:BoolConverter x:Key="BoolConverter" />
+        <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
     </ContentPage.Resources>
     <ContentPage.Content>
         <ScrollView>
@@ -186,7 +189,7 @@
                                            Margin="{StaticResource MarginTiny}"
                                            CornerRadius="{StaticResource CornerRadiusSmall}">
                                         <!-- Use Grid for better layout with the new dropdown -->
-                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto"
                                               ColumnSpacing="{StaticResource SpacingSmall}">
                                             <VerticalStackLayout Grid.Column="0">
                                                 <Label Text="{Binding Name}"
@@ -216,8 +219,26 @@
                                                     </Picker.Behaviors>
                                                 </Picker>
                                             </VerticalStackLayout>
-                                            <!-- Train/Refine Button -->
+                                            <!-- HuggingFace Model Download/Delete Button -->
                                             <Button Grid.Column="2"
+                                                    Text="{Binding HuggingFaceModelId, Converter={StaticResource StringFormatConverter}, ConverterParameter='Download', StringFormat='{0}'}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=DownloadOrDeleteModelCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    BackgroundColor="{StaticResource Secondary}"
+                                                    TextColor="{StaticResource TextOnSecondary}"
+                                                    VerticalOptions="Center"
+                                                    IsVisible="{Binding IsHuggingFaceReference}" />
+                                            <!-- Delete HF Reference Button -->
+                                            <Button Grid.Column="3"
+                                                    Text="Delete Ref"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=DeleteModelReferenceCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    BackgroundColor="{StaticResource Error}"
+                                                    TextColor="{StaticResource TextOnPrimary}"
+                                                    VerticalOptions="Center"
+                                                    IsVisible="{Binding IsHuggingFaceReference}" />
+                                            <!-- Train/Refine Button -->
+                                            <Button Grid.Column="4"
                                                     Text="Train"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=GoToOrientCommand}"
                                                     CommandParameter="{Binding .}"
@@ -225,7 +246,7 @@
                                                     TextColor="{StaticResource TextOnPrimary}"
                                                     VerticalOptions="Center" />
                                             <!-- Activate Button -->
-                                            <Button Grid.Column="3"
+                                            <Button Grid.Column="5"
                                                     Text="Activate"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ActivateModelCommand}"
                                                     CommandParameter="{Binding .}"
