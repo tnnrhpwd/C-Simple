@@ -39,11 +39,11 @@ public partial class App : Application
         }
     }
 
-    public ICommand ToggleFlyoutCommand { get; }
+    public ICommand ToggleFlyoutCommand { get; }    // Add this property
+    public NetPageViewModel NetPageViewModel { get; private set; }
 
-    // Add this property
-    public NetPageViewModel NetPageViewModel { get; private set; }    // Inject services via constructor - Change PythonDependencyManager to PythonBootstrapper
-    public App(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService)
+    // Inject services via constructor - Change PythonDependencyManager to PythonBootstrapper
+    public App(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService)
     {
         try
         {
@@ -55,10 +55,10 @@ public partial class App : Application
 
             Debug.WriteLine("App constructor: Converters created");
 
-            InitializeComponent();
+            InitializeComponent(); Debug.WriteLine("App constructor: InitializeComponent completed");
 
-            Debug.WriteLine("App constructor: InitializeComponent completed");            // Instantiate NetPageViewModel using injected services - Pass pythonBootstrapper
-            NetPageViewModel = new NetPageViewModel(fileService, huggingFaceService, pythonBootstrapper, appModeService, pythonEnvironmentService, modelCommunicationService, modelExecutionService, modelImportExportService);
+            // Instantiate NetPageViewModel using injected services - Pass pythonBootstrapper
+            NetPageViewModel = new NetPageViewModel(fileService, huggingFaceService, pythonBootstrapper, appModeService, pythonEnvironmentService, modelCommunicationService, modelExecutionService, modelImportExportService, trayService);
             Debug.WriteLine("App constructor: NetPageViewModel instantiated");
 
             // Extract bundled scripts to app data directory

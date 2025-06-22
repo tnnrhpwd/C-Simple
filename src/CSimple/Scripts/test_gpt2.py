@@ -16,21 +16,27 @@ def test_gpt2():
         import torch
         
         print("Testing GPT-2 generation...", file=sys.stderr)
+        print("Progress: Starting GPT-2 test...", file=sys.stderr)
         
         model_id = "openai-community/gpt2"
         input_text = "test"
         
         # Force CPU mode
+        print("Progress: Loading tokenizer...", file=sys.stderr)
         print("Loading tokenizer...", file=sys.stderr)
         tokenizer = AutoTokenizer.from_pretrained(model_id)
+        print("Progress: ✓ Tokenizer loaded successfully", file=sys.stderr)
         
+        print("Progress: Loading model...", file=sys.stderr)
         print("Loading model...", file=sys.stderr)
         model = AutoModelForCausalLM.from_pretrained(
             model_id,
             torch_dtype=torch.float32
         )
         model = model.to("cpu")
+        print("Progress: ✓ Model loaded successfully", file=sys.stderr)
         
+        print("Progress: Setting up tokenization...", file=sys.stderr)
         print("Setting up tokenization...", file=sys.stderr)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
@@ -38,6 +44,7 @@ def test_gpt2():
         inputs = tokenizer(input_text, return_tensors="pt")
         inputs = {k: v.to("cpu") for k, v in inputs.items()}
         
+        print("Progress: Generating text...", file=sys.stderr)
         print("Generating...", file=sys.stderr)
         with torch.no_grad():
             outputs = model.generate(
@@ -55,6 +62,7 @@ def test_gpt2():
         if generated_text.startswith(input_text):
             generated_text = generated_text[len(input_text):].strip()
         
+        print("Progress: ✓ Text generation complete", file=sys.stderr)
         print(f"Generated text: '{generated_text}'", file=sys.stderr)
         print(generated_text)  # Output to stdout
         

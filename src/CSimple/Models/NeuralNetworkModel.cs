@@ -12,6 +12,10 @@ namespace CSimple.Models
         private bool _isActive;
         private ModelInputType _inputType = ModelInputType.Unknown;
         private string _downloadButtonText = "Download to Device";
+        private double _downloadProgress = 0.0;
+        private bool _isDownloading = false;
+        private string _downloadStatus = "";
+        private bool _isDownloaded = false;
 
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; }
@@ -42,9 +46,7 @@ namespace CSimple.Models
 
         // HuggingFace specific properties
         public bool IsHuggingFaceReference { get; set; } = false;
-        public string HuggingFaceModelId { get; set; }
-
-        // Download button text property with change notification
+        public string HuggingFaceModelId { get; set; }        // Download button text property with change notification
         public string DownloadButtonText
         {
             get => _downloadButtonText;
@@ -57,6 +59,65 @@ namespace CSimple.Models
                 }
             }
         }
+
+        // Download progress properties
+        public double DownloadProgress
+        {
+            get => _downloadProgress;
+            set
+            {
+                if (Math.Abs(_downloadProgress - value) > 0.001)
+                {
+                    _downloadProgress = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(DownloadProgressPercentage));
+                }
+            }
+        }
+
+        public bool IsDownloading
+        {
+            get => _isDownloading;
+            set
+            {
+                if (_isDownloading != value)
+                {
+                    _isDownloading = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string DownloadStatus
+        {
+            get => _downloadStatus;
+            set
+            {
+                if (_downloadStatus != value)
+                {
+                    _downloadStatus = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public bool IsDownloaded
+        {
+            get => _isDownloaded;
+            set
+            {
+                if (_isDownloaded != value)
+                {
+                    _isDownloaded = value;
+                    OnPropertyChanged();
+                    // Update button text based on download status
+                    DownloadButtonText = value ? "Remove from Device" : "Download to Device";
+                }
+            }
+        }
+
+        // Helper property for UI binding (0-100 percentage)
+        public string DownloadProgressPercentage => $"{DownloadProgress:P0}";
 
         // Full property implementation for InputType with notification
         public ModelInputType InputType

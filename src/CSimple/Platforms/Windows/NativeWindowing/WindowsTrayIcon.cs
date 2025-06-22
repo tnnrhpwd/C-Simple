@@ -122,6 +122,17 @@ namespace Hardcodet.Wpf.TaskbarNotification.Interop
         public static readonly object SyncRoot = new object();
 
 
+        public void UpdateTooltip(string tooltipText)
+        {
+            if (!IsTaskbarIconCreated) return;
+
+            lock (lockObject)
+            {
+                iconData.ToolTipText = tooltipText ?? "";
+                WriteIconData(ref iconData, NotifyCommand.Modify, IconDataMembers.Tip);
+            }
+        }
+
         /// <summary>
         /// Updates the taskbar icons with data provided by a given
         /// <see cref="NotifyIconData"/> instance.

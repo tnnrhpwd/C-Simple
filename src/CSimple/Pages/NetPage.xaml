@@ -220,15 +220,38 @@
                                                     </Picker.Behaviors>
                                                 </Picker>
                                             </VerticalStackLayout>
-                                            <!-- HuggingFace Model Download/Delete Button -->
-                                            <Button Grid.Column="2"
-                                                    Text="{Binding DownloadButtonText}"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=DownloadOrDeleteModelCommand}"
-                                                    CommandParameter="{Binding .}"
-                                                    BackgroundColor="{StaticResource Secondary}"
-                                                    TextColor="{StaticResource TextOnSecondary}"
-                                                    VerticalOptions="Center"
-                                                    IsVisible="{Binding IsHuggingFaceReference}" />
+                                            <!-- HuggingFace Model Download/Delete Button with Progress -->
+                                            <Grid Grid.Column="2"
+                                                  VerticalOptions="Center">
+                                                <Button Text="{Binding DownloadButtonText}"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=DownloadOrDeleteModelCommand}"
+                                                        CommandParameter="{Binding .}"
+                                                        BackgroundColor="{StaticResource Secondary}"
+                                                        TextColor="{StaticResource TextOnSecondary}"
+                                                        IsVisible="{Binding IsHuggingFaceReference}"
+                                                        IsEnabled="{Binding IsDownloading, Converter={StaticResource InverseBoolConverter}}" />
+                                                <!-- Progress bar overlay -->
+                                                <Frame IsVisible="{Binding IsDownloading}"
+                                                       BackgroundColor="Transparent"
+                                                       BorderColor="Transparent"
+                                                       Padding="0"
+                                                       VerticalOptions="End"
+                                                       HorizontalOptions="Fill"
+                                                       HeightRequest="4">
+                                                    <ProgressBar Progress="{Binding DownloadProgress}"
+                                                                 ProgressColor="{StaticResource Primary}"
+                                                                 BackgroundColor="LightGray"
+                                                                 HeightRequest="4" />
+                                                </Frame>
+                                                <!-- Download status label (optional) -->
+                                                <Label Text="{Binding DownloadStatus}"
+                                                       IsVisible="{Binding IsDownloading}"
+                                                       FontSize="10"
+                                                       TextColor="{StaticResource TextSecondary}"
+                                                       HorizontalOptions="Center"
+                                                       VerticalOptions="Center"
+                                                       BackgroundColor="Transparent" />
+                                            </Grid>
                                             <!-- Delete HF Reference Button -->
                                             <Button Grid.Column="3"
                                                     Text="Delete Ref"

@@ -81,18 +81,42 @@ namespace CSimple.Services
                     WorkingDirectory = Path.GetDirectoryName(huggingFaceScriptPath)
                 };
 
-                Debug.WriteLine($"Starting process: {processStartInfo.FileName} {processStartInfo.Arguments}");
+                Debug.WriteLine($"Starting process: {processStartInfo.FileName} {processStartInfo.Arguments}"); using var process = new Process { StartInfo = processStartInfo };
 
-                using var process = new Process { StartInfo = processStartInfo };
+                // Collect stderr output for final processing
+                var stderrOutput = new StringBuilder();
+
+                // Set up real-time stderr reading for progress updates
+                process.ErrorDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        Debug.WriteLine($"Python stderr: {e.Data}");
+                        stderrOutput.AppendLine(e.Data);                        // Update status if it looks like a progress message
+                        if (e.Data.Contains("Progress:") || e.Data.Contains("Loading") || e.Data.Contains("Downloading") ||
+                            e.Data.Contains("Installing") || e.Data.Contains("Tokenizer"))
+                        {
+                            StatusUpdated?.Invoke(e.Data);
+                        }
+                        // Also update status for important error messages
+                        else if (e.Data.Contains("Fast tokenizer failed") || e.Data.Contains("SentencePiece") ||
+                                e.Data.Contains("Attempting to load slow tokenizer"))
+                        {
+                            StatusUpdated?.Invoke(e.Data);
+                        }
+                    }
+                };
+
                 process.Start();
+                process.BeginErrorReadLine(); // Start async reading of stderr
 
-                var outputTask = process.StandardOutput.ReadToEndAsync();
-                var errorTask = process.StandardError.ReadToEndAsync();
-
-                // Determine timeout based on model type (CPU-friendly models get less time)
+                var outputTask = process.StandardOutput.ReadToEndAsync();                // Determine timeout based on model type and first-time setup
                 var cpuFriendlyModels = new[] { "gpt2", "distilgpt2", "microsoft/DialoGPT" };
                 bool isCpuFriendly = cpuFriendlyModels.Any(cpu => modelId.Contains(cpu, StringComparison.OrdinalIgnoreCase));
-                int timeoutMs = isCpuFriendly ? 120000 : 300000; // 2 minutes for CPU-friendly, 5 minutes for others
+
+                // Increase timeout for first-time downloads and package installations
+                int baseTimeoutMs = isCpuFriendly ? 120000 : 300000; // 2 min for CPU-friendly, 5 min for others
+                int timeoutMs = baseTimeoutMs * 2; // Double timeout for package installation scenarios
 
                 StatusUpdated?.Invoke($"Processing with {modelId} (timeout: {timeoutMs / 1000}s)...");
 
@@ -105,14 +129,13 @@ namespace CSimple.Services
                     throw new TimeoutException($"Model execution timed out after {timeoutMs / 1000} seconds. " +
                         (isCpuFriendly ? "Try a shorter input message." : "Large models may require more time on first run."));
                 }
-
                 string output = await outputTask;
-                string error = await errorTask;
+                string error = stderrOutput.ToString(); // Use collected stderr instead of reading again
                 int exitCode = process.ExitCode;
 
                 Debug.WriteLine($"Process completed with exit code: {exitCode}");
-                Debug.WriteLine($"Output: {output}");
-                Debug.WriteLine($"Error: {error}");
+                Debug.WriteLine($"Raw Output: '{output}'");
+                Debug.WriteLine($"Raw Error: '{error}'");
 
                 if (exitCode != 0)
                 {
@@ -279,11 +302,24 @@ namespace CSimple.Services
                 "t5-small"
             });
         }
-
         private Exception ProcessModelExecutionError(string modelId, int exitCode, string error)
         {
             // Enhanced error handling with specific suggestions
-            if (error.Contains("compute capability") && error.Contains("FP8"))
+
+            // Handle tokenizer compatibility issues first
+            if (error.Contains("Fast tokenizer failed") || error.Contains("SentencePiece") || error.Contains("Tiktoken"))
+            {
+                return new Exception($"Tokenizer compatibility issue with model '{modelId}'. " +
+                    "This model uses a SentencePiece or Tiktoken tokenizer that requires additional setup. " +
+                    "The script will attempt to install required packages and use a fallback tokenizer.");
+            }
+            else if (error.Contains("Both fast and slow tokenizers failed"))
+            {
+                return new Exception($"Critical tokenizer error for model '{modelId}'. " +
+                    "Both fast and slow tokenizers failed to load. This model may not be compatible with the current environment. " +
+                    "Try a different model like 'gpt2' or 'microsoft/DialoGPT-medium'.");
+            }
+            else if (error.Contains("compute capability") && error.Contains("FP8"))
             {
                 return new Exception($"Model '{modelId}' requires FP8 quantization (GPU compute capability 8.9+). " +
                     "Your RTX 3090 (8.6) is detected but doesn't support FP8. Switch to online mode or try a different model variant.");
@@ -338,7 +374,6 @@ namespace CSimple.Services
                 return new Exception($"Script failed with exit code {exitCode}. Error: {error}");
             }
         }
-
         private string ProcessModelOutput(string modelId, string output, string error)
         {
             if (string.IsNullOrWhiteSpace(output))
@@ -364,8 +399,8 @@ namespace CSimple.Services
                         else
                         {
                             // Extract meaningful response from API fallback
-                            var lines = error.Split('\n');
-                            var responseLine = lines.FirstOrDefault(l => l.Contains("Response:") || l.Contains("Output:"));
+                            var errorLines = error.Split('\n');
+                            var responseLine = errorLines.FirstOrDefault(l => l.Contains("Response:") || l.Contains("Output:"));
                             if (!string.IsNullOrEmpty(responseLine))
                             {
                                 return responseLine.Substring(responseLine.IndexOf(':') + 1).Trim();
@@ -378,20 +413,70 @@ namespace CSimple.Services
                         return $"Model execution completed with warnings: {error}";
                     }
                 }
-            }
-
-            // Clean up and format the output
+            }            // Clean up and format the output
             string cleanedOutput = output.Trim();
 
-            // Remove any debug prefixes that might have been added
-            if (cleanedOutput.StartsWith("Loading model:") || cleanedOutput.StartsWith("Model:"))
+            // Remove package installation messages that might be mixed with output
+            var lines = cleanedOutput.Split('\n');
+            var filteredLines = lines.Where(line =>
+                !string.IsNullOrWhiteSpace(line) &&
+                !line.Contains("Requirement already satisfied:") &&
+                !line.Contains("Installing collected packages:") &&
+                !line.Contains("Successfully installed") &&
+                !line.StartsWith("Loading model:") &&
+                !line.StartsWith("Model:") &&
+                !line.Contains("Cache size:") &&
+                !line.Contains("Progress:") &&
+                !line.Contains("✓") &&
+                !line.Contains("Downloading") &&
+                !line.Contains("Loading tokenizer") &&
+                !line.Contains("WARNING:") &&
+                !line.Contains("FutureWarning:") &&
+                line.Trim().Length > 0).ToArray();
+
+            if (filteredLines.Any())
             {
-                var lines = cleanedOutput.Split('\n');
-                cleanedOutput = string.Join('\n', lines.Skip(1)).Trim();
+                cleanedOutput = string.Join("\n", filteredLines).Trim();
+            }
+
+            // If we still don't have meaningful output, check stderr for the actual generated text
+            if (string.IsNullOrWhiteSpace(cleanedOutput) || cleanedOutput.Length < 5)
+            {
+                var errorLines = error.Split('\n');
+                var cleanedTextLine = errorLines.FirstOrDefault(l => l.Contains("Cleaned generated text:"));
+                if (!string.IsNullOrEmpty(cleanedTextLine))
+                {
+                    // Extract the text between single quotes
+                    var startIndex = cleanedTextLine.IndexOf("'") + 1;
+                    var endIndex = cleanedTextLine.LastIndexOf("'");
+                    if (startIndex > 0 && endIndex > startIndex)
+                    {
+                        cleanedOutput = cleanedTextLine.Substring(startIndex, endIndex - startIndex);
+                    }
+                }
+            }
+
+            // Debug the processing
+            Debug.WriteLine($"Original output lines: {lines.Length}");
+            Debug.WriteLine($"Filtered output lines: {filteredLines.Length}");
+            Debug.WriteLine($"Final cleaned output: '{cleanedOutput}'");
+
+            // Final validation
+            if (string.IsNullOrWhiteSpace(cleanedOutput))
+            {
+                return "Model processed the input but generated no readable text output. Try rephrasing your input or using a different model.";
             }
 
             OutputReceived?.Invoke(cleanedOutput);
             return cleanedOutput;
+        }
+
+        /// <summary>
+        /// Test method to verify output processing logic
+        /// </summary>
+        public string TestOutputProcessing(string testOutput, string testError)
+        {
+            return ProcessModelOutput("test-model", testOutput, testError);
         }
     }
 }

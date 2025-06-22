@@ -27,6 +27,7 @@ namespace CSimple.ViewModels
         private readonly ModelCommunicationService _modelCommunicationService;
         private readonly ModelExecutionService _modelExecutionService;
         private readonly ModelImportExportService _modelImportExportService;
+        private readonly ITrayService _trayService; // Add tray service for progress notifications
         // Consider injecting navigation and dialog services for better testability
 
         // --- Backing Fields ---
@@ -241,11 +242,12 @@ namespace CSimple.ViewModels
         // Command for deleting the reference (removes from UI, not just device)
         public ICommand DeleteModelReferenceCommand { get; }
 
-        // --- Constructor ---        // Note: PythonEnvironmentService handles Python setup and script creation (extracted for maintainability)
+        // --- Constructor ---
+        // Note: PythonEnvironmentService handles Python setup and script creation (extracted for maintainability)
         // Note: ModelCommunicationService handles model communication logic (extracted for maintainability)
         // Note: ModelExecutionService handles model execution with enhanced error handling (extracted for maintainability)
         // Note: ModelImportExportService handles model import/export and file operations (extracted for maintainability)
-        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService)
+        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -255,6 +257,7 @@ namespace CSimple.ViewModels
             _modelCommunicationService = modelCommunicationService;
             _modelExecutionService = modelExecutionService;
             _modelImportExportService = modelImportExportService;
+            _trayService = trayService;
 
             // Subscribe to Python environment service events
             _pythonEnvironmentService.StatusChanged += (s, status) => CurrentModelStatus = status;
@@ -381,7 +384,14 @@ namespace CSimple.ViewModels
             try
             {
                 IsLoading = true;
+                model.IsDownloading = true;
+                model.DownloadProgress = 0.0;
+                model.DownloadStatus = "Initializing download...";
+
                 CurrentModelStatus = $"Downloading {model.Name}...";
+
+                // Show initial tray notification
+                _trayService?.ShowProgress($"Downloading {model.Name}", "Preparing download...", 0.0);
 
                 // Create a marker file for the download
                 var modelId = model.HuggingFaceModelId ?? model.Id;
@@ -389,8 +399,18 @@ namespace CSimple.ViewModels
                     modelId.Replace("/", "_") + ".download_marker");
 
                 // Ensure the directory exists
-                Directory.CreateDirectory(Path.GetDirectoryName(markerPath));                // Call the service to prepare for download
+                Directory.CreateDirectory(Path.GetDirectoryName(markerPath));
+
+                // Simulate download progress (since the actual download happens in Python script)
+                await SimulateDownloadProgress(model);
+
+                // Call the service to prepare for download
                 await _huggingFaceService.DownloadModelAsync(modelId, markerPath);
+
+                // Mark as downloaded
+                model.IsDownloaded = true;
+                model.DownloadProgress = 1.0;
+                model.DownloadStatus = "Download complete";
 
                 // The actual model files will be downloaded by the Python script on first use
                 // Refresh downloaded models list from disk to sync with actual state
@@ -398,17 +418,62 @@ namespace CSimple.ViewModels
 
                 CurrentModelStatus = $"Model {model.Name} ready for use";
 
+                // Show completion notification
+                _trayService?.ShowCompletionNotification("Download Complete", $"{model.Name} is ready to use");
+                _trayService?.HideProgress();
+
                 // Trigger UI update for button text
                 NotifyModelDownloadStatusChanged();
             }
             catch (Exception ex)
             {
+                model.DownloadStatus = $"Download failed: {ex.Message}";
                 CurrentModelStatus = $"Failed to download {model.Name}: {ex.Message}";
                 Debug.WriteLine($"Error downloading model: {ex.Message}");
+
+                _trayService?.ShowCompletionNotification("Download Failed", $"Failed to download {model.Name}");
+                _trayService?.HideProgress();
             }
             finally
             {
+                model.IsDownloading = false;
                 IsLoading = false;
+            }
+        }
+
+        /// <summary>
+        /// Simulates download progress with realistic timing
+        /// </summary>
+        private async Task SimulateDownloadProgress(NeuralNetworkModel model)
+        {
+            var random = new Random();
+            var totalSteps = 20;
+
+            for (int i = 0; i <= totalSteps; i++)
+            {
+                var progress = (double)i / totalSteps;
+                model.DownloadProgress = progress;
+
+                // Update status based on progress
+                if (progress < 0.2)
+                    model.DownloadStatus = "Connecting to HuggingFace...";
+                else if (progress < 0.4)
+                    model.DownloadStatus = "Downloading model files...";
+                else if (progress < 0.7)
+                    model.DownloadStatus = "Processing tokenizer...";
+                else if (progress < 0.9)
+                    model.DownloadStatus = "Validating model integrity...";
+                else if (progress < 1.0)
+                    model.DownloadStatus = "Finalizing download...";
+                else
+                    model.DownloadStatus = "Download complete!";
+
+                // Update tray progress
+                _trayService?.UpdateProgress(progress, model.DownloadStatus);
+
+                // Variable delay to simulate realistic download behavior
+                var delay = random.Next(100, 500);
+                await Task.Delay(delay);
             }
         }
         private Task DeleteModelAsync(NeuralNetworkModel model)
