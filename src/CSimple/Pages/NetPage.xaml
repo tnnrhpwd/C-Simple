@@ -219,11 +219,6 @@
                                                         SelectedIndexChanged="OnModelInputTypeChanged"
                                                         WidthRequest="120"
                                                         x:Name="InputTypePicker" />
-                                                <!-- Debug: Show current value -->
-                                                <Label Text="{Binding InputType, StringFormat='Current: {0}'}"
-                                                       FontSize="{StaticResource FontSizeCaption}"
-                                                       TextColor="{StaticResource TextSecondary}"
-                                                       HorizontalOptions="Center" />
                                             </VerticalStackLayout>
                                             <!-- HuggingFace Model Download/Delete Button with Progress -->
                                             <Grid Grid.Column="2"
