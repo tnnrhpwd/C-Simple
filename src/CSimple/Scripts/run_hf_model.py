@@ -52,6 +52,13 @@ def check_and_install_package(package_name: str) -> bool:
 
 def setup_environment() -> bool:
     """Set up the environment with all required packages."""
+    # Set up the cache directory BEFORE importing transformers
+    cache_dir = "C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels"
+    os.makedirs(cache_dir, exist_ok=True)
+    os.environ["TRANSFORMERS_CACHE"] = cache_dir
+    os.environ["HF_HOME"] = cache_dir
+    print(f"Set model cache directory to: {cache_dir}", file=sys.stderr)
+    
     required_packages = {
         "transformers": "transformers",
         "torch": "torch", 
@@ -113,10 +120,11 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any]) 
         
         print(f"Loading tokenizer for {model_id}...", file=sys.stderr)
         
-        # Load tokenizer
+        # Load tokenizer with proper cache settings
         tokenizer = AutoTokenizer.from_pretrained(
             model_id, 
-            trust_remote_code=params.get("trust_remote_code", True)
+            trust_remote_code=params.get("trust_remote_code", True),
+            cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels"
         )
         
         print(f"Loading model {model_id}...", file=sys.stderr)
@@ -136,16 +144,18 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any]) 
             torch_dtype = torch.float16
             device_map = "auto"
         
-        # Load model with appropriate device settings
+        # Load model with appropriate device settings and proper cache
         model_kwargs = {
             "trust_remote_code": params.get("trust_remote_code", True),
             "torch_dtype": torch_dtype,
-            "low_cpu_mem_usage": True
+            "low_cpu_mem_usage": True,
+            "cache_dir": "C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels"
         }
         
         if device_map:
             model_kwargs["device_map"] = device_map
         
+        print(f"Downloading/loading model files (this may take a while for first-time downloads)...", file=sys.stderr)
         model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
           # Move model to CPU if force_cpu is enabled
         if force_cpu and device_map is None:
@@ -244,27 +254,30 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any]) 
 def check_model_cache_status(model_id):
     """Check if model is already cached and report download status"""
     try:
-        from transformers.utils import TRANSFORMERS_CACHE
-        from huggingface_hub import HfApi
-
-        # Set custom cache directory
-        cache_dir = os.path.join("C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels")
-        os.environ['TRANSFORMERS_CACHE'] = cache_dir
-
-        # Check for model files in cache
+        cache_dir = "C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels"
+        
+        # Check for model files in transformers cache format
         model_cache_path = Path(cache_dir)
         model_hash = model_id.replace("/", "--")
-
-        # Look for any cached files related to this model
-        cached_files = []
+        
+        # Look for the standard transformers cache structure
+        model_dirs = []
         if model_cache_path.exists():
-            for item in model_cache_path.rglob("*"):
-                if model_hash in item.name or model_id.split("/")[-1] in item.name:
-                    cached_files.append(item)
-
-        if cached_files:
-            print(f"✓ Model '{model_id}' found in cache ({len(cached_files)} files)", file=sys.stderr)
-            total_size = sum(f.stat().st_size for f in cached_files if f.is_file())
+            # Look for models--{org}--{model_name} directory structure
+            for item in model_cache_path.iterdir():
+                if item.is_dir() and model_hash in item.name:
+                    model_dirs.append(item)
+        
+        if model_dirs:
+            total_size = 0
+            file_count = 0
+            for model_dir in model_dirs:
+                for file_path in model_dir.rglob("*"):
+                    if file_path.is_file():
+                        total_size += file_path.stat().st_size
+                        file_count += 1
+            
+            print(f"✓ Model '{model_id}' found in cache ({file_count} files)", file=sys.stderr)
             print(f"  Cache size: {total_size / (1024*1024):.1f} MB", file=sys.stderr)
             return True
         else:

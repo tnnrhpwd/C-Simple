@@ -8,11 +8,10 @@ namespace CSimple.Models
     // Implement INotifyPropertyChanged to support two-way binding
     public class NeuralNetworkModel : INotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        // Backing fields for properties
+        public event PropertyChangedEventHandler PropertyChanged;        // Backing fields for properties
         private bool _isActive;
         private ModelInputType _inputType = ModelInputType.Unknown;
+        private string _downloadButtonText = "Download to Device";
 
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; }
@@ -44,6 +43,20 @@ namespace CSimple.Models
         // HuggingFace specific properties
         public bool IsHuggingFaceReference { get; set; } = false;
         public string HuggingFaceModelId { get; set; }
+
+        // Download button text property with change notification
+        public string DownloadButtonText
+        {
+            get => _downloadButtonText;
+            set
+            {
+                if (_downloadButtonText != value)
+                {
+                    _downloadButtonText = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
 
         // Full property implementation for InputType with notification
         public ModelInputType InputType

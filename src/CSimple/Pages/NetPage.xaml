@@ -222,7 +222,7 @@
                                             </VerticalStackLayout>
                                             <!-- HuggingFace Model Download/Delete Button -->
                                             <Button Grid.Column="2"
-                                                    Text="{Binding HuggingFaceModelId, Converter={StaticResource ModelDownloadButtonTextConverter}, ConverterParameter={Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}}}"
+                                                    Text="{Binding DownloadButtonText}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=DownloadOrDeleteModelCommand}"
                                                     CommandParameter="{Binding .}"
                                                     BackgroundColor="{StaticResource Secondary}"

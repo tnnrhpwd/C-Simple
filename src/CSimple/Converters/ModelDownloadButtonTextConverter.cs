@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using Microsoft.Maui.Controls;
 using CSimple.ViewModels;
+using System.Diagnostics;
 
 namespace CSimple.Converters
 {
@@ -16,12 +17,18 @@ namespace CSimple.Converters
             // value should be the HuggingFace model ID
             // parameter should be the NetPageViewModel (passed from XAML)
 
+            Debug.WriteLine($"Converter: value='{value}', parameter type='{parameter?.GetType().Name}'");
+
             if (value is string modelId && !string.IsNullOrEmpty(modelId) && parameter is NetPageViewModel viewModel)
             {
-                return viewModel.IsModelDownloaded(modelId) ? "Remove from Device" : "Download to Device";
+                bool isDownloaded = viewModel.IsModelDownloaded(modelId);
+                string result = isDownloaded ? "Remove from Device" : "Download to Device";
+                Debug.WriteLine($"Converter: modelId='{modelId}', isDownloaded={isDownloaded}, result='{result}'");
+                return result;
             }
 
             // Default fallback
+            Debug.WriteLine("Converter: Using fallback 'Download to Device'");
             return "Download to Device";
         }
 

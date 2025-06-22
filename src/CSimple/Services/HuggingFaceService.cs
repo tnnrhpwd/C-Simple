@@ -309,22 +309,38 @@ namespace CSimple.Services
             // Replace with actual logic to get filenames if needed
             return new List<string> { "config.json", "pytorch_model.bin", "tokenizer.json" };
         }
-
         public async Task DownloadModelAsync(string modelId, string destinationPath)
         {
             try
             {
-                // Simulate downloading the model
                 Debug.WriteLine($"Downloading model {modelId} to {destinationPath}...");
-                await Task.Delay(2000); // Simulate download delay
 
-                // Create a dummy file to represent the downloaded model
-                File.WriteAllText(destinationPath, $"Model {modelId} downloaded successfully.");
-                Debug.WriteLine($"Model {modelId} downloaded successfully.");
+                // Create the model directory
+                var modelDir = Path.GetDirectoryName(destinationPath);
+                if (!Directory.Exists(modelDir))
+                {
+                    Directory.CreateDirectory(modelDir);
+                }
+
+                // Instead of downloading individual files, let the Python script handle the download
+                // using the transformers library which properly manages model caching
+                Debug.WriteLine($"Model {modelId} will be downloaded by Python script on first use.");
+
+                // Create a marker file to indicate the model is "available" for download
+                var markerContent = JsonSerializer.Serialize(new
+                {
+                    ModelId = modelId,
+                    DownloadedAt = DateTime.UtcNow,
+                    Status = "ready_for_download",
+                    CacheDirectory = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels"
+                }, new JsonSerializerOptions { WriteIndented = true });
+
+                await File.WriteAllTextAsync(destinationPath, markerContent);
+                Debug.WriteLine($"Model {modelId} marked as ready for download.");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error downloading model {modelId}: {ex.Message}");
+                Debug.WriteLine($"Error preparing model {modelId} for download: {ex.Message}");
                 throw;
             }
         }
@@ -373,10 +389,34 @@ namespace CSimple.Services
             try
             {
                 string cacheDirectory = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
+                var downloadedModels = new List<string>();
+
                 if (Directory.Exists(cacheDirectory))
                 {
-                    var downloadedModels = Directory.GetFiles(cacheDirectory).Select(Path.GetFileName).ToList();
-                    Debug.WriteLine($"Found {downloadedModels.Count} downloaded models.");
+                    // Look for marker files (.download_marker)
+                    var markerFiles = Directory.GetFiles(cacheDirectory, "*.download_marker");
+                    foreach (var markerFile in markerFiles)
+                    {
+                        var modelId = Path.GetFileNameWithoutExtension(markerFile).Replace("_", "/");
+                        downloadedModels.Add(modelId);
+                    }
+
+                    // Also look for actual HuggingFace cache directories (models--org--model)
+                    var modelDirs = Directory.GetDirectories(cacheDirectory, "models--*");
+                    foreach (var modelDir in modelDirs)
+                    {
+                        var dirName = Path.GetFileName(modelDir);
+                        if (dirName.StartsWith("models--"))
+                        {
+                            var modelId = dirName.Substring(8).Replace("--", "/"); // Remove "models--" prefix and convert back
+                            if (!downloadedModels.Contains(modelId))
+                            {
+                                downloadedModels.Add(modelId);
+                            }
+                        }
+                    }
+
+                    Debug.WriteLine($"Found {downloadedModels.Count} downloaded models: {string.Join(", ", downloadedModels)}");
                     return downloadedModels;
                 }
                 else

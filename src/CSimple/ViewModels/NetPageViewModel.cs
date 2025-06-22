@@ -342,43 +342,119 @@ namespace CSimple.ViewModels
             // Load initial data
             // Note: Loading is triggered by OnAppearing in the View
         }        // New: Track downloaded model IDs for UI state
-        private HashSet<string> _downloadedModelIds = new HashSet<string>();
-
-        // New: Public property to expose downloaded state for each model
+        private HashSet<string> _downloadedModelIds = new HashSet<string>();        // New: Public property to expose downloaded state for each model
         public bool IsModelDownloaded(string modelId)
         {
-            return _downloadedModelIds.Contains(modelId);
-        }        // Integrate HuggingFaceService cache and download wrappers
+            bool result = _downloadedModelIds.Contains(modelId);
+            Debug.WriteLine($"IsModelDownloaded: modelId='{modelId}', result={result}, _downloadedModelIds=[{string.Join(", ", _downloadedModelIds)}]");
+            return result;
+        }// Integrate HuggingFaceService cache and download wrappers
         private void EnsureHFModelCacheDirectoryExists()
         {
             _huggingFaceService.EnsureHFModelCacheDirectoryExists();
         }
-
         private void RefreshDownloadedModelsList()
         {
-            var files = _huggingFaceService.RefreshDownloadedModelsList();
-            _downloadedModelIds = new HashSet<string>(files.Select(f => Path.GetFileNameWithoutExtension(f)));
+            var modelIds = _huggingFaceService.RefreshDownloadedModelsList();
+            _downloadedModelIds = new HashSet<string>(modelIds);
+            Debug.WriteLine($"ViewModel RefreshDownloadedModelsList: Found {_downloadedModelIds.Count} downloaded models: [{string.Join(", ", _downloadedModelIds)}]");
+
+            // Update all models' download button text
+            UpdateAllModelsDownloadButtonText();
+        }
+
+        private void UpdateAllModelsDownloadButtonText()
+        {
+            foreach (var model in AvailableModels)
+            {
+                if (!string.IsNullOrEmpty(model.HuggingFaceModelId))
+                {
+                    bool isDownloaded = IsModelDownloaded(model.HuggingFaceModelId);
+                    string newText = isDownloaded ? "Remove from Device" : "Download to Device";
+                    model.DownloadButtonText = newText;
+                    Debug.WriteLine($"Updated model '{model.Name}' button text to '{newText}' (downloaded: {isDownloaded})");
+                }
+            }
         }
         private async Task DownloadModelAsync(NeuralNetworkModel model)
         {
-            var modelPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels", (model.HuggingFaceModelId ?? model.Id).Replace("/", "_") + ".bin");
-            // Ensure the directory exists
-            Directory.CreateDirectory(Path.GetDirectoryName(modelPath));
-            await _huggingFaceService.DownloadModelAsync(model.HuggingFaceModelId, modelPath);
-            _downloadedModelIds.Add(model.HuggingFaceModelId);
+            try
+            {
+                IsLoading = true;
+                CurrentModelStatus = $"Downloading {model.Name}...";
 
-            // Trigger UI update for button text
-            NotifyModelDownloadStatusChanged();
+                // Create a marker file for the download
+                var modelId = model.HuggingFaceModelId ?? model.Id;
+                var markerPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels",
+                    modelId.Replace("/", "_") + ".download_marker");
+
+                // Ensure the directory exists
+                Directory.CreateDirectory(Path.GetDirectoryName(markerPath));                // Call the service to prepare for download
+                await _huggingFaceService.DownloadModelAsync(modelId, markerPath);
+
+                // The actual model files will be downloaded by the Python script on first use
+                // Refresh downloaded models list from disk to sync with actual state
+                RefreshDownloadedModelsList();
+
+                CurrentModelStatus = $"Model {model.Name} ready for use";
+
+                // Trigger UI update for button text
+                NotifyModelDownloadStatusChanged();
+            }
+            catch (Exception ex)
+            {
+                CurrentModelStatus = $"Failed to download {model.Name}: {ex.Message}";
+                Debug.WriteLine($"Error downloading model: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
-
-        private async Task DeleteModelAsync(NeuralNetworkModel model)
+        private Task DeleteModelAsync(NeuralNetworkModel model)
         {
-            var modelPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels", (model.HuggingFaceModelId ?? model.Id).Replace("/", "_") + ".bin");
-            await _huggingFaceService.DeleteModelAsync(model.HuggingFaceModelId, modelPath);
-            _downloadedModelIds.Remove(model.HuggingFaceModelId);
+            try
+            {
+                IsLoading = true;
+                CurrentModelStatus = $"Removing {model.Name}...";
 
-            // Trigger UI update for button text
-            NotifyModelDownloadStatusChanged();
+                var modelId = model.HuggingFaceModelId ?? model.Id;
+
+                // Remove marker file
+                var markerPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels",
+                    modelId.Replace("/", "_") + ".download_marker");
+
+                if (File.Exists(markerPath))
+                {
+                    File.Delete(markerPath);
+                }
+
+                // Remove from HuggingFace cache (the actual model files)
+                var cacheDir = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
+                var modelCacheDir = Path.Combine(cacheDir, "models--" + modelId.Replace("/", "--")); if (Directory.Exists(modelCacheDir))
+                {
+                    Directory.Delete(modelCacheDir, true);
+                }
+
+                // Refresh downloaded models list from disk to sync with actual state
+                RefreshDownloadedModelsList();
+
+                CurrentModelStatus = $"Model {model.Name} removed";
+
+                // Trigger UI update for button text
+                NotifyModelDownloadStatusChanged();
+            }
+            catch (Exception ex)
+            {
+                CurrentModelStatus = $"Failed to remove {model.Name}: {ex.Message}";
+                Debug.WriteLine($"Error deleting model: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+
+            return Task.CompletedTask;
         }
 
         private async Task DownloadOrDeleteModelAsync(NeuralNetworkModel model)
@@ -392,8 +468,7 @@ namespace CSimple.ViewModels
         private async Task DeleteModelReferenceAsync(NeuralNetworkModel model)
         {
             if (IsModelDownloaded(model.HuggingFaceModelId))
-                await DeleteModelAsync(model);
-            AvailableModels.Remove(model);
+                await DeleteModelAsync(model); AvailableModels.Remove(model);
             await SavePersistedModelsAsync();
         }
 
@@ -402,6 +477,11 @@ namespace CSimple.ViewModels
         /// </summary>
         private void NotifyModelDownloadStatusChanged()
         {
+            Debug.WriteLine($"NotifyModelDownloadStatusChanged: Triggering UI refresh for {AvailableModels.Count} models");
+
+            // Update all models' download button text based on current download state
+            UpdateAllModelsDownloadButtonText();
+
             // Force the UI to refresh by notifying that the AvailableModels collection has changed
             // This will cause the converter to re-evaluate for all model buttons
             OnPropertyChanged(nameof(AvailableModels));
@@ -411,18 +491,24 @@ namespace CSimple.ViewModels
         public Array ModelInputTypes => Enum.GetValues(typeof(ModelInputType));
 
         // Configuration for Python execution (Consider moving to a config file/service)
-        private const string PythonExecutablePath = "python"; // Or full path e.g., @"C:\Python311\python.exe"
-        private const string HuggingFaceScriptPath = @"c:\Users\tanne\Documents\Github\C-Simple\scripts\run_hf_model.py"; // Updated path to the script        // --- Public Methods (called from View or Commands) ---
+        private const string PythonExecutablePath = "python"; // Or full path e.g., @"C:\Python311\python.exe"        private const string HuggingFaceScriptPath = @"c:\Users\tanne\Documents\Github\C-Simple\scripts\run_hf_model.py"; // Updated path to the script
+
+        // --- Public Methods (called from View or Commands) ---
 
         public async Task LoadDataAsync()
         {
             await _pythonEnvironmentService.SetupPythonEnvironmentAsync(ShowAlert);
             _pythonExecutablePath = _pythonEnvironmentService.PythonExecutablePath;
-            _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
+            _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath; await LoadPersistedModelsAsync();
 
-            await LoadPersistedModelsAsync();
+            // Refresh downloaded models list to sync UI with actual disk state
+            RefreshDownloadedModelsList();
+
             LoadSampleGoals(); // Load sample goals separately
             SubscribeToInputNotifications(); // Start background simulation
+
+            // Trigger UI update to ensure button text is correct
+            NotifyModelDownloadStatusChanged();
         }
 
         public async Task SearchHuggingFaceAsync()
@@ -974,9 +1060,7 @@ namespace CSimple.ViewModels
         private async Task LoadPersistedModelsAsync()
         {
             var loadedModels = await _modelImportExportService.LoadPersistedModelsAsync();
-            Debug.WriteLine($"ViewModel: LoadPersistedModelsAsync loaded {loadedModels?.Count ?? 0} models from service.");
-
-            // Update AvailableModels on the main thread
+            Debug.WriteLine($"ViewModel: LoadPersistedModelsAsync loaded {loadedModels?.Count ?? 0} models from service.");            // Update AvailableModels on the main thread
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 AvailableModels.Clear();
@@ -986,6 +1070,9 @@ namespace CSimple.ViewModels
                     Debug.WriteLine($"ViewModel: Added model '{model.Name}' to AvailableModels collection.");
                 }
                 Debug.WriteLine($"ViewModel: AvailableModels collection now has {AvailableModels.Count} models.");
+
+                // Update download button text for all loaded models
+                UpdateAllModelsDownloadButtonText();
             });
         }
 
