@@ -14,6 +14,9 @@
         <converters:BoolConverter x:Key="BoolConverter" />
         <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
         <converters:ModelDownloadButtonTextConverter x:Key="ModelDownloadButtonTextConverter" />
+        <converters:ModelInputTypeDisplayConverter x:Key="ModelInputTypeDisplayConverter" />
+        <converters:EnumToDisplayStringConverter x:Key="EnumToDisplayStringConverter" />
+        <converters:EnumToIndexConverter x:Key="EnumToIndexConverter" />
     </ContentPage.Resources>
     <ContentPage.Content>
         <ScrollView>
@@ -210,15 +213,17 @@
                                                        TextColor="{StaticResource TextSecondary}"
                                                        Margin="{StaticResource MarginBottomTiny}"
                                                        HorizontalOptions="Center" />
-                                                <Picker Title="Input Type"
-                                                        SelectedItem="{Binding InputType, Mode=TwoWay}"
-                                                        ItemsSource="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ModelInputTypes}"
+                                                <Picker SelectedIndex="{Binding InputType, Mode=TwoWay, Converter={StaticResource EnumToIndexConverter}}"
+                                                        ItemsSource="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ModelInputTypeDisplayItems}"
+                                                        ItemDisplayBinding="{Binding DisplayName}"
                                                         SelectedIndexChanged="OnModelInputTypeChanged"
-                                                        WidthRequest="120">
-                                                    <Picker.Behaviors>
-                                                        <behaviors:EnumBindingBehavior />
-                                                    </Picker.Behaviors>
-                                                </Picker>
+                                                        WidthRequest="120"
+                                                        x:Name="InputTypePicker" />
+                                                <!-- Debug: Show current value -->
+                                                <Label Text="{Binding InputType, StringFormat='Current: {0}'}"
+                                                       FontSize="{StaticResource FontSizeCaption}"
+                                                       TextColor="{StaticResource TextSecondary}"
+                                                       HorizontalOptions="Center" />
                                             </VerticalStackLayout>
                                             <!-- HuggingFace Model Download/Delete Button with Progress -->
                                             <Grid Grid.Column="2"

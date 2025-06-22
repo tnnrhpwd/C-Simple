@@ -1,6 +1,7 @@
 ﻿using CSimple.Models;
 using CSimple.Services;
 using CSimple.ViewModels; // Add ViewModel namespace
+using static CSimple.ViewModels.NetPageViewModel; // Add static import for nested types
 using Microsoft.Maui.Controls.Xaml;
 using Microsoft.Maui.Storage;
 using System;
@@ -73,37 +74,32 @@ namespace CSimple.Pages
             await Task.Delay(500);
             EnsurePickersHaveCorrectValues();
         }
-
         private void EnsurePickersHaveCorrectValues()
         {
             try
             {
                 Debug.WriteLine("Refreshing model input type pickers");
 
-                // Find all pickers in the CollectionView items
-                var contentGrid = this.FindByName<Grid>("ContentGrid");
-                if (contentGrid == null)
-                {
-                    Debug.WriteLine("ContentGrid not found");
-                    return;
-                }
-
-                // Get CollectionView that contains model items
-                var modelsCollection = this.FindByName<CollectionView>("ModelsCollectionView");
-                if (modelsCollection == null)
-                {
-                    Debug.WriteLine("ModelsCollectionView not found");
-                    return;
-                }
-
-                // Force refresh the collection to update bindings
+                // Force refresh by triggering PropertyChanged on models
                 var models = _viewModel.AvailableModels.ToList();
+                Debug.WriteLine($"Found {models.Count} models to refresh");
+
                 foreach (var model in models)
                 {
-                    Debug.WriteLine($"Model {model.Name} has InputType: {model.InputType}");
-                    // Force a property change notification
-                    model.InputType = model.InputType;
+                    Debug.WriteLine($"Refreshing model {model.Name} with InputType: {model.InputType}");
+
+                    // Force a property change notification to refresh UI bindings
+                    var currentInputType = model.InputType;
+                    model.InputType = ModelInputType.Unknown; // Temporarily change
+                    model.InputType = currentInputType; // Set back to original value
+
+                    Debug.WriteLine($"Model {model.Name} InputType refreshed to: {model.InputType}");
                 }
+                // Instead of calling OnPropertyChanged directly, trigger a refresh another way
+                // Force the UI to refresh by temporarily clearing and repopulating (if needed)
+                Debug.WriteLine("Triggering UI refresh for model collection");
+
+                Debug.WriteLine("Completed refreshing all model input type pickers");
             }
             catch (Exception ex)
             {
@@ -222,8 +218,10 @@ namespace CSimple.Pages
                     // Get the binding context of the picker, which should be the model
                     if (picker.BindingContext is NeuralNetworkModel model)
                     {
-                        if (picker.SelectedItem is ModelInputType selectedInputType)
+                        // With the new approach, we get the ModelInputTypeDisplayItem from SelectedItem
+                        if (picker.SelectedItem is ModelInputTypeDisplayItem selectedDisplayItem)
                         {
+                            var selectedInputType = selectedDisplayItem.Value;
                             Debug.WriteLine($"Picker selected index: {picker.SelectedIndex}, value: {selectedInputType}");
 
                             // Create tuple parameter for command
@@ -238,7 +236,24 @@ namespace CSimple.Pages
                         }
                         else
                         {
-                            Debug.WriteLine($"WARNING: Selected item is not a ModelInputType: {picker.SelectedItem?.GetType().Name ?? "null"}");
+                            Debug.WriteLine($"WARNING: Selected item is not a ModelInputTypeDisplayItem: {picker.SelectedItem?.GetType().Name ?? "null"}");
+                            Debug.WriteLine($"SelectedItem value: {picker.SelectedItem}");
+                            Debug.WriteLine($"SelectedIndex: {picker.SelectedIndex}");
+
+                            // Fallback: Try to get the display item by index from the ViewModel
+                            if (picker.SelectedIndex >= 0 && _viewModel.ModelInputTypeDisplayItems != null &&
+                                picker.SelectedIndex < _viewModel.ModelInputTypeDisplayItems.Count)
+                            {
+                                var displayItem = _viewModel.ModelInputTypeDisplayItems[picker.SelectedIndex];
+                                var indexedInputType = displayItem.Value;
+                                Debug.WriteLine($"Retrieved enum value by index: {indexedInputType}");
+                                var param = (model, indexedInputType);
+                                if (_viewModel.UpdateModelInputTypeCommand.CanExecute(param))
+                                {
+                                    _viewModel.UpdateModelInputTypeCommand.Execute(param);
+                                    Debug.WriteLine($"Input type for model {model.Name} changed to {indexedInputType} (via index)");
+                                }
+                            }
                         }
                     }
                     else

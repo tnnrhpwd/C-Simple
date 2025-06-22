@@ -312,12 +312,19 @@ namespace CSimple.ViewModels
 
             // Add new command for updating model input type
             UpdateModelInputTypeCommand = new Command<(NeuralNetworkModel, ModelInputType)>(
-                param => UpdateModelInputType(param.Item1, param.Item2));
-
-            // Initialize chat commands
+                param => UpdateModelInputType(param.Item1, param.Item2));            // Initialize chat commands
             SendMessageCommand = new Command(async () => await SendMessageAsync(), () => CanSendMessage);
             ClearChatCommand = new Command(ClearChat);
             EditMessageCommand = new Command<ChatMessage>(EditMessage); // Initialize Edit Message Command
+
+            // Initialize ModelInputTypeDisplayItems for the picker
+            ModelInputTypeDisplayItems = new List<ModelInputTypeDisplayItem>
+            {
+                new ModelInputTypeDisplayItem { Value = ModelInputType.Text, DisplayName = "Text" },
+                new ModelInputTypeDisplayItem { Value = ModelInputType.Image, DisplayName = "Image" },
+                new ModelInputTypeDisplayItem { Value = ModelInputType.Audio, DisplayName = "Audio" },
+                new ModelInputTypeDisplayItem { Value = ModelInputType.Unknown, DisplayName = "Unknown" }
+            };
             SaveMessageCommand = new Command<ChatMessage>(SaveMessage); // Initialize Save Message Command
 
             // Initialize media commands
@@ -550,10 +557,19 @@ namespace CSimple.ViewModels
             // Force the UI to refresh by notifying that the AvailableModels collection has changed
             // This will cause the converter to re-evaluate for all model buttons
             OnPropertyChanged(nameof(AvailableModels));
-        }
-
-        // ADDED: List of available input types for binding to dropdown
+        }        // ADDED: List of available input types for binding to dropdown
         public Array ModelInputTypes => Enum.GetValues(typeof(ModelInputType));
+
+        // Collection of ModelInputType display items for the picker
+        public List<ModelInputTypeDisplayItem> ModelInputTypeDisplayItems { get; }
+
+        public class ModelInputTypeDisplayItem
+        {
+            public ModelInputType Value { get; set; }
+            public string DisplayName { get; set; }
+
+            public override string ToString() => DisplayName;
+        }
 
         // Configuration for Python execution (Consider moving to a config file/service)
         private const string PythonExecutablePath = "python"; // Or full path e.g., @"C:\Python311\python.exe"        private const string HuggingFaceScriptPath = @"c:\Users\tanne\Documents\Github\C-Simple\scripts\run_hf_model.py"; // Updated path to the script
@@ -1132,9 +1148,12 @@ namespace CSimple.ViewModels
                 foreach (var model in loadedModels)
                 {
                     AvailableModels.Add(model);
-                    Debug.WriteLine($"ViewModel: Added model '{model.Name}' to AvailableModels collection.");
+                    Debug.WriteLine($"ViewModel: Added model '{model.Name}' to AvailableModels collection. InputType: {model.InputType} ({(int)model.InputType})");
                 }
                 Debug.WriteLine($"ViewModel: AvailableModels collection now has {AvailableModels.Count} models.");
+
+                // Debug the model input types
+                DebugModelInputTypes();
 
                 // Update download button text for all loaded models
                 UpdateAllModelsDownloadButtonText();
@@ -1739,6 +1758,27 @@ namespace CSimple.ViewModels
         }
 
         protected void OnPropertyChanged([CallerMemberName] string propertyName = "") =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));        /// <summary>
+                                                                                              /// Debug method to check model input types
+                                                                                              /// </summary>
+        public void DebugModelInputTypes()
+        {
+            Debug.WriteLine("=== DEBUG MODEL INPUT TYPES ===");
+            Debug.WriteLine($"Total models loaded: {AvailableModels.Count}");
+            foreach (var model in AvailableModels)
+            {
+                Debug.WriteLine($"Model: {model.Name}, InputType: {model.InputType} ({(int)model.InputType})");
+            }
+            Debug.WriteLine($"ModelInputTypeDisplayItems count: {ModelInputTypeDisplayItems?.Count ?? 0}");
+            if (ModelInputTypeDisplayItems != null)
+            {
+                for (int i = 0; i < ModelInputTypeDisplayItems.Count; i++)
+                {
+                    var item = ModelInputTypeDisplayItems[i];
+                    Debug.WriteLine($"  Index {i}: {item.Value} ({(int)item.Value}) -> '{item.DisplayName}'");
+                }
+            }
+            Debug.WriteLine("=== END DEBUG ===");
+        }
     }
 }
