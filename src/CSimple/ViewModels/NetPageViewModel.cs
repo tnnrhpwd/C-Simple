@@ -48,7 +48,13 @@ namespace CSimple.ViewModels
         private string _pythonExecutablePath = "python"; // Default value
         private string _huggingFaceScriptPath = string.Empty; // Default value        // Add these new properties
         private bool _useFallbackScript = false;
-        private string _fallbackScriptPath;        // Chat-related backing fields
+        private string _fallbackScriptPath;
+
+        // Python setup tracking to avoid repeated installations
+        private static bool _isPythonEnvironmentSetup = false;
+        private static readonly object _pythonSetupLock = new object();
+
+        // Chat-related backing fields
         private string _currentMessage = string.Empty;
         private bool _isAiTyping = false;
 
@@ -594,18 +600,49 @@ namespace CSimple.ViewModels
             public string DisplayName { get; set; }
 
             public override string ToString() => DisplayName;
-        }
-
-        // Configuration for Python execution (Consider moving to a config file/service)
-        private const string PythonExecutablePath = "python"; // Or full path e.g., @"C:\Python311\python.exe"        private const string HuggingFaceScriptPath = @"c:\Users\tanne\Documents\Github\C-Simple\scripts\run_hf_model.py"; // Updated path to the script
+        }        // Configuration for Python execution (Consider moving to a config file/service)
+        private const string PythonExecutablePath = "python"; // Or full path e.g., @"C:\Python311\python.exe"
+        private const string HuggingFaceScriptPath = @"c:\Users\tanne\Documents\Github\C-Simple\scripts\run_hf_model.py"; // Updated path to the script
 
         // --- Public Methods (called from View or Commands) ---
 
         public async Task LoadDataAsync()
         {
-            await _pythonEnvironmentService.SetupPythonEnvironmentAsync(ShowAlert);
-            _pythonExecutablePath = _pythonEnvironmentService.PythonExecutablePath;
-            _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath; await LoadPersistedModelsAsync();
+            // Only setup Python environment once per application session
+            lock (_pythonSetupLock)
+            {
+                if (!_isPythonEnvironmentSetup)
+                {
+                    Debug.WriteLine("NetPageViewModel: First-time Python environment setup");
+                    // Setup will be done asynchronously below
+                }
+                else
+                {
+                    Debug.WriteLine("NetPageViewModel: Python environment already set up, skipping setup");
+                }
+            }
+
+            if (!_isPythonEnvironmentSetup)
+            {
+                await _pythonEnvironmentService.SetupPythonEnvironmentAsync(ShowAlert);
+                _pythonExecutablePath = _pythonEnvironmentService.PythonExecutablePath;
+                _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
+
+                lock (_pythonSetupLock)
+                {
+                    _isPythonEnvironmentSetup = true;
+                    Debug.WriteLine("NetPageViewModel: Python environment setup completed");
+                }
+            }
+            else
+            {
+                // Use previously set paths
+                _pythonExecutablePath = _pythonEnvironmentService.PythonExecutablePath;
+                _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
+                Debug.WriteLine("NetPageViewModel: Using existing Python environment paths");
+            }
+
+            await LoadPersistedModelsAsync();
 
             // Refresh downloaded models list to sync UI with actual disk state
             RefreshDownloadedModelsList();

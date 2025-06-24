@@ -5,15 +5,18 @@ using System.Threading.Tasks;
 using Microsoft.Maui.Storage;
 
 namespace CSimple.Services
-{
-    /// <summary>
-    /// Service responsible for Python environment setup and HuggingFace script management.
-    /// Extracted from NetPageViewModel to improve maintainability and separation of concerns.
-    /// Handles Python installation detection, script creation, and package installation.
-    /// </summary>
+{    /// <summary>
+     /// Service responsible for Python environment setup and HuggingFace script management.
+     /// Extracted from NetPageViewModel to improve maintainability and separation of concerns.
+     /// Handles Python installation detection, script creation, and package installation.
+     /// </summary>
     public class PythonEnvironmentService
     {
         private readonly PythonBootstrapper _pythonBootstrapper;
+
+        // Static flags to prevent duplicate Python environment setup across the application
+        private static bool _isPythonEnvironmentSetup = false;
+        private static readonly object _setupLock = new object();
 
         public string PythonExecutablePath { get; private set; }
         public string HuggingFaceScriptPath { get; private set; }
@@ -26,10 +29,21 @@ namespace CSimple.Services
         {
             _pythonBootstrapper = pythonBootstrapper;
         }
-
         public async Task<bool> SetupPythonEnvironmentAsync(
             Func<string, string, string, Task> showAlert)
         {
+            // Check if Python environment is already set up
+            lock (_setupLock)
+            {
+                if (_isPythonEnvironmentSetup)
+                {
+                    Debug.WriteLine("PythonEnvironmentService: Python environment already set up, skipping setup");
+                    OnLoadingChanged(false);
+                    return true;
+                }
+                Debug.WriteLine("PythonEnvironmentService: First-time Python environment setup");
+            }
+
             try
             {
                 OnLoadingChanged(true);
@@ -53,7 +67,7 @@ namespace CSimple.Services
                     // Set a flag that Python is not available
                     PythonExecutablePath = null;
                     return false;
-                }                // Get the Python executable path from the bootstrapper
+                }// Get the Python executable path from the bootstrapper
                 PythonExecutablePath = _pythonBootstrapper.PythonExecutablePath;
 
                 // Use the script from the project directory first
