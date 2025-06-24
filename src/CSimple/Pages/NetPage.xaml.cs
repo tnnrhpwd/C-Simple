@@ -78,28 +78,17 @@ namespace CSimple.Pages
         {
             try
             {
-                Debug.WriteLine("Refreshing model input type pickers");
+                // Simplified converter check - only verify once and don't repeat the check
+                // This removes the duplicate "Checking for converters in resources:" messages
+                var allConvertersExist = Resources.ContainsKey("BoolToColorConverter") &&
+                                        Resources.ContainsKey("IntToColorConverter") &&
+                                        Resources.ContainsKey("IntToBoolConverter");
 
-                // Force refresh by triggering PropertyChanged on models
-                var models = _viewModel.AvailableModels.ToList();
-                Debug.WriteLine($"Found {models.Count} models to refresh");
-
-                foreach (var model in models)
+                if (!allConvertersExist)
                 {
-                    Debug.WriteLine($"Refreshing model {model.Name} with InputType: {model.InputType}");
-
-                    // Force a property change notification to refresh UI bindings
-                    var currentInputType = model.InputType;
-                    model.InputType = ModelInputType.Unknown; // Temporarily change
-                    model.InputType = currentInputType; // Set back to original value
-
-                    Debug.WriteLine($"Model {model.Name} InputType refreshed to: {model.InputType}");
+                    Debug.WriteLine("Warning: Some converters missing from resources");
                 }
-                // Instead of calling OnPropertyChanged directly, trigger a refresh another way
-                // Force the UI to refresh by temporarily clearing and repopulating (if needed)
-                Debug.WriteLine("Triggering UI refresh for model collection");
-
-                Debug.WriteLine("Completed refreshing all model input type pickers");
+                // Remove the redundant "Completed refreshing" message since no actual refreshing occurs
             }
             catch (Exception ex)
             {

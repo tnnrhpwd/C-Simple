@@ -12,7 +12,11 @@ namespace CSimple.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.Convert: value={value}, type={value?.GetType()?.Name}");
+            // Remove excessive logging - only log when debugging is needed
+#if DEBUG
+            // Uncomment the line below only when debugging converter issues
+            // System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.Convert: value={value}, type={value?.GetType()?.Name}");
+#endif
 
             if (value is ModelInputType inputType)
             {
@@ -26,16 +30,22 @@ namespace CSimple.Converters
                     _ => 3 // Default to Unknown
                 };
 
-                System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.Convert: {inputType} -> {result}");
+#if DEBUG
+                // Uncomment the line below only when debugging converter issues
+                // System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.Convert: {inputType} -> {result}");
+#endif
                 return result;
             }
 
-            System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.Convert: Returning default 3 for value {value}");
             return 3; // Default to Unknown index
         }
+
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.ConvertBack: value={value}, type={value?.GetType()?.Name}");
+#if DEBUG
+            // Uncomment the line below only when debugging converter issues
+            // System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.ConvertBack: value={value}, type={value?.GetType()?.Name}");
+#endif
 
             if (value is int index)
             {
@@ -49,11 +59,13 @@ namespace CSimple.Converters
                     _ => ModelInputType.Unknown
                 };
 
-                System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.ConvertBack: {index} -> {result}");
+#if DEBUG
+                // Uncomment the line below only when debugging converter issues
+                // System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.ConvertBack: {index} -> {result}");
+#endif
                 return result;
             }
 
-            System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.ConvertBack: Returning default Unknown for value {value}");
             return ModelInputType.Unknown;
         }
     }

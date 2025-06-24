@@ -12,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
@@ -26,9 +27,12 @@ namespace CSimple.ViewModels
         private readonly PythonEnvironmentService _pythonEnvironmentService;
         private readonly ModelCommunicationService _modelCommunicationService;
         private readonly ModelExecutionService _modelExecutionService;
-        private readonly ModelImportExportService _modelImportExportService;
-        private readonly ITrayService _trayService; // Add tray service for progress notifications
+        private readonly ModelImportExportService _modelImportExportService; private readonly ITrayService _trayService; // Add tray service for progress notifications
         // Consider injecting navigation and dialog services for better testability
+
+        // Debounce mechanism for saving to prevent excessive saves
+        private CancellationTokenSource _saveDebounceTokenSource;
+        private readonly object _saveLock = new object();
 
         // --- Backing Fields ---
         private bool _isGeneralModeActive = true;
@@ -356,7 +360,8 @@ namespace CSimple.ViewModels
         public bool IsModelDownloaded(string modelId)
         {
             bool result = _downloadedModelIds.Contains(modelId);
-            Debug.WriteLine($"IsModelDownloaded: modelId='{modelId}', result={result}, _downloadedModelIds=[{string.Join(", ", _downloadedModelIds)}]");
+            // Reduce excessive logging - only log when explicitly debugging download status
+            // Debug.WriteLine($"IsModelDownloaded: modelId='{modelId}', result={result}, _downloadedModelIds=[{string.Join(", ", _downloadedModelIds)}]");
             return result;
         }// Integrate HuggingFaceService cache and download wrappers
         private void EnsureHFModelCacheDirectoryExists()
@@ -367,12 +372,21 @@ namespace CSimple.ViewModels
         {
             var modelIds = _huggingFaceService.RefreshDownloadedModelsList();
             _downloadedModelIds = new HashSet<string>(modelIds);
-            Debug.WriteLine($"ViewModel RefreshDownloadedModelsList: Found {_downloadedModelIds.Count} downloaded models: [{string.Join(", ", _downloadedModelIds)}]");
+
+            // Only log when there are actually downloaded models to avoid noise
+            if (_downloadedModelIds.Count > 0)
+            {
+                Debug.WriteLine($"ViewModel RefreshDownloadedModelsList: Found {_downloadedModelIds.Count} downloaded models: [{string.Join(", ", _downloadedModelIds)}]");
+            }
+            else
+            {
+                // Minimal logging for empty case
+                Debug.WriteLine($"Found {_downloadedModelIds.Count} downloaded models");
+            }
 
             // Update all models' download button text
             UpdateAllModelsDownloadButtonText();
         }
-
         private void UpdateAllModelsDownloadButtonText()
         {
             foreach (var model in AvailableModels)
@@ -381,8 +395,13 @@ namespace CSimple.ViewModels
                 {
                     bool isDownloaded = IsModelDownloaded(model.HuggingFaceModelId);
                     string newText = isDownloaded ? "Remove from Device" : "Download to Device";
-                    model.DownloadButtonText = newText;
-                    Debug.WriteLine($"Updated model '{model.Name}' button text to '{newText}' (downloaded: {isDownloaded})");
+
+                    // Only update and log if the text actually changed
+                    if (model.DownloadButtonText != newText)
+                    {
+                        model.DownloadButtonText = newText;
+                        Debug.WriteLine($"Updated model '{model.Name}' button text to '{newText}' (downloaded: {isDownloaded})");
+                    }
                 }
             }
         }
@@ -536,11 +555,11 @@ namespace CSimple.ViewModels
             else
                 await DownloadModelAsync(model);
         }
-
         private async Task DeleteModelReferenceAsync(NeuralNetworkModel model)
         {
             if (IsModelDownloaded(model.HuggingFaceModelId))
-                await DeleteModelAsync(model); AvailableModels.Remove(model);
+                await DeleteModelAsync(model);
+            AvailableModels.Remove(model);
             await SavePersistedModelsAsync();
         }
 
@@ -549,7 +568,11 @@ namespace CSimple.ViewModels
         /// </summary>
         private void NotifyModelDownloadStatusChanged()
         {
-            Debug.WriteLine($"NotifyModelDownloadStatusChanged: Triggering UI refresh for {AvailableModels.Count} models");
+            // Reduce logging frequency - only log when models are present
+            if (AvailableModels.Count > 0)
+            {
+                Debug.WriteLine($"NotifyModelDownloadStatusChanged: Triggering UI refresh for {AvailableModels.Count} models");
+            }
 
             // Update all models' download button text based on current download state
             UpdateAllModelsDownloadButtonText();
@@ -557,7 +580,9 @@ namespace CSimple.ViewModels
             // Force the UI to refresh by notifying that the AvailableModels collection has changed
             // This will cause the converter to re-evaluate for all model buttons
             OnPropertyChanged(nameof(AvailableModels));
-        }        // ADDED: List of available input types for binding to dropdown
+        }
+
+        // ADDED: List of available input types for binding to dropdown
         public Array ModelInputTypes => Enum.GetValues(typeof(ModelInputType));
 
         // Collection of ModelInputType display items for the picker
@@ -1007,33 +1032,30 @@ namespace CSimple.ViewModels
                 HandleError($"Error navigating to Orient page for model {model.Name}", ex);
                 await ShowAlert("Navigation Error", $"Could not navigate to training page: {ex.Message}", "OK");
             }
-        }
-
-        // ADDED: New method to update model input type
+        }        // ADDED: New method to update model input type
         private void UpdateModelInputType(NeuralNetworkModel model, ModelInputType inputType)
         {
             if (model == null) return;
 
             try
             {
-                Debug.WriteLine($"Updating input type for model {model.Name} to {inputType}");
-
                 // Check if the input type is actually changing
                 bool isChanged = model.InputType != inputType;
 
-                model.InputType = inputType;
-
-                // Save the updated model to persistent storage
-                _ = SavePersistedModelsAsync();
-
-                // Explicitly notify that AvailableModels collection has changed
-                // This will trigger the OrientPageViewModel's PropertyChanged handler
-                if (isChanged)
+                if (!isChanged)
                 {
-                    OnPropertyChanged(nameof(AvailableModels));
-                    Debug.WriteLine($"Notified PropertyChanged for AvailableModels after updating input type");
+                    // No change needed, avoid unnecessary operations
+                    return;
                 }
 
+                Debug.WriteLine($"Input type for model {model.Name} changed to {inputType}");
+                model.InputType = inputType;
+
+                // Use debounced save to prevent excessive save operations
+                SavePersistedModelsDebounced();
+
+                // Only notify if something actually changed
+                OnPropertyChanged(nameof(AvailableModels));
                 CurrentModelStatus = $"Updated input type for '{model.Name}' to {inputType}";
             }
             catch (Exception ex)
@@ -1141,19 +1163,26 @@ namespace CSimple.ViewModels
         private async Task LoadPersistedModelsAsync()
         {
             var loadedModels = await _modelImportExportService.LoadPersistedModelsAsync();
-            Debug.WriteLine($"ViewModel: LoadPersistedModelsAsync loaded {loadedModels?.Count ?? 0} models from service.");            // Update AvailableModels on the main thread
+
+            // Only log the summary, not each individual model
+            Debug.WriteLine($"ViewModel: LoadPersistedModelsAsync loaded {loadedModels?.Count ?? 0} models from service.");
+
+            // Update AvailableModels on the main thread
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 AvailableModels.Clear();
                 foreach (var model in loadedModels)
                 {
                     AvailableModels.Add(model);
-                    Debug.WriteLine($"ViewModel: Added model '{model.Name}' to AvailableModels collection. InputType: {model.InputType} ({(int)model.InputType})");
+                    // Remove individual model logging to reduce noise
+                    // Debug.WriteLine($"ViewModel: Added model '{model.Name}' to AvailableModels collection. InputType: {model.InputType} ({(int)model.InputType})");
                 }
+
+                // Only log collection summary
                 Debug.WriteLine($"ViewModel: AvailableModels collection now has {AvailableModels.Count} models.");
 
-                // Debug the model input types
-                DebugModelInputTypes();
+                // Remove debug method call - it's too verbose for normal operation
+                // DebugModelInputTypes();
 
                 // Update download button text for all loaded models
                 UpdateAllModelsDownloadButtonText();
@@ -1396,17 +1425,49 @@ namespace CSimple.ViewModels
         private async Task SavePersistedModelsAsync(List<NeuralNetworkModel> modelsToSave)
         {
             await _modelImportExportService.SavePersistedModelsAsync(modelsToSave);
-        }
-
-        // Original method now calls the overload
+        }        // Original method now calls the overload
         private async Task SavePersistedModelsAsync()
         {
             // Logic moved from NetPage.xaml.cs
-            Debug.WriteLine("ViewModel: SavePersistedModelsAsync (default) starting.");
+            // Reduced logging to minimize console noise
             var modelsToSave = AvailableModels
                 .Where(m => m.IsHuggingFaceReference || !string.IsNullOrEmpty(m.HuggingFaceModelId))
                 .ToList();
             await SavePersistedModelsAsync(modelsToSave); // Call the overload
+        }
+
+        // Debounced save method to prevent excessive saves
+        private void SavePersistedModelsDebounced()
+        {
+            lock (_saveLock)
+            {
+                // Cancel any existing debounce operation
+                _saveDebounceTokenSource?.Cancel();
+                _saveDebounceTokenSource = new CancellationTokenSource();
+
+                var token = _saveDebounceTokenSource.Token;
+
+                // Debounce with 500ms delay
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.Delay(500, token);
+                        if (!token.IsCancellationRequested)
+                        {
+                            await SavePersistedModelsAsync();
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Expected when debounce is cancelled
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error in debounced save: {ex.Message}");
+                    }
+                }, token);
+            }
         }
 
         private List<string> GetRecommendedFiles(List<string> files)
@@ -1756,13 +1817,15 @@ namespace CSimple.ViewModels
 
             return true;
         }
-
         protected void OnPropertyChanged([CallerMemberName] string propertyName = "") =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));        /// <summary>
-                                                                                              /// Debug method to check model input types
-                                                                                              /// </summary>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+        /// <summary>
+        /// Debug method to check model input types - only runs in DEBUG builds
+        /// </summary>
         public void DebugModelInputTypes()
         {
+#if DEBUG
             Debug.WriteLine("=== DEBUG MODEL INPUT TYPES ===");
             Debug.WriteLine($"Total models loaded: {AvailableModels.Count}");
             foreach (var model in AvailableModels)
@@ -1779,6 +1842,7 @@ namespace CSimple.ViewModels
                 }
             }
             Debug.WriteLine("=== END DEBUG ===");
+#endif
         }
     }
 }
