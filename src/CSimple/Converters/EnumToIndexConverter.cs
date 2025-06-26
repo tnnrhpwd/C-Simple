@@ -15,7 +15,7 @@ namespace CSimple.Converters
             // Remove excessive logging - only log when debugging is needed
 #if DEBUG
             // Uncomment the line below only when debugging converter issues
-            // System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.Convert: value={value}, type={value?.GetType()?.Name}");
+            System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.Convert: value={value}, type={value?.GetType()?.Name}");
 #endif
 
             if (value is ModelInputType inputType)
@@ -32,11 +32,14 @@ namespace CSimple.Converters
 
 #if DEBUG
                 // Uncomment the line below only when debugging converter issues
-                // System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.Convert: {inputType} -> {result}");
+                System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.Convert: {inputType} -> {result}");
 #endif
                 return result;
             }
 
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.Convert: Could not convert value {value} to ModelInputType, returning default index 3");
+#endif
             return 3; // Default to Unknown index
         }
 

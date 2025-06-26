@@ -136,6 +136,23 @@ namespace CSimple.Models
         // Standard INPC implementation
         protected void OnPropertyChanged([CallerMemberName] string propertyName = "") =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+        // Static property for input type display items - available to all model instances
+        public static List<ModelInputTypeDisplayItem> InputTypeDisplayItems { get; } = new()
+        {
+            new ModelInputTypeDisplayItem { Value = ModelInputType.Text, DisplayName = "Text" },
+            new ModelInputTypeDisplayItem { Value = ModelInputType.Image, DisplayName = "Image" },
+            new ModelInputTypeDisplayItem { Value = ModelInputType.Audio, DisplayName = "Audio" },
+            new ModelInputTypeDisplayItem { Value = ModelInputType.Unknown, DisplayName = "Unknown" }
+        };
+
+        // Helper class for input type display
+        public class ModelInputTypeDisplayItem
+        {
+            public ModelInputType Value { get; set; }
+            public string DisplayName { get; set; }
+            public override string ToString() => DisplayName;
+        }
     }
 
     public enum ModelType

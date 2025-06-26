@@ -214,7 +214,7 @@
                                                        Margin="{StaticResource MarginBottomTiny}"
                                                        HorizontalOptions="Center" />
                                                 <Picker SelectedIndex="{Binding InputType, Mode=TwoWay, Converter={StaticResource EnumToIndexConverter}}"
-                                                        ItemsSource="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ModelInputTypeDisplayItems}"
+                                                        ItemsSource="{x:Static models:NeuralNetworkModel.InputTypeDisplayItems}"
                                                         ItemDisplayBinding="{Binding DisplayName}"
                                                         SelectedIndexChanged="OnModelInputTypeChanged"
                                                         WidthRequest="120"

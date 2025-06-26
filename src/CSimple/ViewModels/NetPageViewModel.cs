@@ -1199,31 +1199,53 @@ namespace CSimple.ViewModels
         }
         private async Task LoadPersistedModelsAsync()
         {
-            var loadedModels = await _modelImportExportService.LoadPersistedModelsAsync();
-
-            // Only log the summary, not each individual model
-            Debug.WriteLine($"ViewModel: LoadPersistedModelsAsync loaded {loadedModels?.Count ?? 0} models from service.");
-
-            // Update AvailableModels on the main thread
-            MainThread.BeginInvokeOnMainThread(() =>
+            try
             {
-                AvailableModels.Clear();
-                foreach (var model in loadedModels)
+                var persistedModels = await _modelImportExportService.LoadPersistedModelsAsync();
+
+                // Debug logging to check InputType values
+                Debug.WriteLine($"=== DEBUG LoadPersistedModelsAsync ===");
+                Debug.WriteLine($"Loaded {persistedModels?.Count ?? 0} persisted models");
+                foreach (var model in persistedModels ?? new List<NeuralNetworkModel>())
                 {
-                    AvailableModels.Add(model);
-                    // Remove individual model logging to reduce noise
-                    // Debug.WriteLine($"ViewModel: Added model '{model.Name}' to AvailableModels collection. InputType: {model.InputType} ({(int)model.InputType})");
+                    Debug.WriteLine($"Model: {model.Name}, InputType: {model.InputType} ({(int)model.InputType}), IsHuggingFaceReference: {model.IsHuggingFaceReference}");
                 }
+                Debug.WriteLine($"=== END DEBUG ===");
 
-                // Only log collection summary
-                Debug.WriteLine($"ViewModel: AvailableModels collection now has {AvailableModels.Count} models.");
+                // Update AvailableModels on the main thread
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    AvailableModels.Clear();
+                    foreach (var model in persistedModels ?? new List<NeuralNetworkModel>())
+                    {
+                        AvailableModels.Add(model);
+                    }
 
-                // Remove debug method call - it's too verbose for normal operation
-                // DebugModelInputTypes();
+                    // Apply smart activations based on app mode
+                    if (IsGeneralModeActive)
+                    {
+                        // Leave room for auto-activation logic if needed
+                    }
 
-                // Update download button text for all loaded models
-                UpdateAllModelsDownloadButtonText();
-            });
+                    // Debug the input types again after adding to collection
+                    Debug.WriteLine($"=== DEBUG AvailableModels Collection ===");
+                    foreach (var model in AvailableModels)
+                    {
+                        Debug.WriteLine($"Model in collection: {model.Name}, InputType: {model.InputType} ({(int)model.InputType})");
+                    }
+                    Debug.WriteLine($"=== END DEBUG ===");
+
+                    // DebugModelInputTypes();
+                    DebugModelInputTypes();
+
+                    // Update download button text for all loaded models
+                    UpdateAllModelsDownloadButtonText();
+                });
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error loading persisted models", ex);
+            }
         }
 
         private void LoadSampleGoals()
