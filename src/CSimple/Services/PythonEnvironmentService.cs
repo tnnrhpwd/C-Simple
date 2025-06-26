@@ -131,6 +131,14 @@ namespace CSimple.Services
                 else
                 {
                     OnStatusChanged("Python environment ready");
+
+                    // Mark as successfully set up
+                    lock (_setupLock)
+                    {
+                        _isPythonEnvironmentSetup = true;
+                        Debug.WriteLine("PythonEnvironmentService: Python environment setup completed successfully");
+                    }
+
                     return true;
                 }
             }

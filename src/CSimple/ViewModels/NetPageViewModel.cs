@@ -613,15 +613,19 @@ namespace CSimple.ViewModels
             {
                 if (!_isPythonEnvironmentSetup)
                 {
-                    Debug.WriteLine("NetPageViewModel: First-time Python environment setup");
-                    // Setup will be done asynchronously below
+                    Debug.WriteLine("NetPageViewModel: First-time Python environment setup required");
                 }
                 else
                 {
                     Debug.WriteLine("NetPageViewModel: Python environment already set up, skipping setup");
+                    // Use previously set paths
+                    _pythonExecutablePath = _pythonEnvironmentService.PythonExecutablePath;
+                    _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
+                    Debug.WriteLine("NetPageViewModel: Using existing Python environment paths");
                 }
             }
 
+            // Only call the service if we haven't set up Python yet
             if (!_isPythonEnvironmentSetup)
             {
                 await _pythonEnvironmentService.SetupPythonEnvironmentAsync(ShowAlert);
@@ -633,13 +637,6 @@ namespace CSimple.ViewModels
                     _isPythonEnvironmentSetup = true;
                     Debug.WriteLine("NetPageViewModel: Python environment setup completed");
                 }
-            }
-            else
-            {
-                // Use previously set paths
-                _pythonExecutablePath = _pythonEnvironmentService.PythonExecutablePath;
-                _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
-                Debug.WriteLine("NetPageViewModel: Using existing Python environment paths");
             }
 
             await LoadPersistedModelsAsync();
@@ -1202,15 +1199,6 @@ namespace CSimple.ViewModels
             try
             {
                 var persistedModels = await _modelImportExportService.LoadPersistedModelsAsync();
-
-                // Debug logging to check InputType values
-                Debug.WriteLine($"=== DEBUG LoadPersistedModelsAsync ===");
-                Debug.WriteLine($"Loaded {persistedModels?.Count ?? 0} persisted models");
-                foreach (var model in persistedModels ?? new List<NeuralNetworkModel>())
-                {
-                    Debug.WriteLine($"Model: {model.Name}, InputType: {model.InputType} ({(int)model.InputType}), IsHuggingFaceReference: {model.IsHuggingFaceReference}");
-                }
-                Debug.WriteLine($"=== END DEBUG ===");
 
                 // Update AvailableModels on the main thread
                 MainThread.BeginInvokeOnMainThread(() =>

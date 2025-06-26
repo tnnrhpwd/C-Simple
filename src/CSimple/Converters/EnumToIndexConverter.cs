@@ -12,12 +12,6 @@ namespace CSimple.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            // Remove excessive logging - only log when debugging is needed
-#if DEBUG
-            // Uncomment the line below only when debugging converter issues
-            System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.Convert: value={value}, type={value?.GetType()?.Name}");
-#endif
-
             if (value is ModelInputType inputType)
             {
                 // Map enum values to their corresponding indices
@@ -30,26 +24,14 @@ namespace CSimple.Converters
                     _ => 3 // Default to Unknown
                 };
 
-#if DEBUG
-                // Uncomment the line below only when debugging converter issues
-                System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.Convert: {inputType} -> {result}");
-#endif
                 return result;
             }
 
-#if DEBUG
-            System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.Convert: Could not convert value {value} to ModelInputType, returning default index 3");
-#endif
             return 3; // Default to Unknown index
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-#if DEBUG
-            // Uncomment the line below only when debugging converter issues
-            // System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.ConvertBack: value={value}, type={value?.GetType()?.Name}");
-#endif
-
             if (value is int index)
             {
                 // Map indices back to enum values
@@ -62,10 +44,6 @@ namespace CSimple.Converters
                     _ => ModelInputType.Unknown
                 };
 
-#if DEBUG
-                // Uncomment the line below only when debugging converter issues
-                // System.Diagnostics.Debug.WriteLine($"EnumToIndexConverter.ConvertBack: {index} -> {result}");
-#endif
                 return result;
             }
 
