@@ -433,6 +433,55 @@ namespace CSimple.Services
                 throw;
             }
         }
+
+        public async Task<List<HuggingFaceFileInfo>> GetModelFilesWithSizeAsync(string modelId)
+        {
+            try
+            {
+                // Try to get files using the repository tree endpoint
+                var url = $"{BaseUrl}/repos/{modelId}/tree/main";
+                Debug.WriteLine($"Getting model files with sizes from URL: {url}");
+
+                var response = await _httpClient.GetAsync(url);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    Debug.WriteLine($"Received files response: {content.Length} bytes");
+
+                    try
+                    {
+                        var fileTree = JsonSerializer.Deserialize<List<HuggingFaceFileInfo>>(content,
+                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                        var files = fileTree?
+                            .Where(f => f.Type == "blob")
+                            .ToList() ?? new List<HuggingFaceFileInfo>();
+
+                        if (files.Count > 0)
+                        {
+                            Debug.WriteLine($"Found {files.Count} files with sizes via repo API");
+                            return files;
+                        }
+                    }
+                    catch (JsonException jsonEx)
+                    {
+                        Debug.WriteLine($"Error parsing file tree JSON: {jsonEx.Message}");
+                    }
+                }
+
+                // If we couldn't get files via the API, return empty list
+                Debug.WriteLine("Could not get file sizes from API");
+                return new List<HuggingFaceFileInfo>();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting model files with sizes: {ex}");
+                return new List<HuggingFaceFileInfo>();
+            }
+        }
+
+        // ...existing code...
     }
 
     public class HuggingFaceFileInfo

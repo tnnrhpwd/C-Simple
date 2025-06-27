@@ -421,7 +421,60 @@ namespace CSimple.ViewModels
         {
             try
             {
+                // Show confirmation dialog before starting download
+                CurrentModelStatus = "Fetching model information...";
                 IsLoading = true;
+
+                // Get model details and file size information
+                var modelId = model.HuggingFaceModelId ?? model.Id;
+                var modelDetails = await _huggingFaceService.GetModelDetailsAsync(modelId);
+                var (formattedSize, totalBytes) = await GetModelDownloadSizeAsync(model);
+
+                // Prepare confirmation message
+                string modelInfo = $"Model: {model.Name ?? modelId}";
+                if (!string.IsNullOrEmpty(model.Description))
+                {
+                    modelInfo += $"\nDescription: {model.Description}";
+                }
+                if (modelDetails != null)
+                {
+                    if (!string.IsNullOrEmpty(modelDetails.Author))
+                    {
+                        modelInfo += $"\nAuthor: {modelDetails.Author}";
+                    }
+                    if (!string.IsNullOrEmpty(modelDetails.Pipeline_tag))
+                    {
+                        modelInfo += $"\nType: {modelDetails.Pipeline_tag}";
+                    }
+                    if (modelDetails.Downloads > 0)
+                    {
+                        modelInfo += $"\nDownloads: {modelDetails.Downloads:N0}";
+                    }
+                }
+
+                modelInfo += $"\nTotal Download Size: {formattedSize}";
+
+                if (totalBytes > 1024 * 1024 * 1024) // > 1GB
+                {
+                    modelInfo += "\n\n⚠️ This is a large model that may take significant time to download.";
+                }
+
+                // Show confirmation dialog
+                bool downloadConfirmed = await ShowConfirmation(
+                    "Confirm Model Download",
+                    $"{modelInfo}\n\nAre you sure you want to download this model?",
+                    "Download",
+                    "Cancel"
+                );
+
+                if (!downloadConfirmed)
+                {
+                    CurrentModelStatus = "Download canceled by user";
+                    IsLoading = false;
+                    return;
+                }
+
+                // Proceed with download
                 model.IsDownloading = true;
                 model.DownloadProgress = 0.0;
                 model.DownloadStatus = "Initializing download...";
@@ -432,7 +485,6 @@ namespace CSimple.ViewModels
                 _trayService?.ShowProgress($"Downloading {model.Name}", "Preparing download...", 0.0);
 
                 // Create a marker file for the download
-                var modelId = model.HuggingFaceModelId ?? model.Id;
                 var markerPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels",
                     modelId.Replace("/", "_") + ".download_marker");
 
@@ -1902,6 +1954,53 @@ namespace CSimple.ViewModels
             }
             Debug.WriteLine("=== END DEBUG ===");
 #endif
+        }
+
+        /// <summary>
+        /// Formats file size in bytes to a human-readable string
+        /// </summary>
+        /// <param name="bytes">File size in bytes</param>
+        /// <returns>Formatted size string (e.g., "1.5 GB", "256 MB")</returns>
+        private string FormatFileSize(long bytes)
+        {
+            if (bytes == 0) return "0 B";
+
+            string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+            int order = 0;
+            double size = bytes;
+
+            while (size >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                size /= 1024;
+            }
+
+            return $"{size:0.##} {sizes[order]}";
+        }
+
+        /// <summary>
+        /// Gets the total download size for a model by summing all file sizes
+        /// </summary>
+        /// <param name="model">The neural network model to check</param>
+        /// <returns>Formatted total size string and size in bytes</returns>
+        private async Task<(string formattedSize, long totalBytes)> GetModelDownloadSizeAsync(NeuralNetworkModel model)
+        {
+            try
+            {
+                var modelId = model.HuggingFaceModelId ?? model.Id;
+                var filesWithSizes = await _huggingFaceService.GetModelFilesWithSizeAsync(modelId);
+
+                long totalBytes = filesWithSizes.Sum(f => (long)f.Size);
+                string formattedSize = FormatFileSize(totalBytes);
+
+                Debug.WriteLine($"Model {modelId} total size: {formattedSize} ({totalBytes} bytes)");
+                return (formattedSize, totalBytes);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error calculating model download size: {ex.Message}");
+                return ("Unknown size", 0);
+            }
         }
     }
 }
