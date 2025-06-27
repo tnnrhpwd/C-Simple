@@ -4,6 +4,7 @@ using CSimple.ViewModels; // Add ViewModel namespace
 using static CSimple.ViewModels.NetPageViewModel; // Add static import for nested types
 using Microsoft.Maui.Controls.Xaml;
 using Microsoft.Maui.Storage;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -372,7 +373,64 @@ namespace CSimple.Pages
             catch (Exception ex) { Debug.WriteLine($"Error checking converters: {ex.Message}"); }
         }
 
-        private void SelectAndActivateRecentTextModel()
+        private async void SelectAndActivateRecentTextModel()
+        {
+            try
+            {
+                // Get DataService from the DI container
+                var serviceProvider = Application.Current.MainPage.Handler.MauiContext.Services;
+                var dataService = serviceProvider.GetService<DataService>();
+
+                // Check if auto-selection is enabled
+                var settingsService = new SettingsService(dataService);
+                var hardwareCapabilities = await settingsService.GetHardwareCapabilitiesAsync();
+
+                if (!hardwareCapabilities.AutoSelectModel)
+                {
+                    Debug.WriteLine("Auto-model selection is disabled");
+                    return;
+                }
+
+                // Use the SettingsService recommendation logic
+                string recommendedModelName = settingsService.GetRecommendedModelBasedOnHardware();
+                Debug.WriteLine($"Hardware-based recommendation: {recommendedModelName}");
+
+                // Try to find and activate the recommended model
+                var availableModels = _viewModel.AvailableModels;
+                var recommendedModel = availableModels?.FirstOrDefault(m =>
+                    string.Equals(m.Name, recommendedModelName, StringComparison.OrdinalIgnoreCase));
+
+                if (recommendedModel != null)
+                {
+                    Debug.WriteLine($"Auto-selecting recommended model: {recommendedModel.Name}");
+
+                    // Activate the recommended model using the command
+                    if (_viewModel.ActivateModelCommand.CanExecute(recommendedModel))
+                    {
+                        _viewModel.ActivateModelCommand.Execute(recommendedModel);
+                    }
+
+                    // Update the selected model in SettingsService
+                    await settingsService.SetActiveModelAsync(recommendedModel.Name);
+                }
+                else
+                {
+                    Debug.WriteLine($"Recommended model '{recommendedModelName}' not found in available models");
+
+                    // Fallback to hardware compatibility check with existing logic
+                    SelectModelWithOriginalLogic(hardwareCapabilities);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in auto-model selection: {ex.Message}");
+
+                // Fallback to original method if there's an error
+                SelectModelWithOriginalLogic();
+            }
+        }
+
+        private void SelectModelWithOriginalLogic(SettingsService.HardwareCapabilities capabilities = null)
         {
             try
             {
@@ -411,8 +469,6 @@ namespace CSimple.Pages
                         if (desc.Contains("16gb") && maxVram < 16) return false;
                         if (desc.Contains("24gb") && maxVram < 24) return false;
                     }
-                    // Optionally, add more granular checks for GPU level if your models have metadata for this
-                    // e.g., if (gpuLevel.Contains("A100") && !name.Contains("a100")) return false;
                     return true;
                 }
 
@@ -420,7 +476,7 @@ namespace CSimple.Pages
                 var recentTextModel = _viewModel.AvailableModels
                     .Where(m => m.InputType == ModelInputType.Text && IsModelCompatible(m))
                     .OrderByDescending(m => m.LastUsed)
-                    .LastOrDefault(); // Closest to end of file
+                    .LastOrDefault();
 
                 // Fallback: if none found, pick the last compatible text model
                 if (recentTextModel == null)
@@ -445,15 +501,5 @@ namespace CSimple.Pages
                 Debug.WriteLine($"Error auto-activating recent compatible text model: {ex.Message}");
             }
         }
-
-        // Remove properties, commands, and methods that were moved to the ViewModel
-        // e.g., AvailableModels, ActiveModels, IsGeneralModeActive, IsSpecificModeActive, AvailableGoals,
-        // CurrentModelStatus, LastModelOutput, ActiveModelsCount, IsLoading, IsModelCommunicating,
-        // ToggleGeneralModeCommand, ToggleSpecificModeCommand, ActivateModelCommand, etc.
-        // ToggleGeneralMode(), ToggleSpecificMode(), ActivateModel(), DeactivateModel(), LoadSpecificGoal(),
-        // ShareModel(), CommunicateWithModel(), ExportModel(), ImportModel(), ManageTraining(), ViewModelPerformance(),
-        // LoadPersistedModelsAsync(), LoadSampleGoals(), ShowModelDetailsAndImport(), SavePersistedModelsAsync(), etc.
     }
-
-    // Remove Model definitions (NeuralNetworkModel, ModelType, SpecificGoal) - they will be moved
 }

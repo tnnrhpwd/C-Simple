@@ -383,22 +383,87 @@ public partial class SettingsPage : ContentPage
         }
     }
 
-    private void LoadModelCompatibilitySettings()
+    private async void LoadModelCompatibilitySettings()
     {
+        // Load existing settings from Preferences (maintaining compatibility)
         GpuCapabilityPicker.SelectedIndex = Preferences.Get("ModelCompat_GpuCapabilityIndex", 0);
         MaxVramEntry.Text = Preferences.Get("ModelCompat_MaxVram", "4");
         AllowLargeModelsSwitch.IsToggled = Preferences.Get("ModelCompat_AllowLargeModels", false);
+
+        // Load auto-select setting from SettingsService
+        await LoadAutoSelectModelSetting();
+
+        // Update recommended model preview
+        UpdateRecommendedModelPreview();
     }
 
-    private void SaveModelCompatibilitySettings()
+    private async Task LoadAutoSelectModelSetting()
     {
+        try
+        {
+            var hardwareCapabilities = await _settingsService.GetHardwareCapabilitiesAsync();
+            AutoSelectModelSwitch.IsToggled = hardwareCapabilities.AutoSelectModel;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error loading auto-select setting: {ex.Message}");
+            AutoSelectModelSwitch.IsToggled = true; // Default to enabled
+        }
+    }
+
+    private async void OnModelCompatSettingChanged(object sender, EventArgs e)
+    {
+        await SaveModelCompatibilitySettings();
+        UpdateRecommendedModelPreview();
+    }
+
+    private async Task SaveModelCompatibilitySettings()
+    {
+        // Save to Preferences (maintaining compatibility)
         Preferences.Set("ModelCompat_GpuCapabilityIndex", GpuCapabilityPicker.SelectedIndex);
         Preferences.Set("ModelCompat_MaxVram", MaxVramEntry.Text ?? "4");
         Preferences.Set("ModelCompat_AllowLargeModels", AllowLargeModelsSwitch.IsToggled);
+
+        // Save to SettingsService as well
+        await SaveHardwareCapabilitiesToService();
     }
 
-    private void OnModelCompatSettingChanged(object sender, EventArgs e)
+    private async Task SaveHardwareCapabilitiesToService()
     {
-        SaveModelCompatibilitySettings();
+        try
+        {
+            string gpuCapability = GpuCapabilityPicker.SelectedIndex >= 0 && GpuCapabilityPicker.SelectedIndex < _gpuCapabilityLevels.Length
+                ? _gpuCapabilityLevels[GpuCapabilityPicker.SelectedIndex]
+                : "CPU Only";
+
+            int maxVram = int.TryParse(MaxVramEntry.Text, out int vram) ? vram : 4;
+
+            await _settingsService.SetHardwareCapabilityAsync(
+                gpuCapability,
+                maxVram,
+                AllowLargeModelsSwitch.IsToggled,
+                AutoSelectModelSwitch.IsToggled
+            );
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error saving hardware capabilities: {ex.Message}");
+        }
+    }
+
+    private void UpdateRecommendedModelPreview()
+    {
+        try
+        {
+            string recommendedModel = _settingsService.GetRecommendedModelBasedOnHardware();
+            RecommendedModelLabel.Text = AutoSelectModelSwitch.IsToggled
+                ? $"Recommended: {recommendedModel}"
+                : "Auto-selection disabled";
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error updating recommended model preview: {ex.Message}");
+            RecommendedModelLabel.Text = "General Assistant";
+        }
     }
 }

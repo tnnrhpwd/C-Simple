@@ -291,6 +291,80 @@
                     </VerticalStackLayout>
                 </Frame>
                 <BoxView class="HRule" />
+                <!-- Model Compatibility Section -->
+                <Label Text="Model Compatibility &amp; Auto-Selection"
+                       class="SectionTitle" />
+                <Frame Padding="10"
+                       BorderColor="{StaticResource Background_Mid}"
+                       BackgroundColor="Transparent">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Auto-Model Selection"
+                               class="Subhead" />
+                        <Grid RowDefinitions="Auto,Auto"
+                              ColumnDefinitions="*,Auto">
+                            <Label Text="Enable Auto-Select Model on Startup"
+                                   Grid.Row="0"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch x:Name="AutoSelectModelSwitch"
+                                    Grid.Row="0"
+                                    Grid.Column="1"
+                                    Toggled="OnModelCompatSettingChanged" />
+                            <Label Text="Automatically chooses optimal model based on hardware capabilities"
+                                   Grid.Row="1"
+                                   Grid.ColumnSpan="2"
+                                   FontSize="12"
+                                   TextColor="{StaticResource DarkGray}"
+                                   Margin="0,5,0,0" />
+                        </Grid>
+                        <BoxView class="HRule"
+                                 Margin="0,5" />
+                        <Label Text="Hardware Capabilities"
+                               class="Subhead" />
+                        <Grid RowDefinitions="Auto,Auto,Auto"
+                              ColumnDefinitions="*,Auto">
+                            <Label Text="GPU Capability"
+                                   Grid.Row="0"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Picker x:Name="GpuCapabilityPicker"
+                                    Grid.Row="0"
+                                    Grid.Column="1"
+                                    SelectedIndexChanged="OnModelCompatSettingChanged"
+                                    WidthRequest="180" />
+                            <Label Text="Max VRAM (GB)"
+                                   Grid.Row="1"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Entry x:Name="MaxVramEntry"
+                                   Grid.Row="1"
+                                   Grid.Column="1"
+                                   Keyboard="Numeric"
+                                   Completed="OnModelCompatSettingChanged" />
+                            <Label Text="Allow Large Models"
+                                   Grid.Row="2"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch x:Name="AllowLargeModelsSwitch"
+                                    Grid.Row="2"
+                                    Grid.Column="1"
+                                    Toggled="OnModelCompatSettingChanged" />
+                        </Grid>
+                        <BoxView class="HRule"
+                                 Margin="0,5" />
+                        <Label Text="Recommended Model Preview"
+                               class="Subhead" />
+                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
+                               Padding="10"
+                               CornerRadius="5">
+                            <Label x:Name="RecommendedModelLabel"
+                                   Text="General Assistant"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource Primary}" />
+                        </Frame>
+                    </VerticalStackLayout>
+                </Frame>
+                <BoxView class="HRule" />
                 <Label Text="App"
                        class="SectionTitle" />
                 <Grid Padding="10">
@@ -377,46 +451,6 @@
                     </Label.GestureRecognizers>
                 </Label>
                 <BoxView class="HRule" />
-                <!-- Model Compatibility Section -->
-                <Label Text="Model Compatibility"
-                       class="SectionTitle" />
-                <Frame Padding="10"
-                       BorderColor="{StaticResource Background_Mid}"
-                       BackgroundColor="Transparent">
-                    <VerticalStackLayout Spacing="10">
-                        <Label Text="Hardware Capabilities"
-                               class="Subhead" />
-                        <Grid RowDefinitions="Auto,Auto,Auto"
-                              ColumnDefinitions="*,Auto">
-                            <Label Text="GPU Capability"
-                                   Grid.Row="0"
-                                   Grid.Column="0"
-                                   VerticalOptions="Center" />
-                            <Picker x:Name="GpuCapabilityPicker"
-                                    Grid.Row="0"
-                                    Grid.Column="1"
-                                    SelectedIndexChanged="OnModelCompatSettingChanged"
-                                    WidthRequest="180" />
-                            <Label Text="Max VRAM (GB)"
-                                   Grid.Row="1"
-                                   Grid.Column="0"
-                                   VerticalOptions="Center" />
-                            <Entry x:Name="MaxVramEntry"
-                                   Grid.Row="1"
-                                   Grid.Column="1"
-                                   Keyboard="Numeric"
-                                   Completed="OnModelCompatSettingChanged" />
-                            <Label Text="Allow Large Models"
-                                   Grid.Row="2"
-                                   Grid.Column="0"
-                                   VerticalOptions="Center" />
-                            <Switch x:Name="AllowLargeModelsSwitch"
-                                    Grid.Row="2"
-                                    Grid.Column="1"
-                                    Toggled="OnModelCompatSettingChanged" />
-                        </Grid>
-                    </VerticalStackLayout>
-                </Frame>
             </VerticalStackLayout>
         </ScrollView>
         <Grid Grid.Row="0"

@@ -29,8 +29,17 @@ namespace CSimple.Services
             public DateTime BillingCycleEnd { get; set; }
         }
 
+        public class HardwareCapabilities
+        {
+            public string GpuCapability { get; set; } = "CPU Only";
+            public int MaxVramGB { get; set; } = 4;
+            public bool AllowLargeModels { get; set; } = false;
+            public bool AutoSelectModel { get; set; } = true;
+        }
+
         private MembershipTier _currentTier = MembershipTier.Free;
         private UsageStatistics _usageStats;
+        private HardwareCapabilities _hardwareCapabilities;
 
         public SettingsService(DataService dataService)
         {
@@ -41,6 +50,7 @@ namespace CSimple.Services
 
             InitializePermissions();
             InitializeUsageStatistics();
+            InitializeHardwareCapabilities();
         }
 
         private void InitializePermissions()
@@ -73,6 +83,20 @@ namespace CSimple.Services
 
             // Load saved usage statistics if they exist
             LoadUsageStatisticsAsync().ConfigureAwait(false);
+        }
+
+        private void InitializeHardwareCapabilities()
+        {
+            _hardwareCapabilities = new HardwareCapabilities
+            {
+                GpuCapability = "CPU Only",
+                MaxVramGB = 4,
+                AllowLargeModels = false,
+                AutoSelectModel = true
+            };
+
+            // Load saved hardware capabilities if they exist
+            LoadHardwareCapabilitiesAsync().ConfigureAwait(false);
         }
 
         public async Task<(string Nickname, string Email)> LoadUserData()
@@ -441,6 +465,105 @@ namespace CSimple.Services
             _usageStats.ProcessingMinutes = 0;
             _usageStats.BillingCycleEnd = DateTime.Now.AddDays(30);
             await SaveUsageStatisticsAsync();
+        }
+
+        // Hardware Capabilities Methods
+        public async Task<HardwareCapabilities> GetHardwareCapabilitiesAsync()
+        {
+            await LoadHardwareCapabilitiesAsync();
+            return _hardwareCapabilities;
+        }
+
+        public async Task LoadHardwareCapabilitiesAsync()
+        {
+            try
+            {
+                var gpuCapability = await SecureStorage.GetAsync("hardware_gpuCapability");
+                if (gpuCapability != null)
+                    _hardwareCapabilities.GpuCapability = gpuCapability;
+
+                var maxVram = await SecureStorage.GetAsync("hardware_maxVramGB");
+                if (maxVram != null && int.TryParse(maxVram, out int vram))
+                    _hardwareCapabilities.MaxVramGB = vram;
+
+                var allowLargeModels = await SecureStorage.GetAsync("hardware_allowLargeModels");
+                if (allowLargeModels != null && bool.TryParse(allowLargeModels, out bool allowLarge))
+                    _hardwareCapabilities.AllowLargeModels = allowLarge;
+
+                var autoSelectModel = await SecureStorage.GetAsync("hardware_autoSelectModel");
+                if (autoSelectModel != null && bool.TryParse(autoSelectModel, out bool autoSelect))
+                    _hardwareCapabilities.AutoSelectModel = autoSelect;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading hardware capabilities: {ex.Message}");
+            }
+        }
+
+        public async Task SaveHardwareCapabilitiesAsync()
+        {
+            try
+            {
+                await SecureStorage.SetAsync("hardware_gpuCapability", _hardwareCapabilities.GpuCapability);
+                await SecureStorage.SetAsync("hardware_maxVramGB", _hardwareCapabilities.MaxVramGB.ToString());
+                await SecureStorage.SetAsync("hardware_allowLargeModels", _hardwareCapabilities.AllowLargeModels.ToString());
+                await SecureStorage.SetAsync("hardware_autoSelectModel", _hardwareCapabilities.AutoSelectModel.ToString());
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving hardware capabilities: {ex.Message}");
+            }
+        }
+
+        public async Task SetHardwareCapabilityAsync(string gpuCapability, int maxVramGB, bool allowLargeModels, bool autoSelectModel)
+        {
+            _hardwareCapabilities.GpuCapability = gpuCapability;
+            _hardwareCapabilities.MaxVramGB = maxVramGB;
+            _hardwareCapabilities.AllowLargeModels = allowLargeModels;
+            _hardwareCapabilities.AutoSelectModel = autoSelectModel;
+            await SaveHardwareCapabilitiesAsync();
+        }
+
+        public string GetRecommendedModelBasedOnHardware()
+        {
+            if (!_hardwareCapabilities.AutoSelectModel)
+                return "General Assistant"; // Default fallback
+
+            var gpuCapability = _hardwareCapabilities.GpuCapability;
+            var maxVram = _hardwareCapabilities.MaxVramGB;
+            var allowLarge = _hardwareCapabilities.AllowLargeModels;
+
+            // Model recommendation logic based on hardware capabilities
+            switch (gpuCapability)
+            {
+                case "CPU Only":
+                    return "General Assistant"; // Lightweight model
+
+                case "NVIDIA GTX 10xx (6GB+)":
+                    return maxVram >= 8 ? "Data Analysis" : "General Assistant";
+
+                case "NVIDIA RTX 20xx/30xx (8GB+)":
+                    if (allowLarge && maxVram >= 12)
+                        return "Sales Report"; // More capable model
+                    return maxVram >= 8 ? "Data Analysis" : "General Assistant";
+
+                case "NVIDIA RTX 40xx (12GB+)":
+                    if (allowLarge && maxVram >= 16)
+                        return "Customer Support"; // Most capable model
+                    return maxVram >= 12 ? "Sales Report" : "Data Analysis";
+
+                case "Apple M1/M2":
+                    return allowLarge ? "Data Analysis" : "General Assistant";
+
+                case "AMD RDNA2 (8GB+)":
+                    return maxVram >= 12 ? "Data Analysis" : "General Assistant";
+
+                case "A100/H100/FP8 (24GB+)":
+                    return "Customer Support"; // Best performance model
+
+                default:
+                    return "General Assistant";
+            }
         }
     }
 }
