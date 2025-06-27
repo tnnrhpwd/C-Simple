@@ -193,7 +193,7 @@
                                            Margin="{StaticResource MarginTiny}"
                                            CornerRadius="{StaticResource CornerRadiusSmall}">
                                         <!-- Use Grid for better layout with the new dropdown -->
-                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto"
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto"
                                               ColumnSpacing="{StaticResource SpacingSmall}">
                                             <VerticalStackLayout Grid.Column="0">
                                                 <Label Text="{Binding Name}"
@@ -277,6 +277,16 @@
                                                     BackgroundColor="{StaticResource Primary}"
                                                     TextColor="{StaticResource TextOnPrimary}"
                                                     VerticalOptions="Center" />
+                                            <!-- Open in File Explorer Button -->
+                                            <Button Grid.Column="6"
+                                                    Text="📁"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=OpenModelInExplorerCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    BackgroundColor="{StaticResource Tertiary}"
+                                                    TextColor="{StaticResource TextOnPrimary}"
+                                                    VerticalOptions="Center"
+                                                    ToolTipProperties.Text="Open in File Explorer"
+                                                    WidthRequest="40" />
                                         </Grid>
                                     </Frame>
                                 </DataTemplate>

@@ -241,16 +241,17 @@ namespace CSimple.ViewModels
         // New: Delete model command
         public ICommand DeleteModelCommand { get; }
 
+        // Command for download/delete toggle button
+        public ICommand DownloadOrDeleteModelCommand { get; }
+        // Command for deleting the reference (removes from UI, not just device)
+        public ICommand DeleteModelReferenceCommand { get; }
+        public ICommand OpenModelInExplorerCommand { get; }
+
         // Helper: Get download/delete button text for a model
         public string GetDownloadOrDeleteButtonText(string modelId)
         {
             return IsModelDownloaded(modelId) ? "Delete from device" : "Download to device";
         }
-
-        // Command for download/delete toggle button
-        public ICommand DownloadOrDeleteModelCommand { get; }
-        // Command for deleting the reference (removes from UI, not just device)
-        public ICommand DeleteModelReferenceCommand { get; }
 
         // --- Constructor ---
         // Note: PythonEnvironmentService handles Python setup and script creation (extracted for maintainability)
@@ -349,6 +350,7 @@ namespace CSimple.ViewModels
             DeleteModelCommand = new Command<NeuralNetworkModel>(async (model) => await DeleteModelAsync(model));
             DownloadOrDeleteModelCommand = new Command<NeuralNetworkModel>(async (model) => await DownloadOrDeleteModelAsync(model));
             DeleteModelReferenceCommand = new Command<NeuralNetworkModel>(async (model) => await DeleteModelReferenceAsync(model));
+            OpenModelInExplorerCommand = new Command<NeuralNetworkModel>(OpenModelInExplorer);
 
             // Check cache directory
             EnsureHFModelCacheDirectoryExists();
@@ -2000,6 +2002,70 @@ namespace CSimple.ViewModels
             {
                 Debug.WriteLine($"Error calculating model download size: {ex.Message}");
                 return ("Unknown size", 0);
+            }
+        }
+
+        /// <summary>
+        /// Opens the model's directory in Windows File Explorer
+        /// </summary>
+        /// <param name="model">The neural network model to open in explorer</param>
+        private void OpenModelInExplorer(NeuralNetworkModel model)
+        {
+            try
+            {
+                if (model == null)
+                {
+                    Debug.WriteLine("OpenModelInExplorer: Model is null");
+                    return;
+                }
+
+                string modelPath = null;
+
+                // Determine the model path based on whether it's a HuggingFace model or local model
+                if (model.IsHuggingFaceReference && !string.IsNullOrEmpty(model.HuggingFaceModelId))
+                {
+                    // For HuggingFace models, use the HF cache directory
+                    modelPath = GetModelDirectoryPath(model.HuggingFaceModelId);
+                }
+                else if (!string.IsNullOrEmpty(model.Name))
+                {
+                    // For local models, try to construct path from model name
+                    modelPath = GetModelDirectoryPath(model.Name);
+                }
+                else if (!string.IsNullOrEmpty(model.Id))
+                {
+                    // Fallback: try to construct path from model ID
+                    modelPath = GetModelDirectoryPath(model.Id);
+                }
+
+                if (!string.IsNullOrEmpty(modelPath) && Directory.Exists(modelPath))
+                {
+                    Debug.WriteLine($"Opening model directory in explorer: {modelPath}");
+
+                    // Use Windows-specific command to open File Explorer
+                    var processInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "explorer.exe",
+                        Arguments = $"\"{modelPath}\"",
+                        UseShellExecute = true
+                    };
+
+                    System.Diagnostics.Process.Start(processInfo);
+                }
+                else
+                {
+                    Debug.WriteLine($"Model directory not found: {modelPath}");
+                    ShowAlert?.Invoke("Directory Not Found",
+                        $"Could not find the directory for model '{model.Name}'. The model files may not be downloaded yet.",
+                        "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error opening model in explorer: {ex.Message}");
+                ShowAlert?.Invoke("Error",
+                    $"Failed to open model directory in File Explorer: {ex.Message}",
+                    "OK");
             }
         }
     }
