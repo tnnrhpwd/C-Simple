@@ -451,6 +451,7 @@ namespace CSimple.Services
 
                     try
                     {
+                        // First try to deserialize as a list of file objects (new API format)
                         var fileTree = JsonSerializer.Deserialize<List<HuggingFaceFileInfo>>(content,
                             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
@@ -466,22 +467,130 @@ namespace CSimple.Services
                     }
                     catch (JsonException jsonEx)
                     {
-                        Debug.WriteLine($"Error parsing file tree JSON: {jsonEx.Message}");
+                        Debug.WriteLine($"Error parsing file tree JSON as list: {jsonEx.Message}");
+
+                        // Try alternative format - sometimes the API returns an object with a tree property
+                        try
+                        {
+                            using (var doc = JsonDocument.Parse(content))
+                            {
+                                var files = new List<HuggingFaceFileInfo>();
+
+                                if (doc.RootElement.TryGetProperty("tree", out var treeElement))
+                                {
+                                    foreach (var item in treeElement.EnumerateArray())
+                                    {
+                                        if (item.TryGetProperty("type", out var typeElement) &&
+                                            typeElement.GetString() == "blob")
+                                        {
+                                            var file = new HuggingFaceFileInfo
+                                            {
+                                                Type = "blob",
+                                                Path = item.TryGetProperty("path", out var pathElement) ? pathElement.GetString() : "",
+                                                Oid = item.TryGetProperty("oid", out var oidElement) ? oidElement.GetString() : "",
+                                                Size = item.TryGetProperty("size", out var sizeElement) ? sizeElement.GetInt64() : 0
+                                            };
+                                            files.Add(file);
+                                        }
+                                    }
+                                }
+
+                                if (files.Count > 0)
+                                {
+                                    Debug.WriteLine($"Found {files.Count} files using alternative parsing");
+                                    return files;
+                                }
+                            }
+                        }
+                        catch (JsonException altJsonEx)
+                        {
+                            Debug.WriteLine($"Error parsing alternative file tree format: {altJsonEx.Message}");
+                        }
                     }
                 }
 
-                // If we couldn't get files via the API, return empty list
-                Debug.WriteLine("Could not get file sizes from API");
-                return new List<HuggingFaceFileInfo>();
+                // If we couldn't get files via the API, use estimated sizes as fallback
+                Debug.WriteLine("Could not get file sizes from API, using estimated sizes");
+                Debug.WriteLine($"Response status: {response.StatusCode}");
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Debug.WriteLine($"Error response: {errorContent.Substring(0, Math.Min(500, errorContent.Length))}");
+                }
+
+                // Return estimated file sizes as fallback
+                return GetEstimatedFileSizes(modelId);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error getting model files with sizes: {ex}");
-                return new List<HuggingFaceFileInfo>();
+                // Return estimated sizes as fallback even on exception
+                return GetEstimatedFileSizes(modelId);
             }
         }
 
-        // ...existing code...
+        /// <summary>
+        /// Get estimated file sizes for common models when API doesn't provide them
+        /// </summary>
+        private List<HuggingFaceFileInfo> GetEstimatedFileSizes(string modelId)
+        {
+            var files = new List<HuggingFaceFileInfo>();
+            var modelName = modelId.ToLowerInvariant();
+
+            Debug.WriteLine($"Using estimated file sizes for model: {modelId}");
+
+            // Add common files with estimated sizes based on model type
+            if (modelName.Contains("gpt2"))
+            {
+                // GPT-2 standard model sizes
+                if (modelName.Contains("large"))
+                {
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 3200000000 }); // ~3.2GB
+                    files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
+                    files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 2000000 }); // ~2MB
+                }
+                else if (modelName.Contains("medium"))
+                {
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 1400000000 }); // ~1.4GB
+                    files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
+                    files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 2000000 }); // ~2MB
+                }
+                else
+                {
+                    // GPT-2 base model
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 500000000 }); // ~500MB
+                    files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
+                    files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 2000000 }); // ~2MB
+                }
+            }
+            else if (modelName.Contains("bert"))
+            {
+                // BERT model sizes
+                files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 440000000 }); // ~440MB
+                files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
+                files.Add(new HuggingFaceFileInfo { Path = "vocab.txt", Type = "blob", Size = 230000 }); // ~230KB
+            }
+            else if (modelName.Contains("distil"))
+            {
+                // DistilBERT and similar models
+                files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 270000000 }); // ~270MB
+                files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
+                files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 1300000 }); // ~1.3MB
+            }
+            else
+            {
+                // Generic model estimation
+                files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 500000000 }); // ~500MB default
+                files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
+                files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 1000000 }); // ~1MB
+            }
+
+            // Add common additional files
+            files.Add(new HuggingFaceFileInfo { Path = "tokenizer_config.json", Type = "blob", Size = 512 });
+            files.Add(new HuggingFaceFileInfo { Path = "special_tokens_map.json", Type = "blob", Size = 512 });
+
+            return files;
+        }
     }
 
     public class HuggingFaceFileInfo
@@ -489,6 +598,6 @@ namespace CSimple.Services
         public string Oid { get; set; }
         public string Path { get; set; }
         public string Type { get; set; } // "blob" for files, "tree" for directories
-        public int Size { get; set; }
+        public long Size { get; set; } // Changed to long to handle larger files
     }
 }
