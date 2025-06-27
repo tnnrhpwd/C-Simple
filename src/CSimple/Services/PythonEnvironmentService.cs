@@ -37,11 +37,9 @@ namespace CSimple.Services
             {
                 if (_isPythonEnvironmentSetup)
                 {
-                    Debug.WriteLine("PythonEnvironmentService: Python environment already set up, skipping setup");
                     OnLoadingChanged(false);
                     return true;
                 }
-                Debug.WriteLine("PythonEnvironmentService: First-time Python environment setup");
             }
 
             try
@@ -76,7 +74,6 @@ namespace CSimple.Services
                 if (File.Exists(projectScriptPath))
                 {
                     HuggingFaceScriptPath = projectScriptPath;
-                    Debug.WriteLine($"Using project script at: {projectScriptPath}");
                 }
                 else
                 {
@@ -115,20 +112,33 @@ namespace CSimple.Services
                     }
                 }
 
-                // Install required packages
-                OnStatusChanged("Installing required Python packages...");
-                bool packagesInstalled = await _pythonBootstrapper.InstallRequiredPackagesAsync();
+                // Check if required packages are already installed
+                OnStatusChanged("Checking required Python packages...");
+                bool packagesAlreadyInstalled = await _pythonBootstrapper.AreRequiredPackagesInstalledAsync();
 
-                if (!packagesInstalled)
+                bool packagesInstalled = true;
+                if (!packagesAlreadyInstalled)
                 {
-                    OnStatusChanged("Failed to install required Python packages.");
-                    await showAlert("Package Installation Failed",
-                        "The application failed to install the required Python packages. " +
-                        "You may need to manually install them by running:\n\n" +
-                        "pip install transformers torch", "OK");
-                    return false;
+                    // Install required packages only if they're missing
+                    OnStatusChanged("Installing required Python packages...");
+                    packagesInstalled = await _pythonBootstrapper.InstallRequiredPackagesAsync();
+
+                    if (!packagesInstalled)
+                    {
+                        OnStatusChanged("Failed to install required Python packages.");
+                        await showAlert("Package Installation Failed",
+                            "The application failed to install the required Python packages. " +
+                            "You may need to manually install them by running:\n\n" +
+                            "pip install transformers torch", "OK");
+                        return false;
+                    }
                 }
                 else
+                {
+                    OnStatusChanged("Required Python packages already installed");
+                }
+
+                if (packagesInstalled)
                 {
                     OnStatusChanged("Python environment ready");
 
@@ -136,10 +146,14 @@ namespace CSimple.Services
                     lock (_setupLock)
                     {
                         _isPythonEnvironmentSetup = true;
-                        Debug.WriteLine("PythonEnvironmentService: Python environment setup completed successfully");
                     }
 
                     return true;
+                }
+                else
+                {
+                    OnStatusChanged("Python environment setup failed");
+                    return false;
                 }
             }
             catch (Exception ex)

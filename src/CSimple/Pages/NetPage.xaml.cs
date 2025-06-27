@@ -220,14 +220,18 @@ namespace CSimple.Pages
                             if (_viewModel.UpdateModelInputTypeCommand.CanExecute(param))
                             {
                                 _viewModel.UpdateModelInputTypeCommand.Execute(param);
+#if DEBUG
                                 Debug.WriteLine($"Input type for model {model.Name} changed to {selectedInputType}");
+#endif
                             }
                         }
                         else
                         {
+#if DEBUG
                             Debug.WriteLine($"WARNING: Selected item is not a ModelInputTypeDisplayItem: {picker.SelectedItem?.GetType().Name ?? "null"}");
                             Debug.WriteLine($"SelectedItem value: {picker.SelectedItem}");
                             Debug.WriteLine($"SelectedIndex: {picker.SelectedIndex}");
+#endif
 
                             // Fallback: Try to get the display item by index from the ViewModel
                             if (picker.SelectedIndex >= 0 && _viewModel.ModelInputTypeDisplayItems != null &&
@@ -235,19 +239,25 @@ namespace CSimple.Pages
                             {
                                 var displayItem = _viewModel.ModelInputTypeDisplayItems[picker.SelectedIndex];
                                 var indexedInputType = displayItem.Value;
+#if DEBUG
                                 Debug.WriteLine($"Retrieved enum value by index: {indexedInputType}");
+#endif
                                 var param = (model, indexedInputType);
                                 if (_viewModel.UpdateModelInputTypeCommand.CanExecute(param))
                                 {
                                     _viewModel.UpdateModelInputTypeCommand.Execute(param);
+#if DEBUG
                                     Debug.WriteLine($"Input type for model {model.Name} changed to {indexedInputType} (via index)");
+#endif
                                 }
                             }
                         }
                     }
                     else
                     {
+#if DEBUG
                         Debug.WriteLine($"WARNING: Picker binding context is not a NeuralNetworkModel: {picker.BindingContext?.GetType().Name ?? "null"}");
+#endif
                     }
                 }
             }

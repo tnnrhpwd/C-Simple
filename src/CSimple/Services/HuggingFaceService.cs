@@ -416,7 +416,9 @@ namespace CSimple.Services
                         }
                     }
 
+#if DEBUG
                     Debug.WriteLine($"Found {downloadedModels.Count} downloaded models: {string.Join(", ", downloadedModels)}");
+#endif
                     return downloadedModels;
                 }
                 else

@@ -36,9 +36,45 @@ namespace CSimple.Services
         /// <summary>
         /// Gets the Python executable path (venv python if available, otherwise system python)
         /// </summary>
-        public string PythonExecutablePath => _venvCreated ? _venvPythonPath : _pythonPath;        /// <summary>
-                                                                                                   /// Initializes by finding Python and setting up virtual environment
-                                                                                                   /// </summary>
+        public string PythonExecutablePath => _venvCreated ? _venvPythonPath : _pythonPath;
+
+        /// <summary>
+        /// Checks if all required packages are already installed
+        /// </summary>
+        public async Task<bool> AreRequiredPackagesInstalledAsync()
+        {
+            string pythonToUse = _venvCreated ? _venvPythonPath : _pythonPath;
+
+            if (string.IsNullOrEmpty(pythonToUse))
+            {
+                return false;
+            }
+
+            try
+            {
+                // Check if required packages are installed and importable
+                var packageResult = await ExecuteCommandAsync(pythonToUse, "-c \"import transformers, torch, accelerate, tokenizers; print('All packages available')\"");
+                bool packagesInstalled = packageResult.ExitCode == 0 && packageResult.Output.Contains("All packages available");
+
+                if (packagesInstalled)
+                {
+                    // Only log when packages are missing or there's an error
+                    return true;
+                }
+                else
+                {
+                    Debug.WriteLine($"Some packages missing or not working. Exit code: {packageResult.ExitCode}");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error checking package installation: {ex.Message}");
+                return false;
+            }
+        }        /// <summary>
+                 /// Initializes by finding Python and setting up virtual environment
+                 /// </summary>
         public async Task<bool> InitializeAsync()
         {
             try
@@ -49,7 +85,6 @@ namespace CSimple.Services
                 // Try to find Python in common locations
                 if (await FindSystemPythonAsync())
                 {
-                    UpdateStatus($"Found Python at: {_pythonPath}");
                     UpdateProgress(0.3);
 
                     // Check if virtual environment exists or create it
@@ -142,7 +177,6 @@ namespace CSimple.Services
 
                 if (!File.Exists(_venvPythonPath))
                 {
-                    Debug.WriteLine($"Venv python not found at: {_venvPythonPath}");
                     return false;
                 }
 
@@ -155,18 +189,15 @@ namespace CSimple.Services
                     if (packageResult.ExitCode == 0 && packageResult.Output.Contains("Packages OK"))
                     {
                         _venvCreated = true;
-                        Debug.WriteLine("Existing venv is valid and has required packages");
                         return true;
                     }
                     else
                     {
-                        Debug.WriteLine("Venv exists but missing required packages");
                         _venvCreated = true; // Mark as created so we can install packages
                         return false;
                     }
                 }
 
-                Debug.WriteLine("Venv python is not working properly");
                 return false;
             }
             catch (Exception ex)
@@ -203,7 +234,6 @@ namespace CSimple.Services
 
                 if (result.ExitCode != 0)
                 {
-                    Debug.WriteLine($"Failed to create venv. Exit code: {result.ExitCode}, Error: {result.Error}");
                     UpdateStatus("Failed to create virtual environment. Trying with system Python.");
                     return false;
                 }
@@ -217,12 +247,10 @@ namespace CSimple.Services
                 if (File.Exists(_venvPythonPath))
                 {
                     _venvCreated = true;
-                    Debug.WriteLine($"Virtual environment created at: {_venvPath}");
                     return true;
                 }
                 else
                 {
-                    Debug.WriteLine("Virtual environment creation appeared to succeed but python executable not found");
                     return false;
                 }
             }
@@ -247,6 +275,14 @@ namespace CSimple.Services
 
             try
             {
+                // First check if packages are already installed
+                var packageCheckResult = await ExecuteCommandAsync(_venvPythonPath, "-c \"import transformers, torch, accelerate, tokenizers; print('All packages available')\"");
+                if (packageCheckResult.ExitCode == 0 && packageCheckResult.Output.Contains("All packages available"))
+                {
+                    UpdateStatus("All required packages already installed in virtual environment");
+                    return true;
+                }
+
                 UpdateStatus("Installing required packages in virtual environment...");
 
                 // First, upgrade pip in the venv
@@ -277,10 +313,7 @@ namespace CSimple.Services
                         UpdateStatus($"Failed to install {package}. Check your internet connection and try again.");
                         return false;
                     }
-                    else
-                    {
-                        Debug.WriteLine($"Successfully installed {package}");
-                    }
+                    // Remove success debug message to reduce console noise
                 }
 
                 // Verify installation
@@ -310,6 +343,13 @@ namespace CSimple.Services
         /// </summary>
         public async Task<bool> InstallRequiredPackagesAsync()
         {
+            // First check if packages are already available
+            if (await AreRequiredPackagesInstalledAsync())
+            {
+                UpdateStatus("All required packages already installed");
+                return true;
+            }
+
             // If we have a venv, use it
             if (_venvCreated)
             {
@@ -417,7 +457,10 @@ namespace CSimple.Services
                     string fileName = Path.GetFileName(scriptFile);
                     string destPath = Path.Combine(_scriptsPath, fileName);
                     File.Copy(scriptFile, destPath, overwrite: true);
+                    // Only log script copying in debug builds
+#if DEBUG
                     Debug.WriteLine($"Copied script {fileName} to {destPath}");
+#endif
                 }
 
                 // Always ensure API runtime script exists
@@ -458,8 +501,10 @@ namespace CSimple.Services
                     StandardErrorEncoding = Encoding.UTF8
                 };
 
+                // Only log execution details in debug builds for troubleshooting
+#if DEBUG
                 Debug.WriteLine($"Executing: {processStartInfo.FileName} {processStartInfo.Arguments}");
-                Debug.WriteLine($"Using virtual environment: {_venvCreated}");
+#endif
 
                 using var process = new Process { StartInfo = processStartInfo };
                 var output = new StringBuilder();
@@ -513,13 +558,11 @@ namespace CSimple.Services
                         if (IsValidPythonVersion(versionOutput))
                         {
                             _pythonPath = executable;
-                            Debug.WriteLine($"Found Python in PATH: {executable} - {versionOutput}");
                             UpdateStatus($"Found Python: {versionOutput}");
                             return true;
                         }
                         else
                         {
-                            Debug.WriteLine($"Found Python but version not in supported range: {versionOutput}");
                             UpdateStatus($"Found unsupported Python version: {versionOutput}. Please install Python 3.8-3.11.");
                             // Continue checking for other Python installations that might meet our version requirements
                         }
@@ -550,13 +593,11 @@ namespace CSimple.Services
                                 if (IsValidPythonVersion(versionOutput))
                                 {
                                     _pythonPath = path;
-                                    Debug.WriteLine($"Found Python at common location: {path} - {versionOutput}");
                                     UpdateStatus($"Found Python: {versionOutput}");
                                     return true;
                                 }
                                 else
                                 {
-                                    Debug.WriteLine($"Found Python but version not in supported range: {versionOutput}");
                                     UpdateStatus($"Found unsupported Python version: {versionOutput}. Please install Python 3.8-3.11.");
                                     // Continue checking for other Python installations that might meet our version requirements
                                 }
@@ -587,13 +628,11 @@ namespace CSimple.Services
                                     if (IsValidPythonVersion(versionOutput))
                                     {
                                         _pythonPath = path;
-                                        Debug.WriteLine($"Found Python in registry: {path} - {versionOutput}");
                                         UpdateStatus($"Found Python: {versionOutput}");
                                         return true;
                                     }
                                     else
                                     {
-                                        Debug.WriteLine($"Found Python but version not in supported range: {versionOutput}");
                                         UpdateStatus($"Found unsupported Python version: {versionOutput}. Please install Python 3.8-3.11.");
                                         // Continue checking for other Python installations that might meet our version requirements
                                     }
@@ -608,7 +647,12 @@ namespace CSimple.Services
                 }
                 catch (Exception ex)
                 {
+#if DEBUG
                     Debug.WriteLine($"Error reading registry: {ex.Message}");
+#else
+                    // Suppress unused variable warning in release builds
+                    _ = ex;
+#endif
                 }
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -655,7 +699,10 @@ namespace CSimple.Services
                 }
             }
 
+            // Only log in debug builds as UpdateStatus already provides user feedback
+#if DEBUG
             Debug.WriteLine("No supported Python installation found.");
+#endif
             UpdateStatus("No Python 3.8-3.11 installation found. Please install from python.org.");
             return false;
         }
@@ -771,7 +818,13 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
+                // Only log registry errors in debug builds
+#if DEBUG
                 Debug.WriteLine($"Error reading registry: {ex.Message}");
+#else
+                // Suppress unused variable warning in release builds
+                _ = ex;
+#endif
             }
 #endif
 

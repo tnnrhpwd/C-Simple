@@ -290,7 +290,9 @@ namespace CSimple.ViewModels
 
             _pythonBootstrapper.ProgressChanged += (s, progress) =>
             {
+#if DEBUG
                 Debug.WriteLine($"Python setup progress: {progress:P0}");
+#endif
             };
 
             // Initialize Commands
@@ -382,12 +384,16 @@ namespace CSimple.ViewModels
             // Only log when there are actually downloaded models to avoid noise
             if (_downloadedModelIds.Count > 0)
             {
+#if DEBUG
                 Debug.WriteLine($"ViewModel RefreshDownloadedModelsList: Found {_downloadedModelIds.Count} downloaded models: [{string.Join(", ", _downloadedModelIds)}]");
+#endif
             }
             else
             {
-                // Minimal logging for empty case
+                // Minimal logging for empty case - only in debug builds
+#if DEBUG
                 Debug.WriteLine($"Found {_downloadedModelIds.Count} downloaded models");
+#endif
             }
 
             // Update all models' download button text
@@ -577,7 +583,9 @@ namespace CSimple.ViewModels
             // Reduce logging frequency - only log when models are present
             if (AvailableModels.Count > 0)
             {
+#if DEBUG
                 Debug.WriteLine($"NotifyModelDownloadStatusChanged: Triggering UI refresh for {AvailableModels.Count} models");
+#endif
             }
 
             // Update all models' download button text based on current download state
@@ -1216,15 +1224,19 @@ namespace CSimple.ViewModels
                     }
 
                     // Debug the input types again after adding to collection
+#if DEBUG
                     Debug.WriteLine($"=== DEBUG AvailableModels Collection ===");
                     foreach (var model in AvailableModels)
                     {
                         Debug.WriteLine($"Model in collection: {model.Name}, InputType: {model.InputType} ({(int)model.InputType})");
                     }
                     Debug.WriteLine($"=== END DEBUG ===");
+#endif
 
                     // DebugModelInputTypes();
+#if DEBUG
                     DebugModelInputTypes();
+#endif
 
                     // Update download button text for all loaded models
                     UpdateAllModelsDownloadButtonText();
