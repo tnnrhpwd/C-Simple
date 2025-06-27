@@ -436,97 +436,321 @@ namespace CSimple.Services
 
         public async Task<List<HuggingFaceFileInfo>> GetModelFilesWithSizeAsync(string modelId)
         {
+            // Try multiple API endpoints in order of preference
+            var endpoints = new[]
+            {
+                $"https://huggingface.co/api/models/{modelId}/tree/main", // Direct model tree endpoint
+                $"{BaseUrl}/models/{modelId}/tree/main",                   // Alternative base URL
+                $"https://huggingface.co/{modelId}/tree/main"             // Web interface endpoint
+            };
+
+            foreach (var endpoint in endpoints)
+            {
+                try
+                {
+                    Debug.WriteLine($"Trying endpoint: {endpoint}");
+                    var files = await TryGetFilesFromEndpoint(endpoint, modelId);
+                    if (files != null && files.Count > 0)
+                    {
+                        Debug.WriteLine($"Successfully retrieved {files.Count} files from {endpoint}");
+                        return files;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Endpoint {endpoint} failed: {ex.Message}");
+                    continue; // Try next endpoint
+                }
+            }
+
+            // If all API endpoints fail, try the GitHub-style API as last resort
             try
             {
-                // Try to get files using the repository tree endpoint
-                var url = $"{BaseUrl}/repos/{modelId}/tree/main";
-                Debug.WriteLine($"Getting model files with sizes from URL: {url}");
-
-                var response = await _httpClient.GetAsync(url);
-
-                if (response.IsSuccessStatusCode)
+                Debug.WriteLine("Trying GitHub-style API format...");
+                var githubStyleFiles = await TryGitHubStyleApi(modelId);
+                if (githubStyleFiles != null && githubStyleFiles.Count > 0)
                 {
-                    var content = await response.Content.ReadAsStringAsync();
-                    Debug.WriteLine($"Received files response: {content.Length} bytes");
-
-                    try
-                    {
-                        // First try to deserialize as a list of file objects (new API format)
-                        var fileTree = JsonSerializer.Deserialize<List<HuggingFaceFileInfo>>(content,
-                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                        var files = fileTree?
-                            .Where(f => f.Type == "blob")
-                            .ToList() ?? new List<HuggingFaceFileInfo>();
-
-                        if (files.Count > 0)
-                        {
-                            Debug.WriteLine($"Found {files.Count} files with sizes via repo API");
-                            return files;
-                        }
-                    }
-                    catch (JsonException jsonEx)
-                    {
-                        Debug.WriteLine($"Error parsing file tree JSON as list: {jsonEx.Message}");
-
-                        // Try alternative format - sometimes the API returns an object with a tree property
-                        try
-                        {
-                            using (var doc = JsonDocument.Parse(content))
-                            {
-                                var files = new List<HuggingFaceFileInfo>();
-
-                                if (doc.RootElement.TryGetProperty("tree", out var treeElement))
-                                {
-                                    foreach (var item in treeElement.EnumerateArray())
-                                    {
-                                        if (item.TryGetProperty("type", out var typeElement) &&
-                                            typeElement.GetString() == "blob")
-                                        {
-                                            var file = new HuggingFaceFileInfo
-                                            {
-                                                Type = "blob",
-                                                Path = item.TryGetProperty("path", out var pathElement) ? pathElement.GetString() : "",
-                                                Oid = item.TryGetProperty("oid", out var oidElement) ? oidElement.GetString() : "",
-                                                Size = item.TryGetProperty("size", out var sizeElement) ? sizeElement.GetInt64() : 0
-                                            };
-                                            files.Add(file);
-                                        }
-                                    }
-                                }
-
-                                if (files.Count > 0)
-                                {
-                                    Debug.WriteLine($"Found {files.Count} files using alternative parsing");
-                                    return files;
-                                }
-                            }
-                        }
-                        catch (JsonException altJsonEx)
-                        {
-                            Debug.WriteLine($"Error parsing alternative file tree format: {altJsonEx.Message}");
-                        }
-                    }
+                    Debug.WriteLine($"Retrieved {githubStyleFiles.Count} files via GitHub-style API");
+                    return githubStyleFiles;
                 }
-
-                // If we couldn't get files via the API, use estimated sizes as fallback
-                Debug.WriteLine("Could not get file sizes from API, using estimated sizes");
-                Debug.WriteLine($"Response status: {response.StatusCode}");
-                if (!response.IsSuccessStatusCode)
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    Debug.WriteLine($"Error response: {errorContent.Substring(0, Math.Min(500, errorContent.Length))}");
-                }
-
-                // Return estimated file sizes as fallback
-                return GetEstimatedFileSizes(modelId);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error getting model files with sizes: {ex}");
-                // Return estimated sizes as fallback even on exception
-                return GetEstimatedFileSizes(modelId);
+                Debug.WriteLine($"GitHub-style API failed: {ex.Message}");
             }
+
+            // If all methods fail, use estimated sizes as fallback
+            Debug.WriteLine("All API methods failed, using estimated sizes");
+            return GetEstimatedFileSizes(modelId);
+        }
+
+        private async Task<List<HuggingFaceFileInfo>> TryGetFilesFromEndpoint(string endpoint, string modelId)
+        {
+            var response = await _httpClient.GetAsync(endpoint);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Debug.WriteLine($"Endpoint returned {response.StatusCode}: {response.ReasonPhrase}");
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            Debug.WriteLine($"Received {content.Length} bytes from {endpoint}");
+
+            // Try multiple parsing strategies
+            var files = TryParseFileResponse(content, modelId);
+            return files;
+        }
+
+        private List<HuggingFaceFileInfo> TryParseFileResponse(string content, string modelId)
+        {
+            // Validate content first
+            if (!IsValidJsonResponse(content))
+            {
+                Debug.WriteLine("Invalid JSON response, skipping parsing");
+                return null;
+            }
+
+            // Strategy 1: Try direct array parsing using JsonDocument
+            try
+            {
+                using var doc = JsonDocument.Parse(content);
+                var files = new List<HuggingFaceFileInfo>();
+
+                // Check if root is an array
+                if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in doc.RootElement.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("type", out var typeElement) &&
+                            typeElement.GetString()?.Equals("blob", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                            var file = new HuggingFaceFileInfo
+                            {
+                                Type = "blob",
+                                Path = item.TryGetProperty("path", out var pathElement) ? pathElement.GetString() : "",
+                                Oid = item.TryGetProperty("oid", out var oidElement) ? oidElement.GetString() : "",
+                                Size = GetSizeFromJsonElement(item)
+                            };
+                            files.Add(file);
+                        }
+                    }
+
+                    if (files.Count > 0)
+                    {
+                        Debug.WriteLine($"Strategy 1 success: Found {files.Count} files via direct array parsing");
+                        return files;
+                    }
+                }
+            }
+            catch (JsonException ex)
+            {
+                Debug.WriteLine($"Strategy 1 failed: {ex.Message}");
+            }
+
+            // Strategy 2: Try object with tree property
+            try
+            {
+                using var doc = JsonDocument.Parse(content);
+                var files = new List<HuggingFaceFileInfo>();
+
+                // Only try to access properties if root is an object
+                if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                    doc.RootElement.TryGetProperty("tree", out var treeElement))
+                {
+                    foreach (var item in treeElement.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("type", out var typeElement) &&
+                            typeElement.GetString()?.Equals("blob", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                            var file = new HuggingFaceFileInfo
+                            {
+                                Type = "blob",
+                                Path = item.TryGetProperty("path", out var pathElement) ? pathElement.GetString() : "",
+                                Oid = item.TryGetProperty("oid", out var oidElement) ? oidElement.GetString() : "",
+                                Size = GetSizeFromJsonElement(item)
+                            };
+                            files.Add(file);
+                        }
+                    }
+
+                    if (files.Count > 0)
+                    {
+                        Debug.WriteLine($"Strategy 2 success: Found {files.Count} files via tree property parsing");
+                        return files;
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("Strategy 2 skipped: Root element is not an object or has no 'tree' property");
+                }
+            }
+            catch (JsonException ex)
+            {
+                Debug.WriteLine($"Strategy 2 failed: {ex.Message}");
+            }
+
+            // Strategy 3: Try siblings array (HuggingFace model details format)
+            try
+            {
+                using var doc = JsonDocument.Parse(content);
+                var files = new List<HuggingFaceFileInfo>();
+
+                // Only try to access properties if root is an object
+                if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                    doc.RootElement.TryGetProperty("siblings", out var siblingsElement))
+                {
+                    foreach (var item in siblingsElement.EnumerateArray())
+                    {
+                        var file = new HuggingFaceFileInfo
+                        {
+                            Type = "blob",
+                            Path = item.TryGetProperty("rfilename", out var filenameElement) ? filenameElement.GetString() : "",
+                            Size = GetSizeFromJsonElement(item)
+                        };
+
+                        if (!string.IsNullOrEmpty(file.Path))
+                        {
+                            files.Add(file);
+                        }
+                    }
+
+                    if (files.Count > 0)
+                    {
+                        Debug.WriteLine($"Strategy 3 success: Found {files.Count} files via siblings array parsing");
+                        return files;
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("Strategy 3 skipped: Root element is not an object or has no 'siblings' property");
+                }
+            }
+            catch (JsonException ex)
+            {
+                Debug.WriteLine($"Strategy 3 failed: {ex.Message}");
+            }
+
+            // Strategy 4: Try to handle files without explicit "type" property
+            try
+            {
+                using var doc = JsonDocument.Parse(content);
+                var files = new List<HuggingFaceFileInfo>();
+
+                if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in doc.RootElement.EnumerateArray())
+                    {
+                        // Some APIs might not have explicit "type" but have file paths
+                        if (item.TryGetProperty("path", out var pathElement) ||
+                            item.TryGetProperty("filename", out pathElement) ||
+                            item.TryGetProperty("name", out pathElement))
+                        {
+                            var path = pathElement.GetString();
+                            if (!string.IsNullOrEmpty(path) && !path.EndsWith("/")) // Not a directory
+                            {
+                                var file = new HuggingFaceFileInfo
+                                {
+                                    Type = "blob",
+                                    Path = path,
+                                    Oid = item.TryGetProperty("oid", out var oidElement) ? oidElement.GetString() : "",
+                                    Size = GetSizeFromJsonElement(item)
+                                };
+                                files.Add(file);
+                            }
+                        }
+                    }
+
+                    if (files.Count > 0)
+                    {
+                        Debug.WriteLine($"Strategy 4 success: Found {files.Count} files without type requirement");
+                        return files;
+                    }
+                }
+            }
+            catch (JsonException ex)
+            {
+                Debug.WriteLine($"Strategy 4 failed: {ex.Message}");
+            }
+
+            Debug.WriteLine("All parsing strategies failed");
+            return null;
+        }
+
+        private long GetSizeFromJsonElement(JsonElement item)
+        {
+            // Try different size property names
+            string[] sizeProperties = { "size", "filesize", "file_size", "length", "lfs" };
+
+            foreach (var prop in sizeProperties)
+            {
+                if (item.TryGetProperty(prop, out var sizeElement))
+                {
+                    if (sizeElement.ValueKind == JsonValueKind.Number)
+                    {
+                        return sizeElement.GetInt64();
+                    }
+                    else if (sizeElement.ValueKind == JsonValueKind.String &&
+                             long.TryParse(sizeElement.GetString(), out var parsedSize))
+                    {
+                        return parsedSize;
+                    }
+                    else if (sizeElement.ValueKind == JsonValueKind.Object)
+                    {
+                        // Sometimes LFS info is in an object like {"size": 123}
+                        if (sizeElement.TryGetProperty("size", out var nestedSizeElement))
+                        {
+                            if (nestedSizeElement.ValueKind == JsonValueKind.Number)
+                            {
+                                return nestedSizeElement.GetInt64();
+                            }
+                        }
+                    }
+                }
+            }
+
+            return 0; // Default if no size found
+        }
+
+        private async Task<List<HuggingFaceFileInfo>> TryGitHubStyleApi(string modelId)
+        {
+            // Some models might be accessible via a GitHub-style API
+            var gitUrl = $"https://huggingface.co/{modelId}/raw/main";
+
+            try
+            {
+                // Try to get a directory listing or manifest
+                var manifestUrls = new[]
+                {
+                    $"{gitUrl}/.gitattributes",
+                    $"{gitUrl}/README.md",
+                    $"https://huggingface.co/{modelId}/resolve/main/config.json"
+                };
+
+                foreach (var url in manifestUrls)
+                {
+                    try
+                    {
+                        var response = await _httpClient.GetAsync(url);
+                        if (response.IsSuccessStatusCode)
+                        {
+                            Debug.WriteLine($"Found accessible file at {url}, model likely exists");
+                            // If we can access any file, assume the model exists and return estimated sizes
+                            return GetEstimatedFileSizes(modelId);
+                        }
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"GitHub-style API check failed: {ex.Message}");
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -543,13 +767,19 @@ namespace CSimple.Services
             if (modelName.Contains("gpt2"))
             {
                 // GPT-2 standard model sizes
-                if (modelName.Contains("large"))
+                if (modelName.Contains("xl") || modelName.Contains("1558m"))
+                {
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 6200000000 }); // ~6.2GB
+                    files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
+                    files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 2000000 }); // ~2MB
+                }
+                else if (modelName.Contains("large") || modelName.Contains("774m"))
                 {
                     files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 3200000000 }); // ~3.2GB
                     files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
                     files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 2000000 }); // ~2MB
                 }
-                else if (modelName.Contains("medium"))
+                else if (modelName.Contains("medium") || modelName.Contains("355m"))
                 {
                     files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 1400000000 }); // ~1.4GB
                     files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
@@ -557,39 +787,141 @@ namespace CSimple.Services
                 }
                 else
                 {
-                    // GPT-2 base model
+                    // GPT-2 base model (124M parameters)
                     files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 500000000 }); // ~500MB
                     files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
                     files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 2000000 }); // ~2MB
                 }
             }
+            else if (modelName.Contains("deepseek"))
+            {
+                // DeepSeek models are typically very large (600GB+)
+                files.Add(new HuggingFaceFileInfo { Path = "model.safetensors", Type = "blob", Size = 640000000000 }); // ~640GB estimated
+                files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
+                files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 8000000 }); // ~8MB
+            }
             else if (modelName.Contains("bert"))
             {
-                // BERT model sizes
-                files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 440000000 }); // ~440MB
+                if (modelName.Contains("large"))
+                {
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 1340000000 }); // ~1.34GB
+                }
+                else
+                {
+                    // BERT base model sizes
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 440000000 }); // ~440MB
+                }
                 files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
                 files.Add(new HuggingFaceFileInfo { Path = "vocab.txt", Type = "blob", Size = 230000 }); // ~230KB
             }
             else if (modelName.Contains("distil"))
             {
-                // DistilBERT and similar models
+                // DistilBERT and similar models (smaller than BERT)
                 files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 270000000 }); // ~270MB
                 files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
                 files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 1300000 }); // ~1.3MB
             }
+            else if (modelName.Contains("roberta"))
+            {
+                if (modelName.Contains("large"))
+                {
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 1400000000 }); // ~1.4GB
+                }
+                else
+                {
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 500000000 }); // ~500MB
+                }
+                files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
+                files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 1300000 }); // ~1.3MB
+            }
+            else if (modelName.Contains("t5"))
+            {
+                if (modelName.Contains("11b") || modelName.Contains("large"))
+                {
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 45000000000 }); // ~45GB
+                }
+                else if (modelName.Contains("3b") || modelName.Contains("base"))
+                {
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 11000000000 }); // ~11GB
+                }
+                else
+                {
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 3000000000 }); // ~3GB
+                }
+                files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
+                files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 2500000 }); // ~2.5MB
+            }
+            else if (modelName.Contains("whisper"))
+            {
+                if (modelName.Contains("large"))
+                {
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 3100000000 }); // ~3.1GB
+                }
+                else if (modelName.Contains("medium"))
+                {
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 1500000000 }); // ~1.5GB
+                }
+                else if (modelName.Contains("small"))
+                {
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 970000000 }); // ~970MB
+                }
+                else
+                {
+                    files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 240000000 }); // ~240MB (base/tiny)
+                }
+                files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
+                files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 800000 }); // ~800KB
+            }
             else
             {
-                // Generic model estimation
+                // Generic model estimation - conservative 500MB default
                 files.Add(new HuggingFaceFileInfo { Path = "pytorch_model.bin", Type = "blob", Size = 500000000 }); // ~500MB default
                 files.Add(new HuggingFaceFileInfo { Path = "config.json", Type = "blob", Size = 1024 });
                 files.Add(new HuggingFaceFileInfo { Path = "tokenizer.json", Type = "blob", Size = 1000000 }); // ~1MB
             }
 
-            // Add common additional files
+            // Add common additional files that most models have
             files.Add(new HuggingFaceFileInfo { Path = "tokenizer_config.json", Type = "blob", Size = 512 });
             files.Add(new HuggingFaceFileInfo { Path = "special_tokens_map.json", Type = "blob", Size = 512 });
+            files.Add(new HuggingFaceFileInfo { Path = "vocab.json", Type = "blob", Size = 1000000 }); // ~1MB
+            files.Add(new HuggingFaceFileInfo { Path = "merges.txt", Type = "blob", Size = 500000 }); // ~500KB
 
             return files;
+        }
+
+        /// <summary>
+        /// Validates and preprocesses API response content
+        /// </summary>
+        private bool IsValidJsonResponse(string content)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                Debug.WriteLine("Response content is null or empty");
+                return false;
+            }
+
+            if (content.Length < 2)
+            {
+                Debug.WriteLine("Response content too short to be valid JSON");
+                return false;
+            }
+
+            // Check if it starts with valid JSON characters
+            var trimmed = content.Trim();
+            if (!trimmed.StartsWith("{") && !trimmed.StartsWith("["))
+            {
+                Debug.WriteLine("Response doesn't start with valid JSON");
+                return false;
+            }
+
+            // Check for common error responses
+            if (trimmed.Contains("\"error\"") && trimmed.Contains("Sorry, we can't find"))
+            {
+                Debug.WriteLine("Response contains 404 error message");
+                return false;
+            }
+
+            return true;
         }
     }
 
