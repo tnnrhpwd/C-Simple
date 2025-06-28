@@ -1913,6 +1913,10 @@ namespace CSimple.ViewModels
             if (string.IsNullOrWhiteSpace(CurrentMessage) || IsAiTyping || ActiveModelsCount == 0)
                 return;
 
+            // Validate media uploads before sending
+            if (!await ValidateMediaUploadAsync())
+                return;
+
             var userMessage = CurrentMessage.Trim();
             CurrentMessage = string.Empty; // Clear input
 
@@ -1943,6 +1947,142 @@ namespace CSimple.ViewModels
 
                 // Scroll to bottom of chat (to be handled by view)
                 ScrollToBottom?.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// Validates that appropriate model types are active for any selected media uploads
+        /// </summary>
+        private async Task<bool> ValidateMediaUploadAsync()
+        {
+            try
+            {
+                // Check if user has selected any media
+                if (!HasSelectedMedia)
+                    return true; // No media selected, proceed normally
+
+                var missingModelTypes = new List<string>();
+                var activatedModels = new List<string>();
+
+                // Check for image upload without image model
+                if (HasSelectedImage)
+                {
+                    if (!SupportsImageInput)
+                    {
+                        missingModelTypes.Add("Image");
+                    }
+                    else
+                    {
+                        var imageModels = ActiveModels.Where(m => m.InputType == ModelInputType.Image).Select(m => m.Name);
+                        activatedModels.AddRange(imageModels.Select(name => $"Image: {name}"));
+                    }
+                }
+
+                // Check for audio upload without audio model
+                if (HasSelectedAudio)
+                {
+                    if (!SupportsAudioInput)
+                    {
+                        missingModelTypes.Add("Audio");
+                    }
+                    else
+                    {
+                        var audioModels = ActiveModels.Where(m => m.InputType == ModelInputType.Audio).Select(m => m.Name);
+                        activatedModels.AddRange(audioModels.Select(name => $"Audio: {name}"));
+                    }
+                }
+
+                // If we have missing model types, show error and prevent sending
+                if (missingModelTypes.Any())
+                {
+                    var mediaTypeText = string.Join(" and ", missingModelTypes.ToArray());
+                    var selectedFiles = new List<string>();
+
+                    if (HasSelectedImage) selectedFiles.Add($"Image: {SelectedImageName}");
+                    if (HasSelectedAudio) selectedFiles.Add($"Audio: {SelectedAudioName}");
+
+                    var filesText = string.Join("\n", selectedFiles);
+
+                    // Show the main error dialog
+                    await ShowAlert?.Invoke(
+                        "Media Upload Validation Error",
+                        $"You have selected {mediaTypeText.ToLower()} file(s) but no active {mediaTypeText.ToLower()} model(s) to process them.\n\n" +
+                        $"Selected files:\n{filesText}\n\n" +
+                        $"Please activate an appropriate {mediaTypeText.ToLower()} model before uploading this media type.\n\n" +
+                        $"You can:\n" +
+                        $"• Activate a {mediaTypeText.ToLower()} model from the available models list\n" +
+                        $"• Clear the selected media and send as text-only\n" +
+                        $"• Import a new {mediaTypeText.ToLower()} model from HuggingFace",
+                        "OK");
+
+                    // Offer model suggestions to help the user
+                    await SuggestModelsForMediaTypeAsync(missingModelTypes);
+
+                    return false; // Prevent sending
+                }
+
+                // If we reach here, validation passed - log the active models being used
+                if (activatedModels.Any())
+                {
+                    Debug.WriteLine($"Media upload validation passed. Active models for media processing: {string.Join(", ", activatedModels)}");
+                    CurrentModelStatus = $"✓ Media will be processed by: {string.Join(", ", activatedModels)}";
+                }
+
+                return true; // Validation passed
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error validating media upload: {ex.Message}");
+                await ShowAlert?.Invoke("Validation Error", $"Error validating media upload: {ex.Message}", "OK");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Suggests models based on media type for better user experience
+        /// </summary>
+        private async Task SuggestModelsForMediaTypeAsync(List<string> missingTypes)
+        {
+            try
+            {
+                var suggestions = new List<string>();
+
+                foreach (var mediaType in missingTypes)
+                {
+                    switch (mediaType.ToLower())
+                    {
+                        case "image":
+                            suggestions.AddRange(new[] {
+                                "• microsoft/DiT (Image Understanding)",
+                                "• google/vit-base-patch16-224 (Vision Transformer)",
+                                "• openai/clip-vit-base-patch32 (CLIP Vision)",
+                                "• facebook/detr-resnet-50 (Object Detection)"
+                            });
+                            break;
+                        case "audio":
+                            suggestions.AddRange(new[] {
+                                "• openai/whisper-base (Speech Recognition)",
+                                "• facebook/wav2vec2-base-960h (Audio Processing)",
+                                "• microsoft/speecht5_asr (Speech-to-Text)",
+                                "• facebook/hubert-base-ls960 (Audio Understanding)"
+                            });
+                            break;
+                    }
+                }
+
+                if (suggestions.Any())
+                {
+                    var suggestionText = string.Join("\n", suggestions);
+                    await ShowAlert?.Invoke(
+                        "Recommended Models",
+                        $"Here are some recommended models for the media types you're trying to upload:\n\n{suggestionText}\n\n" +
+                        "You can search for these models using the HuggingFace search feature.",
+                        "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error suggesting models: {ex.Message}");
             }
         }
         private void ClearChat()
@@ -2008,6 +2148,9 @@ namespace CSimple.ViewModels
                     OnPropertyChanged(nameof(HasSelectedAudio));
                     OnPropertyChanged(nameof(HasSelectedMedia));
                     OnPropertyChanged(nameof(CurrentInputModeDescription));
+
+                    // Check if there are active image models and provide feedback
+                    await CheckModelCompatibilityForMediaAsync("image", result.FileName);
                 }
             }
             catch (Exception ex)
@@ -2048,12 +2191,76 @@ namespace CSimple.ViewModels
                     OnPropertyChanged(nameof(HasSelectedAudio));
                     OnPropertyChanged(nameof(HasSelectedMedia));
                     OnPropertyChanged(nameof(CurrentInputModeDescription));
+
+                    // Check if there are active audio models and provide feedback
+                    await CheckModelCompatibilityForMediaAsync("audio", result.FileName);
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error selecting audio: {ex}");
                 await ShowAlert?.Invoke("Error", "Failed to select audio file. Please try again.", "OK");
+            }
+        }
+
+        /// <summary>
+        /// Checks model compatibility when media is selected and provides immediate feedback
+        /// </summary>
+        private async Task CheckModelCompatibilityForMediaAsync(string mediaType, string fileName)
+        {
+            try
+            {
+                bool hasCompatibleModel = false;
+                var activeCompatibleModels = new List<string>();
+
+                switch (mediaType.ToLower())
+                {
+                    case "image":
+                        hasCompatibleModel = SupportsImageInput;
+                        if (hasCompatibleModel)
+                        {
+                            activeCompatibleModels = ActiveModels
+                                .Where(m => m.InputType == ModelInputType.Image)
+                                .Select(m => m.Name)
+                                .ToList();
+                        }
+                        break;
+                    case "audio":
+                        hasCompatibleModel = SupportsAudioInput;
+                        if (hasCompatibleModel)
+                        {
+                            activeCompatibleModels = ActiveModels
+                                .Where(m => m.InputType == ModelInputType.Audio)
+                                .Select(m => m.Name)
+                                .ToList();
+                        }
+                        break;
+                }
+
+                if (hasCompatibleModel)
+                {
+                    // Positive feedback - models are ready
+                    CurrentModelStatus = $"✓ {fileName} selected. Ready to process with: {string.Join(", ", activeCompatibleModels)}";
+                    Debug.WriteLine($"Media compatibility check passed for {mediaType}: {fileName}");
+                }
+                else
+                {
+                    // Warning - no compatible models active
+                    CurrentModelStatus = $"⚠ {fileName} selected, but no active {mediaType} models found. Activate a {mediaType} model to process this file.";
+                    Debug.WriteLine($"Media compatibility warning for {mediaType}: {fileName} - no active {mediaType} models");
+
+                    // Optional: Show a brief informational message
+                    await ShowAlert?.Invoke(
+                        "Model Needed",
+                        $"You've selected an {mediaType} file ({fileName}), but no {mediaType} models are currently active.\n\n" +
+                        $"To process this {mediaType}, please activate an {mediaType} model from your available models or search for one on HuggingFace.\n\n" +
+                        $"You can still send the message, but the {mediaType} won't be processed.",
+                        "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error checking model compatibility for {mediaType}: {ex.Message}");
             }
         }
 
