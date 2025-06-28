@@ -134,7 +134,10 @@ namespace CSimple.ViewModels
             set => SetProperty(ref _isAiTyping, value);
         }
 
-        public bool CanSendMessage => !string.IsNullOrWhiteSpace(CurrentMessage) && !IsAiTyping && ActiveModelsCount > 0;
+        public bool CanSendMessage =>
+            (!string.IsNullOrWhiteSpace(CurrentMessage) || HasCompatibleMediaSelected) &&
+            !IsAiTyping &&
+            ActiveModelsCount > 0;
 
         // Media input properties
         public string SelectedImagePath
@@ -164,7 +167,14 @@ namespace CSimple.ViewModels
         // Computed properties for UI state
         public bool HasSelectedImage => !string.IsNullOrEmpty(SelectedImagePath);
         public bool HasSelectedAudio => !string.IsNullOrEmpty(SelectedAudioPath);
-        public bool HasSelectedMedia => HasSelectedImage || HasSelectedAudio;        // Input mode intelligence based on active models
+        public bool HasSelectedMedia => HasSelectedImage || HasSelectedAudio;
+
+        // Check if we have media selected that's compatible with active models
+        public bool HasCompatibleMediaSelected =>
+            (HasSelectedImage && SupportsImageInput) ||
+            (HasSelectedAudio && SupportsAudioInput);
+
+        // Input mode intelligence based on active models
         public bool SupportsTextInput => ActiveModels.Any(m => m.InputType == ModelInputType.Text);
         public bool SupportsImageInput => ActiveModels.Any(m => m.InputType == ModelInputType.Image);
         public bool SupportsAudioInput => ActiveModels.Any(m => m.InputType == ModelInputType.Audio);
@@ -1912,17 +1922,25 @@ namespace CSimple.ViewModels
         // --- Chat Methods ---
         private async Task SendMessageAsync()
         {
-            if (string.IsNullOrWhiteSpace(CurrentMessage) || IsAiTyping || ActiveModelsCount == 0)
+            // Check if we have either text or compatible media to send
+            bool hasText = !string.IsNullOrWhiteSpace(CurrentMessage);
+            bool hasCompatibleMedia = HasSelectedMedia && await ValidateMediaUploadAsync();
+
+            if ((!hasText && !hasCompatibleMedia) || IsAiTyping || ActiveModelsCount == 0)
                 return;
 
-            // Validate media uploads before sending
-            if (!await ValidateMediaUploadAsync())
-                return;
+            // For media-only messages, validate that we have compatible models
+            if (!hasText && hasCompatibleMedia)
+            {
+                // Double-check media validation since we're sending without text
+                if (!await ValidateMediaUploadAsync())
+                    return;
+            }
 
-            var userMessage = CurrentMessage.Trim();
+            var userMessage = hasText ? CurrentMessage.Trim() : string.Empty;
             CurrentMessage = string.Empty; // Clear input
 
-            Debug.WriteLine($"Chat: Sending message '{userMessage}' to active models (count: {ActiveModelsCount})");
+            Debug.WriteLine($"Chat: Sending {(hasText ? $"message '{userMessage}'" : "media-only message")} to active models (count: {ActiveModelsCount})");
 
             // Update UI properties
             IsAiTyping = true;
@@ -2149,6 +2167,8 @@ namespace CSimple.ViewModels
                     OnPropertyChanged(nameof(HasSelectedImage));
                     OnPropertyChanged(nameof(HasSelectedAudio));
                     OnPropertyChanged(nameof(HasSelectedMedia));
+                    OnPropertyChanged(nameof(HasCompatibleMediaSelected));
+                    OnPropertyChanged(nameof(CanSendMessage));
                     OnPropertyChanged(nameof(CurrentInputModeDescription));
 
                     // Check if there are active image models and provide feedback
@@ -2192,6 +2212,8 @@ namespace CSimple.ViewModels
                     OnPropertyChanged(nameof(HasSelectedImage));
                     OnPropertyChanged(nameof(HasSelectedAudio));
                     OnPropertyChanged(nameof(HasSelectedMedia));
+                    OnPropertyChanged(nameof(HasCompatibleMediaSelected));
+                    OnPropertyChanged(nameof(CanSendMessage));
                     OnPropertyChanged(nameof(CurrentInputModeDescription));
 
                     // Check if there are active audio models and provide feedback
@@ -2355,6 +2377,8 @@ namespace CSimple.ViewModels
                     OnPropertyChanged(nameof(HasSelectedImage));
                     OnPropertyChanged(nameof(HasSelectedAudio));
                     OnPropertyChanged(nameof(HasSelectedMedia));
+                    OnPropertyChanged(nameof(HasCompatibleMediaSelected));
+                    OnPropertyChanged(nameof(CanSendMessage));
                     OnPropertyChanged(nameof(CurrentInputModeDescription));
                 }
             }
@@ -2437,6 +2461,8 @@ namespace CSimple.ViewModels
             OnPropertyChanged(nameof(HasSelectedImage));
             OnPropertyChanged(nameof(HasSelectedAudio));
             OnPropertyChanged(nameof(HasSelectedMedia));
+            OnPropertyChanged(nameof(HasCompatibleMediaSelected));
+            OnPropertyChanged(nameof(CanSendMessage));
             OnPropertyChanged(nameof(CurrentInputModeDescription));
         }        // Action to scroll chat to bottom (to be set by view)
         public Action ScrollToBottom { get; set; }
@@ -2515,6 +2541,7 @@ namespace CSimple.ViewModels
                 OnPropertyChanged(nameof(SupportsTextInput));
                 OnPropertyChanged(nameof(SupportsImageInput));
                 OnPropertyChanged(nameof(SupportsAudioInput));
+                OnPropertyChanged(nameof(HasCompatibleMediaSelected));
                 OnPropertyChanged(nameof(CurrentInputModeDescription));
                 OnPropertyChanged(nameof(SupportedInputTypesText));
             }
