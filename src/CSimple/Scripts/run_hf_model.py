@@ -125,6 +125,12 @@ def detect_model_type(model_id: str) -> str:
     """Detect the type of model based on the model ID."""
     model_id_lower = model_id.lower()
     
+    # Audio/Speech models
+    if "whisper" in model_id_lower:
+        return "automatic-speech-recognition"
+    if any(name in model_id_lower for name in ["wav2vec", "hubert", "speecht5_asr"]):
+        return "automatic-speech-recognition"
+    
     # DeepSeek models
     if "deepseek" in model_id_lower:
         return "text-generation"
@@ -265,10 +271,11 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any], 
         
         if local_model_path and os.path.exists(local_model_path):
             print(f"Loading model from local path: {local_model_path}", file=sys.stderr)
-        else:
-            print(f"Downloading/loading model files (this may take a while for first-time downloads)...", file=sys.stderr)
-            print(f"Progress: Starting model download/load...", file=sys.stderr)
-            
+        else:        print(f"Downloading/loading model files (this may take a while for first-time downloads)...", file=sys.stderr)
+        print(f"Progress: Starting model download/load...", file=sys.stderr)
+        
+        # Only check HuggingFace cache if not using local model path
+        if not local_model_path or not os.path.exists(local_model_path):
             # Check if model is already cached
             from huggingface_hub import try_to_load_from_cache
             try:
@@ -284,6 +291,8 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any], 
                     print(f"Progress: Model not in cache, downloading from HuggingFace...", file=sys.stderr)
             except Exception:
                 print(f"Progress: Checking cache status, downloading if needed...", file=sys.stderr)
+        else:
+            print(f"Progress: Loading model from local path: {local_model_path}", file=sys.stderr)
         
         # Load model with progress indication
         model = AutoModelForCausalLM.from_pretrained(model_path_to_use, **model_kwargs)
@@ -380,6 +389,102 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any], 
             return "ERROR: Insufficient GPU memory. Try using a smaller model or running on CPU."
         elif "trust_remote_code" in error_msg.lower():
             return "ERROR: Model requires trust_remote_code=True but was blocked for security."
+        else:
+            return f"ERROR: {error_msg}"
+
+
+def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
+    """Run automatic speech recognition on audio files."""
+    try:
+        print(f"Processing speech recognition with model: {model_id}", file=sys.stderr)
+        
+        # Extract audio file path from input text
+        audio_file_path = None
+        if "audio file:" in input_text:
+            # Extract the file path after "audio file:"
+            parts = input_text.split("audio file:")
+            if len(parts) > 1:
+                audio_file_path = parts[1].strip()
+        
+        if not audio_file_path or not os.path.exists(audio_file_path):
+            return "ERROR: No valid audio file path found in input. Please provide a valid audio file path."
+        
+        print(f"Processing audio file: {audio_file_path}", file=sys.stderr)
+        
+        # Check if required audio processing libraries are available
+        try:
+            import librosa
+            print("✓ librosa library available", file=sys.stderr)
+        except ImportError:
+            try:
+                # Try installing librosa
+                print("Installing librosa...", file=sys.stderr)
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "librosa"], 
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                import librosa
+                print("✓ librosa installed and imported", file=sys.stderr)
+            except Exception as e:
+                return f"ERROR: Failed to install/import librosa for audio processing: {e}"
+        
+        # Import transformers pipeline
+        from transformers import pipeline
+        
+        # Determine model path
+        model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
+        print(f"Using model path: {model_path_to_use}", file=sys.stderr)
+        
+        # Create speech recognition pipeline
+        print("Creating speech recognition pipeline...", file=sys.stderr)
+        
+        # Configure pipeline arguments
+        pipeline_kwargs = {
+            "task": "automatic-speech-recognition",
+            "model": model_path_to_use,
+            "device": -1 if params.get("cpu_optimize", False) else 0  # Use CPU if cpu_optimize is True
+        }
+        
+        # Only add trust_remote_code if it's not a local model path
+        if not (local_model_path and os.path.exists(local_model_path)):
+            pipeline_kwargs["trust_remote_code"] = params.get("trust_remote_code", True)
+        
+        pipe = pipeline(**pipeline_kwargs)
+        
+        print("Loading and processing audio file...", file=sys.stderr)
+        
+        # Load audio file
+        try:
+            audio_array, sampling_rate = librosa.load(audio_file_path, sr=16000)  # Whisper expects 16kHz
+            print(f"Audio loaded: {len(audio_array)} samples at {sampling_rate}Hz", file=sys.stderr)
+        except Exception as e:
+            return f"ERROR: Failed to load audio file: {e}"
+        
+        # Process audio with the model
+        print("Running speech recognition...", file=sys.stderr)
+        result = pipe(audio_array)
+        
+        # Extract transcription text
+        if isinstance(result, dict) and "text" in result:
+            transcription = result["text"].strip()
+        elif isinstance(result, list) and len(result) > 0 and "text" in result[0]:
+            transcription = result[0]["text"].strip()
+        else:
+            transcription = str(result).strip()
+        
+        print(f"Transcription complete: {len(transcription)} characters", file=sys.stderr)
+        
+        if not transcription:
+            return "No speech detected in the audio file."
+        
+        return f"Transcription: {transcription}"
+        
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Error in speech recognition: {error_msg}", file=sys.stderr)
+        
+        if "librosa" in error_msg.lower():
+            return "ERROR: Audio processing library not available. Please install librosa: pip install librosa"
+        elif "cuda" in error_msg.lower() or "memory" in error_msg.lower():
+            return "ERROR: Insufficient GPU memory for audio processing. Try using CPU mode."
         else:
             return f"ERROR: {error_msg}"
 
@@ -493,16 +598,20 @@ def main() -> int:
         
         print(f"Processing input: '{args.input}'", file=sys.stderr)
         
-        # Check model cache status
-        cache_valid = check_model_cache_status(args.model_id)
-        
-        # If cache is invalid/corrupted, force download
-        if not cache_valid:
-            print(f"Model cache invalid, attempting fresh download...", file=sys.stderr)
-            if not force_download_model(args.model_id):
-                print(f"ERROR: Failed to download model {args.model_id}", file=sys.stderr)
-                return 1
-            print(f"Model download completed, proceeding with inference...", file=sys.stderr)
+        # Only check cache status and force download if no local model path is provided
+        if not args.local_model_path or not os.path.exists(args.local_model_path):
+            # Check model cache status
+            cache_valid = check_model_cache_status(args.model_id)
+            
+            # If cache is invalid/corrupted, force download
+            if not cache_valid:
+                print(f"Model cache invalid, attempting fresh download...", file=sys.stderr)
+                if not force_download_model(args.model_id):
+                    print(f"ERROR: Failed to download model {args.model_id}", file=sys.stderr)
+                    return 1
+                print(f"Model download completed, proceeding with inference...", file=sys.stderr)
+        else:
+            print(f"Using provided local model path: {args.local_model_path}", file=sys.stderr)
           # Detect model type and run appropriate function
         model_type = detect_model_type(args.model_id)
         print(f"Detected model type: {model_type}", file=sys.stderr)
@@ -518,6 +627,8 @@ def main() -> int:
         
         if model_type == "text-generation":
             result = run_text_generation(args.model_id, args.input, params, args.local_model_path)
+        elif model_type == "automatic-speech-recognition":
+            result = run_speech_recognition(args.model_id, args.input, params, args.local_model_path)
         else:
             result = f"Model type '{model_type}' not fully implemented yet. Basic response: Processed '{args.input}' with {args.model_id}"
         

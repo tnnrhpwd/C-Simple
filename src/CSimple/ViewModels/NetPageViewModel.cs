@@ -1794,6 +1794,9 @@ namespace CSimple.ViewModels
                     CurrentModelStatus = $"Added reference to {pythonReferenceModel.Name}";
                     await SavePersistedModelsAsync(); // Save the updated list
 
+                    // Clear the search query after successful import
+                    HuggingFaceSearchQuery = "";
+
                     // Show Python usage info
                     await ShowAlert("Reference Added & Usage", $"Reference to '{pythonReferenceModel.Name}' added.\n\nUse in Python:\nfrom transformers import AutoModel\nmodel = AutoModel.from_pretrained(\"{pythonReferenceModel.HuggingFaceModelId}\", trust_remote_code=True)", "OK");
 
