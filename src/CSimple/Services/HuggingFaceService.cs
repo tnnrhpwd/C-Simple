@@ -313,35 +313,156 @@ namespace CSimple.Services
         {
             try
             {
-                Debug.WriteLine($"Downloading model {modelId} to {destinationPath}...");
+                Debug.WriteLine($"Starting download of model {modelId} to {destinationPath}...");
 
-                // Create the model directory
-                var modelDir = Path.GetDirectoryName(destinationPath);
+                // Check if destinationPath is a marker file or directory
+                string modelDir;
+                bool isMarkerFile = destinationPath.EndsWith(".download_marker");
+
+                if (isMarkerFile)
+                {
+                    // Extract directory from marker file path
+                    modelDir = Path.GetDirectoryName(destinationPath);
+                    string modelName = Path.GetFileNameWithoutExtension(destinationPath);
+                    modelDir = Path.Combine(modelDir, modelName);
+
+                    // Delete existing marker file if it exists
+                    if (File.Exists(destinationPath))
+                    {
+                        Debug.WriteLine($"Removing existing marker file: {destinationPath}");
+                        File.Delete(destinationPath);
+                    }
+                }
+                else
+                {
+                    modelDir = destinationPath;
+                }
+
+                // Create model directory
                 if (!Directory.Exists(modelDir))
                 {
                     Directory.CreateDirectory(modelDir);
+                    Debug.WriteLine($"Created model directory: {modelDir}");
                 }
 
-                // Instead of downloading individual files, let the Python script handle the download
-                // using the transformers library which properly manages model caching
-                Debug.WriteLine($"Model {modelId} will be downloaded by Python script on first use.");
-
-                // Create a marker file to indicate the model is "available" for download
-                var markerContent = JsonSerializer.Serialize(new
+                // Retrieve files with size information
+                var files = await GetModelFilesWithSizeAsync(modelId);
+                if (files == null || files.Count == 0)
                 {
-                    ModelId = modelId,
-                    DownloadedAt = DateTime.UtcNow,
-                    Status = "ready_for_download",
-                    CacheDirectory = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels"
-                }, new JsonSerializerOptions { WriteIndented = true });
+                    throw new InvalidOperationException($"No files found for model {modelId}");
+                }
 
-                await File.WriteAllTextAsync(destinationPath, markerContent);
-                Debug.WriteLine($"Model {modelId} marked as ready for download.");
+                long totalSize = files.Sum(f => f.Size);
+                long downloadedBytes = 0;
+                int fileIndex = 0;
+
+                Debug.WriteLine($"Found {files.Count} files to download, total size: {totalSize:N0} bytes");
+
+                foreach (var file in files)
+                {
+                    fileIndex++;
+
+                    // Skip if file path is empty or invalid
+                    if (string.IsNullOrWhiteSpace(file.Path))
+                    {
+                        Debug.WriteLine($"Skipping file {fileIndex} with empty path");
+                        continue;
+                    }
+
+                    // Prepare local file path, preserving subdirectories
+                    string relativePath = file.Path.Replace("/", Path.DirectorySeparatorChar.ToString());
+                    string localFilePath = Path.Combine(modelDir, relativePath);
+                    string localDir = Path.GetDirectoryName(localFilePath);
+
+                    if (!Directory.Exists(localDir))
+                        Directory.CreateDirectory(localDir);
+
+                    // Skip if file already exists and has the correct size
+                    if (File.Exists(localFilePath))
+                    {
+                        var existingSize = new FileInfo(localFilePath).Length;
+                        if (existingSize == file.Size && file.Size > 0)
+                        {
+                            Debug.WriteLine($"File {file.Path} already exists with correct size, skipping");
+                            downloadedBytes += file.Size;
+                            continue;
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"File {file.Path} exists but size mismatch (existing: {existingSize}, expected: {file.Size}), re-downloading");
+                        }
+                    }
+
+                    Debug.WriteLine($"Downloading file {fileIndex}/{files.Count}: {file.Path} ({file.Size:N0} bytes)");
+
+                    try
+                    {
+                        var downloadUrl = GetModelDownloadUrl(modelId, file.Path);
+                        Debug.WriteLine($"Download URL: {downloadUrl}");
+
+                        using (var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+                        {
+                            if (!response.IsSuccessStatusCode)
+                            {
+                                Debug.WriteLine($"Failed to download {file.Path}: {response.StatusCode} - {response.ReasonPhrase}");
+                                continue; // Skip this file but continue with others
+                            }
+
+                            using (var remoteStream = await response.Content.ReadAsStreamAsync())
+                            using (var localStream = File.Create(localFilePath))
+                            {
+                                var buffer = new byte[81920]; // 80KB buffer
+                                int bytesRead;
+                                long fileDownloadedBytes = 0;
+
+                                while ((bytesRead = await remoteStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                                {
+                                    await localStream.WriteAsync(buffer, 0, bytesRead);
+                                    fileDownloadedBytes += bytesRead;
+                                    downloadedBytes += bytesRead;
+
+                                    if (totalSize > 0)
+                                    {
+                                        int percent = (int)(downloadedBytes * 100 / totalSize);
+                                        Debug.WriteLine($"Overall progress: {percent}% ({downloadedBytes:N0}/{totalSize:N0} bytes)");
+                                    }
+                                }
+
+                                Debug.WriteLine($"Successfully downloaded {file.Path} ({fileDownloadedBytes:N0} bytes)");
+                            }
+                        }
+                    }
+                    catch (Exception fileEx)
+                    {
+                        Debug.WriteLine($"Error downloading file {file.Path}: {fileEx.Message}");
+                        // Continue with next file
+                    }
+                }
+
+                // Create completion marker if this was called with a marker file path
+                if (isMarkerFile)
+                {
+                    var markerContent = JsonSerializer.Serialize(new
+                    {
+                        ModelId = modelId,
+                        DownloadedAt = DateTime.UtcNow,
+                        Status = "completed",
+                        ModelDirectory = modelDir,
+                        FilesDownloaded = files.Count,
+                        TotalSize = totalSize
+                    }, new JsonSerializerOptions { WriteIndented = true });
+
+                    await File.WriteAllTextAsync(destinationPath, markerContent);
+                    Debug.WriteLine($"Created completion marker: {destinationPath}");
+                }
+
+                Debug.WriteLine($"Model {modelId} download completed successfully to {modelDir}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error preparing model {modelId} for download: {ex.Message}");
-                throw;
+                Debug.WriteLine($"Error downloading model {modelId}: {ex.Message}");
+                Debug.WriteLine(ex.ToString());
+                throw; // Re-throw to let caller handle the error
             }
         }
         public async Task DeleteModelAsync(string modelId, string modelPath)
@@ -393,25 +514,62 @@ namespace CSimple.Services
 
                 if (Directory.Exists(cacheDirectory))
                 {
-                    // Look for marker files (.download_marker)
+                    // Look for completed marker files (.download_marker)
                     var markerFiles = Directory.GetFiles(cacheDirectory, "*.download_marker");
                     foreach (var markerFile in markerFiles)
                     {
-                        var modelId = Path.GetFileNameWithoutExtension(markerFile).Replace("_", "/");
-                        downloadedModels.Add(modelId);
+                        try
+                        {
+                            // Read marker file to check if download was completed
+                            var markerContent = File.ReadAllText(markerFile);
+                            if (markerContent.Contains("\"Status\": \"completed\""))
+                            {
+                                var modelId = Path.GetFileNameWithoutExtension(markerFile).Replace("_", "/");
+                                downloadedModels.Add(modelId);
+                                Debug.WriteLine($"Found completed download: {modelId}");
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"Marker file {markerFile} indicates incomplete download");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error reading marker file {markerFile}: {ex.Message}");
+                        }
                     }
 
-                    // Also look for actual HuggingFace cache directories (models--org--model)
-                    var modelDirs = Directory.GetDirectories(cacheDirectory, "models--*");
-                    foreach (var modelDir in modelDirs)
+                    // Also look for model directories with actual files
+                    var allDirs = Directory.GetDirectories(cacheDirectory);
+                    foreach (var modelDir in allDirs)
                     {
                         var dirName = Path.GetFileName(modelDir);
-                        if (dirName.StartsWith("models--"))
+
+                        // Skip if this is not a model directory
+                        if (dirName.StartsWith(".") || dirName == "temp") continue;
+
+                        // Check if directory contains model files
+                        var modelFiles = Directory.GetFiles(modelDir, "*", SearchOption.AllDirectories);
+                        if (modelFiles.Length > 0)
                         {
-                            var modelId = dirName.Substring(8).Replace("--", "/"); // Remove "models--" prefix and convert back
+                            string modelId;
+
+                            // Handle different directory naming conventions
+                            if (dirName.StartsWith("models--"))
+                            {
+                                // HuggingFace cache format: models--org--model
+                                modelId = dirName.Substring(8).Replace("--", "/");
+                            }
+                            else
+                            {
+                                // Our custom format: org_model -> org/model
+                                modelId = dirName.Replace("_", "/");
+                            }
+
                             if (!downloadedModels.Contains(modelId))
                             {
                                 downloadedModels.Add(modelId);
+                                Debug.WriteLine($"Found model directory: {modelId} ({modelFiles.Length} files)");
                             }
                         }
                     }
@@ -922,6 +1080,32 @@ namespace CSimple.Services
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Test method to debug the actual API response structure
+        /// </summary>
+        public async Task<string> TestApiResponse(string modelId)
+        {
+            try
+            {
+                var endpoint = $"https://huggingface.co/api/models/{modelId}/tree/main";
+                Debug.WriteLine($"Testing API endpoint: {endpoint}");
+
+                var response = await _httpClient.GetAsync(endpoint);
+                var content = await response.Content.ReadAsStringAsync();
+
+                Debug.WriteLine($"API Response Status: {response.StatusCode}");
+                Debug.WriteLine($"API Response Length: {content.Length} bytes");
+                Debug.WriteLine($"API Response Content: {content}");
+
+                return content;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Test API call failed: {ex.Message}");
+                return $"Error: {ex.Message}";
+            }
         }
     }
 
