@@ -1274,12 +1274,16 @@ namespace CSimple.ViewModels
                         // Try to execute the model with the media prompt
                         try
                         {
+                            // Get the local model path to force local-only execution
+                            string localModelPath = GetLocalModelPath(activeHfModel.HuggingFaceModelId);
+
                             var modelResponse = await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(
                                 activeHfModel.HuggingFaceModelId,
                                 mediaPrompt,
                                 activeHfModel,
                                 _pythonExecutablePath,
-                                _huggingFaceScriptPath);
+                                _huggingFaceScriptPath,
+                                localModelPath);
 
                             if (!string.IsNullOrEmpty(modelResponse))
                             {
@@ -1347,7 +1351,11 @@ namespace CSimple.ViewModels
                 () => Task.CompletedTask, /* CPU-friendly models suggestion handled by service */
                 async () => await _modelExecutionService.InstallAcceleratePackageAsync(_pythonExecutablePath),
                 (modelId) => "Consider using smaller models for better CPU performance.",
-                async (modelId, inputText, model) => await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(modelId, inputText, model, _pythonExecutablePath, _huggingFaceScriptPath));
+                async (modelId, inputText, model) =>
+                {
+                    string localModelPath = GetLocalModelPath(modelId);
+                    return await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(modelId, inputText, model, _pythonExecutablePath, _huggingFaceScriptPath, localModelPath);
+                });
         }
 
         // Helper method to build chat history for model input
@@ -1392,8 +1400,9 @@ namespace CSimple.ViewModels
         }        // Enhanced model execution with better error handling and performance optimizations
         private async Task<string> ExecuteHuggingFaceModelAsyncEnhanced(string modelId, string inputText, NeuralNetworkModel model)
         {
+            string localModelPath = GetLocalModelPath(modelId);
             return await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(
-                modelId, inputText, model, _pythonExecutablePath, _huggingFaceScriptPath);
+                modelId, inputText, model, _pythonExecutablePath, _huggingFaceScriptPath, localModelPath);
         }
 
         // Helper method to suggest CPU-friendly models to the user
@@ -2809,5 +2818,15 @@ namespace CSimple.ViewModels
             }
         }
 
+        /// <summary>
+        /// Gets the local model directory path for a given model ID
+        /// This is used to force local-only execution and avoid HuggingFace API calls
+        /// </summary>
+        /// <param name="modelId">The HuggingFace model ID</param>
+        /// <returns>The local directory path where the model is cached</returns>
+        public string GetLocalModelPath(string modelId)
+        {
+            return GetModelDirectoryPath(modelId);
+        }
     }
 }

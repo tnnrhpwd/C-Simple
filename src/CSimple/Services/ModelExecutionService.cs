@@ -27,7 +27,7 @@ namespace CSimple.Services
         /// Executes a HuggingFace model with enhanced error handling and parameter optimization
         /// </summary>
         public async Task<string> ExecuteHuggingFaceModelAsyncEnhanced(string modelId, string inputText,
-            NeuralNetworkModel model, string pythonExecutablePath, string huggingFaceScriptPath)
+            NeuralNetworkModel model, string pythonExecutablePath, string huggingFaceScriptPath, string localModelPath = null)
         {
             // Validate inputs
             if (string.IsNullOrEmpty(pythonExecutablePath))
@@ -53,6 +53,13 @@ namespace CSimple.Services
                 // Build arguments with enhanced parameters
                 var argumentsBuilder = new StringBuilder();
                 argumentsBuilder.Append($"\"{huggingFaceScriptPath}\" --model_id \"{modelId}\" --input \"{escapedInput}\"");
+
+                // Add local model path if provided to force local-only execution
+                if (!string.IsNullOrEmpty(localModelPath) && Directory.Exists(localModelPath))
+                {
+                    argumentsBuilder.Append($" --local_model_path \"{localModelPath}\"");
+                    Debug.WriteLine($"Using local model path for execution: {localModelPath}");
+                }
 
                 // Add CPU optimization flag for better local performance
                 argumentsBuilder.Append(" --cpu_optimize");

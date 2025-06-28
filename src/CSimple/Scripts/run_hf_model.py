@@ -44,6 +44,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--trust_remote_code", action="store_true", default=True, help="Trust remote code")
     parser.add_argument("--cpu_optimize", action="store_true", help="Force CPU optimization mode")
     parser.add_argument("--offline_mode", action="store_true", help="Force offline mode (no API fallback)")
+    parser.add_argument("--local_model_path", type=str, help="Local path to model directory (overrides model_id for loading)")
     return parser.parse_args()
 
 
@@ -143,22 +144,29 @@ def detect_model_type(model_id: str) -> str:
     return "text-generation"  # Default
 
 
-def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any]) -> str:
+def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
     """Run text generation with enhanced error handling for quantized models."""
     try:
         from transformers import AutoTokenizer, AutoModelForCausalLM
         import torch
         
-        print(f"Loading tokenizer for {model_id}...", file=sys.stderr)
+        # Determine the actual model path to use
+        model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
+        
+        if local_model_path and os.path.exists(local_model_path):
+            print(f"Using local model path: {local_model_path}", file=sys.stderr)
+        else:
+            print(f"Loading tokenizer for {model_id}...", file=sys.stderr)
           # Load tokenizer with enhanced error handling for SentencePiece/Tiktoken issues
         try:
-            print(f"Attempting fast tokenizer load for {model_id}...", file=sys.stderr)
+            print(f"Attempting fast tokenizer load for {model_path_to_use}...", file=sys.stderr)
             # First try with fast tokenizer (default)
             tokenizer = AutoTokenizer.from_pretrained(
-                model_id, 
+                model_path_to_use, 
                 trust_remote_code=params.get("trust_remote_code", True),
-                cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels",
-                resume_download=True
+                cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels" if not local_model_path else None,
+                resume_download=True if not local_model_path else False,
+                local_files_only=bool(local_model_path)
             )
             print(f"✓ Tokenizer loaded successfully (fast tokenizer)", file=sys.stderr)
         except Exception as fast_error:
@@ -168,11 +176,12 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any]) 
             try:
                 # Fallback to slow tokenizer if fast tokenizer fails
                 tokenizer = AutoTokenizer.from_pretrained(
-                    model_id, 
+                    model_path_to_use, 
                     trust_remote_code=params.get("trust_remote_code", True),
-                    cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels",
-                    resume_download=True,
-                    use_fast=False  # Force slow tokenizer
+                    cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels" if not local_model_path else None,
+                    resume_download=True if not local_model_path else False,
+                    use_fast=False,  # Force slow tokenizer
+                    local_files_only=bool(local_model_path)
                 )
                 print(f"✓ Tokenizer loaded successfully (slow tokenizer)", file=sys.stderr)
             except Exception as slow_error:
@@ -246,33 +255,38 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any]) 
             "trust_remote_code": params.get("trust_remote_code", True),
             "torch_dtype": torch_dtype,
             "low_cpu_mem_usage": True,
-            "cache_dir": "C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels",
-            "resume_download": True        }
+            "cache_dir": "C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels" if not local_model_path else None,
+            "resume_download": True if not local_model_path else False,
+            "local_files_only": bool(local_model_path)
+        }
         
         if device_map:
             model_kwargs["device_map"] = device_map
         
-        print(f"Downloading/loading model files (this may take a while for first-time downloads)...", file=sys.stderr)
-        print(f"Progress: Starting model download/load...", file=sys.stderr)
-        
-        # Check if model is already cached
-        from huggingface_hub import try_to_load_from_cache
-        try:
-            # Try to check if model is already cached
-            cached_file = try_to_load_from_cache(
-                model_id, 
-                "config.json",
-                cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels"
-            )
-            if cached_file:
-                print(f"Progress: Model found in cache, loading from disk...", file=sys.stderr)
-            else:
-                print(f"Progress: Model not in cache, downloading from HuggingFace...", file=sys.stderr)
-        except Exception:
-            print(f"Progress: Checking cache status, downloading if needed...", file=sys.stderr)
+        if local_model_path and os.path.exists(local_model_path):
+            print(f"Loading model from local path: {local_model_path}", file=sys.stderr)
+        else:
+            print(f"Downloading/loading model files (this may take a while for first-time downloads)...", file=sys.stderr)
+            print(f"Progress: Starting model download/load...", file=sys.stderr)
+            
+            # Check if model is already cached
+            from huggingface_hub import try_to_load_from_cache
+            try:
+                # Try to check if model is already cached
+                cached_file = try_to_load_from_cache(
+                    model_id, 
+                    "config.json",
+                    cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels"
+                )
+                if cached_file:
+                    print(f"Progress: Model found in cache, loading from disk...", file=sys.stderr)
+                else:
+                    print(f"Progress: Model not in cache, downloading from HuggingFace...", file=sys.stderr)
+            except Exception:
+                print(f"Progress: Checking cache status, downloading if needed...", file=sys.stderr)
         
         # Load model with progress indication
-        model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
+        model = AutoModelForCausalLM.from_pretrained(model_path_to_use, **model_kwargs)
         
         print(f"✓ Model loaded successfully", file=sys.stderr)
         print(f"Progress: Model loading complete", file=sys.stderr)
@@ -503,7 +517,7 @@ def main() -> int:
         }
         
         if model_type == "text-generation":
-            result = run_text_generation(args.model_id, args.input, params)
+            result = run_text_generation(args.model_id, args.input, params, args.local_model_path)
         else:
             result = f"Model type '{model_type}' not fully implemented yet. Basic response: Processed '{args.input}' with {args.model_id}"
         
