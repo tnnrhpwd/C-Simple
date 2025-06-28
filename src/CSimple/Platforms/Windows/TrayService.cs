@@ -49,7 +49,7 @@ public class TrayService : ITrayService
             if (_isProgressVisible)
             {
                 var progressPercent = (int)(progress * 100);
-                Debug.WriteLine($"TrayService: Updating progress - {progressPercent}% {message ?? ""}");
+                // Debug.WriteLine($"TrayService: Updating progress - {progressPercent}% {message ?? ""}");
 
                 // Update tray icon tooltip
                 if (tray != null)

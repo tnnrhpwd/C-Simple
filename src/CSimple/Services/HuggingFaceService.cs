@@ -464,7 +464,7 @@ namespace CSimple.Services
                                             progressReporter?.Report((progress, status));
 
                                             int percent = (int)(downloadedBytes * 100 / totalSize);
-                                            Debug.WriteLine($"Overall progress: {percent}% ({downloadedBytes:N0}/{totalSize:N0} bytes)");
+                                            // Debug.WriteLine($"Overall progress: {percent}% ({downloadedBytes:N0}/{totalSize:N0} bytes)");
                                         }
                                         lastReportedBytes = downloadedBytes;
                                     }
