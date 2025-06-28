@@ -2207,14 +2207,97 @@ namespace CSimple.ViewModels
 
         /// <summary>
         /// Generic file selector that automatically detects file type and sets appropriate media
+        /// Filters file types based on currently activated models
         /// </summary>
         private async Task SelectFileAsync()
         {
             try
             {
+                // Determine which file types are supported based on active models
+                var supportsImages = SupportsImageInput;
+                var supportsAudio = SupportsAudioInput;
+
+                // If no models are active, show a message
+                if (!supportsImages && !supportsAudio)
+                {
+                    await ShowAlert?.Invoke(
+                        "No Compatible Models Active",
+                        "Please activate an image or audio model before uploading files.\n\n" +
+                        "You can activate models from the Model Management section above.",
+                        "OK");
+                    return;
+                }
+
+                // Build dynamic file types based on active models
+                var fileTypeDict = new Dictionary<DevicePlatform, IEnumerable<string>>();
+                var supportedFormats = new List<string>();
+                var pickerTitle = "Select a file";
+
+                if (supportsImages && supportsAudio)
+                {
+                    // Both image and audio models are active
+                    pickerTitle = "Select an image or audio file";
+                    supportedFormats.AddRange(new[] { "Images: JPG, PNG, GIF, BMP, WebP, TIFF", "Audio: MP3, WAV, M4A, AAC, OGG, FLAC, WMA" });
+
+                    fileTypeDict = new Dictionary<DevicePlatform, IEnumerable<string>>
+                    {
+                        { DevicePlatform.iOS, new[] { "public.image", "public.audio" } },
+                        { DevicePlatform.Android, new[] { "image/*", "audio/*" } },
+                        { DevicePlatform.WinUI, new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".wma" } },
+                        { DevicePlatform.Tizen, new[] { "image/*", "audio/*" } },
+                        { DevicePlatform.macOS, new[] { "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "mp3", "wav", "m4a", "aac", "ogg", "flac", "wma" } },
+                    };
+                }
+                else if (supportsImages)
+                {
+                    // Only image models are active
+                    pickerTitle = "Select an image file";
+                    supportedFormats.Add("Images: JPG, PNG, GIF, BMP, WebP, TIFF");
+
+                    fileTypeDict = new Dictionary<DevicePlatform, IEnumerable<string>>
+                    {
+                        { DevicePlatform.iOS, new[] { "public.image" } },
+                        { DevicePlatform.Android, new[] { "image/*" } },
+                        { DevicePlatform.WinUI, new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff" } },
+                        { DevicePlatform.Tizen, new[] { "image/*" } },
+                        { DevicePlatform.macOS, new[] { "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff" } },
+                    };
+                }
+                else if (supportsAudio)
+                {
+                    // Only audio models are active
+                    pickerTitle = "Select an audio file";
+                    supportedFormats.Add("Audio: MP3, WAV, M4A, AAC, OGG, FLAC, WMA");
+
+                    fileTypeDict = new Dictionary<DevicePlatform, IEnumerable<string>>
+                    {
+                        { DevicePlatform.iOS, new[] { "public.audio" } },
+                        { DevicePlatform.Android, new[] { "audio/*" } },
+                        { DevicePlatform.WinUI, new[] { ".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".wma" } },
+                        { DevicePlatform.Tizen, new[] { "audio/*" } },
+                        { DevicePlatform.macOS, new[] { "mp3", "wav", "m4a", "aac", "ogg", "flac", "wma" } },
+                    };
+                }
+
+                // Show status message about what files can be selected
+                var activeModelNames = new List<string>();
+                if (supportsImages)
+                {
+                    var imageModels = ActiveModels.Where(m => m.InputType == ModelInputType.Image).Select(m => m.Name);
+                    activeModelNames.AddRange(imageModels.Select(name => $"Image: {name}"));
+                }
+                if (supportsAudio)
+                {
+                    var audioModels = ActiveModels.Where(m => m.InputType == ModelInputType.Audio).Select(m => m.Name);
+                    activeModelNames.AddRange(audioModels.Select(name => $"Audio: {name}"));
+                }
+
+                CurrentModelStatus = $"📁 File picker ready. Supported formats: {string.Join(", ", supportedFormats)}. Active models: {string.Join(", ", activeModelNames)}";
+
                 var result = await FilePicker.Default.PickAsync(new PickOptions
                 {
-                    PickerTitle = "Select a file"
+                    PickerTitle = pickerTitle,
+                    FileTypes = new FilePickerFileType(fileTypeDict)
                 });
 
                 if (result != null)
@@ -2224,7 +2307,7 @@ namespace CSimple.ViewModels
                     var isImage = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff" }.Contains(extension);
                     var isAudio = new[] { ".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".wma" }.Contains(extension);
 
-                    if (isImage)
+                    if (isImage && supportsImages)
                     {
                         // Treat as image
                         SelectedImagePath = result.FullPath;
@@ -2237,7 +2320,7 @@ namespace CSimple.ViewModels
                         // Check compatibility and provide feedback
                         await CheckModelCompatibilityForMediaAsync("image", result.FileName);
                     }
-                    else if (isAudio)
+                    else if (isAudio && supportsAudio)
                     {
                         // Treat as audio
                         SelectedAudioPath = result.FullPath;
@@ -2252,16 +2335,18 @@ namespace CSimple.ViewModels
                     }
                     else
                     {
-                        // Unknown file type - inform user
-                        CurrentModelStatus = $"⚠ File '{result.FileName}' selected, but it's not a recognized image or audio file. Currently only image and audio files are supported.";
+                        // File type doesn't match active models
+                        var expectedTypes = new List<string>();
+                        if (supportsImages) expectedTypes.Add("image");
+                        if (supportsAudio) expectedTypes.Add("audio");
+
+                        CurrentModelStatus = $"⚠ File '{result.FileName}' selected, but it doesn't match your active model types ({string.Join(" or ", expectedTypes)}).";
 
                         await ShowAlert?.Invoke(
-                            "Unsupported File Type",
-                            $"The file '{result.FileName}' is not a supported media type.\n\n" +
-                            "Currently supported formats:\n" +
-                            "• Images: JPG, PNG, GIF, BMP, WebP, TIFF\n" +
-                            "• Audio: MP3, WAV, M4A, AAC, OGG, FLAC, WMA\n\n" +
-                            "Please select an image or audio file.",
+                            "File Type Mismatch",
+                            $"The file '{result.FileName}' doesn't match your currently active models.\n\n" +
+                            $"Active models support: {string.Join(" and ", supportedFormats)}\n\n" +
+                            $"Please select a compatible file type or activate additional models.",
                             "OK");
                         return;
                     }
