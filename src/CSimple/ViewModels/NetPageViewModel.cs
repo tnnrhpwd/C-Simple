@@ -1,6 +1,7 @@
 using CSimple.Models;
 using CSimple.Services;
 using CSimple.Services.AppModeService;
+using Microsoft.Maui.Controls;
 using Microsoft.Maui.Storage;
 using System;
 using System.Collections.Generic;
@@ -551,18 +552,28 @@ namespace CSimple.ViewModels
                 // Ensure the directory exists
                 Directory.CreateDirectory(Path.GetDirectoryName(markerPath));
 
-                // Simulate download progress (since the actual download happens in Python script)
-                await SimulateDownloadProgress(model);
+                // Create progress reporter to connect HuggingFaceService progress to UI
+                var progress = new Progress<(double progress, string status)>(report =>
+                {
+                    // Update model progress on UI thread
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        model.DownloadProgress = report.progress;
+                        model.DownloadStatus = report.status;
 
-                // Call the service to prepare for download
-                await _huggingFaceService.DownloadModelAsync(modelId, markerPath);
+                        // Update tray progress
+                        _trayService?.UpdateProgress(report.progress, report.status);
+                    });
+                });
+
+                // Call the service to download with progress reporting
+                await _huggingFaceService.DownloadModelAsync(modelId, markerPath, progress);
 
                 // Mark as downloaded
                 model.IsDownloaded = true;
                 model.DownloadProgress = 1.0;
                 model.DownloadStatus = "Download complete";
 
-                // The actual model files will be downloaded by the Python script on first use
                 // Refresh downloaded models list from disk to sync with actual state
                 RefreshDownloadedModelsList();
 
@@ -591,41 +602,6 @@ namespace CSimple.ViewModels
             }
         }
 
-        /// <summary>
-        /// Simulates download progress with realistic timing
-        /// </summary>
-        private async Task SimulateDownloadProgress(NeuralNetworkModel model)
-        {
-            var random = new Random();
-            var totalSteps = 20;
-
-            for (int i = 0; i <= totalSteps; i++)
-            {
-                var progress = (double)i / totalSteps;
-                model.DownloadProgress = progress;
-
-                // Update status based on progress
-                if (progress < 0.2)
-                    model.DownloadStatus = "Connecting to HuggingFace...";
-                else if (progress < 0.4)
-                    model.DownloadStatus = "Downloading model files...";
-                else if (progress < 0.7)
-                    model.DownloadStatus = "Processing tokenizer...";
-                else if (progress < 0.9)
-                    model.DownloadStatus = "Validating model integrity...";
-                else if (progress < 1.0)
-                    model.DownloadStatus = "Finalizing download...";
-                else
-                    model.DownloadStatus = "Download complete!";
-
-                // Update tray progress
-                _trayService?.UpdateProgress(progress, model.DownloadStatus);
-
-                // Variable delay to simulate realistic download behavior
-                var delay = random.Next(100, 500);
-                await Task.Delay(delay);
-            }
-        }
         private Task DeleteModelAsync(NeuralNetworkModel model)
         {
             try

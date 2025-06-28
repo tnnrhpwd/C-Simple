@@ -309,7 +309,7 @@ namespace CSimple.Services
             // Replace with actual logic to get filenames if needed
             return new List<string> { "config.json", "pytorch_model.bin", "tokenizer.json" };
         }
-        public async Task DownloadModelAsync(string modelId, string destinationPath)
+        public async Task DownloadModelAsync(string modelId, string destinationPath, IProgress<(double progress, string status)> progressReporter = null)
         {
             try
             {
@@ -345,6 +345,9 @@ namespace CSimple.Services
                     Debug.WriteLine($"Created model directory: {modelDir}");
                 }
 
+                // Report initial progress
+                progressReporter?.Report((0.0, "Fetching file list..."));
+
                 // Retrieve files with size information
                 var files = await GetModelFilesWithSizeAsync(modelId);
                 if (files == null || files.Count == 0)
@@ -357,6 +360,7 @@ namespace CSimple.Services
                 int fileIndex = 0;
 
                 Debug.WriteLine($"Found {files.Count} files to download, total size: {totalSize:N0} bytes");
+                progressReporter?.Report((0.05, $"Starting download of {files.Count} files..."));
 
                 foreach (var file in files)
                 {
@@ -385,6 +389,14 @@ namespace CSimple.Services
                         {
                             Debug.WriteLine($"File {file.Path} already exists with correct size, skipping");
                             downloadedBytes += file.Size;
+
+                            // Report progress for skipped file
+                            if (totalSize > 0)
+                            {
+                                double progress = Math.Min(0.95, 0.05 + (downloadedBytes * 0.9 / totalSize));
+                                progressReporter?.Report((progress, $"Verified {file.Path}"));
+                            }
+
                             continue;
                         }
                         else
@@ -394,6 +406,13 @@ namespace CSimple.Services
                     }
 
                     Debug.WriteLine($"Downloading file {fileIndex}/{files.Count}: {file.Path} ({file.Size:N0} bytes)");
+
+                    // Report progress for current file start
+                    if (totalSize > 0)
+                    {
+                        double currentProgress = Math.Min(0.95, 0.05 + (downloadedBytes * 0.9 / totalSize));
+                        progressReporter?.Report((currentProgress, $"Downloading {file.Path}..."));
+                    }
 
                     try
                     {
@@ -414,6 +433,7 @@ namespace CSimple.Services
                                 var buffer = new byte[81920]; // 80KB buffer
                                 int bytesRead;
                                 long fileDownloadedBytes = 0;
+                                long lastReportedBytes = 0;
 
                                 while ((bytesRead = await remoteStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                                 {
@@ -421,10 +441,19 @@ namespace CSimple.Services
                                     fileDownloadedBytes += bytesRead;
                                     downloadedBytes += bytesRead;
 
-                                    if (totalSize > 0)
+                                    // Report progress every 1MB to avoid too many updates
+                                    if (downloadedBytes - lastReportedBytes >= 1048576 || fileDownloadedBytes == file.Size) // 1MB or file complete
                                     {
-                                        int percent = (int)(downloadedBytes * 100 / totalSize);
-                                        Debug.WriteLine($"Overall progress: {percent}% ({downloadedBytes:N0}/{totalSize:N0} bytes)");
+                                        if (totalSize > 0)
+                                        {
+                                            double progress = Math.Min(0.95, 0.05 + (downloadedBytes * 0.9 / totalSize));
+                                            string status = $"Downloading {file.Path} ({downloadedBytes:N0}/{totalSize:N0} bytes)";
+                                            progressReporter?.Report((progress, status));
+
+                                            int percent = (int)(downloadedBytes * 100 / totalSize);
+                                            Debug.WriteLine($"Overall progress: {percent}% ({downloadedBytes:N0}/{totalSize:N0} bytes)");
+                                        }
+                                        lastReportedBytes = downloadedBytes;
                                     }
                                 }
 
@@ -438,6 +467,9 @@ namespace CSimple.Services
                         // Continue with next file
                     }
                 }
+
+                // Report completion
+                progressReporter?.Report((1.0, "Download completed!"));
 
                 // Create completion marker if this was called with a marker file path
                 if (isMarkerFile)
