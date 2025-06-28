@@ -1218,6 +1218,126 @@ namespace CSimple.ViewModels
         {
             var activeHfModel = GetBestActiveModel();
 
+            // Handle media-only messages (when message is empty but media is selected)
+            if (string.IsNullOrWhiteSpace(message) && HasSelectedMedia)
+            {
+                // Create a descriptive message for media-only processing
+                string mediaDescription = "";
+                string mediaPath = "";
+
+                if (HasSelectedImage)
+                {
+                    mediaDescription = $"[Processing image: {SelectedImageName}]";
+                    mediaPath = SelectedImagePath;
+                    Debug.WriteLine($"Media-only message: Processing image {SelectedImagePath}");
+                }
+                else if (HasSelectedAudio)
+                {
+                    mediaDescription = $"[Processing audio: {SelectedAudioName}]";
+                    mediaPath = SelectedAudioPath;
+                    Debug.WriteLine($"Media-only message: Processing audio {SelectedAudioPath}");
+                }
+
+                // Add user message to chat to show what's being processed
+                var userMessage = new ChatMessage(mediaDescription, isFromUser: true, includeInHistory: true);
+                ChatMessages.Add(userMessage);
+                Debug.WriteLine($"Added media-only user message to chat. ChatMessages count: {ChatMessages.Count}");
+
+                // Add processing message
+                var processingMessage = new ChatMessage("Processing your media file...", isFromUser: false, modelName: activeHfModel?.Name ?? "System", includeInHistory: false)
+                {
+                    IsProcessing = true,
+                    LLMSource = "local"
+                };
+                ChatMessages.Add(processingMessage);
+
+                try
+                {
+                    string responseText = "";
+
+                    if (activeHfModel != null && !string.IsNullOrEmpty(activeHfModel.HuggingFaceModelId))
+                    {
+                        // Try to process the media file through the model
+                        Debug.WriteLine($"Attempting to process media with model: {activeHfModel.HuggingFaceModelId}");
+
+                        // For audio files, create a prompt that includes the file path
+                        string mediaPrompt = "";
+                        if (HasSelectedAudio)
+                        {
+                            mediaPrompt = $"Please process this audio file: {mediaPath}";
+                        }
+                        else if (HasSelectedImage)
+                        {
+                            mediaPrompt = $"Please analyze this image file: {mediaPath}";
+                        }
+
+                        // Try to execute the model with the media prompt
+                        try
+                        {
+                            var modelResponse = await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(
+                                activeHfModel.HuggingFaceModelId,
+                                mediaPrompt,
+                                activeHfModel,
+                                _pythonExecutablePath,
+                                _huggingFaceScriptPath);
+
+                            if (!string.IsNullOrEmpty(modelResponse))
+                            {
+                                responseText = modelResponse;
+                                Debug.WriteLine($"Model processing successful: {modelResponse.Substring(0, Math.Min(100, modelResponse.Length))}...");
+                            }
+                            else
+                            {
+                                responseText = $"The model '{activeHfModel.Name}' processed your {(HasSelectedAudio ? "audio" : "image")} file, but returned an empty response. This might indicate that the model needs additional configuration for media processing.";
+                            }
+                        }
+                        catch (Exception modelEx)
+                        {
+                            Debug.WriteLine($"Model execution failed: {modelEx.Message}");
+                            responseText = $"I attempted to process your {(HasSelectedAudio ? "audio" : "image")} file with '{activeHfModel.Name}', but encountered an error: {modelEx.Message}\n\n" +
+                                          $"This might be because:\n" +
+                                          $"• The model requires specific media processing libraries\n" +
+                                          $"• The Python script needs updates for media file handling\n" +
+                                          $"• The model doesn't support direct file path processing\n\n" +
+                                          $"File location: {mediaPath}";
+                        }
+                    }
+                    else
+                    {
+                        // No valid model available
+                        responseText = $"I can see you've uploaded a {(HasSelectedAudio ? "audio" : "image")} file: '{(HasSelectedAudio ? SelectedAudioName : SelectedImageName)}', but no compatible model is properly configured.\n\n" +
+                                      $"To process this media file, please ensure:\n" +
+                                      $"• The active model supports {(HasSelectedAudio ? "audio" : "image")} processing\n" +
+                                      $"• The model is properly downloaded and configured\n\n" +
+                                      $"File location: {mediaPath}";
+                    }
+
+                    // Remove processing message and add actual response
+                    ChatMessages.Remove(processingMessage);
+
+                    var aiMessage = new ChatMessage(responseText, false, activeHfModel?.Name ?? "System", includeInHistory: true)
+                    {
+                        LLMSource = "local"
+                    };
+                    ChatMessages.Add(aiMessage);
+                    Debug.WriteLine($"Added media processing response to chat. ChatMessages count: {ChatMessages.Count}");
+                }
+                catch (Exception ex)
+                {
+                    // Remove processing message and show error
+                    ChatMessages.Remove(processingMessage);
+
+                    var errorMessage = new ChatMessage($"Error processing media file: {ex.Message}", false, "System", includeInHistory: true);
+                    ChatMessages.Add(errorMessage);
+                    Debug.WriteLine($"Error processing media: {ex}");
+                }
+
+                // Clear the selected media after processing
+                ClearMedia();
+                return;
+            }
+
+            // Regular text message processing
             await _modelCommunicationService.CommunicateWithModelAsync(message,
                 activeHfModel,
                 ChatMessages,
