@@ -1573,6 +1573,7 @@ namespace CSimple.ViewModels
                     modelId.Contains("resnet") ||
                     modelId.Contains("diffusion") ||
                     modelId.Contains("stable-diffusion") ||
+                    modelId.Contains("blip") ||
                     modelId.Contains("yolo"))
                 {
                     return ModelInputType.Image;

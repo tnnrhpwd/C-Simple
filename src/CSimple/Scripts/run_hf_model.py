@@ -19,6 +19,10 @@ import time
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional
+
+# Will be imported after environment setup
+torch = None
+from typing import Dict, Any, Optional
 import importlib.util
 
 
@@ -113,6 +117,10 @@ def setup_environment() -> bool:
         transformers.logging.set_verbosity_error()
         logging.getLogger().setLevel(logging.ERROR)
         
+        # Import torch for model operations
+        global torch
+        import torch
+        
         # Set environment variables to handle security warnings
         os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
         return True
@@ -130,6 +138,14 @@ def detect_model_type(model_id: str) -> str:
         return "automatic-speech-recognition"
     if any(name in model_id_lower for name in ["wav2vec", "hubert", "speecht5_asr"]):
         return "automatic-speech-recognition"
+    
+    # Vision/Image models
+    if "blip" in model_id_lower:
+        return "image-to-text"
+    if any(name in model_id_lower for name in ["vit", "clip", "detr", "deit"]):
+        return "image-classification"
+    if any(name in model_id_lower for name in ["stable-diffusion", "diffusion"]):
+        return "text-to-image"
     
     # DeepSeek models
     if "deepseek" in model_id_lower:
@@ -489,6 +505,111 @@ def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any
             return f"ERROR: {error_msg}"
 
 
+def run_image_to_text(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
+    """Run image-to-text processing on image files using BLIP and similar models."""
+    try:
+        print(f"Processing image-to-text with model: {model_id}", file=sys.stderr)
+        
+        # Extract image file path from input text
+        image_file_path = None
+        if "image file:" in input_text:
+            # Extract the file path after "image file:"
+            parts = input_text.split("image file:")
+            if len(parts) > 1:
+                image_file_path = parts[1].strip()
+        
+        if not image_file_path or not os.path.exists(image_file_path):
+            return "ERROR: No valid image file path found in input. Please provide a valid image file path."
+        
+        print(f"Processing image file: {image_file_path}", file=sys.stderr)
+        
+        # Check if required image processing libraries are available
+        try:
+            from PIL import Image
+            print("✓ PIL library available", file=sys.stderr)
+        except ImportError:
+            try:
+                # Try installing Pillow
+                print("Installing Pillow...", file=sys.stderr)
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "Pillow"], 
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                from PIL import Image
+                print("✓ Pillow installed and imported", file=sys.stderr)
+            except Exception as e:
+                return f"ERROR: Failed to install/import Pillow for image processing: {e}"
+        
+        # Import transformers components
+        from transformers import AutoProcessor, BlipForConditionalGeneration
+        
+        # Determine model path
+        model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
+        print(f"Using model path: {model_path_to_use}", file=sys.stderr)
+        
+        # Load processor and model
+        print("Loading image processor and model...", file=sys.stderr)
+        
+        try:
+            # Load processor
+            processor = AutoProcessor.from_pretrained(
+                model_path_to_use,
+                local_files_only=bool(local_model_path and os.path.exists(local_model_path))
+            )
+            print("✓ Processor loaded", file=sys.stderr)
+            
+            # Load model 
+            model = BlipForConditionalGeneration.from_pretrained(
+                model_path_to_use,
+                torch_dtype=torch.float32 if params.get("cpu_optimize", False) else torch.float16,
+                device_map="cpu" if params.get("cpu_optimize", False) else "auto",
+                local_files_only=bool(local_model_path and os.path.exists(local_model_path))
+            )
+            print("✓ Model loaded", file=sys.stderr)
+            
+        except Exception as e:
+            return f"ERROR: Failed to load model or processor: {e}"
+        
+        print("Loading and processing image file...", file=sys.stderr)
+        
+        # Load image file
+        try:
+            image = Image.open(image_file_path).convert("RGB")
+            print(f"Image loaded: {image.size} pixels", file=sys.stderr)
+        except Exception as e:
+            return f"ERROR: Failed to load image file: {e}"
+        
+        # Process image with the model
+        print("Running image captioning...", file=sys.stderr)
+        
+        # Prepare inputs
+        inputs = processor(image, return_tensors="pt")
+        
+        # Generate caption
+        with torch.no_grad():
+            out = model.generate(**inputs, max_length=params.get("max_length", 50), num_beams=5)
+        
+        # Decode caption
+        caption = processor.decode(out[0], skip_special_tokens=True)
+        
+        print(f"Caption generated: {len(caption)} characters", file=sys.stderr)
+        
+        if not caption:
+            return "No caption could be generated for this image."
+        
+        return f"Image Caption: {caption}"
+        
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Error in image-to-text processing: {error_msg}", file=sys.stderr)
+        
+        # Handle specific error types
+        if "trust_remote_code" in error_msg.lower():
+            return "ERROR: Model requires trust_remote_code=True but was blocked for security."
+        elif "blip" in error_msg.lower():
+            return f"ERROR: BLIP model processing failed: {error_msg}"
+        else:
+            return f"ERROR: {error_msg}"
+        
+
 def check_model_cache_status(model_id):
     """Check if model is already cached and report download status"""
     try:
@@ -629,6 +750,8 @@ def main() -> int:
             result = run_text_generation(args.model_id, args.input, params, args.local_model_path)
         elif model_type == "automatic-speech-recognition":
             result = run_speech_recognition(args.model_id, args.input, params, args.local_model_path)
+        elif model_type == "image-to-text":
+            result = run_image_to_text(args.model_id, args.input, params, args.local_model_path)
         else:
             result = f"Model type '{model_type}' not fully implemented yet. Basic response: Processed '{args.input}' with {args.model_id}"
         
