@@ -17,10 +17,19 @@ public static class WindowExtensions
 
     public static void BringToFront()
     {
+        if (Hwnd == IntPtr.Zero)
+        {
+            System.Diagnostics.Debug.WriteLine("BringToFront: Hwnd is Zero - window handle not set");
+            return;
+        }
+
+        System.Diagnostics.Debug.WriteLine($"BringToFront: Attempting to bring window to front with handle {Hwnd}");
+
         PInvoke.User32.ShowWindow(Hwnd, PInvoke.User32.WindowShowStyle.SW_SHOW);
         PInvoke.User32.ShowWindow(Hwnd, PInvoke.User32.WindowShowStyle.SW_RESTORE);
 
-        _ = PInvoke.User32.SetForegroundWindow(Hwnd);
+        var result = PInvoke.User32.SetForegroundWindow(Hwnd);
+        System.Diagnostics.Debug.WriteLine($"BringToFront: SetForegroundWindow result: {result}");
     }
 
     public static void MinimizeToTray()

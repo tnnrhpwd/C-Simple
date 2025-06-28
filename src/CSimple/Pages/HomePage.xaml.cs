@@ -318,8 +318,10 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
         {
             trayService.Initialize();
             trayService.ClickHandler = () =>
-                ServiceProvider.GetService<INotificationService>()
-                    ?.ShowNotification("Hello from .NET MAUI", "How's your weather? 🌞");
+            {
+                Debug.WriteLine("Tray icon clicked - bringing window to front");
+                WindowExtensions.BringToFront();
+            };
         }
     }
     private async void OnGetStartedClicked(object sender, EventArgs e)

@@ -11,15 +11,36 @@ public class TrayService : ITrayService
     private bool _isProgressVisible = false;
 
     public Action ClickHandler { get; set; }
-
     public void Initialize()
     {
-        tray = new WindowsTrayIcon("Platforms/Windows/trayicon.ico");
-        tray.LeftClick = () =>
+        try
         {
-            WindowExtensions.BringToFront();
-            ClickHandler?.Invoke();
-        };
+            tray = new WindowsTrayIcon("Platforms/Windows/trayicon.ico");
+            tray.LeftClick = () =>
+            {
+                Debug.WriteLine("Tray icon clicked - bringing window to front");
+                WindowExtensions.BringToFront();
+                ClickHandler?.Invoke();
+            };
+
+            // Set initial tooltip to show "CSimple" - add a small delay to ensure icon is created
+            Task.Delay(100).ContinueWith(_ =>
+            {
+                try
+                {
+                    tray?.UpdateTooltip("CSimple");
+                    Debug.WriteLine("Tray tooltip set to 'CSimple'");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error setting tray tooltip: {ex.Message}");
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error initializing tray service: {ex.Message}");
+        }
     }
 
     public void ShowProgress(string title, string message, double progress)
@@ -75,7 +96,7 @@ public class TrayService : ITrayService
             // Reset tray icon tooltip
             if (tray != null)
             {
-                tray.UpdateTooltip("C-Simple");
+                tray.UpdateTooltip("CSimple");
             }
         }
         catch (Exception ex)

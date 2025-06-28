@@ -55,7 +55,23 @@ public partial class App : Application
 
             Debug.WriteLine("App constructor: Converters created");
 
-            InitializeComponent(); Debug.WriteLine("App constructor: InitializeComponent completed");
+            InitializeComponent();
+            Debug.WriteLine("App constructor: InitializeComponent completed");
+
+#if WINDOWS
+            // Set up window handle for tray functionality on Windows
+            Microsoft.Maui.Handlers.WindowHandler.Mapper.AppendToMapping(nameof(IWindow), (handler, view) =>
+            {
+                var mauiWindow = handler.VirtualView;
+                var nativeWindow = handler.PlatformView;
+                if (nativeWindow != null)
+                {
+                    var windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(nativeWindow);
+                    WindowExtensions.Hwnd = windowHandle;
+                    Debug.WriteLine($"Window handle set: {windowHandle}");
+                }
+            });
+#endif
 
             // Instantiate NetPageViewModel using injected services - Pass pythonBootstrapper
             NetPageViewModel = new NetPageViewModel(fileService, huggingFaceService, pythonBootstrapper, appModeService, pythonEnvironmentService, modelCommunicationService, modelExecutionService, modelImportExportService, trayService);
