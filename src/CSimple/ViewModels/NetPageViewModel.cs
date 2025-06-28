@@ -360,19 +360,92 @@ namespace CSimple.ViewModels
             HuggingFaceCategories.AddRange(_huggingFaceService.GetModelCategoryFilters().Keys);
 
             // Initialize downloaded models state
-            _downloadedModelIds = new HashSet<string>();
             RefreshDownloadedModelsList();
 
             // Load initial data
             // Note: Loading is triggered by OnAppearing in the View
-        }        // New: Track downloaded model IDs for UI state
-        private HashSet<string> _downloadedModelIds = new HashSet<string>();        // New: Public property to expose downloaded state for each model
+        }        // Check if a model is downloaded by examining the actual directory size
         public bool IsModelDownloaded(string modelId)
         {
-            bool result = _downloadedModelIds.Contains(modelId);
-            // Reduce excessive logging - only log when explicitly debugging download status
-            // Debug.WriteLine($"IsModelDownloaded: modelId='{modelId}', result={result}, _downloadedModelIds=[{string.Join(", ", _downloadedModelIds)}]");
-            return result;
+            if (string.IsNullOrEmpty(modelId))
+                return false;
+
+            try
+            {
+                string cacheDirectory = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
+
+                if (!Directory.Exists(cacheDirectory))
+                    return false;
+
+                // Check for model directory by trying both naming conventions
+                var possibleDirNames = new[]
+                {
+                    modelId.Replace("/", "_"),           // org/model -> org_model
+                    $"models--{modelId.Replace("/", "--")}"  // org/model -> models--org--model
+                };
+
+                foreach (var dirName in possibleDirNames)
+                {
+                    var modelPath = Path.Combine(cacheDirectory, dirName);
+
+                    if (Directory.Exists(modelPath))
+                    {
+                        // Calculate total directory size
+                        long totalSize = GetDirectorySize(modelPath);
+
+                        // Consider downloaded if > 5KB (5120 bytes)
+                        bool isDownloaded = totalSize > 5120;
+
+#if DEBUG
+                        if (totalSize > 0)
+                        {
+                            Debug.WriteLine($"Model '{modelId}' directory size: {totalSize:N0} bytes ({totalSize / 1024.0:F1} KB) - Downloaded: {isDownloaded}");
+                        }
+#endif
+                        return isDownloaded;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error checking if model '{modelId}' is downloaded: {ex.Message}");
+                return false;
+            }
+        }
+
+        private long GetDirectorySize(string directoryPath)
+        {
+            try
+            {
+                if (!Directory.Exists(directoryPath))
+                    return 0;
+
+                long totalSize = 0;
+
+                // Get size of all files in directory and subdirectories
+                var files = Directory.GetFiles(directoryPath, "*", SearchOption.AllDirectories);
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        var fileInfo = new FileInfo(file);
+                        totalSize += fileInfo.Length;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error getting size of file '{file}': {ex.Message}");
+                    }
+                }
+
+                return totalSize;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error calculating directory size for '{directoryPath}': {ex.Message}");
+                return 0;
+            }
         }// Integrate HuggingFaceService cache and download wrappers
         private void EnsureHFModelCacheDirectoryExists()
         {
@@ -380,23 +453,8 @@ namespace CSimple.ViewModels
         }
         private void RefreshDownloadedModelsList()
         {
-            var modelIds = _huggingFaceService.RefreshDownloadedModelsList();
-            _downloadedModelIds = new HashSet<string>(modelIds);
-
-            // Only log when there are actually downloaded models to avoid noise
-            if (_downloadedModelIds.Count > 0)
-            {
-#if DEBUG
-                Debug.WriteLine($"ViewModel RefreshDownloadedModelsList: Found {_downloadedModelIds.Count} downloaded models: [{string.Join(", ", _downloadedModelIds)}]");
-#endif
-            }
-            else
-            {
-                // Minimal logging for empty case - only in debug builds
-#if DEBUG
-                Debug.WriteLine($"Found {_downloadedModelIds.Count} downloaded models");
-#endif
-            }
+            // No longer maintain a cached list - IsModelDownloaded now checks directly
+            // This method remains for compatibility but just triggers UI updates
 
             // Update all models' download button text
             UpdateAllModelsDownloadButtonText();
@@ -586,11 +644,23 @@ namespace CSimple.ViewModels
                     File.Delete(markerPath);
                 }
 
-                // Remove from HuggingFace cache (the actual model files)
+                // Remove model directories (try both naming conventions)
                 var cacheDir = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
-                var modelCacheDir = Path.Combine(cacheDir, "models--" + modelId.Replace("/", "--")); if (Directory.Exists(modelCacheDir))
+
+                var possibleDirNames = new[]
                 {
-                    Directory.Delete(modelCacheDir, true);
+                    modelId.Replace("/", "_"),           // org/model -> org_model
+                    $"models--{modelId.Replace("/", "--")}"  // org/model -> models--org--model
+                };
+
+                foreach (var dirName in possibleDirNames)
+                {
+                    var modelCacheDir = Path.Combine(cacheDir, dirName);
+                    if (Directory.Exists(modelCacheDir))
+                    {
+                        Directory.Delete(modelCacheDir, true);
+                        Debug.WriteLine($"Deleted model directory: {modelCacheDir}");
+                    }
                 }
 
                 // Refresh downloaded models list from disk to sync with actual state
