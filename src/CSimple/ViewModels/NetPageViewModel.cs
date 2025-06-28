@@ -35,6 +35,10 @@ namespace CSimple.ViewModels
         private CancellationTokenSource _saveDebounceTokenSource;
         private readonly object _saveLock = new object();
 
+        // Download cancellation tokens for individual models
+        private readonly Dictionary<string, CancellationTokenSource> _downloadCancellationTokens = new();
+        private readonly object _downloadCancellationLock = new object();
+
         // --- Backing Fields ---
         private bool _isGeneralModeActive = true;
         private bool _isSpecificModeActive = false;
@@ -466,20 +470,32 @@ namespace CSimple.ViewModels
             {
                 if (!string.IsNullOrEmpty(model.HuggingFaceModelId))
                 {
-                    bool isDownloaded = IsModelDownloaded(model.HuggingFaceModelId);
-                    string newText = isDownloaded ? "Remove from Device" : "Download to Device";
+                    string newText;
+
+                    if (model.IsDownloading)
+                    {
+                        newText = "Stop Download";
+                    }
+                    else
+                    {
+                        bool isDownloaded = IsModelDownloaded(model.HuggingFaceModelId);
+                        newText = isDownloaded ? "Remove from Device" : "Download to Device";
+                    }
 
                     // Only update and log if the text actually changed
                     if (model.DownloadButtonText != newText)
                     {
                         model.DownloadButtonText = newText;
-                        Debug.WriteLine($"Updated model '{model.Name}' button text to '{newText}' (downloaded: {isDownloaded})");
+                        Debug.WriteLine($"Updated model '{model.Name}' button text to '{newText}' (downloading: {model.IsDownloading}, downloaded: {IsModelDownloaded(model.HuggingFaceModelId)})");
                     }
                 }
             }
         }
         private async Task DownloadModelAsync(NeuralNetworkModel model)
         {
+            var modelId = model.HuggingFaceModelId ?? model.Id;
+            CancellationTokenSource cancellationTokenSource = null;
+
             try
             {
                 // Show confirmation dialog before starting download
@@ -487,7 +503,6 @@ namespace CSimple.ViewModels
                 IsLoading = true;
 
                 // Get model details and file size information
-                var modelId = model.HuggingFaceModelId ?? model.Id;
                 var modelDetails = await _huggingFaceService.GetModelDetailsAsync(modelId);
                 var (formattedSize, totalBytes) = await GetModelDownloadSizeAsync(model);
 
@@ -535,12 +550,22 @@ namespace CSimple.ViewModels
                     return;
                 }
 
+                // Create cancellation token for this download
+                cancellationTokenSource = new CancellationTokenSource();
+                lock (_downloadCancellationLock)
+                {
+                    _downloadCancellationTokens[modelId] = cancellationTokenSource;
+                }
+
                 // Proceed with download
                 model.IsDownloading = true;
                 model.DownloadProgress = 0.0;
                 model.DownloadStatus = "Initializing download...";
 
                 CurrentModelStatus = $"Downloading {model.Name}...";
+
+                // Update button text to show "Stop Download"
+                UpdateAllModelsDownloadButtonText();
 
                 // Show initial tray notification
                 _trayService?.ShowProgress($"Downloading {model.Name}", "Preparing download...", 0.0);
@@ -566,25 +591,28 @@ namespace CSimple.ViewModels
                     });
                 });
 
-                // Call the service to download with progress reporting
-                await _huggingFaceService.DownloadModelAsync(modelId, markerPath, progress);
+                // Call the service to download with progress reporting and cancellation support
+                await _huggingFaceService.DownloadModelAsync(modelId, markerPath, progress, cancellationTokenSource.Token);
 
-                // Mark as downloaded
-                model.IsDownloaded = true;
-                model.DownloadProgress = 1.0;
-                model.DownloadStatus = "Download complete";
+                // Mark as downloaded (only if not cancelled)
+                if (!cancellationTokenSource.Token.IsCancellationRequested)
+                {
+                    model.IsDownloaded = true;
+                    model.DownloadProgress = 1.0;
+                    model.DownloadStatus = "Download complete";
 
-                // Refresh downloaded models list from disk to sync with actual state
-                RefreshDownloadedModelsList();
+                    CurrentModelStatus = $"Model {model.Name} ready for use";
 
-                CurrentModelStatus = $"Model {model.Name} ready for use";
-
-                // Show completion notification
-                _trayService?.ShowCompletionNotification("Download Complete", $"{model.Name} is ready to use");
-                _trayService?.HideProgress();
-
-                // Trigger UI update for button text
-                NotifyModelDownloadStatusChanged();
+                    // Show completion notification
+                    _trayService?.ShowCompletionNotification("Download Complete", $"{model.Name} is ready to use");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Download was cancelled
+                model.DownloadStatus = "Download cancelled";
+                CurrentModelStatus = $"Download of {model.Name} was cancelled";
+                Debug.WriteLine($"Download cancelled for model: {modelId}");
             }
             catch (Exception ex)
             {
@@ -593,12 +621,28 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"Error downloading model: {ex.Message}");
 
                 _trayService?.ShowCompletionNotification("Download Failed", $"Failed to download {model.Name}");
-                _trayService?.HideProgress();
             }
             finally
             {
+                // Clean up
                 model.IsDownloading = false;
                 IsLoading = false;
+
+                // Remove cancellation token
+                lock (_downloadCancellationLock)
+                {
+                    _downloadCancellationTokens.Remove(modelId);
+                }
+                cancellationTokenSource?.Dispose();
+
+                // Refresh downloaded models list from disk to sync with actual state
+                RefreshDownloadedModelsList();
+
+                // Hide tray progress
+                _trayService?.HideProgress();
+
+                // Trigger UI update for button text
+                NotifyModelDownloadStatusChanged();
             }
         }
 
@@ -662,10 +706,53 @@ namespace CSimple.ViewModels
 
         private async Task DownloadOrDeleteModelAsync(NeuralNetworkModel model)
         {
-            if (IsModelDownloaded(model.HuggingFaceModelId))
+            var modelId = model.HuggingFaceModelId ?? model.Id;
+
+            if (model.IsDownloading)
+            {
+                // Stop the download
+                await StopModelDownloadAsync(model);
+            }
+            else if (IsModelDownloaded(modelId))
+            {
+                // Delete the downloaded model
                 await DeleteModelAsync(model);
+            }
             else
+            {
+                // Start the download
                 await DownloadModelAsync(model);
+            }
+        }
+
+        private async Task StopModelDownloadAsync(NeuralNetworkModel model)
+        {
+            var modelId = model.HuggingFaceModelId ?? model.Id;
+
+            lock (_downloadCancellationLock)
+            {
+                if (_downloadCancellationTokens.TryGetValue(modelId, out var tokenSource))
+                {
+                    tokenSource.Cancel();
+                    _downloadCancellationTokens.Remove(modelId);
+                    Debug.WriteLine($"Cancelled download for model: {modelId}");
+                }
+            }
+
+            // Reset the model state
+            model.IsDownloading = false;
+            model.DownloadProgress = 0.0;
+            model.DownloadStatus = "Download cancelled";
+
+            CurrentModelStatus = $"Download of {model.Name} cancelled";
+
+            // Hide tray progress
+            _trayService?.HideProgress();
+
+            // Update button text
+            UpdateAllModelsDownloadButtonText();
+
+            await Task.Delay(100); // Small delay to ensure UI updates
         }
         private async Task DeleteModelReferenceAsync(NeuralNetworkModel model)
         {

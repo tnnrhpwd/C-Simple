@@ -285,8 +285,7 @@
                                                     BackgroundColor="{StaticResource Tertiary}"
                                                     TextColor="{StaticResource TextOnPrimary}"
                                                     VerticalOptions="Center"
-                                                    ToolTipProperties.Text="Open in File Explorer"
-                                                    WidthRequest="40" />
+                                                    ToolTipProperties.Text="Open in File Explorer"/>
                                         </Grid>
                                     </Frame>
                                 </DataTemplate>

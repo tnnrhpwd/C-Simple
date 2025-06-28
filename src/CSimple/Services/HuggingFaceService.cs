@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using CSimple.Pages; // For ModelType enum
@@ -309,7 +310,7 @@ namespace CSimple.Services
             // Replace with actual logic to get filenames if needed
             return new List<string> { "config.json", "pytorch_model.bin", "tokenizer.json" };
         }
-        public async Task DownloadModelAsync(string modelId, string destinationPath, IProgress<(double progress, string status)> progressReporter = null)
+        public async Task DownloadModelAsync(string modelId, string destinationPath, IProgress<(double progress, string status)> progressReporter = null, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -348,12 +349,18 @@ namespace CSimple.Services
                 // Report initial progress
                 progressReporter?.Report((0.0, "Fetching file list..."));
 
+                // Check for cancellation
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Retrieve files with size information
                 var files = await GetModelFilesWithSizeAsync(modelId);
                 if (files == null || files.Count == 0)
                 {
                     throw new InvalidOperationException($"No files found for model {modelId}");
                 }
+
+                // Check for cancellation
+                cancellationToken.ThrowIfCancellationRequested();
 
                 long totalSize = files.Sum(f => f.Size);
                 long downloadedBytes = 0;
@@ -364,6 +371,9 @@ namespace CSimple.Services
 
                 foreach (var file in files)
                 {
+                    // Check for cancellation before each file
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     fileIndex++;
 
                     // Skip if file path is empty or invalid
@@ -419,7 +429,7 @@ namespace CSimple.Services
                         var downloadUrl = GetModelDownloadUrl(modelId, file.Path);
                         Debug.WriteLine($"Download URL: {downloadUrl}");
 
-                        using (var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+                        using (var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
                         {
                             if (!response.IsSuccessStatusCode)
                             {
@@ -435,11 +445,14 @@ namespace CSimple.Services
                                 long fileDownloadedBytes = 0;
                                 long lastReportedBytes = 0;
 
-                                while ((bytesRead = await remoteStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                                while ((bytesRead = await remoteStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
                                 {
-                                    await localStream.WriteAsync(buffer, 0, bytesRead);
+                                    await localStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
                                     fileDownloadedBytes += bytesRead;
                                     downloadedBytes += bytesRead;
+
+                                    // Check for cancellation during download
+                                    cancellationToken.ThrowIfCancellationRequested();
 
                                     // Report progress every 1MB to avoid too many updates
                                     if (downloadedBytes - lastReportedBytes >= 1048576 || fileDownloadedBytes == file.Size) // 1MB or file complete
