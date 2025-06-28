@@ -607,24 +607,66 @@
                                FontAttributes="Bold"
                                FontSize="{StaticResource FontSizeSmall}"
                                Margin="{StaticResource MarginTopSmall}" />
-                        <HorizontalStackLayout Spacing="{StaticResource SpacingSmall}">
-                            <Button Text="📷 Add Image"
-                                    Command="{Binding SelectImageCommand}"
-                                    BackgroundColor="{StaticResource Secondary}"
-                                    TextColor="{StaticResource TextOnSecondary}"
-                                    IsVisible="{Binding SupportsImageInput}" />
-                            <Button Text="🎤 Add Audio"
-                                    Command="{Binding SelectAudioCommand}"
-                                    BackgroundColor="{StaticResource Tertiary}"
-                                    TextColor="{StaticResource TextOnPrimary}"
-                                    IsVisible="{Binding SupportsAudioInput}" />
-                            <Button Text="🗑️ Clear Media"
-                                    Command="{Binding ClearMediaCommand}"
-                                    BackgroundColor="{StaticResource Error}"
-                                    TextColor="{StaticResource TextOnPrimary}"
-                                    FontSize="{StaticResource FontSizeSmall}"
-                                    IsVisible="{Binding HasSelectedMedia}" />
-                        </HorizontalStackLayout>
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="{StaticResource SpacingSmall}" RowSpacing="{StaticResource SpacingSmall}">
+                            <!-- First row: Quick upload buttons -->
+                            <HorizontalStackLayout Grid.Column="0" Grid.ColumnSpan="2" Spacing="{StaticResource SpacingSmall}">
+                                <Button Text="Upload File"
+                                        Command="{Binding SelectFileCommand}"
+                                        BackgroundColor="{StaticResource Primary}"
+                                        TextColor="{StaticResource TextOnPrimary}"
+                                        FontSize="{StaticResource FontSizeSmall}"
+                                        WidthRequest="120" />
+                                <Button Text="📷 Image"
+                                        Command="{Binding SelectImageCommand}"
+                                        BackgroundColor="{StaticResource Secondary}"
+                                        TextColor="{StaticResource TextOnSecondary}"
+                                        FontSize="{StaticResource FontSizeSmall}"
+                                        WidthRequest="80"
+                                        IsVisible="{Binding SupportsImageInput}" />
+                                <Button Text="🎤 Audio"
+                                        Command="{Binding SelectAudioCommand}"
+                                        BackgroundColor="{StaticResource Tertiary}"
+                                        TextColor="{StaticResource TextOnPrimary}"
+                                        FontSize="{StaticResource FontSizeSmall}"
+                                        WidthRequest="80"
+                                        IsVisible="{Binding SupportsAudioInput}" />
+                                <Button Text="🗑️ Clear"
+                                        Command="{Binding ClearMediaCommand}"
+                                        BackgroundColor="{StaticResource Error}"
+                                        TextColor="{StaticResource TextOnPrimary}"
+                                        FontSize="{StaticResource FontSizeSmall}"
+                                        WidthRequest="70"
+                                        IsVisible="{Binding HasSelectedMedia}" />
+                            </HorizontalStackLayout>
+                            <!-- Second row: Drag and drop area -->
+                            <Frame Grid.Row="1" Grid.ColumnSpan="2"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
+                                   BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}"
+                                   Padding="{StaticResource CardContentPadding}"
+                                   CornerRadius="{StaticResource CornerRadiusSmall}"
+                                   HeightRequest="60"
+                                   x:Name="DropZoneFrame">
+                                <Grid>
+                                    <Label Text="📁 Drag and drop files here, or use the upload button above"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           TextColor="{StaticResource TextSecondary}"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           IsVisible="{Binding HasSelectedMedia, Converter={StaticResource InverseBoolConverter}}" />
+                                    <Label Text="🎯 Files ready for upload - click Send to proceed"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           TextColor="{StaticResource Primary}"
+                                           FontAttributes="Bold"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           IsVisible="{Binding HasSelectedMedia}" />
+                                    <!-- Gesture recognizer for tap-to-upload -->
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding SelectFileCommand}" />
+                                    </Grid.GestureRecognizers>
+                                </Grid>
+                            </Frame>
+                        </Grid>
                         <!-- Selected Media Display -->
                         <Frame IsVisible="{Binding HasSelectedMedia}"
                                BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"

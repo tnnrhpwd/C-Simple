@@ -236,6 +236,7 @@ namespace CSimple.ViewModels
         // Media input commands
         public ICommand SelectImageCommand { get; }
         public ICommand SelectAudioCommand { get; }
+        public ICommand SelectFileCommand { get; }
         public ICommand ClearMediaCommand { get; }
 
         // Debug command for testing chat UI
@@ -348,6 +349,7 @@ namespace CSimple.ViewModels
             // Initialize media commands
             SelectImageCommand = new Command(async () => await SelectImageAsync());
             SelectAudioCommand = new Command(async () => await SelectAudioAsync());
+            SelectFileCommand = new Command(async () => await SelectFileAsync());
             ClearMediaCommand = new Command(ClearMedia);
 
             // HuggingFace model download/delete commands
@@ -2204,9 +2206,84 @@ namespace CSimple.ViewModels
         }
 
         /// <summary>
+        /// Generic file selector that automatically detects file type and sets appropriate media
+        /// </summary>
+        private async Task SelectFileAsync()
+        {
+            try
+            {
+                var result = await FilePicker.Default.PickAsync(new PickOptions
+                {
+                    PickerTitle = "Select a file"
+                });
+
+                if (result != null)
+                {
+                    // Determine file type based on extension
+                    var extension = Path.GetExtension(result.FileName)?.ToLowerInvariant();
+                    var isImage = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff" }.Contains(extension);
+                    var isAudio = new[] { ".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".wma" }.Contains(extension);
+
+                    if (isImage)
+                    {
+                        // Treat as image
+                        SelectedImagePath = result.FullPath;
+                        SelectedImageName = result.FileName;
+
+                        // Clear audio
+                        SelectedAudioPath = null;
+                        SelectedAudioName = null;
+
+                        // Check compatibility and provide feedback
+                        await CheckModelCompatibilityForMediaAsync("image", result.FileName);
+                    }
+                    else if (isAudio)
+                    {
+                        // Treat as audio
+                        SelectedAudioPath = result.FullPath;
+                        SelectedAudioName = result.FileName;
+
+                        // Clear image
+                        SelectedImagePath = null;
+                        SelectedImageName = null;
+
+                        // Check compatibility and provide feedback
+                        await CheckModelCompatibilityForMediaAsync("audio", result.FileName);
+                    }
+                    else
+                    {
+                        // Unknown file type - inform user
+                        CurrentModelStatus = $"⚠ File '{result.FileName}' selected, but it's not a recognized image or audio file. Currently only image and audio files are supported.";
+
+                        await ShowAlert?.Invoke(
+                            "Unsupported File Type",
+                            $"The file '{result.FileName}' is not a supported media type.\n\n" +
+                            "Currently supported formats:\n" +
+                            "• Images: JPG, PNG, GIF, BMP, WebP, TIFF\n" +
+                            "• Audio: MP3, WAV, M4A, AAC, OGG, FLAC, WMA\n\n" +
+                            "Please select an image or audio file.",
+                            "OK");
+                        return;
+                    }
+
+                    // Trigger UI updates
+                    OnPropertyChanged(nameof(HasSelectedImage));
+                    OnPropertyChanged(nameof(HasSelectedAudio));
+                    OnPropertyChanged(nameof(HasSelectedMedia));
+                    OnPropertyChanged(nameof(CurrentInputModeDescription));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error selecting file: {ex}");
+                await ShowAlert?.Invoke("Error", "Failed to select file. Please try again.", "OK");
+            }
+        }
+
+        /// <summary>
         /// Checks model compatibility when media is selected and provides immediate feedback
         /// </summary>
-        private async Task CheckModelCompatibilityForMediaAsync(string mediaType, string fileName)
+        internal async Task CheckModelCompatibilityForMediaAsync(string mediaType, string fileName)
         {
             try
             {

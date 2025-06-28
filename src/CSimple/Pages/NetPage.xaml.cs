@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -74,7 +75,38 @@ namespace CSimple.Pages
             // Add delay to ensure UI is rendered before refreshing pickers
             await Task.Delay(500);
             EnsurePickersHaveCorrectValues();
+
+            // Set up drag and drop functionality
+            SetupDragAndDropHandlers();
         }
+
+        /// <summary>
+        /// Sets up drag and drop event handlers for file upload
+        /// </summary>
+        private void SetupDragAndDropHandlers()
+        {
+            try
+            {
+                var dropZoneFrame = FindByName("DropZoneFrame") as Frame;
+                if (dropZoneFrame != null)
+                {
+                    // For now, we'll keep the drag and drop visual only
+                    // Full drag and drop support requires platform-specific implementations
+                    // Users can still click the drop zone to trigger file selection
+
+                    Debug.WriteLine("Drop zone frame found and configured for tap-to-upload.");
+                }
+                else
+                {
+                    Debug.WriteLine("Warning: DropZoneFrame not found.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error setting up drag and drop handlers: {ex.Message}");
+            }
+        }
+
         private void EnsurePickersHaveCorrectValues()
         {
             try
