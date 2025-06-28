@@ -742,9 +742,24 @@ namespace CSimple.ViewModels
             // Reset the model state
             model.IsDownloading = false;
             model.DownloadProgress = 0.0;
-            model.DownloadStatus = "Download cancelled";
+            model.DownloadStatus = "Cleaning up partial files...";
 
-            CurrentModelStatus = $"Download of {model.Name} cancelled";
+            CurrentModelStatus = $"Cancelling download of {model.Name}...";
+
+            // Delete any partially downloaded files
+            try
+            {
+                await DeletePartialDownloadFilesAsync(modelId);
+                model.DownloadStatus = "Download cancelled";
+                CurrentModelStatus = $"Download of {model.Name} cancelled";
+                Debug.WriteLine($"Cleaned up partial files for model: {modelId}");
+            }
+            catch (Exception ex)
+            {
+                model.DownloadStatus = "Cancelled with cleanup errors";
+                CurrentModelStatus = $"Download cancelled, but some cleanup failed: {ex.Message}";
+                Debug.WriteLine($"Error cleaning up partial files for model {modelId}: {ex.Message}");
+            }
 
             // Hide tray progress
             _trayService?.HideProgress();
@@ -754,6 +769,82 @@ namespace CSimple.ViewModels
 
             await Task.Delay(100); // Small delay to ensure UI updates
         }
+
+        /// <summary>
+        /// Deletes any partially downloaded files for a model
+        /// </summary>
+        private async Task DeletePartialDownloadFilesAsync(string modelId)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    // Delete marker file
+                    var markerPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels",
+                        modelId.Replace("/", "_") + ".download_marker");
+
+                    if (File.Exists(markerPath))
+                    {
+                        File.Delete(markerPath);
+                        Debug.WriteLine($"Deleted marker file: {markerPath}");
+                    }
+
+                    // Delete any partial model directories (try both naming conventions)
+                    var cacheDir = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
+
+                    var possibleDirNames = new[]
+                    {
+                        modelId.Replace("/", "_"),           // org/model -> org_model
+                        $"models--{modelId.Replace("/", "--")}"  // org/model -> models--org--model
+                    };
+
+                    foreach (var dirName in possibleDirNames)
+                    {
+                        var modelCacheDir = Path.Combine(cacheDir, dirName);
+                        if (Directory.Exists(modelCacheDir))
+                        {
+                            // Check if this is a partial download (incomplete model)
+                            // We'll delete it if it's small or has temp files
+                            try
+                            {
+                                Directory.Delete(modelCacheDir, true);
+                                Debug.WriteLine($"Deleted partial model directory: {modelCacheDir}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Failed to delete directory {modelCacheDir}: {ex.Message}");
+                                // Try to delete individual files if directory deletion fails
+                                try
+                                {
+                                    var files = Directory.GetFiles(modelCacheDir, "*", SearchOption.AllDirectories);
+                                    foreach (var file in files)
+                                    {
+                                        try
+                                        {
+                                            File.Delete(file);
+                                        }
+                                        catch (Exception fileEx)
+                                        {
+                                            Debug.WriteLine($"Failed to delete file {file}: {fileEx.Message}");
+                                        }
+                                    }
+                                }
+                                catch (Exception cleanupEx)
+                                {
+                                    Debug.WriteLine($"Failed to cleanup files in {modelCacheDir}: {cleanupEx.Message}");
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error in DeletePartialDownloadFilesAsync: {ex.Message}");
+                    throw;
+                }
+            });
+        }
+
         private async Task DeleteModelReferenceAsync(NeuralNetworkModel model)
         {
             if (IsModelDownloaded(model.HuggingFaceModelId))
@@ -2201,5 +2292,6 @@ namespace CSimple.ViewModels
                     "OK");
             }
         }
+
     }
 }

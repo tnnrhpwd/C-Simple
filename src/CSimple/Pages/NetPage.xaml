@@ -222,35 +222,39 @@
                                             </VerticalStackLayout>
                                             <!-- HuggingFace Model Download/Delete Button with Progress -->
                                             <Grid Grid.Column="2"
-                                                  VerticalOptions="Center">
+                                                  VerticalOptions="Center"
+                                                  WidthRequest="180">
                                                 <Button Text="{Binding DownloadButtonText}"
                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=DownloadOrDeleteModelCommand}"
                                                         CommandParameter="{Binding .}"
                                                         BackgroundColor="{StaticResource Secondary}"
                                                         TextColor="{StaticResource TextOnSecondary}"
                                                         IsVisible="{Binding IsHuggingFaceReference}"
-                                                        IsEnabled="{Binding IsDownloading, Converter={StaticResource InverseBoolConverter}}" />
-                                                <!-- Progress bar overlay -->
+                                                        WidthRequest="180"
+                                                        HeightRequest="40" />
+                                                <!-- Progress bar overlay - positioned below button -->
                                                 <Frame IsVisible="{Binding IsDownloading}"
                                                        BackgroundColor="Transparent"
                                                        BorderColor="Transparent"
                                                        Padding="0"
                                                        VerticalOptions="End"
                                                        HorizontalOptions="Fill"
-                                                       HeightRequest="4">
+                                                       HeightRequest="4"
+                                                       Margin="0,44,0,0">
                                                     <ProgressBar Progress="{Binding DownloadProgress}"
                                                                  ProgressColor="{StaticResource Primary}"
                                                                  BackgroundColor="LightGray"
                                                                  HeightRequest="4" />
                                                 </Frame>
-                                                <!-- Download status label (optional) -->
+                                                <!-- Download status label - positioned below progress bar -->
                                                 <Label Text="{Binding DownloadStatus}"
                                                        IsVisible="{Binding IsDownloading}"
                                                        FontSize="10"
                                                        TextColor="{StaticResource TextSecondary}"
                                                        HorizontalOptions="Center"
-                                                       VerticalOptions="Center"
-                                                       BackgroundColor="Transparent" />
+                                                       VerticalOptions="End"
+                                                       BackgroundColor="Transparent"
+                                                       Margin="0,50,0,0" />
                                             </Grid>
                                             <!-- Delete HF Reference Button -->
                                             <Button Grid.Column="3"
@@ -285,7 +289,7 @@
                                                     BackgroundColor="{StaticResource Tertiary}"
                                                     TextColor="{StaticResource TextOnPrimary}"
                                                     VerticalOptions="Center"
-                                                    ToolTipProperties.Text="Open in File Explorer"/>
+                                                    ToolTipProperties.Text="Open in File Explorer" />
                                         </Grid>
                                     </Frame>
                                 </DataTemplate>
