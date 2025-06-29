@@ -28,16 +28,15 @@ namespace CSimple.ViewModels
         private readonly PythonEnvironmentService _pythonEnvironmentService;
         private readonly ModelCommunicationService _modelCommunicationService;
         private readonly ModelExecutionService _modelExecutionService;
-        private readonly ModelImportExportService _modelImportExportService; private readonly ITrayService _trayService; // Add tray service for progress notifications
+        private readonly ModelImportExportService _modelImportExportService;
+        private readonly ITrayService _trayService; // Add tray service for progress notifications
+        private readonly IModelDownloadService _modelDownloadService; // Add model download service
+        private readonly IModelImportService _modelImportService; // Add model import service
         // Consider injecting navigation and dialog services for better testability
 
         // Debounce mechanism for saving to prevent excessive saves
         private CancellationTokenSource _saveDebounceTokenSource;
         private readonly object _saveLock = new object();
-
-        // Download cancellation tokens for individual models
-        private readonly Dictionary<string, CancellationTokenSource> _downloadCancellationTokens = new();
-        private readonly object _downloadCancellationLock = new object();
 
         // --- Backing Fields ---
         private bool _isGeneralModeActive = true;
@@ -274,7 +273,7 @@ namespace CSimple.ViewModels
         // Note: ModelCommunicationService handles model communication logic (extracted for maintainability)
         // Note: ModelExecutionService handles model execution with enhanced error handling (extracted for maintainability)
         // Note: ModelImportExportService handles model import/export and file operations (extracted for maintainability)
-        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService)
+        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -285,6 +284,8 @@ namespace CSimple.ViewModels
             _modelExecutionService = modelExecutionService;
             _modelImportExportService = modelImportExportService;
             _trayService = trayService;
+            _modelDownloadService = modelDownloadService;
+            _modelImportService = modelImportService;
 
             // Subscribe to Python environment service events
             _pythonEnvironmentService.StatusChanged += (s, status) => CurrentModelStatus = status;
@@ -505,215 +506,30 @@ namespace CSimple.ViewModels
         }
         private async Task DownloadModelAsync(NeuralNetworkModel model)
         {
-            var modelId = model.HuggingFaceModelId ?? model.Id;
-            CancellationTokenSource cancellationTokenSource = null;
+            await _modelDownloadService.DownloadModelAsync(
+                model,
+                modelId => _huggingFaceService.GetModelDetailsAsync(modelId),
+                GetModelDownloadSizeAsync,
+                ShowConfirmation,
+                status => CurrentModelStatus = status,
+                isLoading => IsLoading = isLoading,
+                UpdateAllModelsDownloadButtonText,
+                NotifyModelDownloadStatusChanged
+            );
 
-            try
-            {
-                // Show confirmation dialog before starting download
-                CurrentModelStatus = "Fetching model information...";
-                IsLoading = true;
-
-                // Get model details and file size information
-                var modelDetails = await _huggingFaceService.GetModelDetailsAsync(modelId);
-                var (formattedSize, totalBytes) = await GetModelDownloadSizeAsync(model);
-
-                // Prepare confirmation message
-                string modelInfo = $"Model: {model.Name ?? modelId}";
-                if (!string.IsNullOrEmpty(model.Description))
-                {
-                    modelInfo += $"\nDescription: {model.Description}";
-                }
-                if (modelDetails != null)
-                {
-                    if (!string.IsNullOrEmpty(modelDetails.Author))
-                    {
-                        modelInfo += $"\nAuthor: {modelDetails.Author}";
-                    }
-                    if (!string.IsNullOrEmpty(modelDetails.Pipeline_tag))
-                    {
-                        modelInfo += $"\nType: {modelDetails.Pipeline_tag}";
-                    }
-                    if (modelDetails.Downloads > 0)
-                    {
-                        modelInfo += $"\nDownloads: {modelDetails.Downloads:N0}";
-                    }
-                }
-
-                modelInfo += $"\nTotal Download Size: {formattedSize}";
-
-                if (totalBytes > 1024 * 1024 * 1024) // > 1GB
-                {
-                    modelInfo += "\n\n⚠️ This is a large model that may take significant time to download.";
-                }
-
-                // Show confirmation dialog
-                bool downloadConfirmed = await ShowConfirmation(
-                    "Confirm Model Download",
-                    $"{modelInfo}\n\nAre you sure you want to download this model?",
-                    "Download",
-                    "Cancel"
-                );
-
-                if (!downloadConfirmed)
-                {
-                    CurrentModelStatus = "Download canceled by user";
-                    IsLoading = false;
-                    return;
-                }
-
-                // Create cancellation token for this download
-                cancellationTokenSource = new CancellationTokenSource();
-                lock (_downloadCancellationLock)
-                {
-                    _downloadCancellationTokens[modelId] = cancellationTokenSource;
-                }
-
-                // Proceed with download
-                model.IsDownloading = true;
-                model.DownloadProgress = 0.0;
-                model.DownloadStatus = "Initializing download...";
-
-                CurrentModelStatus = $"Downloading {model.Name}...";
-
-                // Update button text to show "Stop Download"
-                UpdateAllModelsDownloadButtonText();
-
-                // Show initial tray notification
-                _trayService?.ShowProgress($"Downloading {model.Name}", "Preparing download...", 0.0);
-
-                // Create a marker file for the download
-                var markerPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels",
-                    modelId.Replace("/", "_") + ".download_marker");
-
-                // Ensure the directory exists
-                Directory.CreateDirectory(Path.GetDirectoryName(markerPath));
-
-                // Create progress reporter to connect HuggingFaceService progress to UI
-                var progress = new Progress<(double progress, string status)>(report =>
-                {
-                    // Update model progress on UI thread
-                    MainThread.BeginInvokeOnMainThread(() =>
-                    {
-                        model.DownloadProgress = report.progress;
-                        model.DownloadStatus = report.status;
-
-                        // Update tray progress
-                        _trayService?.UpdateProgress(report.progress, report.status);
-                    });
-                });
-
-                // Call the service to download with progress reporting and cancellation support
-                await _huggingFaceService.DownloadModelAsync(modelId, markerPath, progress, cancellationTokenSource.Token);
-
-                // Mark as downloaded (only if not cancelled)
-                if (!cancellationTokenSource.Token.IsCancellationRequested)
-                {
-                    model.IsDownloaded = true;
-                    model.DownloadProgress = 1.0;
-                    model.DownloadStatus = "Download complete";
-
-                    CurrentModelStatus = $"Model {model.Name} ready for use";
-
-                    // Show completion notification
-                    _trayService?.ShowCompletionNotification("Download Complete", $"{model.Name} is ready to use");
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // Download was cancelled
-                model.DownloadStatus = "Download cancelled";
-                CurrentModelStatus = $"Download of {model.Name} was cancelled";
-                Debug.WriteLine($"Download cancelled for model: {modelId}");
-            }
-            catch (Exception ex)
-            {
-                model.DownloadStatus = $"Download failed: {ex.Message}";
-                CurrentModelStatus = $"Failed to download {model.Name}: {ex.Message}";
-                Debug.WriteLine($"Error downloading model: {ex.Message}");
-
-                _trayService?.ShowCompletionNotification("Download Failed", $"Failed to download {model.Name}");
-            }
-            finally
-            {
-                // Clean up
-                model.IsDownloading = false;
-                IsLoading = false;
-
-                // Remove cancellation token
-                lock (_downloadCancellationLock)
-                {
-                    _downloadCancellationTokens.Remove(modelId);
-                }
-                cancellationTokenSource?.Dispose();
-
-                // Refresh downloaded models list from disk to sync with actual state
-                RefreshDownloadedModelsList();
-
-                // Hide tray progress
-                _trayService?.HideProgress();
-
-                // Trigger UI update for button text
-                NotifyModelDownloadStatusChanged();
-            }
+            // Refresh downloaded models list from disk to sync with actual state
+            RefreshDownloadedModelsList();
         }
 
-        private Task DeleteModelAsync(NeuralNetworkModel model)
+        private async Task DeleteModelAsync(NeuralNetworkModel model)
         {
-            try
-            {
-                IsLoading = true;
-                CurrentModelStatus = $"Removing {model.Name}...";
-
-                var modelId = model.HuggingFaceModelId ?? model.Id;
-
-                // Remove marker file
-                var markerPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels",
-                    modelId.Replace("/", "_") + ".download_marker");
-
-                if (File.Exists(markerPath))
-                {
-                    File.Delete(markerPath);
-                }
-
-                // Remove model directories (try both naming conventions)
-                var cacheDir = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
-
-                var possibleDirNames = new[]
-                {
-                    modelId.Replace("/", "_"),           // org/model -> org_model
-                    $"models--{modelId.Replace("/", "--")}"  // org/model -> models--org--model
-                };
-
-                foreach (var dirName in possibleDirNames)
-                {
-                    var modelCacheDir = Path.Combine(cacheDir, dirName);
-                    if (Directory.Exists(modelCacheDir))
-                    {
-                        Directory.Delete(modelCacheDir, true);
-                        Debug.WriteLine($"Deleted model directory: {modelCacheDir}");
-                    }
-                }
-
-                // Refresh downloaded models list from disk to sync with actual state
-                RefreshDownloadedModelsList();
-
-                CurrentModelStatus = $"Model {model.Name} removed";
-
-                // Trigger UI update for button text
-                NotifyModelDownloadStatusChanged();
-            }
-            catch (Exception ex)
-            {
-                CurrentModelStatus = $"Failed to remove {model.Name}: {ex.Message}";
-                Debug.WriteLine($"Error deleting model: {ex.Message}");
-            }
-            finally
-            {
-                IsLoading = false;
-            }
-
-            return Task.CompletedTask;
+            await _modelDownloadService.DeleteModelAsync(
+                model,
+                status => CurrentModelStatus = status,
+                isLoading => IsLoading = isLoading,
+                RefreshDownloadedModelsList,
+                NotifyModelDownloadStatusChanged
+            );
         }
 
         private async Task DownloadOrDeleteModelAsync(NeuralNetworkModel model)
@@ -739,39 +555,14 @@ namespace CSimple.ViewModels
 
         private async Task StopModelDownloadAsync(NeuralNetworkModel model)
         {
-            var modelId = model.HuggingFaceModelId ?? model.Id;
-
-            lock (_downloadCancellationLock)
-            {
-                if (_downloadCancellationTokens.TryGetValue(modelId, out var tokenSource))
-                {
-                    tokenSource.Cancel();
-                    _downloadCancellationTokens.Remove(modelId);
-                    Debug.WriteLine($"Cancelled download for model: {modelId}");
-                }
-            }
+            _modelDownloadService.StopModelDownload(model);
 
             // Reset the model state
             model.IsDownloading = false;
             model.DownloadProgress = 0.0;
-            model.DownloadStatus = "Cleaning up partial files...";
+            model.DownloadStatus = "Download cancelled";
 
-            CurrentModelStatus = $"Cancelling download of {model.Name}...";
-
-            // Delete any partially downloaded files
-            try
-            {
-                await DeletePartialDownloadFilesAsync(modelId);
-                model.DownloadStatus = "Download cancelled";
-                CurrentModelStatus = $"Download of {model.Name} cancelled";
-                Debug.WriteLine($"Cleaned up partial files for model: {modelId}");
-            }
-            catch (Exception ex)
-            {
-                model.DownloadStatus = "Cancelled with cleanup errors";
-                CurrentModelStatus = $"Download cancelled, but some cleanup failed: {ex.Message}";
-                Debug.WriteLine($"Error cleaning up partial files for model {modelId}: {ex.Message}");
-            }
+            CurrentModelStatus = $"Download of {model.Name} cancelled";
 
             // Hide tray progress
             _trayService?.HideProgress();
@@ -780,81 +571,6 @@ namespace CSimple.ViewModels
             UpdateAllModelsDownloadButtonText();
 
             await Task.Delay(100); // Small delay to ensure UI updates
-        }
-
-        /// <summary>
-        /// Deletes any partially downloaded files for a model
-        /// </summary>
-        private async Task DeletePartialDownloadFilesAsync(string modelId)
-        {
-            await Task.Run(() =>
-            {
-                try
-                {
-                    // Delete marker file
-                    var markerPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels",
-                        modelId.Replace("/", "_") + ".download_marker");
-
-                    if (File.Exists(markerPath))
-                    {
-                        File.Delete(markerPath);
-                        Debug.WriteLine($"Deleted marker file: {markerPath}");
-                    }
-
-                    // Delete any partial model directories (try both naming conventions)
-                    var cacheDir = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
-
-                    var possibleDirNames = new[]
-                    {
-                        modelId.Replace("/", "_"),           // org/model -> org_model
-                        $"models--{modelId.Replace("/", "--")}"  // org/model -> models--org--model
-                    };
-
-                    foreach (var dirName in possibleDirNames)
-                    {
-                        var modelCacheDir = Path.Combine(cacheDir, dirName);
-                        if (Directory.Exists(modelCacheDir))
-                        {
-                            // Check if this is a partial download (incomplete model)
-                            // We'll delete it if it's small or has temp files
-                            try
-                            {
-                                Directory.Delete(modelCacheDir, true);
-                                Debug.WriteLine($"Deleted partial model directory: {modelCacheDir}");
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"Failed to delete directory {modelCacheDir}: {ex.Message}");
-                                // Try to delete individual files if directory deletion fails
-                                try
-                                {
-                                    var files = Directory.GetFiles(modelCacheDir, "*", SearchOption.AllDirectories);
-                                    foreach (var file in files)
-                                    {
-                                        try
-                                        {
-                                            File.Delete(file);
-                                        }
-                                        catch (Exception fileEx)
-                                        {
-                                            Debug.WriteLine($"Failed to delete file {file}: {fileEx.Message}");
-                                        }
-                                    }
-                                }
-                                catch (Exception cleanupEx)
-                                {
-                                    Debug.WriteLine($"Failed to cleanup files in {modelCacheDir}: {cleanupEx.Message}");
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error in DeletePartialDownloadFilesAsync: {ex.Message}");
-                    throw;
-                }
-            });
         }
 
         private async Task DeleteModelReferenceAsync(NeuralNetworkModel model)
@@ -1713,147 +1429,20 @@ namespace CSimple.ViewModels
 
         private async Task ShowModelDetailsAndImportAsync(CSimple.Models.HuggingFaceModel model)
         {
-            // Logic moved from NetPage.xaml.cs
-            try
-            {
-                bool importConfirmed = await ShowConfirmation("Model Details",
-                    $"Name: {model.ModelId ?? model.Id}\nAuthor: {model.Author}\nType: {model.Pipeline_tag}\nDownloads: {model.Downloads}\n\nImport this model as a Python Reference?", // Modified confirmation text
-                    "Import Reference", "Cancel"); // Modified button text
-
-                if (!importConfirmed)
-                {
-                    CurrentModelStatus = "Import canceled";
-                    return;
-                }
-
-                CurrentModelStatus = $"Preparing Python reference for {model.ModelId ?? model.Id}...";
-                IsLoading = true;
-
-                // *** MODIFIED: Directly set to create Python reference ***
-                bool isPythonReference = true;
-                List<string> filesToDownload = new List<string>(); // Keep list, but it won't be used for download
-
-                // Optional: Still fetch details if needed for GuessInputType or other metadata
-                HuggingFaceModelDetails modelDetails = model as HuggingFaceModelDetails ?? await _huggingFaceService.GetModelDetailsAsync(model.ModelId ?? model.Id);
-                Debug.WriteLine($"ShowModelDetailsAndImportAsync: Importing '{model.ModelId ?? model.Id}' as Python Reference.");
-
-                // *** REMOVED/COMMENTED OUT: File selection logic ***
-                /*
-                // Prepare options for the action sheet
-                var actionSheetOptions = new List<string>();
-                actionSheetOptions.Add("Use Python Script"); // Always add this option
-                // ... (rest of the action sheet population logic removed) ...
-
-                // Show the combined action sheet
-                string selectedOption = await ShowActionSheet("Select Import Method or File", "Cancel", null, actionSheetOptions.ToArray());
-
-                // Handle the selected option
-                if (selectedOption == "Cancel" || string.IsNullOrEmpty(selectedOption))
-                {
-                    // ... (cancel logic) ...
-                }
-                else if (selectedOption == "Use Python Script")
-                {
-                    // ... (python ref logic - now default) ...
-                }
-                                                             // ... (other file download options handling removed) ...
-                */
-                // *** END REMOVED/COMMENTED OUT ***
-
-
-                // Handle Python Reference Case (This will always execute now)
-                if (isPythonReference)
-                {
-                    // Check if a Python reference with this HuggingFaceModelId already exists
-                    if (AvailableModels.Any(m => m.IsHuggingFaceReference && m.HuggingFaceModelId == (model.ModelId ?? model.Id)))
-                    {
-
-
-                        CurrentModelStatus = $"Python reference for '{model.ModelId ?? model.Id}' already exists.";
-                        await ShowAlert("Duplicate Reference", $"A Python reference for this model ID already exists.", "OK");
-                        IsLoading = false;
-                        return; // Stop processing if duplicate
-                    }
-
-                    // Use modelDetails if fetched, otherwise use the basic model info
-                    var description = modelDetails?.Description ?? model.Description ?? "Imported from HuggingFace (requires Python)";
-                    var inputType = GuessInputType(modelDetails ?? model); // Guess input type
-
-                    var pythonReferenceModel = new NeuralNetworkModel
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        Name = GetFriendlyModelName(model.ModelId ?? model.Id) + " (Python Ref)",
-                        Description = description,
-                        Type = model.RecommendedModelType, // Keep original type guess if available
-                        IsHuggingFaceReference = true,
-                        HuggingFaceModelId = model.ModelId ?? model.Id,
-                        InputType = inputType
-                    };
-
-                    // Add the unique reference
-                    AvailableModels.Add(pythonReferenceModel);
-                    CurrentModelStatus = $"Added reference to {pythonReferenceModel.Name}";
-                    await SavePersistedModelsAsync(); // Save the updated list
-
-                    // Clear the search query after successful import
-                    HuggingFaceSearchQuery = "";
-
-                    // Show Python usage info
-                    await ShowAlert("Reference Added & Usage", $"Reference to '{pythonReferenceModel.Name}' added.\n\nUse in Python:\nfrom transformers import AutoModel\nmodel = AutoModel.from_pretrained(\"{pythonReferenceModel.HuggingFaceModelId}\", trust_remote_code=True)", "OK");
-
-                    IsLoading = false;
-                    return; // Python reference added, workflow complete
-                }                // *** REMOVED/COMMENTED OUT: File Download Case ***
-                /*
-                // Handle File Download Case (Only if not a Python Reference)
-                if (filesToDownload.Count == 0 && !isPythonReference)
-                {
-                    // ... (no files selected logic) ...
-                }
-
-                // Show Python usage info before download (if downloading files)
-                if (filesToDownload.Count > 0)
-                {
-                    // ... (show alert) ...
-                }
-
-                // Download files with safety checks
-                foreach (var fileUrl in filesToDownload)
-                {
-                    var fileName = Path.GetFileName(fileUrl);
-
-                    // Use safety check before downloading
-                    bool shouldDownload = await ShouldProceedWithDownloadAsync(model.ModelId ?? model.Id, fileName);
-                    if (!shouldDownload)
-                    {
-                        continue; // Skip this download
-                    }
-
-                    // Proceed with actual download logic here...
-                    // ... (download implementation) ...
-                }
-
-                if (!anyDownloadSucceeded)
-                {
-                   // ... (download failed logic) ...
-                }
-
-                // Add downloaded model to list
-                // ... (add model logic) ...
-
-                if (anyDownloadSucceeded)
-                {
-                    // ... (show success alert) ...
-                }
-                */
-                // *** END REMOVED/COMMENTED OUT ***
-            }
-            catch (Exception ex)
-            {
-                HandleError("Error handling model details", ex);
-                await ShowAlert("Import Error", $"Failed to import model reference: {ex.Message}", "OK");
-            }
-            finally { IsLoading = false; }
+            await _modelImportService.ShowModelDetailsAndImportAsync(
+                model,
+                GuessInputType,
+                GetFriendlyModelName,
+                modelId => _huggingFaceService.GetModelDetailsAsync(modelId),
+                ShowConfirmation,
+                ShowAlert,
+                status => CurrentModelStatus = status,
+                isLoading => IsLoading = isLoading,
+                () => AvailableModels,
+                availableModel => AvailableModels.Add(availableModel),
+                SavePersistedModelsAsync,
+                searchQuery => HuggingFaceSearchQuery = searchQuery
+            );
         }
 
         private async Task ProcessSelectedModelFile(FileResult fileResult)
