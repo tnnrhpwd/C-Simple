@@ -98,7 +98,8 @@ def setup_environment() -> bool:
         "torch": "torch", 
         "accelerate": "accelerate",  # Required for quantized models
         "protobuf": "protobuf",  # Required for many HuggingFace models
-        "sentencepiece": "sentencepiece"  # Required for SentencePiece tokenizers
+        "sentencepiece": "sentencepiece",  # Required for SentencePiece tokenizers
+        "safetensors": "safetensors"  # Required for secure model loading
     }
     
     missing_packages = []
@@ -556,14 +557,35 @@ def run_image_to_text(model_id: str, input_text: str, params: Dict[str, Any], lo
             )
             print("✓ Processor loaded", file=sys.stderr)
             
-            # Load model 
-            model = BlipForConditionalGeneration.from_pretrained(
-                model_path_to_use,
-                torch_dtype=torch.float32 if params.get("cpu_optimize", False) else torch.float16,
-                device_map="cpu" if params.get("cpu_optimize", False) else "auto",
-                local_files_only=bool(local_model_path and os.path.exists(local_model_path))
-            )
-            print("✓ Model loaded", file=sys.stderr)
+            # Load model with safetensors preference and fallback logic
+            model_kwargs = {
+                "torch_dtype": torch.float32 if params.get("cpu_optimize", False) else torch.float16,
+                "device_map": "cpu" if params.get("cpu_optimize", False) else "auto",
+                "local_files_only": bool(local_model_path and os.path.exists(local_model_path))
+            }
+            
+            # Try loading with safetensors first for security
+            try:
+                print("Attempting to load model with safetensors...", file=sys.stderr)
+                model_kwargs["use_safetensors"] = True
+                model = BlipForConditionalGeneration.from_pretrained(model_path_to_use, **model_kwargs)
+                print("✓ Model loaded with safetensors", file=sys.stderr)
+            except Exception as safetensors_error:
+                print(f"Safetensors loading failed: {safetensors_error}", file=sys.stderr)
+                print("Attempting to load model with PyTorch format...", file=sys.stderr)
+                
+                # Fallback to PyTorch format if safetensors not available
+                model_kwargs["use_safetensors"] = False
+                try:
+                    model = BlipForConditionalGeneration.from_pretrained(model_path_to_use, **model_kwargs)
+                    print("✓ Model loaded with PyTorch format", file=sys.stderr)
+                except Exception as pytorch_error:
+                    # If both fail, provide helpful error message
+                    error_msg = f"Failed to load model with both safetensors and PyTorch formats.\n"
+                    error_msg += f"Safetensors error: {safetensors_error}\n"
+                    error_msg += f"PyTorch error: {pytorch_error}\n"
+                    error_msg += f"Consider upgrading PyTorch or ensuring the model files are compatible."
+                    raise Exception(error_msg)
             
         except Exception as e:
             return f"ERROR: Failed to load model or processor: {e}"
