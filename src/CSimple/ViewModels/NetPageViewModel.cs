@@ -32,6 +32,8 @@ namespace CSimple.ViewModels
         private readonly ITrayService _trayService; // Add tray service for progress notifications
         private readonly IModelDownloadService _modelDownloadService; // Add model download service
         private readonly IModelImportService _modelImportService; // Add model import service
+        private readonly IChatManagementService _chatManagementService; // Add chat management service
+        private readonly IMediaSelectionService _mediaSelectionService; // Add media selection service
         // Consider injecting navigation and dialog services for better testability
 
         // Debounce mechanism for saving to prevent excessive saves
@@ -273,7 +275,7 @@ namespace CSimple.ViewModels
         // Note: ModelCommunicationService handles model communication logic (extracted for maintainability)
         // Note: ModelExecutionService handles model execution with enhanced error handling (extracted for maintainability)
         // Note: ModelImportExportService handles model import/export and file operations (extracted for maintainability)
-        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService)
+        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -286,6 +288,12 @@ namespace CSimple.ViewModels
             _trayService = trayService;
             _modelDownloadService = modelDownloadService;
             _modelImportService = modelImportService;
+            _chatManagementService = chatManagementService;
+            _mediaSelectionService = mediaSelectionService;
+
+            // Configure the media selection service UI delegates
+            _mediaSelectionService.ShowAlert = ShowAlert;
+            _mediaSelectionService.UpdateStatus = status => CurrentModelStatus = status;
 
             // Subscribe to Python environment service events
             _pythonEnvironmentService.StatusChanged += (s, status) => CurrentModelStatus = status;
@@ -934,126 +942,23 @@ namespace CSimple.ViewModels
         {
             var activeHfModel = GetBestActiveModel();
 
-            // Handle media-only messages (when message is empty but media is selected)
+            // Handle media-only messages using the chat management service
             if (string.IsNullOrWhiteSpace(message) && HasSelectedMedia)
             {
-                // Create a descriptive message for media-only processing
-                string mediaDescription = "";
-                string mediaPath = "";
-
-                if (HasSelectedImage)
-                {
-                    mediaDescription = $"[Processing image: {SelectedImageName}]";
-                    mediaPath = SelectedImagePath;
-                    Debug.WriteLine($"Media-only message: Processing image {SelectedImagePath}");
-                }
-                else if (HasSelectedAudio)
-                {
-                    mediaDescription = $"[Processing audio: {SelectedAudioName}]";
-                    mediaPath = SelectedAudioPath;
-                    Debug.WriteLine($"Media-only message: Processing audio {SelectedAudioPath}");
-                }
-
-                // Add user message to chat to show what's being processed
-                var userMessage = new ChatMessage(mediaDescription, isFromUser: true, includeInHistory: true);
-                ChatMessages.Add(userMessage);
-                Debug.WriteLine($"Added media-only user message to chat. ChatMessages count: {ChatMessages.Count}");
-
-                // Add processing message
-                var processingMessage = new ChatMessage("Processing your media file...", isFromUser: false, modelName: activeHfModel?.Name ?? "System", includeInHistory: false)
-                {
-                    IsProcessing = true,
-                    LLMSource = "local"
-                };
-                ChatMessages.Add(processingMessage);
-
-                try
-                {
-                    string responseText = "";
-
-                    if (activeHfModel != null && !string.IsNullOrEmpty(activeHfModel.HuggingFaceModelId))
-                    {
-                        // Try to process the media file through the model
-                        Debug.WriteLine($"Attempting to process media with model: {activeHfModel.HuggingFaceModelId}");
-
-                        // For audio files, create a prompt that includes the file path
-                        string mediaPrompt = "";
-                        if (HasSelectedAudio)
-                        {
-                            mediaPrompt = $"Please process this audio file: {mediaPath}";
-                        }
-                        else if (HasSelectedImage)
-                        {
-                            mediaPrompt = $"Please analyze this image file: {mediaPath}";
-                        }
-
-                        // Try to execute the model with the media prompt
-                        try
-                        {
-                            // Get the local model path to force local-only execution
-                            string localModelPath = GetLocalModelPath(activeHfModel.HuggingFaceModelId);
-
-                            var modelResponse = await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(
-                                activeHfModel.HuggingFaceModelId,
-                                mediaPrompt,
-                                activeHfModel,
-                                _pythonExecutablePath,
-                                _huggingFaceScriptPath,
-                                localModelPath);
-
-                            if (!string.IsNullOrEmpty(modelResponse))
-                            {
-                                responseText = modelResponse;
-                                Debug.WriteLine($"Model processing successful: {modelResponse.Substring(0, Math.Min(100, modelResponse.Length))}...");
-                            }
-                            else
-                            {
-                                responseText = $"The model '{activeHfModel.Name}' processed your {(HasSelectedAudio ? "audio" : "image")} file, but returned an empty response. This might indicate that the model needs additional configuration for media processing.";
-                            }
-                        }
-                        catch (Exception modelEx)
-                        {
-                            Debug.WriteLine($"Model execution failed: {modelEx.Message}");
-                            responseText = $"I attempted to process your {(HasSelectedAudio ? "audio" : "image")} file with '{activeHfModel.Name}', but encountered an error: {modelEx.Message}\n\n" +
-                                          $"This might be because:\n" +
-                                          $"• The model requires specific media processing libraries\n" +
-                                          $"• The Python script needs updates for media file handling\n" +
-                                          $"• The model doesn't support direct file path processing\n\n" +
-                                          $"File location: {mediaPath}";
-                        }
-                    }
-                    else
-                    {
-                        // No valid model available
-                        responseText = $"I can see you've uploaded a {(HasSelectedAudio ? "audio" : "image")} file: '{(HasSelectedAudio ? SelectedAudioName : SelectedImageName)}', but no compatible model is properly configured.\n\n" +
-                                      $"To process this media file, please ensure:\n" +
-                                      $"• The active model supports {(HasSelectedAudio ? "audio" : "image")} processing\n" +
-                                      $"• The model is properly downloaded and configured\n\n" +
-                                      $"File location: {mediaPath}";
-                    }
-
-                    // Remove processing message and add actual response
-                    ChatMessages.Remove(processingMessage);
-
-                    var aiMessage = new ChatMessage(responseText, false, activeHfModel?.Name ?? "System", includeInHistory: true)
-                    {
-                        LLMSource = "local"
-                    };
-                    ChatMessages.Add(aiMessage);
-                    Debug.WriteLine($"Added media processing response to chat. ChatMessages count: {ChatMessages.Count}");
-                }
-                catch (Exception ex)
-                {
-                    // Remove processing message and show error
-                    ChatMessages.Remove(processingMessage);
-
-                    var errorMessage = new ChatMessage($"Error processing media file: {ex.Message}", false, "System", includeInHistory: true);
-                    ChatMessages.Add(errorMessage);
-                    Debug.WriteLine($"Error processing media: {ex}");
-                }
-
-                // Clear the selected media after processing
-                ClearMedia();
+                await _chatManagementService.CommunicateWithModelAsync(
+                    message,
+                    activeHfModel,
+                    ChatMessages,
+                    HasSelectedImage,
+                    HasSelectedAudio,
+                    SelectedImageName,
+                    SelectedImagePath,
+                    SelectedAudioName,
+                    SelectedAudioPath,
+                    GetLocalModelPath,
+                    ShowAlert,
+                    ClearMedia
+                );
                 return;
             }
 
@@ -1697,87 +1602,13 @@ namespace CSimple.ViewModels
         /// </summary>
         private async Task<bool> ValidateMediaUploadAsync()
         {
-            try
-            {
-                // Check if user has selected any media
-                if (!HasSelectedMedia)
-                    return true; // No media selected, proceed normally
-
-                var missingModelTypes = new List<string>();
-                var activatedModels = new List<string>();
-
-                // Check for image upload without image model
-                if (HasSelectedImage)
-                {
-                    if (!SupportsImageInput)
-                    {
-                        missingModelTypes.Add("Image");
-                    }
-                    else
-                    {
-                        var imageModels = ActiveModels.Where(m => m.InputType == ModelInputType.Image).Select(m => m.Name);
-                        activatedModels.AddRange(imageModels.Select(name => $"Image: {name}"));
-                    }
-                }
-
-                // Check for audio upload without audio model
-                if (HasSelectedAudio)
-                {
-                    if (!SupportsAudioInput)
-                    {
-                        missingModelTypes.Add("Audio");
-                    }
-                    else
-                    {
-                        var audioModels = ActiveModels.Where(m => m.InputType == ModelInputType.Audio).Select(m => m.Name);
-                        activatedModels.AddRange(audioModels.Select(name => $"Audio: {name}"));
-                    }
-                }
-
-                // If we have missing model types, show error and prevent sending
-                if (missingModelTypes.Any())
-                {
-                    var mediaTypeText = string.Join(" and ", missingModelTypes.ToArray());
-                    var selectedFiles = new List<string>();
-
-                    if (HasSelectedImage) selectedFiles.Add($"Image: {SelectedImageName}");
-                    if (HasSelectedAudio) selectedFiles.Add($"Audio: {SelectedAudioName}");
-
-                    var filesText = string.Join("\n", selectedFiles);
-
-                    // Show the main error dialog
-                    await ShowAlert?.Invoke(
-                        "Media Upload Validation Error",
-                        $"You have selected {mediaTypeText.ToLower()} file(s) but no active {mediaTypeText.ToLower()} model(s) to process them.\n\n" +
-                        $"Selected files:\n{filesText}\n\n" +
-                        $"Please activate an appropriate {mediaTypeText.ToLower()} model before uploading this media type.\n\n" +
-                        $"You can:\n" +
-                        $"• Activate a {mediaTypeText.ToLower()} model from the available models list\n" +
-                        $"• Clear the selected media and send as text-only\n" +
-                        $"• Import a new {mediaTypeText.ToLower()} model from HuggingFace",
-                        "OK");
-
-                    // Offer model suggestions to help the user
-                    await SuggestModelsForMediaTypeAsync(missingModelTypes);
-
-                    return false; // Prevent sending
-                }
-
-                // If we reach here, validation passed - log the active models being used
-                if (activatedModels.Any())
-                {
-                    Debug.WriteLine($"Media upload validation passed. Active models for media processing: {string.Join(", ", activatedModels)}");
-                    CurrentModelStatus = $"✓ Media will be processed by: {string.Join(", ", activatedModels)}";
-                }
-
-                return true; // Validation passed
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error validating media upload: {ex.Message}");
-                await ShowAlert?.Invoke("Validation Error", $"Error validating media upload: {ex.Message}", "OK");
-                return false;
-            }
+            return await _chatManagementService.ValidateMediaUploadAsync(
+                HasSelectedImage,
+                HasSelectedAudio,
+                SupportsImageInput,
+                SupportsAudioInput,
+                ShowAlert
+            );
         }
 
         /// <summary>
@@ -1868,84 +1699,53 @@ namespace CSimple.ViewModels
         // --- Media Methods ---
         private async Task SelectImageAsync()
         {
-            try
+            var (imagePath, imageName) = await _mediaSelectionService.SelectImageAsync();
+
+            if (!string.IsNullOrEmpty(imagePath))
             {
-                var result = await FilePicker.Default.PickAsync(new PickOptions
-                {
-                    PickerTitle = "Select an image",
-                    FileTypes = FilePickerFileType.Images
-                });
+                SelectedImagePath = imagePath;
+                SelectedImageName = imageName;
 
-                if (result != null)
-                {
-                    SelectedImagePath = result.FullPath;
-                    SelectedImageName = result.FileName;
+                // Clear audio if image is selected (for simplicity, can be multimodal later)
+                SelectedAudioPath = null;
+                SelectedAudioName = null;
 
-                    // Clear audio if image is selected (for simplicity, can be multimodal later)
-                    SelectedAudioPath = null;
-                    SelectedAudioName = null;
+                // Trigger UI updates
+                OnPropertyChanged(nameof(HasSelectedImage));
+                OnPropertyChanged(nameof(HasSelectedAudio));
+                OnPropertyChanged(nameof(HasSelectedMedia));
+                OnPropertyChanged(nameof(HasCompatibleMediaSelected));
+                OnPropertyChanged(nameof(CanSendMessage));
+                OnPropertyChanged(nameof(CurrentInputModeDescription));
 
-                    // Trigger UI updates
-                    OnPropertyChanged(nameof(HasSelectedImage));
-                    OnPropertyChanged(nameof(HasSelectedAudio));
-                    OnPropertyChanged(nameof(HasSelectedMedia));
-                    OnPropertyChanged(nameof(HasCompatibleMediaSelected));
-                    OnPropertyChanged(nameof(CanSendMessage));
-                    OnPropertyChanged(nameof(CurrentInputModeDescription));
-
-                    // Check if there are active image models and provide feedback
-                    await CheckModelCompatibilityForMediaAsync("image", result.FileName);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error selecting image: {ex}");
-                await ShowAlert?.Invoke("Error", "Failed to select image. Please try again.", "OK");
+                // Check if there are active image models and provide feedback
+                await _mediaSelectionService.CheckModelCompatibilityForMediaAsync("image", imageName, ActiveModels);
             }
         }
 
         private async Task SelectAudioAsync()
         {
-            try
+            var (audioPath, audioName) = await _mediaSelectionService.SelectAudioAsync();
+
+            if (!string.IsNullOrEmpty(audioPath))
             {
-                var result = await FilePicker.Default.PickAsync(new PickOptions
-                {
-                    PickerTitle = "Select an audio file",
-                    FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
-                            {
-                                { DevicePlatform.iOS, new[] { "public.audio" } },
-                                { DevicePlatform.Android, new[] { "audio/*" } },
-                                { DevicePlatform.WinUI, new[] { ".mp3", ".wav", ".m4a", ".aac" } },
-                                { DevicePlatform.Tizen, new[] { "audio/*" } },
-                                { DevicePlatform.macOS, new[] { "mp3", "wav", "m4a", "aac" } },
-                            })
-                });
+                SelectedAudioPath = audioPath;
+                SelectedAudioName = audioName;
 
-                if (result != null)
-                {
-                    SelectedAudioPath = result.FullPath;
-                    SelectedAudioName = result.FileName;
+                // Clear image if audio is selected (for simplicity, can be multimodal later)
+                SelectedImagePath = null;
+                SelectedImageName = null;
 
-                    // Clear image if audio is selected (for simplicity, can be multimodal later)
-                    SelectedImagePath = null;
-                    SelectedImageName = null;
+                // Trigger UI updates
+                OnPropertyChanged(nameof(HasSelectedImage));
+                OnPropertyChanged(nameof(HasSelectedAudio));
+                OnPropertyChanged(nameof(HasSelectedMedia));
+                OnPropertyChanged(nameof(HasCompatibleMediaSelected));
+                OnPropertyChanged(nameof(CanSendMessage));
+                OnPropertyChanged(nameof(CurrentInputModeDescription));
 
-                    // Trigger UI updates
-                    OnPropertyChanged(nameof(HasSelectedImage));
-                    OnPropertyChanged(nameof(HasSelectedAudio));
-                    OnPropertyChanged(nameof(HasSelectedMedia));
-                    OnPropertyChanged(nameof(HasCompatibleMediaSelected));
-                    OnPropertyChanged(nameof(CanSendMessage));
-                    OnPropertyChanged(nameof(CurrentInputModeDescription));
-
-                    // Check if there are active audio models and provide feedback
-                    await CheckModelCompatibilityForMediaAsync("audio", result.FileName);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error selecting audio: {ex}");
-                await ShowAlert?.Invoke("Error", "Failed to select audio file. Please try again.", "OK");
+                // Check if there are active audio models and provide feedback
+                await _mediaSelectionService.CheckModelCompatibilityForMediaAsync("audio", audioName, ActiveModels);
             }
         }
 
@@ -1955,159 +1755,37 @@ namespace CSimple.ViewModels
         /// </summary>
         private async Task SelectFileAsync()
         {
-            try
+            var (filePath, fileName, fileType) = await _mediaSelectionService.SelectFileAsync(
+                SupportsImageInput,
+                SupportsAudioInput,
+                ActiveModels);
+
+            if (!string.IsNullOrEmpty(filePath))
             {
-                // Determine which file types are supported based on active models
-                var supportsImages = SupportsImageInput;
-                var supportsAudio = SupportsAudioInput;
-
-                // If no models are active, show a message
-                if (!supportsImages && !supportsAudio)
+                if (fileType == "image")
                 {
-                    await ShowAlert?.Invoke(
-                        "No Compatible Models Active",
-                        "Please activate an image or audio model before uploading files.\n\n" +
-                        "You can activate models from the Model Management section above.",
-                        "OK");
-                    return;
+                    SelectedImagePath = filePath;
+                    SelectedImageName = fileName;
+                    // Clear audio
+                    SelectedAudioPath = null;
+                    SelectedAudioName = null;
+                }
+                else if (fileType == "audio")
+                {
+                    SelectedAudioPath = filePath;
+                    SelectedAudioName = fileName;
+                    // Clear image
+                    SelectedImagePath = null;
+                    SelectedImageName = null;
                 }
 
-                // Build dynamic file types based on active models
-                var fileTypeDict = new Dictionary<DevicePlatform, IEnumerable<string>>();
-                var supportedFormats = new List<string>();
-                var pickerTitle = "Select a file";
-
-                if (supportsImages && supportsAudio)
-                {
-                    // Both image and audio models are active
-                    pickerTitle = "Select an image or audio file";
-                    supportedFormats.AddRange(new[] { "Images: JPG, PNG, GIF, BMP, WebP, TIFF", "Audio: MP3, WAV, M4A, AAC, OGG, FLAC, WMA" });
-
-                    fileTypeDict = new Dictionary<DevicePlatform, IEnumerable<string>>
-                    {
-                        { DevicePlatform.iOS, new[] { "public.image", "public.audio" } },
-                        { DevicePlatform.Android, new[] { "image/*", "audio/*" } },
-                        { DevicePlatform.WinUI, new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".wma" } },
-                        { DevicePlatform.Tizen, new[] { "image/*", "audio/*" } },
-                        { DevicePlatform.macOS, new[] { "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "mp3", "wav", "m4a", "aac", "ogg", "flac", "wma" } },
-                    };
-                }
-                else if (supportsImages)
-                {
-                    // Only image models are active
-                    pickerTitle = "Select an image file";
-                    supportedFormats.Add("Images: JPG, PNG, GIF, BMP, WebP, TIFF");
-
-                    fileTypeDict = new Dictionary<DevicePlatform, IEnumerable<string>>
-                    {
-                        { DevicePlatform.iOS, new[] { "public.image" } },
-                        { DevicePlatform.Android, new[] { "image/*" } },
-                        { DevicePlatform.WinUI, new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff" } },
-                        { DevicePlatform.Tizen, new[] { "image/*" } },
-                        { DevicePlatform.macOS, new[] { "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff" } },
-                    };
-                }
-                else if (supportsAudio)
-                {
-                    // Only audio models are active
-                    pickerTitle = "Select an audio file";
-                    supportedFormats.Add("Audio: MP3, WAV, M4A, AAC, OGG, FLAC, WMA");
-
-                    fileTypeDict = new Dictionary<DevicePlatform, IEnumerable<string>>
-                    {
-                        { DevicePlatform.iOS, new[] { "public.audio" } },
-                        { DevicePlatform.Android, new[] { "audio/*" } },
-                        { DevicePlatform.WinUI, new[] { ".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".wma" } },
-                        { DevicePlatform.Tizen, new[] { "audio/*" } },
-                        { DevicePlatform.macOS, new[] { "mp3", "wav", "m4a", "aac", "ogg", "flac", "wma" } },
-                    };
-                }
-
-                // Show status message about what files can be selected
-                var activeModelNames = new List<string>();
-                if (supportsImages)
-                {
-                    var imageModels = ActiveModels.Where(m => m.InputType == ModelInputType.Image).Select(m => m.Name);
-                    activeModelNames.AddRange(imageModels.Select(name => $"Image: {name}"));
-                }
-                if (supportsAudio)
-                {
-                    var audioModels = ActiveModels.Where(m => m.InputType == ModelInputType.Audio).Select(m => m.Name);
-                    activeModelNames.AddRange(audioModels.Select(name => $"Audio: {name}"));
-                }
-
-                CurrentModelStatus = $"📁 File picker ready. Supported formats: {string.Join(", ", supportedFormats)}. Active models: {string.Join(", ", activeModelNames)}";
-
-                var result = await FilePicker.Default.PickAsync(new PickOptions
-                {
-                    PickerTitle = pickerTitle,
-                    FileTypes = new FilePickerFileType(fileTypeDict)
-                });
-
-                if (result != null)
-                {
-                    // Determine file type based on extension
-                    var extension = Path.GetExtension(result.FileName)?.ToLowerInvariant();
-                    var isImage = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff" }.Contains(extension);
-                    var isAudio = new[] { ".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".wma" }.Contains(extension);
-
-                    if (isImage && supportsImages)
-                    {
-                        // Treat as image
-                        SelectedImagePath = result.FullPath;
-                        SelectedImageName = result.FileName;
-
-                        // Clear audio
-                        SelectedAudioPath = null;
-                        SelectedAudioName = null;
-
-                        // Check compatibility and provide feedback
-                        await CheckModelCompatibilityForMediaAsync("image", result.FileName);
-                    }
-                    else if (isAudio && supportsAudio)
-                    {
-                        // Treat as audio
-                        SelectedAudioPath = result.FullPath;
-                        SelectedAudioName = result.FileName;
-
-                        // Clear image
-                        SelectedImagePath = null;
-                        SelectedImageName = null;
-
-                        // Check compatibility and provide feedback
-                        await CheckModelCompatibilityForMediaAsync("audio", result.FileName);
-                    }
-                    else
-                    {
-                        // File type doesn't match active models
-                        var expectedTypes = new List<string>();
-                        if (supportsImages) expectedTypes.Add("image");
-                        if (supportsAudio) expectedTypes.Add("audio");
-
-                        CurrentModelStatus = $"⚠ File '{result.FileName}' selected, but it doesn't match your active model types ({string.Join(" or ", expectedTypes)}).";
-
-                        await ShowAlert?.Invoke(
-                            "File Type Mismatch",
-                            $"The file '{result.FileName}' doesn't match your currently active models.\n\n" +
-                            $"Active models support: {string.Join(" and ", supportedFormats)}\n\n" +
-                            $"Please select a compatible file type or activate additional models.",
-                            "OK");
-                        return;
-                    }
-
-                    // Trigger UI updates
-                    OnPropertyChanged(nameof(HasSelectedImage));
-                    OnPropertyChanged(nameof(HasSelectedAudio));
-                    OnPropertyChanged(nameof(HasSelectedMedia));
-                    OnPropertyChanged(nameof(HasCompatibleMediaSelected));
-                    OnPropertyChanged(nameof(CanSendMessage));
-                    OnPropertyChanged(nameof(CurrentInputModeDescription));
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error selecting file: {ex}");
-                await ShowAlert?.Invoke("Error", "Failed to select file. Please try again.", "OK");
+                // Trigger UI updates
+                OnPropertyChanged(nameof(HasSelectedImage));
+                OnPropertyChanged(nameof(HasSelectedAudio));
+                OnPropertyChanged(nameof(HasSelectedMedia));
+                OnPropertyChanged(nameof(HasCompatibleMediaSelected));
+                OnPropertyChanged(nameof(CanSendMessage));
+                OnPropertyChanged(nameof(CurrentInputModeDescription));
             }
         }
 
@@ -2116,60 +1794,7 @@ namespace CSimple.ViewModels
         /// </summary>
         internal async Task CheckModelCompatibilityForMediaAsync(string mediaType, string fileName)
         {
-            try
-            {
-                bool hasCompatibleModel = false;
-                var activeCompatibleModels = new List<string>();
-
-                switch (mediaType.ToLower())
-                {
-                    case "image":
-                        hasCompatibleModel = SupportsImageInput;
-                        if (hasCompatibleModel)
-                        {
-                            activeCompatibleModels = ActiveModels
-                                .Where(m => m.InputType == ModelInputType.Image)
-                                .Select(m => m.Name)
-                                .ToList();
-                        }
-                        break;
-                    case "audio":
-                        hasCompatibleModel = SupportsAudioInput;
-                        if (hasCompatibleModel)
-                        {
-                            activeCompatibleModels = ActiveModels
-                                .Where(m => m.InputType == ModelInputType.Audio)
-                                .Select(m => m.Name)
-                                .ToList();
-                        }
-                        break;
-                }
-
-                if (hasCompatibleModel)
-                {
-                    // Positive feedback - models are ready
-                    CurrentModelStatus = $"✓ {fileName} selected. Ready to process with: {string.Join(", ", activeCompatibleModels)}";
-                    Debug.WriteLine($"Media compatibility check passed for {mediaType}: {fileName}");
-                }
-                else
-                {
-                    // Warning - no compatible models active
-                    CurrentModelStatus = $"⚠ {fileName} selected, but no active {mediaType} models found. Activate a {mediaType} model to process this file.";
-                    Debug.WriteLine($"Media compatibility warning for {mediaType}: {fileName} - no active {mediaType} models");
-
-                    // Optional: Show a brief informational message
-                    await ShowAlert?.Invoke(
-                        "Model Needed",
-                        $"You've selected an {mediaType} file ({fileName}), but no {mediaType} models are currently active.\n\n" +
-                        $"To process this {mediaType}, please activate an {mediaType} model from your available models or search for one on HuggingFace.\n\n" +
-                        $"You can still send the message, but the {mediaType} won't be processed.",
-                        "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error checking model compatibility for {mediaType}: {ex.Message}");
-            }
+            await _mediaSelectionService.CheckModelCompatibilityForMediaAsync(mediaType, fileName, ActiveModels);
         }
 
         private void ClearMedia()

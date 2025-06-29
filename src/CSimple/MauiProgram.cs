@@ -57,6 +57,8 @@ public static class MauiProgram
         services.AddSingleton<ModelImportExportService>();
         services.AddSingleton<IModelDownloadService, ModelDownloadService>();
         services.AddSingleton<IModelImportService, ModelImportService>();
+        services.AddSingleton<IChatManagementService, ChatManagementService>();
+        services.AddSingleton<IMediaSelectionService, MediaSelectionService>();
 
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<LoginViewModel>();
