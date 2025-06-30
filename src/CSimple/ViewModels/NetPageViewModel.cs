@@ -514,7 +514,8 @@ namespace CSimple.ViewModels
         }
         private async Task DownloadModelAsync(NeuralNetworkModel model)
         {
-            await _modelDownloadService.DownloadModelAsync(
+            await ModelDownloadServiceHelper.DownloadModelAsync(
+                _modelDownloadService,
                 model,
                 modelId => _huggingFaceService.GetModelDetailsAsync(modelId),
                 GetModelDownloadSizeAsync,
@@ -531,7 +532,8 @@ namespace CSimple.ViewModels
 
         private async Task DeleteModelAsync(NeuralNetworkModel model)
         {
-            await _modelDownloadService.DeleteModelAsync(
+            await ModelDownloadServiceHelper.DeleteModelAsync(
+                _modelDownloadService,
                 model,
                 status => CurrentModelStatus = status,
                 isLoading => IsLoading = isLoading,
