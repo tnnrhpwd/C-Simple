@@ -10,6 +10,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
 using System.Text;
+using System.IO;
 using CSimple;
 using CSimple.Models;
 using CSimple.ViewModels;
@@ -104,6 +105,7 @@ namespace CSimple.Pages
         public ICommand SelectModelCommand { get; }
         public ICommand ExecuteAiModelCommand { get; }
         public ICommand UndoAiChangesCommand { get; }
+        public ICommand NavigateToAiModelsCommand { get; }
 
         // Add IsLoading property
         private bool _isLoading = false;
@@ -168,12 +170,24 @@ namespace CSimple.Pages
                     OnPropertyChanged(nameof(SelectedAiModel));
                     OnPropertyChanged(nameof(HasSelectedAiModel));
                     OnPropertyChanged(nameof(CanExecuteAiModel));
+                    OnPropertyChanged(nameof(SelectedModelDownloadStatus));
                 }
             }
         }
 
         public bool HasSelectedAiModel => SelectedAiModel != null;
         public bool CanExecuteAiModel => HasSelectedAiModel && !string.IsNullOrWhiteSpace(AiPromptText) && !IsLoading;
+
+        // Property to show download status of selected model
+        public string SelectedModelDownloadStatus
+        {
+            get
+            {
+                if (SelectedAiModel == null) return "";
+                bool isDownloaded = IsModelDownloaded(SelectedAiModel.HuggingFaceModelId);
+                return isDownloaded ? "📱 Downloaded" : "☁️ Cloud";
+            }
+        }
 
         private string _originalActionStepsText;
         private bool _hasAiChangesToUndo = false;
@@ -257,6 +271,8 @@ namespace CSimple.Pages
                 SelectModelCommand = new Command(SelectAiModel);
                 ExecuteAiModelCommand = new Command(async () => await ExecuteAiModel());
                 UndoAiChangesCommand = new Command(UndoAiChanges);
+                NavigateToAiModelsCommand = new Command(async () => await NavigateToAiModels());
+                NavigateToAiModelsCommand = new Command(async () => await NavigateToAiModels());
 
                 Debug.WriteLine("ActionDetailViewModel initialized successfully");
             }
@@ -1097,25 +1113,54 @@ namespace CSimple.Pages
 
                 Debug.WriteLine($"Found {textModels.Count} text models out of {allModels.Count} total models");
 
-                // Add filtered text models to the collection
+                // Check download status for each model and prioritize downloaded ones
+                var downloadedModels = new List<NeuralNetworkModel>();
+                var notDownloadedModels = new List<NeuralNetworkModel>();
+
                 foreach (var model in textModels)
                 {
-                    AvailableTextModels.Add(model);
-                    Debug.WriteLine($"Added text model: {model.Name} (ID: {model.HuggingFaceModelId})");
+                    // Check if model is downloaded using NetPageViewModel's logic
+                    bool isDownloaded = IsModelDownloaded(model.HuggingFaceModelId);
+
+                    if (isDownloaded)
+                    {
+                        downloadedModels.Add(model);
+                        Debug.WriteLine($"Added downloaded text model: {model.Name} (ID: {model.HuggingFaceModelId})");
+                    }
+                    else
+                    {
+                        notDownloadedModels.Add(model);
+                        Debug.WriteLine($"Added text model: {model.Name} (ID: {model.HuggingFaceModelId}) - Not Downloaded");
+                    }
                 }
 
-                // Select the last (most recent) text model by default if any are available
-                if (AvailableTextModels.Any())
+                // Add downloaded models first, then non-downloaded ones
+                foreach (var model in downloadedModels)
                 {
-                    SelectedAiModel = AvailableTextModels.Last();
-                    Debug.WriteLine($"Auto-selected most recent text model: {SelectedAiModel.Name}");
+                    AvailableTextModels.Add(model);
+                }
+                foreach (var model in notDownloadedModels)
+                {
+                    AvailableTextModels.Add(model);
+                }
+
+                // Prefer to select a downloaded model, otherwise select the first available model
+                if (downloadedModels.Any())
+                {
+                    SelectedAiModel = downloadedModels.First();
+                    Debug.WriteLine($"Auto-selected first downloaded text model: {SelectedAiModel.Name}");
+                }
+                else if (AvailableTextModels.Any())
+                {
+                    SelectedAiModel = AvailableTextModels.First();
+                    Debug.WriteLine($"No downloaded models found, auto-selected first available text model: {SelectedAiModel.Name}");
                 }
                 else
                 {
                     Debug.WriteLine("No text models available for selection");
                 }
 
-                Debug.WriteLine($"Initialized {AvailableTextModels.Count} text models");
+                Debug.WriteLine($"Initialized {AvailableTextModels.Count} text models ({downloadedModels.Count} downloaded, {notDownloadedModels.Count} not downloaded)");
             }
             catch (Exception ex)
             {
@@ -1152,23 +1197,38 @@ namespace CSimple.Pages
                     return;
                 }
 
-                // Create a list of model names for selection
-                var modelNames = AvailableTextModels.Select(m => $"{m.Name} - {m.Description}").ToArray();
+                // Create a list of model names with download status for selection
+                var modelOptions = AvailableTextModels.Select(m =>
+                {
+                    bool isDownloaded = IsModelDownloaded(m.HuggingFaceModelId);
+                    string downloadStatus = isDownloaded ? "📱 Downloaded" : "☁️ Cloud Only";
+                    return $"{m.Name} - {downloadStatus}";
+                }).ToArray();
 
                 var selectedOption = await Application.Current.MainPage.DisplayActionSheet(
                     "Select AI Model",
                     "Cancel",
                     null,
-                    modelNames);
+                    modelOptions);
 
                 if (!string.IsNullOrEmpty(selectedOption) && selectedOption != "Cancel")
                 {
-                    // Find the selected model by matching the name
-                    var selectedModelIndex = Array.IndexOf(modelNames, selectedOption);
+                    // Find the selected model by matching the option
+                    var selectedModelIndex = Array.IndexOf(modelOptions, selectedOption);
                     if (selectedModelIndex >= 0 && selectedModelIndex < AvailableTextModels.Count)
                     {
                         SelectedAiModel = AvailableTextModels[selectedModelIndex];
-                        Debug.WriteLine($"Selected AI model: {SelectedAiModel.Name}");
+                        bool isDownloaded = IsModelDownloaded(SelectedAiModel.HuggingFaceModelId);
+                        Debug.WriteLine($"Selected AI model: {SelectedAiModel.Name} (Downloaded: {isDownloaded})");
+
+                        // If the model is not downloaded, show a helpful message
+                        if (!isDownloaded)
+                        {
+                            await Application.Current.MainPage.DisplayAlert(
+                                "Cloud Model Selected",
+                                $"You've selected '{SelectedAiModel.Name}' which is not downloaded locally. For better performance, consider downloading this model first from the AI Models page.",
+                                "OK");
+                        }
                     }
                 }
             }
@@ -1404,6 +1464,107 @@ namespace CSimple.Pages
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error undoing AI changes: {ex.Message}");
+            }
+        }
+
+        // Helper method to check if a model is downloaded (similar to NetPageViewModel)
+        private bool IsModelDownloaded(string modelId)
+        {
+            if (string.IsNullOrEmpty(modelId))
+                return false;
+
+            try
+            {
+                string cacheDirectory = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
+
+                if (!Directory.Exists(cacheDirectory))
+                    return false;
+
+                // Check for model directory by trying both naming conventions
+                var possibleDirNames = new[]
+                {
+                    modelId.Replace("/", "_"),           // org/model -> org_model
+                    $"models--{modelId.Replace("/", "--")}"  // org/model -> models--org--model
+                };
+
+                foreach (var dirName in possibleDirNames)
+                {
+                    var modelPath = Path.Combine(cacheDirectory, dirName);
+
+                    if (Directory.Exists(modelPath))
+                    {
+                        // Calculate total directory size
+                        long totalSize = GetDirectorySize(modelPath);
+
+                        // Consider downloaded if > 5KB (5120 bytes)
+                        bool isDownloaded = totalSize > 5120;
+
+#if DEBUG
+                        if (totalSize > 0)
+                        {
+                            Debug.WriteLine($"Model '{modelId}' directory size: {totalSize:N0} bytes ({totalSize / 1024.0:F1} KB) - Downloaded: {isDownloaded}");
+                        }
+#endif
+                        return isDownloaded;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error checking if model '{modelId}' is downloaded: {ex.Message}");
+                return false;
+            }
+        }
+
+        private long GetDirectorySize(string directoryPath)
+        {
+            try
+            {
+                if (!Directory.Exists(directoryPath))
+                    return 0;
+
+                long totalSize = 0;
+
+                // Get size of all files in directory and subdirectories
+                var files = Directory.GetFiles(directoryPath, "*", SearchOption.AllDirectories);
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        var fileInfo = new FileInfo(file);
+                        totalSize += fileInfo.Length;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error getting size of file '{file}': {ex.Message}");
+                    }
+                }
+
+                return totalSize;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting directory size: {ex.Message}");
+                return 0;
+            }
+        }
+
+        private async Task NavigateToAiModels()
+        {
+            try
+            {
+                // Navigate to the AI Models (Net) page using Shell navigation
+                await Shell.Current.GoToAsync("net");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error navigating to AI Models page: {ex.Message}");
+                await Application.Current.MainPage.DisplayAlert(
+                    "Navigation Error",
+                    "Failed to open the AI Models page. Please try again.",
+                    "OK");
             }
         }
     }

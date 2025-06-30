@@ -173,7 +173,7 @@
                                  Color="{AppThemeBinding Light=#e0e0e0, Dark=#333333}"
                                  Margin="0,4,0,8" />
                         <!-- AI Model Editor Section -->
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto"
                               ColumnSpacing="8"
                               Margin="0,8">
                             <!-- Model Selection Button -->
@@ -214,9 +214,20 @@
                                     FontSize="16"
                                     Command="{Binding UndoAiChangesCommand}"
                                     IsVisible="{Binding HasAiChangesToUndo}" />
+                            <!-- Navigate to AI Models Button -->
+                            <Button Grid.Column="4"
+                                    Text="📥"
+                                    FontSize="14"
+                                    WidthRequest="40"
+                                    HeightRequest="40"
+                                    CornerRadius="20"
+                                    BackgroundColor="{AppThemeBinding Light=#2196F3, Dark=#1976D2}"
+                                    TextColor="White"
+                                    Command="{Binding NavigateToAiModelsCommand}"
+                                    ToolTipProperties.Text="Download AI Models" />
                         </Grid>
                         <!-- Selected Model Display -->
-                        <Grid ColumnDefinitions="Auto,*"
+                        <Grid ColumnDefinitions="Auto,*,Auto"
                               ColumnSpacing="8"
                               IsVisible="{Binding HasSelectedAiModel}"
                               Margin="0,4">
@@ -229,18 +240,19 @@
                                     Padding="6,3"
                                     BackgroundColor="{AppThemeBinding Light=#E1F5FE, Dark=#0277BD}"
                                     StrokeShape="RoundRectangle 12">
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <Label Text="{Binding SelectedAiModel.Name}"
-                                           FontSize="12"
-                                           TextColor="{AppThemeBinding Light=#0277BD, Dark=#B3E5FC}"
-                                           VerticalOptions="Center" />
-                                    <Label Grid.Column="1"
-                                           Text="✓"
-                                           FontSize="12"
-                                           TextColor="{AppThemeBinding Light=#4CAF50, Dark=#81C784}"
-                                           VerticalOptions="Center"
-                                           Margin="4,0,0,0" />
-                                </Grid>
+                                <Label Text="{Binding SelectedAiModel.Name}"
+                                       FontSize="12"
+                                       TextColor="{AppThemeBinding Light=#0277BD, Dark=#B3E5FC}"
+                                       VerticalOptions="Center" />
+                            </Border>
+                            <Border Grid.Column="2"
+                                    Padding="4,2"
+                                    BackgroundColor="{AppThemeBinding Light=#E8F5E8, Dark=#2E7D32}"
+                                    StrokeShape="RoundRectangle 8">
+                                <Label Text="{Binding SelectedModelDownloadStatus}"
+                                       FontSize="10"
+                                       TextColor="{AppThemeBinding Light=#2E7D32, Dark=#C8E6C9}"
+                                       VerticalOptions="Center" />
                             </Border>
                         </Grid>
                         <!-- Action Steps Editor -->
