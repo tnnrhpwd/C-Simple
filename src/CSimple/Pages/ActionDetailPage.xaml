@@ -178,9 +178,8 @@
                               Margin="0,8">
                             <!-- Model Selection Button -->
                             <Button Grid.Column="0"
-                                    Text="🤖"
+                                    Text="Model"
                                     FontSize="16"
-                                    WidthRequest="40"
                                     HeightRequest="40"
                                     CornerRadius="20"
                                     BackgroundColor="{AppThemeBinding Light=#673AB7, Dark=#512DA8}"
@@ -216,14 +215,14 @@
                                     IsVisible="{Binding HasAiChangesToUndo}" />
                             <!-- Navigate to AI Models Button -->
                             <Button Grid.Column="4"
-                                    Text="📥"
+                                    Text="Import Model"
                                     FontSize="14"
-                                    WidthRequest="40"
                                     HeightRequest="40"
                                     CornerRadius="20"
                                     BackgroundColor="{AppThemeBinding Light=#2196F3, Dark=#1976D2}"
                                     TextColor="White"
                                     Command="{Binding NavigateToAiModelsCommand}"
+                                    Clicked="NavigateToAiModels_Clicked"
                                     ToolTipProperties.Text="Download AI Models" />
                         </Grid>
                         <!-- Selected Model Display -->

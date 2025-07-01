@@ -12,10 +12,10 @@ using System.Diagnostics;
 using System.Text;
 using System.IO;
 using CSimple;
+using CSimple.Helpers;
 using CSimple.Models;
 using CSimple.ViewModels;
-using Microsoft.Maui.Storage;
-using CSimple.Helpers;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CSimple.Pages
 {
@@ -46,6 +46,12 @@ namespace CSimple.Pages
                 // Fall back to a very simple initialization if needed
                 BindingContext = new { ActionName = "Error Loading Action", ActionType = "Error" };
             }
+        }
+
+        private async void NavigateToAiModels_Clicked(object sender, EventArgs e)
+        {
+            var viewModel = this.Handler.MauiContext.Services.GetService<NetPageViewModel>();
+            await Navigation.PushAsync(new NetPage(viewModel));
         }
     }
 
