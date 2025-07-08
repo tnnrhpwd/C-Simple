@@ -219,7 +219,18 @@ namespace CSimple.Services
                 var finalModelsToSave = otherModels.Concat(uniquePythonRefs.Values).ToList();
 
                 Debug.WriteLine($"ModelImportExportService: Saving {finalModelsToSave.Count} unique models.");
+                Console.WriteLine($"🔥 ModelImportExportService: Saving {finalModelsToSave.Count} unique models.");
+
+                // Log InputType values before saving to FileService
+                foreach (var model in finalModelsToSave)
+                {
+                    Debug.WriteLine($"📋 ModelImportExportService: Model '{model.Name}' - InputType: {model.InputType}");
+                    Console.WriteLine($"📋 ModelImportExportService: Model '{model.Name}' - InputType: {model.InputType}");
+                }
+
+                Console.WriteLine($"💾 ModelImportExportService: Calling FileService.SaveHuggingFaceModelsAsync...");
                 await _fileService.SaveHuggingFaceModelsAsync(finalModelsToSave);
+                Console.WriteLine($"✅ ModelImportExportService: FileService call completed");
                 Debug.WriteLine($"ModelImportExportService: Called FileService to save {finalModelsToSave.Count} models.");
             }
             catch (Exception ex)

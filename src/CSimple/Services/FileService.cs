@@ -288,19 +288,45 @@ namespace CSimple.Services
                 if (models == null)
                 {
                     System.Diagnostics.Debug.WriteLine("FileService.SaveHuggingFaceModelsAsync: Received null list, saving empty array.");
+                    Console.WriteLine("FileService.SaveHuggingFaceModelsAsync: Received null list, saving empty array.");
                     models = new List<NeuralNetworkModel>(); // Ensure we save an empty array, not null
                 }
 
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 var json = JsonSerializer.Serialize(models, options);
 
-                System.Diagnostics.Debug.WriteLine($"FileService.SaveHuggingFaceModelsAsync: Serialized JSON (first 100 chars): {json.Substring(0, Math.Min(100, json.Length))}");
+                System.Diagnostics.Debug.WriteLine($"FileService.SaveHuggingFaceModelsAsync: Serialized JSON (first 200 chars): {json.Substring(0, Math.Min(200, json.Length))}");
+                Console.WriteLine($"🔥 FileService: Serializing {modelCount} models to JSON");
 
+                // Log InputType values in the models being saved
+                foreach (var model in models)
+                {
+                    System.Diagnostics.Debug.WriteLine($"📋 FileService: Model '{model.Name}' - InputType: {model.InputType}");
+                    Console.WriteLine($"📋 FileService: Model '{model.Name}' - InputType: {model.InputType}");
+                }
+
+                Console.WriteLine($"💾 FileService: Writing to file: {_huggingFaceModelsFilePath}");
                 await File.WriteAllTextAsync(_huggingFaceModelsFilePath, json);
+                Console.WriteLine($"✅ FileService: Successfully wrote {modelCount} models to file");
                 System.Diagnostics.Debug.WriteLine($"FileService.SaveHuggingFaceModelsAsync: Successfully wrote {modelCount} models to {_huggingFaceModelsFilePath}");
+
+                // Verify the file was actually written by reading it back
+                if (File.Exists(_huggingFaceModelsFilePath))
+                {
+                    var fileSize = new FileInfo(_huggingFaceModelsFilePath).Length;
+                    Console.WriteLine($"✅ FileService: Verified file exists with size: {fileSize} bytes");
+                    System.Diagnostics.Debug.WriteLine($"✅ FileService: Verified file exists with size: {fileSize} bytes");
+                }
+                else
+                {
+                    Console.WriteLine($"❌ FileService: File was NOT created at {_huggingFaceModelsFilePath}");
+                    System.Diagnostics.Debug.WriteLine($"❌ FileService: File was NOT created at {_huggingFaceModelsFilePath}");
+                }
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"❌ CRITICAL ERROR in FileService.SaveHuggingFaceModelsAsync: {ex.Message}");
+                Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
                 System.Diagnostics.Debug.WriteLine($"FileService.SaveHuggingFaceModelsAsync: Error saving HuggingFace models: {ex.Message}");
                 System.Diagnostics.Debug.WriteLine(ex.StackTrace);
             }

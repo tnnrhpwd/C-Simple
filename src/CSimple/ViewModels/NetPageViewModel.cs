@@ -348,9 +348,27 @@ namespace CSimple.ViewModels
                 }
             });
 
-            // Add new command for updating model input type
+            // Add new command for updating model input type - FIXED: Use async method with proper error handling
             UpdateModelInputTypeCommand = new Command<(NeuralNetworkModel, ModelInputType)>(
-                param => UpdateModelInputType(param.Item1, param.Item2));            // Initialize chat commands
+                param =>
+                {
+                    Debug.WriteLine($"🚀 UpdateModelInputTypeCommand TRIGGERED with model: '{param.Item1?.Name}', InputType: {param.Item2}");
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            Debug.WriteLine($"🔥 EXECUTING UpdateModelInputTypeAsync in Task.Run");
+                            await UpdateModelInputTypeAsync(param.Item1, param.Item2);
+                            Debug.WriteLine($"✅ UpdateModelInputTypeAsync COMPLETED successfully");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"❌ CRITICAL ERROR in UpdateModelInputTypeCommand: {ex.Message}");
+                            Debug.WriteLine($"❌ Stack trace: {ex.StackTrace}");
+                            CurrentModelStatus = $"ERROR: {ex.Message}";
+                        }
+                    });
+                });            // Initialize chat commands
             SendMessageCommand = new Command(async () => await SendMessageAsync(), () => CanSendMessage);
             ClearChatCommand = new Command(ClearChat);
             EditMessageCommand = new Command<ChatMessage>(EditMessage); // Initialize Edit Message Command
@@ -1125,34 +1143,73 @@ namespace CSimple.ViewModels
                 HandleError($"Error navigating to Orient page for model {model.Name}", ex);
                 await ShowAlert("Navigation Error", $"Could not navigate to training page: {ex.Message}", "OK");
             }
-        }        // ADDED: New method to update model input type
-        private void UpdateModelInputType(NeuralNetworkModel model, ModelInputType inputType)
+        }        // FIXED: Async method to update model input type with IMMEDIATE save
+        private async Task UpdateModelInputTypeAsync(NeuralNetworkModel model, ModelInputType inputType)
         {
-            if (model == null) return;
+            Console.WriteLine($"🔥🔥🔥 UpdateModelInputTypeAsync CALLED - Model: '{model?.Name}', InputType: {inputType}");
+
+            if (model == null)
+            {
+                Console.WriteLine("❌ Model is null, returning");
+                return;
+            }
 
             try
             {
+                // Log current model state for debugging
+                Console.WriteLine($"📊 CURRENT MODEL STATE: Name='{model.Name}', CurrentInputType={model.InputType}");
+
                 // Check if the input type is actually changing
                 bool isChanged = model.InputType != inputType;
+                Console.WriteLine($"🔍 InputType changing? {isChanged} (from {model.InputType} to {inputType})");
 
+                // FORCE SAVE - Let's bypass the no-change check temporarily to test the save chain
                 if (!isChanged)
                 {
-                    // No change needed, avoid unnecessary operations
-                    return;
+                    Console.WriteLine("⚠️ NO CHANGE DETECTED - but forcing save anyway to test the save chain");
+                    // Don't return - continue with save to test the chain
+                }
+                else
+                {
+                    Console.WriteLine($"🔄 CHANGE DETECTED - continuing with save");
                 }
 
-                Debug.WriteLine($"Input type for model {model.Name} changed to {inputType}");
+                Console.WriteLine($"🔄 STARTING InputType change for '{model.Name}' from {model.InputType} to {inputType}");
+                Debug.WriteLine($"🔄 STARTING InputType change for '{model.Name}' from {model.InputType} to {inputType}");
+
                 model.InputType = inputType;
+                Console.WriteLine($"✏️ Model.InputType updated to: {model.InputType}");
 
-                // Use debounced save to prevent excessive save operations
-                SavePersistedModelsDebounced();
-
-                // Only notify if something actually changed
+                // IMMEDIATE save for InputType changes - NO DEBOUNCING
+                CurrentModelStatus = $"Saving '{model.Name}' InputType = {inputType} to file...";
                 OnPropertyChanged(nameof(AvailableModels));
-                CurrentModelStatus = $"Updated input type for '{model.Name}' to {inputType}";
+
+                try
+                {
+                    Console.WriteLine($"💾 CALLING SavePersistedModelsAsync for '{model.Name}' InputType change");
+                    Debug.WriteLine($"💾 CALLING SavePersistedModelsAsync for '{model.Name}' InputType change");
+
+                    await SavePersistedModelsAsync();
+
+                    Console.WriteLine($"✅ SUCCESSFULLY SAVED InputType change for '{model.Name}' to huggingFaceModels.json");
+                    Debug.WriteLine($"✅ SUCCESSFULLY SAVED InputType change for '{model.Name}' to huggingFaceModels.json");
+                    CurrentModelStatus = $"✅ Saved '{model.Name}' InputType = {inputType} to file";
+                }
+                catch (Exception saveEx)
+                {
+                    Console.WriteLine($"❌ ERROR saving InputType change: {saveEx.Message}");
+                    Console.WriteLine($"❌ Stack trace: {saveEx.StackTrace}");
+                    Debug.WriteLine($"❌ ERROR saving InputType change: {saveEx.Message}");
+                    Debug.WriteLine($"❌ Stack trace: {saveEx.StackTrace}");
+                    CurrentModelStatus = $"❌ Error saving InputType: {saveEx.Message}";
+                    throw; // Re-throw to ensure error is visible
+                }
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"❌ ERROR in UpdateModelInputTypeAsync: {ex.Message}");
+                Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
+                Debug.WriteLine($"❌ ERROR in UpdateModelInputTypeAsync: {ex.Message}");
                 HandleError($"Error updating input type for model: {model?.Name}", ex);
             }
         }
@@ -1417,7 +1474,9 @@ namespace CSimple.ViewModels
         private async Task SavePersistedModelsAsync(List<NeuralNetworkModel> modelsToSave)
         {
             await _modelImportExportService.SavePersistedModelsAsync(modelsToSave);
-        }        // Original method now calls the overload
+        }
+
+        // Original method now calls the overload
         private async Task SavePersistedModelsAsync()
         {
             // Logic moved from NetPage.xaml.cs
@@ -1425,7 +1484,20 @@ namespace CSimple.ViewModels
             var modelsToSave = AvailableModels
                 .Where(m => m.IsHuggingFaceReference || !string.IsNullOrEmpty(m.HuggingFaceModelId))
                 .ToList();
+
+            Console.WriteLine($"🔍 SavePersistedModelsAsync: Found {modelsToSave.Count} models to save out of {AvailableModels?.Count ?? 0} available models");
+            Debug.WriteLine($"🔍 SavePersistedModelsAsync: Found {modelsToSave.Count} models to save out of {AvailableModels?.Count ?? 0} available models");
+
+            // Log InputType values before saving
+            foreach (var model in modelsToSave)
+            {
+                Console.WriteLine($"📋 Model '{model.Name}' - InputType: {model.InputType}, IsHuggingFaceReference: {model.IsHuggingFaceReference}, HuggingFaceModelId: '{model.HuggingFaceModelId}'");
+                Debug.WriteLine($"📋 Model '{model.Name}' - InputType: {model.InputType}, IsHuggingFaceReference: {model.IsHuggingFaceReference}, HuggingFaceModelId: '{model.HuggingFaceModelId}'");
+            }
+
+            Console.WriteLine($"💾 Calling SavePersistedModelsAsync overload with {modelsToSave.Count} models");
             await SavePersistedModelsAsync(modelsToSave); // Call the overload
+            Console.WriteLine($"✅ SavePersistedModelsAsync overload completed");
         }
 
         // Debounced save method to prevent excessive saves
