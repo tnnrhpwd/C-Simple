@@ -37,6 +37,43 @@ namespace CSimple.Services
             {
                 if (_isPythonEnvironmentSetup)
                 {
+                    // Even if setup is already done, ensure this instance has the paths
+                    // Initialize from the bootstrapper if not already set
+                    if (string.IsNullOrEmpty(PythonExecutablePath) && _pythonBootstrapper.PythonExecutablePath != null)
+                    {
+                        PythonExecutablePath = _pythonBootstrapper.PythonExecutablePath;
+                    }
+
+                    if (string.IsNullOrEmpty(HuggingFaceScriptPath))
+                    {
+                        // Re-check for script path
+                        var projectScriptPath = @"c:\Users\tanne\Documents\Github\C-Simple\src\CSimple\Scripts\run_hf_model.py";
+                        if (File.Exists(projectScriptPath))
+                        {
+                            HuggingFaceScriptPath = projectScriptPath;
+                        }
+                        else
+                        {
+                            // Check fallback locations
+                            var possibleScriptPaths = new[]
+                            {
+                                Path.Combine(AppContext.BaseDirectory, "Scripts", "run_hf_model.py"),
+                                Path.Combine(FileSystem.AppDataDirectory, "Scripts", "run_hf_model.py"),
+                                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Documents", "CSimple", "Scripts", "run_hf_model.py")
+                            };
+
+                            foreach (var path in possibleScriptPaths)
+                            {
+                                if (File.Exists(path))
+                                {
+                                    HuggingFaceScriptPath = path;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    Debug.WriteLine($"PythonEnvironmentService: Using existing setup. Python path: '{PythonExecutablePath}', Script path: '{HuggingFaceScriptPath}'");
                     OnLoadingChanged(false);
                     return true;
                 }
@@ -141,6 +178,8 @@ namespace CSimple.Services
                 if (packagesInstalled)
                 {
                     OnStatusChanged("Python environment ready");
+
+                    Debug.WriteLine($"PythonEnvironmentService: Setup completed successfully. Python path: '{PythonExecutablePath}', Script path: '{HuggingFaceScriptPath}'");
 
                     // Mark as successfully set up
                     lock (_setupLock)

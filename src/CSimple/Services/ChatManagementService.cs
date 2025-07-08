@@ -158,12 +158,30 @@ namespace CSimple.Services
                         // Get the local model path to force local-only execution
                         string localModelPath = getLocalModelPath(activeModel.HuggingFaceModelId);
 
+                        // Get Python executable path from environment service, with fallback
+                        string pythonExecutablePath = _pythonEnvironmentService.PythonExecutablePath;
+                        string huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
+
+                        // Validate Python path - if it's null or just "python", we have an issue
+                        if (string.IsNullOrEmpty(pythonExecutablePath) || pythonExecutablePath == "python")
+                        {
+                            Debug.WriteLine("ChatManagementService: Python environment not properly initialized. Using fallback.");
+                            pythonExecutablePath = "python"; // Use fallback
+                        }
+
+                        if (string.IsNullOrEmpty(huggingFaceScriptPath))
+                        {
+                            Debug.WriteLine("ChatManagementService: HuggingFace script path not set. Media processing may fail.");
+                        }
+
+                        Debug.WriteLine($"ChatManagementService: Using Python path: '{pythonExecutablePath}', Script path: '{huggingFaceScriptPath}'");
+
                         var modelResponse = await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(
                             activeModel.HuggingFaceModelId,
                             mediaPrompt,
                             activeModel,
-                            "python", // TODO: Make configurable
-                            _pythonEnvironmentService.HuggingFaceScriptPath, // Use service instead of hardcoded path
+                            pythonExecutablePath, // Use proper Python path from environment service
+                            huggingFaceScriptPath, // Use service instead of hardcoded path
                             localModelPath);
 
                         if (!string.IsNullOrEmpty(modelResponse))

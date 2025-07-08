@@ -624,9 +624,7 @@ namespace CSimple.ViewModels
             public string DisplayName { get; set; }
 
             public override string ToString() => DisplayName;
-        }        // Configuration for Python execution (Consider moving to a config file/service)
-        private const string PythonExecutablePath = "python"; // Or full path e.g., @"C:\Python311\python.exe"
-        private const string HuggingFaceScriptPath = @"c:\Users\tanne\Documents\Github\C-Simple\src\CSimple\Scripts\run_hf_model.py"; // Updated path to the script
+        }
 
         // --- Public Methods (called from View or Commands) ---
 
@@ -645,7 +643,7 @@ namespace CSimple.ViewModels
                     // Use previously set paths
                     _pythonExecutablePath = _pythonEnvironmentService.PythonExecutablePath;
                     _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
-                    Debug.WriteLine("NetPageViewModel: Using existing Python environment paths");
+                    Debug.WriteLine($"NetPageViewModel: Using existing Python environment paths. Python path: '{_pythonExecutablePath}', Script path: '{_huggingFaceScriptPath}'");
                 }
             }
 
@@ -655,6 +653,8 @@ namespace CSimple.ViewModels
                 await _pythonEnvironmentService.SetupPythonEnvironmentAsync(ShowAlert);
                 _pythonExecutablePath = _pythonEnvironmentService.PythonExecutablePath;
                 _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
+
+                Debug.WriteLine($"NetPageViewModel: Python environment setup completed. Python path: '{_pythonExecutablePath}', Script path: '{_huggingFaceScriptPath}'");
 
                 lock (_pythonSetupLock)
                 {
@@ -947,6 +947,15 @@ namespace CSimple.ViewModels
             // Handle media-only messages using the chat management service
             if (string.IsNullOrWhiteSpace(message) && HasSelectedMedia)
             {
+                // Ensure Python environment is properly initialized before processing media
+                if (string.IsNullOrEmpty(_pythonExecutablePath) || _pythonExecutablePath == "python")
+                {
+                    Debug.WriteLine("NetPageViewModel: Python environment not properly initialized for media processing. Re-initializing...");
+                    _pythonExecutablePath = _pythonEnvironmentService.PythonExecutablePath;
+                    _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
+                    Debug.WriteLine($"NetPageViewModel: Re-initialized Python paths. Python path: '{_pythonExecutablePath}', Script path: '{_huggingFaceScriptPath}'");
+                }
+
                 await _chatManagementService.CommunicateWithModelAsync(
                     message,
                     activeHfModel,
