@@ -1160,8 +1160,27 @@ namespace CSimple.ViewModels
                 string modelId = (model.ModelId ?? model.Id ?? "").ToLowerInvariant();
                 string description = (model.Description ?? "").ToLowerInvariant();
 
-                // Check for text-related models
-                if (pipelineTag.Contains("text") ||
+                // Check for image-related models first (to prioritize image-to-text models)
+                if (pipelineTag.Contains("image") ||
+                    pipelineTag.Contains("vision") ||
+                    pipelineTag == "image-classification" ||
+                    pipelineTag == "object-detection" ||
+                    pipelineTag == "image-segmentation" ||
+                    pipelineTag == "depth-estimation" ||
+                    pipelineTag == "image-to-text" ||  // Added specific check for image-to-text models like BLIP
+                    modelId.Contains("vit") ||
+                    modelId.Contains("clip") ||
+                    modelId.Contains("resnet") ||
+                    modelId.Contains("diffusion") ||
+                    modelId.Contains("stable-diffusion") ||
+                    modelId.Contains("blip") ||
+                    modelId.Contains("yolo"))
+                {
+                    return ModelInputType.Image;
+                }
+
+                // Check for text-related models (excluding image-to-text which should be Image type)
+                if ((pipelineTag.Contains("text") && !pipelineTag.Contains("image-to-text")) ||
                     pipelineTag.Contains("token") ||
                     pipelineTag.Contains("sentence") ||
                     pipelineTag.Contains("question") ||
@@ -1182,24 +1201,6 @@ namespace CSimple.ViewModels
                     modelId.Contains("roberta"))
                 {
                     return ModelInputType.Text;
-                }
-
-                // Check for image-related models
-                if (pipelineTag.Contains("image") ||
-                    pipelineTag.Contains("vision") ||
-                    pipelineTag == "image-classification" ||
-                    pipelineTag == "object-detection" ||
-                    pipelineTag == "image-segmentation" ||
-                    pipelineTag == "depth-estimation" ||
-                    modelId.Contains("vit") ||
-                    modelId.Contains("clip") ||
-                    modelId.Contains("resnet") ||
-                    modelId.Contains("diffusion") ||
-                    modelId.Contains("stable-diffusion") ||
-                    modelId.Contains("blip") ||
-                    modelId.Contains("yolo"))
-                {
-                    return ModelInputType.Image;
                 }
 
                 // Check for audio-related models
@@ -1279,10 +1280,14 @@ namespace CSimple.ViewModels
                     // DebugModelInputTypes();
 #if DEBUG
                     DebugModelInputTypes();
+                    TestInputTypeClassification();
 #endif
 
                     // Update download button text for all loaded models
                     UpdateAllModelsDownloadButtonText();
+
+                    // Re-classify existing models to fix any incorrect classifications
+                    _ = Task.Run(async () => await ReclassifyExistingModelsAsync());
                 });
             }
             catch (Exception ex)
@@ -2047,6 +2052,138 @@ namespace CSimple.ViewModels
         public string GetLocalModelPath(string modelId)
         {
             return GetModelDirectoryPath(modelId);
+        }
+
+        /// <summary>
+        /// Re-classifies existing models that may have been incorrectly classified.
+        /// This fixes models that were imported before the InputType classification logic was corrected.
+        /// </summary>
+        public async Task ReclassifyExistingModelsAsync()
+        {
+            try
+            {
+                Debug.WriteLine("ReclassifyExistingModelsAsync: Starting re-classification of existing models...");
+                bool hasChanges = false;
+
+                foreach (var model in AvailableModels.Where(m => m.IsHuggingFaceReference))
+                {
+                    // Create a temporary HuggingFaceModel to use with GuessInputType
+                    var tempHFModel = new HuggingFaceModel
+                    {
+                        ModelId = model.HuggingFaceModelId,
+                        Id = model.HuggingFaceModelId,
+                        Description = model.Description,
+                        // Try to infer pipeline_tag from model name patterns
+                        Pipeline_tag = InferPipelineTagFromModelId(model.HuggingFaceModelId)
+                    };
+
+                    var correctInputType = GuessInputType(tempHFModel);
+
+                    if (model.InputType != correctInputType)
+                    {
+                        Debug.WriteLine($"Re-classifying model '{model.Name}': {model.InputType} -> {correctInputType}");
+                        model.InputType = correctInputType;
+                        hasChanges = true;
+                    }
+                }
+
+                if (hasChanges)
+                {
+                    Debug.WriteLine("ReclassifyExistingModelsAsync: Changes detected, saving updated models...");
+                    await SavePersistedModelsAsync();
+                    OnPropertyChanged(nameof(AvailableModels));
+                    OnPropertyChanged(nameof(SupportsTextInput));
+                    OnPropertyChanged(nameof(SupportsImageInput));
+                    OnPropertyChanged(nameof(SupportsAudioInput));
+                    OnPropertyChanged(nameof(SupportedInputTypesText));
+                    CurrentModelStatus = "Model classifications updated";
+                }
+                else
+                {
+                    Debug.WriteLine("ReclassifyExistingModelsAsync: No changes needed");
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error re-classifying existing models", ex);
+            }
+        }
+
+        /// <summary>
+        /// Infers the pipeline tag from a model ID to help with re-classification
+        /// </summary>
+        private string InferPipelineTagFromModelId(string modelId)
+        {
+            if (string.IsNullOrEmpty(modelId)) return "";
+
+            var lowerModelId = modelId.ToLowerInvariant();
+
+            // Image-related models
+            if (lowerModelId.Contains("blip")) return "image-to-text";
+            if (lowerModelId.Contains("clip")) return "image-classification";
+            if (lowerModelId.Contains("vit")) return "image-classification";
+            if (lowerModelId.Contains("diffusion")) return "text-to-image";
+            if (lowerModelId.Contains("yolo")) return "object-detection";
+
+            // Audio-related models
+            if (lowerModelId.Contains("whisper")) return "automatic-speech-recognition";
+            if (lowerModelId.Contains("wav2vec")) return "audio-classification";
+            if (lowerModelId.Contains("hubert")) return "audio-classification";
+
+            // Text-related models
+            if (lowerModelId.Contains("gpt")) return "text-generation";
+            if (lowerModelId.Contains("bert")) return "text-classification";
+            if (lowerModelId.Contains("t5")) return "text2text-generation";
+            if (lowerModelId.Contains("llama")) return "text-generation";
+            if (lowerModelId.Contains("bloom")) return "text-generation";
+            if (lowerModelId.Contains("bart")) return "text2text-generation";
+            if (lowerModelId.Contains("roberta")) return "text-classification";
+
+            // Default fallback
+            return "text-generation";
+        }
+
+        // --- Debug Methods ---
+        /// <summary>
+        /// Debug method to manually test the GuessInputType method with specific models
+        /// </summary>
+        public void TestInputTypeClassification()
+        {
+#if DEBUG
+            Debug.WriteLine("=== TESTING INPUT TYPE CLASSIFICATION ===");
+
+            // Test BLIP model
+            var blipModel = new HuggingFaceModel
+            {
+                ModelId = "Salesforce/blip-image-captioning-base",
+                Pipeline_tag = "image-to-text",
+                Description = "BLIP model for image captioning"
+            };
+            var blipInputType = GuessInputType(blipModel);
+            Debug.WriteLine($"BLIP model InputType: {blipInputType} ({(int)blipInputType}) - Should be Image (1)");
+
+            // Test a regular text model
+            var gptModel = new HuggingFaceModel
+            {
+                ModelId = "openai-community/gpt2",
+                Pipeline_tag = "text-generation",
+                Description = "GPT-2 text generation model"
+            };
+            var gptInputType = GuessInputType(gptModel);
+            Debug.WriteLine($"GPT-2 model InputType: {gptInputType} ({(int)gptInputType}) - Should be Text (0)");
+
+            // Test a vision model
+            var vitModel = new HuggingFaceModel
+            {
+                ModelId = "google/vit-base-patch16-224",
+                Pipeline_tag = "image-classification",
+                Description = "Vision Transformer for image classification"
+            };
+            var vitInputType = GuessInputType(vitModel);
+            Debug.WriteLine($"ViT model InputType: {vitInputType} ({(int)vitInputType}) - Should be Image (1)");
+
+            Debug.WriteLine("=== END TESTING ===");
+#endif
         }
     }
 }
