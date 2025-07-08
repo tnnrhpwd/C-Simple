@@ -184,10 +184,28 @@ namespace CSimple.Services
                             huggingFaceScriptPath, // Use service instead of hardcoded path
                             localModelPath);
 
+                        // Check if the response indicates an error
                         if (!string.IsNullOrEmpty(modelResponse))
                         {
-                            responseText = modelResponse;
-                            Debug.WriteLine($"Model processing successful: {modelResponse.Substring(0, Math.Min(100, modelResponse.Length))}...");
+                            // Check for common error patterns in the response
+                            if (modelResponse.StartsWith("ERROR:") ||
+                                modelResponse.Contains("Failed to load model") ||
+                                modelResponse.Contains("torch.load") ||
+                                modelResponse.Contains("safetensors") ||
+                                modelResponse.Contains("PyTorch error:") ||
+                                modelResponse.Contains("model.safetensors found") ||
+                                modelResponse.Contains("vulnerability issue") ||
+                                modelResponse.Contains("upgrade torch"))
+                            {
+                                // This is an error response, not a successful result
+                                Debug.WriteLine($"Model execution error detected: {modelResponse.Substring(0, Math.Min(100, modelResponse.Length))}...");
+                                throw new Exception($"Model execution failed: {modelResponse}");
+                            }
+                            else
+                            {
+                                responseText = modelResponse;
+                                Debug.WriteLine($"Model processing successful: {modelResponse.Substring(0, Math.Min(100, modelResponse.Length))}...");
+                            }
                         }
                         else
                         {
@@ -197,11 +215,35 @@ namespace CSimple.Services
                     catch (Exception modelEx)
                     {
                         Debug.WriteLine($"Model execution failed: {modelEx.Message}");
-                        responseText = $"I attempted to process your {(hasSelectedAudio ? "audio" : "image")} file with '{activeModel.Name}', but encountered an error: {modelEx.Message}\n\n" +
-                                      $"This might be because:\n" +
-                                      $"• The model requires specific media processing libraries\n" +
-                                      $"• The Python script needs updates for media file handling\n" +
-                                      $"• The model doesn't support direct file path processing\n\n" +
+
+                        // Provide specific error messages based on the type of error
+                        string errorAdvice = "";
+                        if (modelEx.Message.Contains("safetensors") || modelEx.Message.Contains("model.safetensors"))
+                        {
+                            errorAdvice = "• The model files may be incomplete or corrupted. Try re-downloading the model.\n" +
+                                         "• Check if the model directory contains the required safetensors files.\n";
+                        }
+                        else if (modelEx.Message.Contains("torch.load") || modelEx.Message.Contains("PyTorch error") || modelEx.Message.Contains("v2.6"))
+                        {
+                            errorAdvice = "• PyTorch version is too old (requires v2.6+). Consider upgrading PyTorch.\n" +
+                                         "• The model requires safetensors format files for security reasons.\n" +
+                                         "• Try downloading a newer version of the model that includes safetensors files.\n";
+                        }
+                        else if (modelEx.Message.Contains("PIL") || modelEx.Message.Contains("image"))
+                        {
+                            errorAdvice = "• The model may require additional image processing libraries.\n" +
+                                         "• Ensure PIL/Pillow is properly installed in the Python environment.\n";
+                        }
+                        else
+                        {
+                            errorAdvice = "• The model requires specific media processing libraries\n" +
+                                         "• The Python script needs updates for media file handling\n" +
+                                         "• The model doesn't support direct file path processing\n";
+                        }
+
+                        responseText = $"I attempted to process your {(hasSelectedAudio ? "audio" : "image")} file with '{activeModel.Name}', but encountered an error.\n\n" +
+                                      $"Error: {modelEx.Message}\n\n" +
+                                      $"Possible solutions:\n{errorAdvice}\n" +
                                       $"File location: {mediaPath}";
                     }
                 }
