@@ -45,10 +45,12 @@ namespace CSimple.Services
     public class ChatManagementService : IChatManagementService
     {
         private readonly ModelExecutionService _modelExecutionService;
+        private readonly PythonEnvironmentService _pythonEnvironmentService;
 
-        public ChatManagementService(ModelExecutionService modelExecutionService)
+        public ChatManagementService(ModelExecutionService modelExecutionService, PythonEnvironmentService pythonEnvironmentService)
         {
             _modelExecutionService = modelExecutionService;
+            _pythonEnvironmentService = pythonEnvironmentService;
         }
 
         public async Task CommunicateWithModelAsync(
@@ -161,7 +163,7 @@ namespace CSimple.Services
                             mediaPrompt,
                             activeModel,
                             "python", // TODO: Make configurable
-                            @"c:\Users\tanne\Documents\Github\C-Simple\scripts\run_hf_model.py", // TODO: Make configurable
+                            _pythonEnvironmentService.HuggingFaceScriptPath, // Use service instead of hardcoded path
                             localModelPath);
 
                         if (!string.IsNullOrEmpty(modelResponse))
