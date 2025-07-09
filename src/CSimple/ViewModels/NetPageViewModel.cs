@@ -1352,8 +1352,9 @@ namespace CSimple.ViewModels
                     // Update download button text for all loaded models
                     UpdateAllModelsDownloadButtonText();
 
-                    // Re-classify existing models to fix any incorrect classifications
-                    _ = Task.Run(async () => await ReclassifyExistingModelsAsync());
+                    // DISABLED: Re-classify existing models to fix any incorrect classifications
+                    // This was overriding user's manual input type changes when navigating pages
+                    // _ = Task.Run(async () => await ReclassifyExistingModelsAsync());
                 });
             }
             catch (Exception ex)
