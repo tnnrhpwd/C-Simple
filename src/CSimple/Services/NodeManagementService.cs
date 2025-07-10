@@ -313,6 +313,9 @@ namespace CSimple.Services
             }
 
             InvalidateCanvas?.Invoke(); // Redraw canvas
+
+            // Update ensemble counts after loading pipeline data
+            UpdateEnsembleCounts(Nodes, Connections, InvalidateCanvas);
         }
 
         public async Task UpdateNodeClassificationsAsync(ObservableCollection<NodeViewModel> Nodes, ObservableCollection<NeuralNetworkModel> AvailableModels, Action InvalidateCanvas, Func<string, string> DetermineDataTypeFromName, Func<Task> SaveCurrentPipelineAsync)

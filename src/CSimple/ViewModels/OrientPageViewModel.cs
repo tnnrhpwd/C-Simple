@@ -376,6 +376,7 @@ namespace CSimple.ViewModels
 
             // Use the NodeManagementService to add the node
             await _nodeManagementService.AddModelNodeAsync(Nodes, model.Id, modelName, modelType, new PointF(x, y));
+            UpdateEnsembleCounts(); // ADDED: Update counts after adding node
             await SaveCurrentPipelineAsync(); // Save after adding
         }
 
