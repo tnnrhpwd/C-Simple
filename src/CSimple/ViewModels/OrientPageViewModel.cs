@@ -1394,7 +1394,14 @@ namespace CSimple.ViewModels
 
                 // Update step content with the result
                 StepContent = result;
-                StepContentType = SelectedNode.DataType ?? "Text";
+
+                // Determine the correct content type based on the result
+                // For image-to-text models, the output is text even though the model processes images
+                string resultContentType = DetermineResultContentType(correspondingModel, result);
+                StepContentType = resultContentType;
+
+                Console.WriteLine($"📋 [ExecuteGenerateAsync] Set StepContentType to: {StepContentType}");
+                Debug.WriteLine($"📋 [ExecuteGenerateAsync] Set StepContentType to: {StepContentType}");
 
                 Console.WriteLine($"✅ [ExecuteGenerateAsync] Generation completed successfully");
                 Debug.WriteLine($"✅ [ExecuteGenerateAsync] Generation completed successfully");
@@ -1531,6 +1538,56 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"❌ [ExecuteModelWithInput] Model execution failed: {ex.Message}");
                 throw;
             }
+        }
+
+        private string DetermineResultContentType(NeuralNetworkModel model, string result)
+        {
+            Console.WriteLine($"🔍 [DetermineResultContentType] Analyzing model: {model?.Name}, HF ID: {model?.HuggingFaceModelId}");
+            Debug.WriteLine($"🔍 [DetermineResultContentType] Analyzing model: {model?.Name}, HF ID: {model?.HuggingFaceModelId}");
+
+            // Check if this is an image-to-text model based on the HuggingFace model ID or name
+            if (model?.HuggingFaceModelId != null)
+            {
+                string modelId = model.HuggingFaceModelId.ToLowerInvariant();
+                if (modelId.Contains("blip") && modelId.Contains("captioning") ||
+                    modelId.Contains("image-to-text") ||
+                    modelId.Contains("vit-gpt2") ||
+                    modelId.Contains("clip-interrogator"))
+                {
+                    Console.WriteLine($"🖼️➡️📝 [DetermineResultContentType] Detected image-to-text model, output type: text");
+                    Debug.WriteLine($"🖼️➡️📝 [DetermineResultContentType] Detected image-to-text model, output type: text");
+                    return "text";
+                }
+            }
+
+            // Check if the result looks like a file path (for image generation models)
+            if (!string.IsNullOrEmpty(result) &&
+                (result.Contains(@"\") || result.Contains("/")) &&
+                (result.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                 result.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                 result.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase)))
+            {
+                Console.WriteLine($"🎨 [DetermineResultContentType] Result looks like image file path, output type: image");
+                Debug.WriteLine($"🎨 [DetermineResultContentType] Result looks like image file path, output type: image");
+                return "image";
+            }
+
+            // Check if the result looks like audio file path
+            if (!string.IsNullOrEmpty(result) &&
+                (result.Contains(@"\") || result.Contains("/")) &&
+                (result.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) ||
+                 result.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) ||
+                 result.EndsWith(".aac", StringComparison.OrdinalIgnoreCase)))
+            {
+                Console.WriteLine($"🔊 [DetermineResultContentType] Result looks like audio file path, output type: audio");
+                Debug.WriteLine($"🔊 [DetermineResultContentType] Result looks like audio file path, output type: audio");
+                return "audio";
+            }
+
+            // Default to text for any other output
+            Console.WriteLine($"📝 [DetermineResultContentType] Defaulting to text output type");
+            Debug.WriteLine($"📝 [DetermineResultContentType] Defaulting to text output type");
+            return "text";
         }
     }
 }
