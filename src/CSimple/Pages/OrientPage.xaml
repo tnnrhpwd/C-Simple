@@ -278,7 +278,6 @@
                                         Padding="8,4"
                                         Margin="0,4,0,0" />
                         </StackLayout>
-
                 </StackLayout>
             </VerticalStackLayout>
         </Border>
