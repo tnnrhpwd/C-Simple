@@ -298,6 +298,8 @@ namespace CSimple.ViewModels
                 if (!string.IsNullOrEmpty(imageFileName))
                 {
                     Debug.WriteLine($"[NodeViewModel.GetStepContent] Found corresponding image file: {imageFileName}");
+                    Debug.WriteLine($"[NodeViewModel.GetStepContent] Returning image file path for model input: {imageFileName}");
+                    return (stepData.Type, imageFileName); // Return the actual image file path for model execution
                 }
                 else
                 {

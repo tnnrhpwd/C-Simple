@@ -47,6 +47,9 @@ namespace CSimple.ViewModels
 
                     // Trigger UpdateStepContent when the selected node changes
                     UpdateStepContent();
+
+                    // Update command can execute states
+                    (GenerateCommand as Command)?.ChangeCanExecute();
                 }
             }
         }
@@ -173,6 +176,7 @@ namespace CSimple.ViewModels
         public ICommand StepForwardCommand { get; }
         public ICommand StepBackwardCommand { get; }
         public ICommand ResetActionCommand { get; }
+        public ICommand GenerateCommand { get; }
 
 
         // --- UI Interaction Delegates ---
@@ -211,6 +215,7 @@ namespace CSimple.ViewModels
             StepForwardCommand = new Command(ExecuteStepForward, () => !string.IsNullOrEmpty(SelectedReviewActionName) && _currentActionItems != null && CurrentActionStep < _currentActionItems.Count);
             StepBackwardCommand = new Command(ExecuteStepBackward, () => !string.IsNullOrEmpty(SelectedReviewActionName) && CurrentActionStep > 0);
             ResetActionCommand = new Command(ExecuteResetAction, () => !string.IsNullOrEmpty(SelectedReviewActionName));
+            GenerateCommand = new Command(async () => await ExecuteGenerateAsync(), () => SelectedNode != null && SelectedNode.Type == NodeType.Model && SelectedNode.EnsembleInputCount > 1);
 
             // Load available pipelines on initialization
             _ = LoadAvailablePipelinesAsync();
@@ -1281,6 +1286,251 @@ namespace CSimple.ViewModels
         private void SetSelectedPipelineName(string name)
         {
             SelectedPipelineName = name;
+        }
+
+        // --- Generate Command Implementation ---
+        private async Task ExecuteGenerateAsync()
+        {
+            try
+            {
+                Console.WriteLine($"🚀 [OrientPageViewModel.ExecuteGenerateAsync] Starting generation for node: {SelectedNode?.Name}");
+                Debug.WriteLine($"🚀 [OrientPageViewModel.ExecuteGenerateAsync] Starting generation for node: {SelectedNode?.Name}");
+
+                if (SelectedNode == null || SelectedNode.Type != NodeType.Model)
+                {
+                    Console.WriteLine("❌ [ExecuteGenerateAsync] No valid model node selected");
+                    Debug.WriteLine("❌ [ExecuteGenerateAsync] No valid model node selected");
+                    await ShowAlert?.Invoke("Error", "Please select a model node to generate content.", "OK");
+                    return;
+                }
+
+                if (SelectedNode.EnsembleInputCount <= 1)
+                {
+                    Console.WriteLine("❌ [ExecuteGenerateAsync] Not enough input connections for ensemble generation");
+                    Debug.WriteLine("❌ [ExecuteGenerateAsync] Not enough input connections for ensemble generation");
+                    await ShowAlert?.Invoke("Error", "This model node needs multiple input connections to use ensemble generation.", "OK");
+                    return;
+                }
+
+                Console.WriteLine($"📊 [ExecuteGenerateAsync] Model node has {SelectedNode.EnsembleInputCount} input connections");
+                Console.WriteLine($"📊 [ExecuteGenerateAsync] Selected ensemble method: {SelectedNode.SelectedEnsembleMethod}");
+                Debug.WriteLine($"📊 [ExecuteGenerateAsync] Model node has {SelectedNode.EnsembleInputCount} input connections");
+                Debug.WriteLine($"📊 [ExecuteGenerateAsync] Selected ensemble method: {SelectedNode.SelectedEnsembleMethod}");
+
+                // Find all connected input nodes
+                var connectedInputNodes = GetConnectedInputNodes(SelectedNode);
+                Console.WriteLine($"🔍 [ExecuteGenerateAsync] Found {connectedInputNodes.Count} connected input nodes");
+                Debug.WriteLine($"🔍 [ExecuteGenerateAsync] Found {connectedInputNodes.Count} connected input nodes");
+
+                if (connectedInputNodes.Count == 0)
+                {
+                    Console.WriteLine("❌ [ExecuteGenerateAsync] No connected input nodes found");
+                    Debug.WriteLine("❌ [ExecuteGenerateAsync] No connected input nodes found");
+                    await ShowAlert?.Invoke("Error", "No connected input nodes found for this model.", "OK");
+                    return;
+                }
+
+                // Collect step content from connected nodes
+                var stepContents = new List<string>();
+                foreach (var inputNode in connectedInputNodes)
+                {
+                    Console.WriteLine($"📄 [ExecuteGenerateAsync] Processing input node: {inputNode.Name} (Type: {inputNode.DataType})");
+                    Debug.WriteLine($"📄 [ExecuteGenerateAsync] Processing input node: {inputNode.Name} (Type: {inputNode.DataType})");
+
+                    // Get step content for current step (using the same logic as UpdateStepContent)
+                    int stepForNodeContent = CurrentActionStep + 1; // Convert to 1-based index
+                    var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
+
+                    Console.WriteLine($"📝 [ExecuteGenerateAsync] Input node '{inputNode.Name}' content: Type='{contentType}', Value='{contentValue?.Substring(0, Math.Min(contentValue?.Length ?? 0, 100))}...'");
+                    Debug.WriteLine($"📝 [ExecuteGenerateAsync] Input node '{inputNode.Name}' content: Type='{contentType}', Value='{contentValue?.Substring(0, Math.Min(contentValue?.Length ?? 0, 100))}...'");
+
+                    if (!string.IsNullOrEmpty(contentValue))
+                    {
+                        // For image content, pass the file path directly for model execution
+                        if (contentType?.ToLowerInvariant() == "image")
+                        {
+                            stepContents.Add(contentValue); // Direct file path for image models
+                            Console.WriteLine($"📸 [ExecuteGenerateAsync] Added image file path: {contentValue}");
+                            Debug.WriteLine($"📸 [ExecuteGenerateAsync] Added image file path: {contentValue}");
+                        }
+                        else
+                        {
+                            stepContents.Add($"[{inputNode.Name}]: {contentValue}"); // Text content with node name prefix
+                        }
+                    }
+                }
+
+                if (stepContents.Count == 0)
+                {
+                    Console.WriteLine("❌ [ExecuteGenerateAsync] No valid step content found from connected nodes");
+                    Debug.WriteLine("❌ [ExecuteGenerateAsync] No valid step content found from connected nodes");
+                    await ShowAlert?.Invoke("Error", "No valid content found from connected input nodes.", "OK");
+                    return;
+                }
+
+                // Combine step contents using ensemble method
+                string combinedInput = CombineStepContents(stepContents, SelectedNode.SelectedEnsembleMethod);
+                Console.WriteLine($"🔀 [ExecuteGenerateAsync] Combined input ({SelectedNode.SelectedEnsembleMethod}): {combinedInput?.Substring(0, Math.Min(combinedInput?.Length ?? 0, 200))}...");
+                Debug.WriteLine($"🔀 [ExecuteGenerateAsync] Combined input ({SelectedNode.SelectedEnsembleMethod}): {combinedInput?.Substring(0, Math.Min(combinedInput?.Length ?? 0, 200))}...");
+
+                // Find corresponding model in NetPageViewModel
+                var correspondingModel = FindCorrespondingModel(_netPageViewModel, SelectedNode);
+                if (correspondingModel == null)
+                {
+                    Console.WriteLine($"❌ [ExecuteGenerateAsync] No corresponding model found for node: {SelectedNode.Name}");
+                    Debug.WriteLine($"❌ [ExecuteGenerateAsync] No corresponding model found for node: {SelectedNode.Name}");
+                    await ShowAlert?.Invoke("Error", $"No corresponding model found for '{SelectedNode.Name}'. Please ensure the model is loaded in the Net page.", "OK");
+                    return;
+                }
+
+                Console.WriteLine($"✅ [ExecuteGenerateAsync] Found corresponding model: {correspondingModel.Name} (HF ID: {correspondingModel.HuggingFaceModelId})");
+                Debug.WriteLine($"✅ [ExecuteGenerateAsync] Found corresponding model: {correspondingModel.Name} (HF ID: {correspondingModel.HuggingFaceModelId})");
+
+                // Execute the model using NetPageViewModel's infrastructure
+                string result = await ExecuteModelWithInput(correspondingModel, combinedInput);
+
+                Console.WriteLine($"🎉 [ExecuteGenerateAsync] Model execution result: {result?.Substring(0, Math.Min(result?.Length ?? 0, 200))}...");
+                Debug.WriteLine($"🎉 [ExecuteGenerateAsync] Model execution result: {result?.Substring(0, Math.Min(result?.Length ?? 0, 200))}...");
+
+                // Update step content with the result
+                StepContent = result;
+                StepContentType = SelectedNode.DataType ?? "Text";
+
+                Console.WriteLine($"✅ [ExecuteGenerateAsync] Generation completed successfully");
+                Debug.WriteLine($"✅ [ExecuteGenerateAsync] Generation completed successfully");
+
+                await ShowAlert?.Invoke("Success", $"Generated content using {SelectedNode.SelectedEnsembleMethod} ensemble method with {connectedInputNodes.Count} inputs.", "OK");
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ [ExecuteGenerateAsync] Error during generation: {ex.Message}");
+                Console.WriteLine($"❌ [ExecuteGenerateAsync] Stack trace: {ex.StackTrace}");
+                Debug.WriteLine($"❌ [ExecuteGenerateAsync] Error during generation: {ex.Message}");
+                Debug.WriteLine($"❌ [ExecuteGenerateAsync] Stack trace: {ex.StackTrace}");
+                await ShowAlert?.Invoke("Error", $"Failed to generate content: {ex.Message}", "OK");
+            }
+        }
+
+        private List<NodeViewModel> GetConnectedInputNodes(NodeViewModel modelNode)
+        {
+            Console.WriteLine($"🔍 [GetConnectedInputNodes] Finding inputs for model node: {modelNode.Name}");
+            Debug.WriteLine($"🔍 [GetConnectedInputNodes] Finding inputs for model node: {modelNode.Name}");
+
+            var connectedNodes = new List<NodeViewModel>();
+
+            // Find all connections that target this model node
+            var incomingConnections = Connections.Where(c => c.TargetNodeId == modelNode.Id).ToList();
+            Console.WriteLine($"🔗 [GetConnectedInputNodes] Found {incomingConnections.Count} incoming connections");
+            Debug.WriteLine($"🔗 [GetConnectedInputNodes] Found {incomingConnections.Count} incoming connections");
+
+            foreach (var connection in incomingConnections)
+            {
+                var sourceNode = Nodes.FirstOrDefault(n => n.Id == connection.SourceNodeId);
+                if (sourceNode != null)
+                {
+                    Console.WriteLine($"🔗 [GetConnectedInputNodes] Connected node: {sourceNode.Name} (Type: {sourceNode.Type}, DataType: {sourceNode.DataType})");
+                    Debug.WriteLine($"🔗 [GetConnectedInputNodes] Connected node: {sourceNode.Name} (Type: {sourceNode.Type}, DataType: {sourceNode.DataType})");
+                    connectedNodes.Add(sourceNode);
+                }
+                else
+                {
+                    Console.WriteLine($"⚠️ [GetConnectedInputNodes] Warning: Source node with ID {connection.SourceNodeId} not found");
+                    Debug.WriteLine($"⚠️ [GetConnectedInputNodes] Warning: Source node with ID {connection.SourceNodeId} not found");
+                }
+            }
+
+            return connectedNodes;
+        }
+
+        private string CombineStepContents(List<string> stepContents, string ensembleMethod)
+        {
+            Console.WriteLine($"🔀 [CombineStepContents] Combining {stepContents.Count} contents using method: {ensembleMethod}");
+            Debug.WriteLine($"🔀 [CombineStepContents] Combining {stepContents.Count} contents using method: {ensembleMethod}");
+
+            if (stepContents == null || stepContents.Count == 0)
+            {
+                Console.WriteLine("❌ [CombineStepContents] No content to combine");
+                Debug.WriteLine("❌ [CombineStepContents] No content to combine");
+                return string.Empty;
+            }
+
+            // Check if we're dealing with image file paths (simple heuristic: check if first item looks like a file path)
+            bool isImageContent = stepContents.Count > 0 &&
+                                  (stepContents[0].Contains(@"\") || stepContents[0].Contains("/")) &&
+                                  (stepContents[0].EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                                   stepContents[0].EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                                   stepContents[0].EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase));
+
+            if (isImageContent)
+            {
+                Console.WriteLine("🖼️ [CombineStepContents] Detected image content, using first image for model input");
+                Debug.WriteLine("🖼️ [CombineStepContents] Detected image content, using first image for model input");
+                // For image models, use the first image path (most image models process one image at a time)
+                // In the future, this could be enhanced to support multi-image ensemble methods
+                return stepContents[0];
+            }
+
+            switch (ensembleMethod?.ToLowerInvariant())
+            {
+                case "concatenation":
+                case "concat":
+                case null:
+                default:
+                    Console.WriteLine("🔗 [CombineStepContents] Using concatenation method");
+                    Debug.WriteLine("🔗 [CombineStepContents] Using concatenation method");
+                    return string.Join("\n\n", stepContents);
+
+                case "average":
+                case "averaging":
+                    Console.WriteLine("📊 [CombineStepContents] Using averaging method (fallback to concatenation for text)");
+                    Debug.WriteLine("📊 [CombineStepContents] Using averaging method (fallback to concatenation for text)");
+                    // For text content, averaging doesn't make much sense, so we concatenate with averaging context
+                    return $"[Ensemble Average of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
+
+                case "voting":
+                case "majority":
+                    Console.WriteLine("🗳️ [CombineStepContents] Using voting method (fallback to concatenation for text)");
+                    Debug.WriteLine("🗳️ [CombineStepContents] Using voting method (fallback to concatenation for text)");
+                    // For text content, voting doesn't make much sense, so we concatenate with voting context
+                    return $"[Ensemble Voting of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
+
+                case "weighted":
+                    Console.WriteLine("⚖️ [CombineStepContents] Using weighted method (fallback to concatenation for text)");
+                    Debug.WriteLine("⚖️ [CombineStepContents] Using weighted method (fallback to concatenation for text)");
+                    // For text content, weighting doesn't make much sense, so we concatenate with weighting context
+                    return $"[Ensemble Weighted of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
+            }
+        }
+
+        private async Task<string> ExecuteModelWithInput(NeuralNetworkModel model, string input)
+        {
+            Console.WriteLine($"🤖 [ExecuteModelWithInput] Executing model: {model.Name} with input length: {input?.Length ?? 0}");
+            Debug.WriteLine($"🤖 [ExecuteModelWithInput] Executing model: {model.Name} with input length: {input?.Length ?? 0}");
+
+            try
+            {
+                // Use the NetPageViewModel's public ExecuteModelAsync method
+                if (string.IsNullOrEmpty(model.HuggingFaceModelId))
+                {
+                    Console.WriteLine("❌ [ExecuteModelWithInput] Model has no HuggingFace ID");
+                    Debug.WriteLine("❌ [ExecuteModelWithInput] Model has no HuggingFace ID");
+                    throw new InvalidOperationException("Model does not have a valid HuggingFace model ID");
+                }
+
+                var result = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, input);
+
+                Console.WriteLine($"✅ [ExecuteModelWithInput] Model execution successful, result length: {result?.Length ?? 0}");
+                Debug.WriteLine($"✅ [ExecuteModelWithInput] Model execution successful, result length: {result?.Length ?? 0}");
+
+                return result ?? "No output generated";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ [ExecuteModelWithInput] Model execution failed: {ex.Message}");
+                Debug.WriteLine($"❌ [ExecuteModelWithInput] Model execution failed: {ex.Message}");
+                throw;
+            }
         }
     }
 }

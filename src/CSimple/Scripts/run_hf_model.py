@@ -518,6 +518,13 @@ def run_image_to_text(model_id: str, input_text: str, params: Dict[str, Any], lo
             parts = input_text.split("image file:")
             if len(parts) > 1:
                 image_file_path = parts[1].strip()
+        else:
+            # Check if input_text is a direct file path
+            input_text_stripped = input_text.strip()
+            if os.path.exists(input_text_stripped) and (
+                input_text_stripped.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp'))
+            ):
+                image_file_path = input_text_stripped
         
         if not image_file_path or not os.path.exists(image_file_path):
             return "ERROR: No valid image file path found in input. Please provide a valid image file path."

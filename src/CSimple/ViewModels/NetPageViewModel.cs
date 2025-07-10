@@ -2267,5 +2267,42 @@ namespace CSimple.ViewModels
             Debug.WriteLine("=== END TESTING ===");
 #endif
         }
+
+        // Public method to execute a model from OrientPageViewModel
+        public async Task<string> ExecuteModelAsync(string modelId, string inputText)
+        {
+            Console.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
+            Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
+
+            try
+            {
+                // Find the model in available models
+                var model = AvailableModels.FirstOrDefault(m =>
+                    m.HuggingFaceModelId == modelId ||
+                    m.Name == modelId ||
+                    m.Id == modelId);
+
+                if (model == null)
+                {
+                    throw new InvalidOperationException($"Model '{modelId}' not found in available models");
+                }
+
+                // Use the existing model execution infrastructure
+                string localModelPath = GetLocalModelPath(modelId);
+                var result = await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(
+                    modelId, inputText, model, _pythonExecutablePath, _huggingFaceScriptPath, localModelPath);
+
+                Console.WriteLine($"✅ [NetPageViewModel.ExecuteModelAsync] Model execution successful, result length: {result?.Length ?? 0}");
+                Debug.WriteLine($"✅ [NetPageViewModel.ExecuteModelAsync] Model execution successful, result length: {result?.Length ?? 0}");
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ [NetPageViewModel.ExecuteModelAsync] Model execution failed: {ex.Message}");
+                Debug.WriteLine($"❌ [NetPageViewModel.ExecuteModelAsync] Model execution failed: {ex.Message}");
+                throw;
+            }
+        }
     }
 }
