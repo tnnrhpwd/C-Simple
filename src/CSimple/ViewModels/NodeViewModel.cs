@@ -198,7 +198,19 @@ namespace CSimple.ViewModels
             // Set a default if none is selected or the previous one is invalid
             if (string.IsNullOrEmpty(SelectedEnsembleMethod) || !AvailableEnsembleMethods.Contains(SelectedEnsembleMethod))
             {
-                SelectedEnsembleMethod = AvailableEnsembleMethods.FirstOrDefault();
+                // Select the best default method based on data type
+                string defaultMethod = dataTypeLower switch
+                {
+                    "text" => "Averaging (Logits)", // Best for text models
+                    "image" => "Averaging (Predictions)", // Best for image models  
+                    "audio" => "Averaging (Features)", // Best for audio models
+                    _ => "Averaging" // Generic fallback
+                };
+
+                // Use the default if available, otherwise use the first one
+                SelectedEnsembleMethod = AvailableEnsembleMethods.Contains(defaultMethod)
+                    ? defaultMethod
+                    : AvailableEnsembleMethods.FirstOrDefault();
             }
             else
             {
