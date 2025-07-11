@@ -307,6 +307,32 @@ namespace CSimple.ViewModels
                 }
             }
 
+            // Handle audio nodes similarly to image nodes - get the actual audio file path
+            if (DataType?.ToLower() == "audio")
+            {
+                // For audio nodes, we need to get the audio segment path, not the action description
+                // Use similar logic to what's in OrientPageViewModel.UpdateStepContent
+                try
+                {
+                    // Get the audio segment path using the same logic as UpdateStepContent
+                    string audioSegmentPath = GetAudioSegment(DateTime.MinValue, DateTime.MinValue); // Simplified for now
+                    if (!string.IsNullOrEmpty(audioSegmentPath))
+                    {
+                        Debug.WriteLine($"[NodeViewModel.GetStepContent] Found corresponding audio file: {audioSegmentPath}");
+                        Debug.WriteLine($"[NodeViewModel.GetStepContent] Returning audio file path for model input: {audioSegmentPath}");
+                        return (stepData.Type, audioSegmentPath); // Return the actual audio file path for model execution
+                    }
+                    else
+                    {
+                        Debug.WriteLine("[NodeViewModel.GetStepContent] No corresponding audio file found.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[NodeViewModel.GetStepContent] Error getting audio segment: {ex.Message}");
+                }
+            }
+
             Debug.WriteLine($"[NodeViewModel.GetStepContent] Returning for UI: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value}'");
             return (stepData.Type, stepData.Value);
         }

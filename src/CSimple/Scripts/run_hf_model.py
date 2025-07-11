@@ -414,17 +414,69 @@ def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any
     """Run automatic speech recognition on audio files."""
     try:
         print(f"Processing speech recognition with model: {model_id}", file=sys.stderr)
+        print(f"Raw input text received: {input_text}", file=sys.stderr)
         
         # Extract audio file path from input text
         audio_file_path = None
+        
+        # Handle multiple formats:
+        # 1. Direct file path
+        # 2. "audio file: [path]" format
+        # 3. Combined ensemble format like "[Node Name]: C:\path\to\file.wav"
+        
         if "audio file:" in input_text:
             # Extract the file path after "audio file:"
             parts = input_text.split("audio file:")
             if len(parts) > 1:
                 audio_file_path = parts[1].strip()
+        elif ".wav" in input_text or ".mp3" in input_text or ".m4a" in input_text or ".flac" in input_text:
+            # Look for file paths in ensemble format [Node Name]: C:\path\to\file.ext
+            import re
+            # Find all file paths that end with audio extensions
+            # Updated patterns to correctly handle Windows paths with drive letters
+            audio_patterns = [
+                r'\]:\s*([A-Z]:[^:]+\.(wav|mp3|m4a|flac|ogg|aac))',  # Match after ]: C:\path
+                r':\s*([A-Z]:[^:\[\]]+\.(wav|mp3|m4a|flac|ogg|aac))',  # Match after : C:\path (but not inside brackets)
+                r'([A-Z]:[^:\[\]]+\.(wav|mp3|m4a|flac|ogg|aac))'      # Direct match C:\path
+            ]
+            
+            for pattern in audio_patterns:
+                matches = re.findall(pattern, input_text, re.IGNORECASE)
+                if matches:
+                    # Take the first match (for ensemble, we use the first audio file)
+                    if isinstance(matches[0], tuple):
+                        audio_file_path = matches[0][0].strip()
+                    else:
+                        audio_file_path = matches[0].strip()
+                    break
+        else:
+            # Try treating the entire input as a file path
+            potential_path = input_text.strip()
+            if os.path.exists(potential_path) and any(potential_path.lower().endswith(ext) for ext in ['.wav', '.mp3', '.m4a', '.flac', '.ogg', '.aac']):
+                audio_file_path = potential_path
         
+        print(f"Extracted audio file path: {audio_file_path}", file=sys.stderr)
+        
+        # If the extracted path doesn't exist, it might be a simulated segment path
+        # Try to find the original audio file in the same directory
         if not audio_file_path or not os.path.exists(audio_file_path):
-            return "ERROR: No valid audio file path found in input. Please provide a valid audio file path."
+            if audio_file_path and "Segment_" in audio_file_path:
+                print(f"Segment file not found, looking for original audio file in directory", file=sys.stderr)
+                audio_dir = os.path.dirname(audio_file_path)
+                if os.path.exists(audio_dir):
+                    # Look for any .wav, .mp3, etc. files in the directory
+                    for ext in ['.wav', '.mp3', '.m4a', '.flac', '.ogg', '.aac']:
+                        for file in os.listdir(audio_dir):
+                            if file.lower().endswith(ext) and not file.startswith("Segment_"):
+                                fallback_path = os.path.join(audio_dir, file)
+                                print(f"Found fallback audio file: {fallback_path}", file=sys.stderr)
+                                audio_file_path = fallback_path
+                                break
+                        if audio_file_path and os.path.exists(audio_file_path):
+                            break
+            
+            if not audio_file_path or not os.path.exists(audio_file_path):
+                return f"ERROR: No valid audio file path found in input. Input received: {input_text}"
         
         print(f"Processing audio file: {audio_file_path}", file=sys.stderr)
         
@@ -510,24 +562,51 @@ def run_image_to_text(model_id: str, input_text: str, params: Dict[str, Any], lo
     """Run image-to-text processing on image files using BLIP and similar models."""
     try:
         print(f"Processing image-to-text with model: {model_id}", file=sys.stderr)
+        print(f"Raw input text received: {input_text}", file=sys.stderr)
         
         # Extract image file path from input text
         image_file_path = None
+        
+        # Handle multiple formats:
+        # 1. Direct file path
+        # 2. "image file: [path]" format
+        # 3. Combined ensemble format like "[Node Name]: C:\path\to\file.jpg"
+        
         if "image file:" in input_text:
             # Extract the file path after "image file:"
             parts = input_text.split("image file:")
             if len(parts) > 1:
                 image_file_path = parts[1].strip()
+        elif any(ext in input_text.lower() for ext in ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp']):
+            # Look for file paths in ensemble format [Node Name]: C:\path\to\file.ext
+            import re
+            # Find all file paths that end with image extensions
+            # Updated patterns to correctly handle Windows paths with drive letters
+            image_patterns = [
+                r'\]:\s*([A-Z]:[^:]+\.(jpg|jpeg|png|bmp|gif|tiff|webp))',  # Match after ]: C:\path
+                r':\s*([A-Z]:[^:\[\]]+\.(jpg|jpeg|png|bmp|gif|tiff|webp))',  # Match after : C:\path (but not inside brackets)
+                r'([A-Z]:[^:\[\]]+\.(jpg|jpeg|png|bmp|gif|tiff|webp))'      # Direct match C:\path
+            ]
+            
+            for pattern in image_patterns:
+                matches = re.findall(pattern, input_text, re.IGNORECASE)
+                if matches:
+                    # Take the first match (for ensemble, we use the first image file)
+                    if isinstance(matches[0], tuple):
+                        image_file_path = matches[0][0].strip()
+                    else:
+                        image_file_path = matches[0].strip()
+                    break
         else:
-            # Check if input_text is a direct file path
-            input_text_stripped = input_text.strip()
-            if os.path.exists(input_text_stripped) and (
-                input_text_stripped.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp'))
-            ):
-                image_file_path = input_text_stripped
+            # Try treating the entire input as a file path
+            potential_path = input_text.strip()
+            if os.path.exists(potential_path) and any(potential_path.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp']):
+                image_file_path = potential_path
+        
+        print(f"Extracted image file path: {image_file_path}", file=sys.stderr)
         
         if not image_file_path or not os.path.exists(image_file_path):
-            return "ERROR: No valid image file path found in input. Please provide a valid image file path."
+            return f"ERROR: No valid image file path found in input. Input received: {input_text}"
         
         print(f"Processing image file: {image_file_path}", file=sys.stderr)
         
