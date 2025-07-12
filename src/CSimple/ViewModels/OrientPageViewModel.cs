@@ -1446,19 +1446,11 @@ namespace CSimple.ViewModels
         // --- Run All Models Command Implementation ---
         private async Task ExecuteRunAllModelsAsync()
         {
-            // Add immediate debug logging to verify method is called
-            Console.WriteLine("🎯 [ExecuteRunAllModelsAsync] METHOD ENTRY - Starting execution");
-            Debug.WriteLine("🎯 [ExecuteRunAllModelsAsync] METHOD ENTRY - Starting execution");
-            Console.WriteLine($"🎯 [ExecuteRunAllModelsAsync] Total nodes in pipeline: {Nodes.Count}");
-            Debug.WriteLine($"🎯 [ExecuteRunAllModelsAsync] Total nodes in pipeline: {Nodes.Count}");
-            Console.WriteLine($"🎯 [ExecuteRunAllModelsAsync] Nodes: {string.Join(", ", Nodes.Select(n => $"{n.Name}({n.Type})"))}");
-            Debug.WriteLine($"🎯 [ExecuteRunAllModelsAsync] Nodes: {string.Join(", ", Nodes.Select(n => $"{n.Name}({n.Type})"))}");
+            Console.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting execution");
+            Debug.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting execution");
 
             try
             {
-                Console.WriteLine("🚀 [OrientPageViewModel.ExecuteRunAllModelsAsync] Starting run all models execution");
-                Debug.WriteLine("🚀 [OrientPageViewModel.ExecuteRunAllModelsAsync] Starting run all models execution");
-
                 // Get all model nodes
                 var modelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
                 if (modelNodes.Count == 0)
@@ -1467,14 +1459,23 @@ namespace CSimple.ViewModels
                     return;
                 }
 
-                Console.WriteLine($"📊 [ExecuteRunAllModelsAsync] Found {modelNodes.Count} model nodes to process");
-                Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] Found {modelNodes.Count} model nodes to process");
+                Console.WriteLine($"� [ExecuteRunAllModelsAsync] Found {modelNodes.Count} model nodes to process");
 
-                // Build dependency graph and execute in order
-                var executionOrder = BuildDependencyBasedExecutionOrder(modelNodes);
+                // Pre-cache model lookups to avoid repeated searches
+                var modelLookupCache = new Dictionary<string, NeuralNetworkModel>();
+                foreach (var modelNode in modelNodes)
+                {
+                    var correspondingModel = FindCorrespondingModel(_netPageViewModel, modelNode);
+                    if (correspondingModel != null)
+                    {
+                        modelLookupCache[modelNode.Id] = correspondingModel;
+                    }
+                }
 
-                Console.WriteLine($"📋 [ExecuteRunAllModelsAsync] Execution order determined: {string.Join(" -> ", executionOrder.Select(n => n.Name))}");
-                Debug.WriteLine($"📋 [ExecuteRunAllModelsAsync] Execution order determined: {string.Join(" -> ", executionOrder.Select(n => n.Name))}");
+                // Build execution groups based on dependencies
+                var executionGroups = BuildOptimizedExecutionGroups(modelNodes);
+                
+                Console.WriteLine($"📋 [ExecuteRunAllModelsAsync] Organized into {executionGroups.Count} execution groups");
 
                 // Store the original selected node to restore later
                 var originalSelectedNode = SelectedNode;
@@ -1482,44 +1483,34 @@ namespace CSimple.ViewModels
                 int successCount = 0;
                 int skippedCount = 0;
 
-                // Execute each model node in dependency order
-                foreach (var modelNode in executionOrder)
+                // Execute groups sequentially, but models within groups in parallel
+                foreach (var group in executionGroups)
                 {
-                    try
+                    var tasks = group.Where(modelNode => CanExecuteModelNode(modelNode) && modelLookupCache.ContainsKey(modelNode.Id))
+                                     .Select(async modelNode =>
                     {
-                        Console.WriteLine($"🔄 [ExecuteRunAllModelsAsync] Processing model node: {modelNode.Name}");
-                        Debug.WriteLine($"🔄 [ExecuteRunAllModelsAsync] Processing model node: {modelNode.Name}");
-
-                        // Select the current model node for execution
-                        SelectedNode = modelNode;
-
-                        // Check if the node can be executed (has required inputs)
-                        if (CanExecuteModelNode(modelNode))
+                        try
                         {
-                            await ExecuteModelNodeAsync(modelNode);
-                            successCount++;
+                            await ExecuteOptimizedModelNodeAsync(modelNode, modelLookupCache[modelNode.Id]);
                             Console.WriteLine($"✅ [ExecuteRunAllModelsAsync] Successfully executed: {modelNode.Name}");
-                            Debug.WriteLine($"✅ [ExecuteRunAllModelsAsync] Successfully executed: {modelNode.Name}");
+                            return (modelNode.Name, success: true);
                         }
-                        else
+                        catch (Exception ex)
                         {
-                            skippedCount++;
-                            Console.WriteLine($"⏭️ [ExecuteRunAllModelsAsync] Skipped {modelNode.Name} - insufficient inputs or dependencies not met");
-                            Debug.WriteLine($"⏭️ [ExecuteRunAllModelsAsync] Skipped {modelNode.Name} - insufficient inputs or dependencies not met");
+                            Console.WriteLine($"❌ [ExecuteRunAllModelsAsync] Error executing model {modelNode.Name}: {ex.Message}");
+                            return (modelNode.Name, success: false);
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"❌ [ExecuteRunAllModelsAsync] Error executing model {modelNode.Name}: {ex.Message}");
-                        Debug.WriteLine($"❌ [ExecuteRunAllModelsAsync] Error executing model {modelNode.Name}: {ex.Message}");
-                        // Continue with other models even if one fails
-                    }
+                    });
+
+                    var results = await Task.WhenAll(tasks);
+                    successCount += results.Count(r => r.success);
+                    skippedCount += group.Count - results.Length + results.Count(r => !r.success);
                 }
 
                 // Restore the original selected node
                 SelectedNode = originalSelectedNode;
 
-                // Save the pipeline to persist all generated outputs
+                // Save the pipeline once at the end to persist all generated outputs
                 await SaveCurrentPipelineAsync();
 
                 string resultMessage = $"Execution completed!\nSuccessful: {successCount}\nSkipped: {skippedCount}";
@@ -1533,6 +1524,111 @@ namespace CSimple.ViewModels
                 Console.WriteLine($"❌ [ExecuteRunAllModelsAsync] Critical error: {ex.Message}");
                 Debug.WriteLine($"❌ [ExecuteRunAllModelsAsync] Critical error: {ex.Message}");
                 await ShowAlert?.Invoke("Error", $"Failed to run all models: {ex.Message}", "OK");
+            }
+        }
+
+        private List<List<NodeViewModel>> BuildOptimizedExecutionGroups(List<NodeViewModel> modelNodes)
+        {
+            var groups = new List<List<NodeViewModel>>();
+            var visited = new HashSet<string>();
+            var processing = new HashSet<string>(); // For cycle detection
+
+            // Create dependency levels - models in the same level can run in parallel
+            var dependencyLevels = new Dictionary<NodeViewModel, int>();
+            
+            foreach (var node in modelNodes)
+            {
+                if (!visited.Contains(node.Id))
+                {
+                    CalculateNodeLevel(node, dependencyLevels, visited, processing, 0);
+                }
+            }
+
+            // Group nodes by their dependency level
+            var levelGroups = dependencyLevels.GroupBy(kvp => kvp.Value)
+                                              .OrderBy(g => g.Key)
+                                              .Select(g => g.Select(kvp => kvp.Key).ToList())
+                                              .ToList();
+
+            return levelGroups;
+        }
+
+        private int CalculateNodeLevel(NodeViewModel node, Dictionary<NodeViewModel, int> dependencyLevels, 
+                                       HashSet<string> visited, HashSet<string> processing, int currentLevel)
+        {
+            if (processing.Contains(node.Id))
+                return currentLevel; // Cycle detection - use current level
+
+            if (visited.Contains(node.Id))
+                return dependencyLevels.GetValueOrDefault(node, 0);
+
+            processing.Add(node.Id);
+
+            var dependencies = GetNodeDependencies(node).Where(d => d.Type == NodeType.Model);
+            int maxDepLevel = currentLevel;
+
+            foreach (var dependency in dependencies)
+            {
+                int depLevel = CalculateNodeLevel(dependency, dependencyLevels, visited, processing, currentLevel);
+                maxDepLevel = Math.Max(maxDepLevel, depLevel + 1);
+            }
+
+            processing.Remove(node.Id);
+            visited.Add(node.Id);
+            dependencyLevels[node] = maxDepLevel;
+
+            return maxDepLevel;
+        }
+
+        private async Task ExecuteOptimizedModelNodeAsync(NodeViewModel modelNode, NeuralNetworkModel correspondingModel)
+        {
+            try
+            {
+                // Get input from connected nodes or use default/empty input
+                var connectedInputNodes = GetConnectedInputNodes(modelNode);
+                string input = "";
+
+                if (connectedInputNodes.Count > 0)
+                {
+                    if (modelNode.EnsembleInputCount > 1)
+                    {
+                        // Use ensemble logic for multi-input models
+                        var stepContents = new List<string>();
+                        foreach (var inputNode in connectedInputNodes)
+                        {
+                            int stepForNodeContent = CurrentActionStep + 1;
+                            var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
+                            if (!string.IsNullOrEmpty(contentValue))
+                            {
+                                stepContents.Add(contentType?.ToLowerInvariant() == "image" || contentType?.ToLowerInvariant() == "audio" 
+                                               ? contentValue 
+                                               : $"[{inputNode.Name}]: {contentValue}");
+                            }
+                        }
+                        input = CombineStepContents(stepContents, modelNode.SelectedEnsembleMethod);
+                    }
+                    else
+                    {
+                        // Use single input
+                        var inputNode = connectedInputNodes.First();
+                        int stepForNodeContent = CurrentActionStep + 1;
+                        var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
+                        input = contentValue ?? "";
+                    }
+                }
+
+                // Execute the model
+                string result = await ExecuteModelWithInput(correspondingModel, input);
+
+                // Determine result content type and store output
+                string resultContentType = DetermineResultContentType(correspondingModel, result);
+                int currentStep = CurrentActionStep + 1;
+                modelNode.SetStepOutput(currentStep, resultContentType, result);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ [ExecuteOptimizedModelNodeAsync] Error executing model {modelNode.Name}: {ex.Message}");
+                throw;
             }
         }
 
@@ -1825,10 +1921,8 @@ namespace CSimple.ViewModels
                 Console.WriteLine($"💾 [ExecuteGenerateAsync] Stored output in model node '{SelectedNode.Name}' at step {currentStep}");
                 Debug.WriteLine($"💾 [ExecuteGenerateAsync] Stored output in model node '{SelectedNode.Name}' at step {currentStep}");
 
-                // Save the pipeline to persist the stored output
-                await SaveCurrentPipelineAsync();
-                Console.WriteLine($"💾 [ExecuteGenerateAsync] Pipeline saved with stored output");
-                Debug.WriteLine($"💾 [ExecuteGenerateAsync] Pipeline saved with stored output");
+                // Note: Pipeline saving is deferred to reduce I/O operations
+                // It will be saved when appropriate (e.g., on action completion or manual save)
 
                 Console.WriteLine($"✅ [ExecuteGenerateAsync] Generation completed successfully");
                 Debug.WriteLine($"✅ [ExecuteGenerateAsync] Generation completed successfully");
