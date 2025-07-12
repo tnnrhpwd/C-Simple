@@ -823,6 +823,11 @@ namespace CSimple.ViewModels
                 {
                     DeactivateModelsOfType(ModelType.General);
                 }
+                else
+                {
+                    // When general mode is activated, restore previously active general models
+                    RestoreActiveModelsOfType(ModelType.General);
+                }
                 Debug.WriteLine($"ToggleGeneralMode: State is now {IsGeneralModeActive}");
             }
             catch (Exception ex)
@@ -851,6 +856,9 @@ namespace CSimple.ViewModels
                     {
                         LoadSampleGoals(); // Or load persisted goals
                     }
+
+                    // When specific mode is activated, restore previously active goal-specific models
+                    RestoreActiveModelsOfType(ModelType.GoalSpecific);
                 }
                 Debug.WriteLine($"ToggleSpecificMode: State is now {IsSpecificModeActive}");
             }
@@ -881,6 +889,9 @@ namespace CSimple.ViewModels
                     CurrentModelStatus = $"Model '{model.Name}' activated";
                     StartModelMonitoring(model); // Simulate starting monitoring
                     OnPropertyChanged(nameof(ActiveModelsCount)); // Notify count changed
+
+                    // Save the active state to persist across app restarts
+                    SavePersistedModelsDebounced();
                 }
             }
             catch (Exception ex)
@@ -903,6 +914,9 @@ namespace CSimple.ViewModels
                     modelToRemove.IsActive = false; // Update model state
                     CurrentModelStatus = $"Model '{model.Name}' deactivated";
                     OnPropertyChanged(nameof(ActiveModelsCount)); // Notify count changed
+
+                    // Save the inactive state to persist across app restarts
+                    SavePersistedModelsDebounced();
                 }
             }
             catch (Exception ex)
@@ -1325,20 +1339,32 @@ namespace CSimple.ViewModels
                     foreach (var model in persistedModels ?? new List<NeuralNetworkModel>())
                     {
                         AvailableModels.Add(model);
-                    }
+                    }                // Restore previously activated models based on their IsActive state
+                    RestoreActiveModels();
 
-                    // Apply smart activations based on app mode
-                    if (IsGeneralModeActive)
+                    // Debug the active models after restoration
+#if DEBUG
+                    Debug.WriteLine($"=== DEBUG Active Models After Restoration ===");
+                    Debug.WriteLine($"ActiveModels count: {ActiveModels.Count}");
+                    foreach (var model in ActiveModels)
                     {
-                        // Leave room for auto-activation logic if needed
+                        Debug.WriteLine($"Active Model: {model.Name}, Type: {model.Type}, ID: {model.Id}");
                     }
+                    Debug.WriteLine($"Models with IsActive=true in AvailableModels:");
+                    foreach (var model in AvailableModels.Where(m => m.IsActive))
+                    {
+                        Debug.WriteLine($"IsActive Model: {model.Name}, Type: {model.Type}, ID: {model.Id}, InActiveCollection: {ActiveModels.Any(am => am?.Id == model.Id)}");
+                    }
+                    Debug.WriteLine($"Current Mode - General: {IsGeneralModeActive}, Specific: {IsSpecificModeActive}");
+                    Debug.WriteLine($"=== END DEBUG ===");
+#endif
 
                     // Debug the input types again after adding to collection
 #if DEBUG
                     Debug.WriteLine($"=== DEBUG AvailableModels Collection ===");
                     foreach (var model in AvailableModels)
                     {
-                        Debug.WriteLine($"Model in collection: {model.Name}, InputType: {model.InputType} ({(int)model.InputType})");
+                        Debug.WriteLine($"Model in collection: {model.Name}, InputType: {model.InputType} ({(int)model.InputType}), IsActive: {model.IsActive}");
                     }
                     Debug.WriteLine($"=== END DEBUG ===");
 #endif
@@ -1403,6 +1429,42 @@ namespace CSimple.ViewModels
             catch (Exception ex)
             {
                 HandleError($"Error deactivating models of type {type}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Restores previously activated models of a specific type when a mode is re-enabled
+        /// </summary>
+        private void RestoreActiveModelsOfType(ModelType type)
+        {
+            try
+            {
+                var modelsToActivate = AvailableModels
+                    .Where(m => m.IsActive && m.Type == type && !ActiveModels.Any(am => am?.Id == m.Id))
+                    .ToList();
+
+                Debug.WriteLine($"RestoreActiveModelsOfType: Found {modelsToActivate.Count} models of type {type} to restore");
+
+                foreach (var model in modelsToActivate)
+                {
+                    // Add to ActiveModels collection without triggering save (to avoid excessive saves)
+                    ActiveModels.Add(model);
+                    StartModelMonitoring(model);
+                    Debug.WriteLine($"RestoreActiveModelsOfType: Restored active state for model '{model.Name}' of type {type}");
+                }
+
+                // Update UI property notifications
+                OnPropertyChanged(nameof(ActiveModelsCount));
+
+                if (modelsToActivate.Count > 0)
+                {
+                    CurrentModelStatus = $"Restored {modelsToActivate.Count} {type} model(s)";
+                    Debug.WriteLine($"RestoreActiveModelsOfType: Successfully restored {modelsToActivate.Count} models of type {type}");
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError($"Error restoring active models of type {type}", ex);
             }
         }
 
@@ -2302,6 +2364,59 @@ namespace CSimple.ViewModels
                 Console.WriteLine($"❌ [NetPageViewModel.ExecuteModelAsync] Model execution failed: {ex.Message}");
                 Debug.WriteLine($"❌ [NetPageViewModel.ExecuteModelAsync] Model execution failed: {ex.Message}");
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Restores previously activated models based on their IsActive state
+        /// </summary>
+        private void RestoreActiveModels()
+        {
+            try
+            {
+                var modelsToActivate = AvailableModels.Where(m => m.IsActive).ToList();
+
+                Debug.WriteLine($"RestoreActiveModels: Found {modelsToActivate.Count} models marked as active");
+
+                foreach (var model in modelsToActivate)
+                {
+                    // Verify the model can be activated based on current mode
+                    if ((model.Type == ModelType.General && IsGeneralModeActive) ||
+                        (model.Type == ModelType.GoalSpecific && IsSpecificModeActive))
+                    {
+                        // Add to ActiveModels collection without triggering save (to avoid infinite loop)
+                        if (!ActiveModels.Any(m => m?.Id == model.Id))
+                        {
+                            ActiveModels.Add(model);
+                            StartModelMonitoring(model);
+                            Debug.WriteLine($"RestoreActiveModels: Restored active state for model '{model.Name}'");
+                            CurrentModelStatus = $"Restored '{model.Name}' to active state";
+                        }
+                    }
+                    else
+                    {
+                        // Model is marked as active but incompatible with current mode - just log it, don't reset the state
+                        // This preserves the user's intention to keep it active when the compatible mode is enabled
+                        Debug.WriteLine($"RestoreActiveModels: Skipping incompatible model '{model.Name}' (Type: {model.Type}, GeneralMode: {IsGeneralModeActive}, SpecificMode: {IsSpecificModeActive}) - will restore when mode is enabled");
+                    }
+                }
+
+                // Update UI property notifications
+                OnPropertyChanged(nameof(ActiveModelsCount));
+
+                if (ActiveModels.Count > 0)
+                {
+                    CurrentModelStatus = $"Restored {ActiveModels.Count} active model(s)";
+                    Debug.WriteLine($"RestoreActiveModels: Successfully restored {ActiveModels.Count} active models");
+                }
+                else
+                {
+                    Debug.WriteLine("RestoreActiveModels: No models were restored to active state");
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error restoring active models", ex);
             }
         }
     }

@@ -1198,6 +1198,32 @@ namespace CSimple.ViewModels
             Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Using TEMPORARY logic: stepForNodeContent = GlobalCurrentActionStep + 1 = {stepForNodeContent}");
 
             Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Getting content for SelectedNode '{SelectedNode.Name}', attempting to fetch its step number {stepForNodeContent} (1-based).");
+
+            // For model nodes, first check if there's stored output for this step
+            if (SelectedNode.Type == NodeType.Model)
+            {
+                var (storedOutputType, storedOutputValue) = SelectedNode.GetStepOutput(stepForNodeContent);
+                if (!string.IsNullOrEmpty(storedOutputValue))
+                {
+                    Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Found stored output for model node '{SelectedNode.Name}' at step {stepForNodeContent}: Type='{storedOutputType}', Value length={storedOutputValue.Length}");
+                    StepContentType = storedOutputType;
+                    StepContent = storedOutputValue;
+                    OnPropertyChanged(nameof(StepContentType));
+                    OnPropertyChanged(nameof(StepContent));
+                    return;
+                }
+                else
+                {
+                    Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] No stored output found for model node '{SelectedNode.Name}' at step {stepForNodeContent}. Clearing content.");
+                    StepContentType = null;
+                    StepContent = null;
+                    OnPropertyChanged(nameof(StepContentType));
+                    OnPropertyChanged(nameof(StepContent));
+                    return;
+                }
+            }
+
+            // For non-model nodes, use the existing logic
             var (contentType, contentValue) = SelectedNode.GetStepContent(stepForNodeContent);
             Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Content retrieved from NodeViewModel: Type='{contentType}', Supposed File/Content Value='{contentValue}'");
 
@@ -1509,10 +1535,21 @@ namespace CSimple.ViewModels
                 Console.WriteLine($"📋 [ExecuteGenerateAsync] Set StepContentType to: {StepContentType}");
                 Debug.WriteLine($"📋 [ExecuteGenerateAsync] Set StepContentType to: {StepContentType}");
 
+                // Store the generated output in the model node so it persists when switching nodes
+                int currentStep = CurrentActionStep + 1; // Convert to 1-based index
+                SelectedNode.SetStepOutput(currentStep, resultContentType, result);
+                Console.WriteLine($"💾 [ExecuteGenerateAsync] Stored output in model node '{SelectedNode.Name}' at step {currentStep}");
+                Debug.WriteLine($"💾 [ExecuteGenerateAsync] Stored output in model node '{SelectedNode.Name}' at step {currentStep}");
+
+                // Save the pipeline to persist the stored output
+                await SaveCurrentPipelineAsync();
+                Console.WriteLine($"💾 [ExecuteGenerateAsync] Pipeline saved with stored output");
+                Debug.WriteLine($"💾 [ExecuteGenerateAsync] Pipeline saved with stored output");
+
                 Console.WriteLine($"✅ [ExecuteGenerateAsync] Generation completed successfully");
                 Debug.WriteLine($"✅ [ExecuteGenerateAsync] Generation completed successfully");
 
-                await ShowAlert?.Invoke("Success", $"Generated content using {SelectedNode.SelectedEnsembleMethod} ensemble method with {connectedInputNodes.Count} inputs.", "OK");
+                // await ShowAlert?.Invoke("Success", $"Generated content using {SelectedNode.SelectedEnsembleMethod} ensemble method with {connectedInputNodes.Count} inputs.", "OK");
 
             }
             catch (Exception ex)

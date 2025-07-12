@@ -245,9 +245,10 @@ namespace CSimple.ViewModels
                 return (null, null);
             }
 
-            if (Type != NodeType.Input)
+            // Allow both Input and Model nodes to have step content
+            if (Type != NodeType.Input && Type != NodeType.Model)
             {
-                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Node is not of Input type (Type: {Type}). Returning null content.");
+                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Node is not of Input or Model type (Type: {Type}). Returning null content.");
                 return (null, null);
             }
 
@@ -552,6 +553,48 @@ namespace CSimple.ViewModels
 
             Debug.WriteLine($"[NodeViewModel.SimulateAudioSegmentExtraction] Simulated audio segment extraction from {fullPath} to {segmentPath} (Start: {startTime}, End: {endTime})");
             return segmentPath;
+        }
+
+        /// <summary>
+        /// Stores the generated output for a model node at a specific step
+        /// </summary>
+        /// <param name="step">The step number (1-based)</param>
+        /// <param name="outputType">The type of output (e.g., "text", "image", "audio")</param>
+        /// <param name="outputValue">The generated output content</param>
+        public void SetStepOutput(int step, string outputType, string outputValue)
+        {
+            Debug.WriteLine($"[NodeViewModel.SetStepOutput] Setting output for node '{Name}' at step {step}: Type='{outputType}', Value length={outputValue?.Length ?? 0}");
+
+            if (ActionSteps == null)
+            {
+                ActionSteps = new List<(string Type, string Value)>();
+            }
+
+            // Ensure we have enough slots for the given step (1-based)
+            while (ActionSteps.Count < step)
+            {
+                ActionSteps.Add((null, null));
+            }
+
+            // Set the output at the specified step (convert to 0-based index)
+            ActionSteps[step - 1] = (outputType, outputValue);
+
+            Debug.WriteLine($"[NodeViewModel.SetStepOutput] Successfully stored output for step {step}. ActionSteps.Count is now {ActionSteps.Count}");
+        }
+
+        /// <summary>
+        /// Gets the stored output for a model node at a specific step
+        /// </summary>
+        /// <param name="step">The step number (1-based)</param>
+        /// <returns>The stored output, or null if not found</returns>
+        public (string Type, string Value) GetStepOutput(int step)
+        {
+            if (ActionSteps == null || step <= 0 || step > ActionSteps.Count)
+            {
+                return (null, null);
+            }
+
+            return ActionSteps[step - 1];
         }
     }
 }

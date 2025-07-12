@@ -33,6 +33,7 @@ namespace CSimple.Models
         public string DataType { get; set; } // Add this if not already present
         public string Classification { get; set; } // ADDED: Store classification
         public string OriginalName { get; set; } // ADDED: Store original name without classification
+        public List<(string Type, string Value)> ActionSteps { get; set; } = new List<(string, string)>(); // ADDED: Store generated outputs
 
         // Parameterless constructor for deserialization
         public SerializableNode() { }
@@ -51,6 +52,7 @@ namespace CSimple.Models
             DataType = vm.DataType;
             Classification = vm.Classification;
             OriginalName = vm.OriginalName; // Assign OriginalName
+            ActionSteps = vm.ActionSteps?.ToList() ?? new List<(string, string)>(); // Copy ActionSteps
         }
 
         // Method to convert back to NodeViewModel
@@ -72,6 +74,7 @@ namespace CSimple.Models
                 // Set properties not handled by constructor (Size is handled by constructor default)
                 Size = new SizeF(this.SizeWidth, this.SizeHeight),
                 // ModelPath, DataType, Classification, OriginalName are now handled by constructor
+                ActionSteps = this.ActionSteps?.ToList() ?? new List<(string, string)>() // Restore ActionSteps
             };
             return vm;
         }
