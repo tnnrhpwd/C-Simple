@@ -281,6 +281,15 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"[NodeViewModel.GetStepContent] Warning: Step data type '{stepData.Type}' from ActionSteps[{step - 1}] does not match node's DataType '{this.DataType}'. Returning content as is.");
             }
 
+            // For Model nodes, if we have stored output (generated content), return it directly
+            // without trying to find image/audio files, as the stored content is the actual generated output
+            // This prevents issues where generated text like "Image Caption: ..." gets parsed as timestamp data
+            if (Type == NodeType.Model && !string.IsNullOrEmpty(stepData.Value))
+            {
+                Debug.WriteLine($"[NodeViewModel.GetStepContent] Model node has stored output, returning directly: Type='{stepData.Type}', Value length={stepData.Value.Length}");
+                return (stepData.Type, stepData.Value);
+            }
+
             // Return based on the Type field within the ActionStep tuple
             // This assumes ActionSteps[i].Type correctly identifies "Text", "Image", "Audio"
             // And ActionSteps[i].Value is the corresponding content.
@@ -343,6 +352,18 @@ namespace CSimple.ViewModels
             if (string.IsNullOrEmpty(actionDescription))
             {
                 Debug.WriteLine("[NodeViewModel.FindClosestImageFile] Action description is null or empty.");
+                return null;
+            }
+
+            // If the action description looks like generated text content (e.g., from a model),
+            // don't try to parse it as a timestamp-based file search
+            if (actionDescription.Contains("Caption:") ||
+                actionDescription.Contains("Generated:") ||
+                actionDescription.Contains("Output:") ||
+                actionDescription.Length > 100 ||
+                (!actionDescription.Contains("_") && !actionDescription.Contains(":")))
+            {
+                Debug.WriteLine($"[NodeViewModel.FindClosestImageFile] Action description appears to be generated content, not a timestamp: {actionDescription.Substring(0, Math.Min(50, actionDescription.Length))}...");
                 return null;
             }
 
