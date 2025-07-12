@@ -179,6 +179,7 @@ namespace CSimple.ViewModels
         public ICommand StepBackwardCommand { get; }
         public ICommand ResetActionCommand { get; }
         public ICommand GenerateCommand { get; }
+        public ICommand RunAllModelsCommand { get; }
 
 
         // --- UI Interaction Delegates ---
@@ -223,6 +224,22 @@ namespace CSimple.ViewModels
             StepBackwardCommand = new Command(ExecuteStepBackward, () => !string.IsNullOrEmpty(SelectedReviewActionName) && CurrentActionStep > 0);
             ResetActionCommand = new Command(ExecuteResetAction, () => !string.IsNullOrEmpty(SelectedReviewActionName));
             GenerateCommand = new Command(async () => await ExecuteGenerateAsync(), () => SelectedNode != null && SelectedNode.Type == NodeType.Model && SelectedNode.EnsembleInputCount > 1);
+
+            // Initialize RunAllModelsCommand with debug logging
+            Console.WriteLine("🔧 [OrientPageViewModel.Constructor] Initializing RunAllModelsCommand");
+            Debug.WriteLine("🔧 [OrientPageViewModel.Constructor] Initializing RunAllModelsCommand");
+            RunAllModelsCommand = new Command(async () =>
+            {
+                Console.WriteLine("🚀 [RunAllModelsCommand] Button clicked - executing command");
+                Debug.WriteLine("🚀 [RunAllModelsCommand] Button clicked - executing command");
+                await ExecuteRunAllModelsAsync();
+            }, () =>
+            {
+                bool canExecute = Nodes.Any(n => n.Type == NodeType.Model);
+                Console.WriteLine($"🔍 [RunAllModelsCommand.CanExecute] Checking: {canExecute} (Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)})");
+                Debug.WriteLine($"🔍 [RunAllModelsCommand.CanExecute] Checking: {canExecute} (Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)})");
+                return canExecute;
+            });
 
             // Initialize Audio commands
             PlayAudioCommand = new Command(() => PlayAudio(), CanPlayAudio);
@@ -393,6 +410,9 @@ namespace CSimple.ViewModels
             // Use the NodeManagementService to add the node
             await _nodeManagementService.AddModelNodeAsync(Nodes, model.Id, modelName, modelType, new PointF(x, y));
             UpdateEnsembleCounts(); // ADDED: Update counts after adding node
+            Console.WriteLine($"🔄 [AddModelNode] Updating RunAllModelsCommand CanExecute - Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)}");
+            Debug.WriteLine($"🔄 [AddModelNode] Updating RunAllModelsCommand CanExecute - Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)}");
+            (RunAllModelsCommand as Command)?.ChangeCanExecute(); // Update Run All Models button state
             await SaveCurrentPipelineAsync(); // Save after adding
         }
 
@@ -403,6 +423,9 @@ namespace CSimple.ViewModels
                 await _nodeManagementService.DeleteSelectedNodeAsync(Nodes, Connections, SelectedNode, InvalidateCanvas);
                 SelectedNode = null; // Deselect
                 UpdateEnsembleCounts(); // ADDED: Update counts after removing connections
+                Console.WriteLine($"🗑️ [DeleteSelectedNode] Updating RunAllModelsCommand CanExecute - Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)}");
+                Debug.WriteLine($"🗑️ [DeleteSelectedNode] Updating RunAllModelsCommand CanExecute - Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)}");
+                (RunAllModelsCommand as Command)?.ChangeCanExecute(); // Update Run All Models button state
                 await SaveCurrentPipelineAsync(); // Save after deleting
                 InvalidateCanvas?.Invoke(); // ADDED: Ensure redraw after potential count update
             }
@@ -506,7 +529,14 @@ namespace CSimple.ViewModels
 
         private async Task LoadPipelineAsync(string pipelineName)
         {
+            Console.WriteLine($"📂 [LoadPipelineAsync] Loading pipeline: {pipelineName}");
+            Debug.WriteLine($"📂 [LoadPipelineAsync] Loading pipeline: {pipelineName}");
             await _pipelineManagementService.LoadPipelineAsync(pipelineName, Nodes, Connections, InvalidateCanvas, CurrentPipelineName, DisplayAlert, SetCurrentPipelineName, SetSelectedPipelineName, OnPropertyChanged, UpdateNodeClassificationsAsync);
+            Console.WriteLine($"📂 [LoadPipelineAsync] Pipeline loaded. Total nodes: {Nodes.Count}, Model nodes: {Nodes.Count(n => n.Type == NodeType.Model)}");
+            Debug.WriteLine($"📂 [LoadPipelineAsync] Pipeline loaded. Total nodes: {Nodes.Count}, Model nodes: {Nodes.Count(n => n.Type == NodeType.Model)}");
+            Console.WriteLine($"📂 [LoadPipelineAsync] Updating RunAllModelsCommand CanExecute after pipeline load");
+            Debug.WriteLine($"📂 [LoadPipelineAsync] Updating RunAllModelsCommand CanExecute after pipeline load");
+            (RunAllModelsCommand as Command)?.ChangeCanExecute(); // Update Run All Models button state after loading
         }
 
         // Change from protected to public to make it accessible from OrientPage
@@ -984,14 +1014,14 @@ namespace CSimple.ViewModels
                                 if (nodeVM.Name == "Keyboard Text (Input)" && (actionItem.EventType == 256 || actionItem.EventType == 257))
                                 {
                                     nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}' (Keyboard Event)");
+                                    // Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}' (Keyboard Event)");
                                     added = true;
                                 }
                                 // Check if the node is "Mouse Text (Input)" and the action is a mouse event
                                 else if (nodeVM.Name == "Mouse Text (Input)" && (actionItem.EventType == 512 || actionItem.EventType == 0x0200))
                                 {
                                     nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}' (Mouse Event)");
+                                    // Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}' (Mouse Event)");
                                     added = true;
                                 }
                                 // For image nodes, try to find the corresponding image file
@@ -1004,7 +1034,7 @@ namespace CSimple.ViewModels
                                     {
                                         // Store the image data or path in the Value field
                                         nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: imageFile.Data));
-                                        Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='[Image Data]' (Image File)");
+                                        // Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='[Image Data]' (Image File)");
                                         added = true;
                                     }
                                     else
@@ -1018,7 +1048,7 @@ namespace CSimple.ViewModels
                                 else
                                 {
                                     nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}' (DataType Match)");
+                                    // Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}' (DataType Match)");
                                     added = true;
                                 }
 
@@ -1411,6 +1441,260 @@ namespace CSimple.ViewModels
         private void SetSelectedPipelineName(string name)
         {
             SelectedPipelineName = name;
+        }
+
+        // --- Run All Models Command Implementation ---
+        private async Task ExecuteRunAllModelsAsync()
+        {
+            // Add immediate debug logging to verify method is called
+            Console.WriteLine("🎯 [ExecuteRunAllModelsAsync] METHOD ENTRY - Starting execution");
+            Debug.WriteLine("🎯 [ExecuteRunAllModelsAsync] METHOD ENTRY - Starting execution");
+            Console.WriteLine($"🎯 [ExecuteRunAllModelsAsync] Total nodes in pipeline: {Nodes.Count}");
+            Debug.WriteLine($"🎯 [ExecuteRunAllModelsAsync] Total nodes in pipeline: {Nodes.Count}");
+            Console.WriteLine($"🎯 [ExecuteRunAllModelsAsync] Nodes: {string.Join(", ", Nodes.Select(n => $"{n.Name}({n.Type})"))}");
+            Debug.WriteLine($"🎯 [ExecuteRunAllModelsAsync] Nodes: {string.Join(", ", Nodes.Select(n => $"{n.Name}({n.Type})"))}");
+
+            try
+            {
+                Console.WriteLine("🚀 [OrientPageViewModel.ExecuteRunAllModelsAsync] Starting run all models execution");
+                Debug.WriteLine("🚀 [OrientPageViewModel.ExecuteRunAllModelsAsync] Starting run all models execution");
+
+                // Get all model nodes
+                var modelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
+                if (modelNodes.Count == 0)
+                {
+                    await ShowAlert?.Invoke("Info", "No model nodes found in the pipeline.", "OK");
+                    return;
+                }
+
+                Console.WriteLine($"📊 [ExecuteRunAllModelsAsync] Found {modelNodes.Count} model nodes to process");
+                Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] Found {modelNodes.Count} model nodes to process");
+
+                // Build dependency graph and execute in order
+                var executionOrder = BuildDependencyBasedExecutionOrder(modelNodes);
+
+                Console.WriteLine($"📋 [ExecuteRunAllModelsAsync] Execution order determined: {string.Join(" -> ", executionOrder.Select(n => n.Name))}");
+                Debug.WriteLine($"📋 [ExecuteRunAllModelsAsync] Execution order determined: {string.Join(" -> ", executionOrder.Select(n => n.Name))}");
+
+                // Store the original selected node to restore later
+                var originalSelectedNode = SelectedNode;
+
+                int successCount = 0;
+                int skippedCount = 0;
+
+                // Execute each model node in dependency order
+                foreach (var modelNode in executionOrder)
+                {
+                    try
+                    {
+                        Console.WriteLine($"🔄 [ExecuteRunAllModelsAsync] Processing model node: {modelNode.Name}");
+                        Debug.WriteLine($"🔄 [ExecuteRunAllModelsAsync] Processing model node: {modelNode.Name}");
+
+                        // Select the current model node for execution
+                        SelectedNode = modelNode;
+
+                        // Check if the node can be executed (has required inputs)
+                        if (CanExecuteModelNode(modelNode))
+                        {
+                            await ExecuteModelNodeAsync(modelNode);
+                            successCount++;
+                            Console.WriteLine($"✅ [ExecuteRunAllModelsAsync] Successfully executed: {modelNode.Name}");
+                            Debug.WriteLine($"✅ [ExecuteRunAllModelsAsync] Successfully executed: {modelNode.Name}");
+                        }
+                        else
+                        {
+                            skippedCount++;
+                            Console.WriteLine($"⏭️ [ExecuteRunAllModelsAsync] Skipped {modelNode.Name} - insufficient inputs or dependencies not met");
+                            Debug.WriteLine($"⏭️ [ExecuteRunAllModelsAsync] Skipped {modelNode.Name} - insufficient inputs or dependencies not met");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"❌ [ExecuteRunAllModelsAsync] Error executing model {modelNode.Name}: {ex.Message}");
+                        Debug.WriteLine($"❌ [ExecuteRunAllModelsAsync] Error executing model {modelNode.Name}: {ex.Message}");
+                        // Continue with other models even if one fails
+                    }
+                }
+
+                // Restore the original selected node
+                SelectedNode = originalSelectedNode;
+
+                // Save the pipeline to persist all generated outputs
+                await SaveCurrentPipelineAsync();
+
+                string resultMessage = $"Execution completed!\nSuccessful: {successCount}\nSkipped: {skippedCount}";
+                Console.WriteLine($"🎉 [ExecuteRunAllModelsAsync] {resultMessage}");
+                Debug.WriteLine($"🎉 [ExecuteRunAllModelsAsync] {resultMessage}");
+
+                // await ShowAlert?.Invoke("Run All Models Complete", resultMessage, "OK");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ [ExecuteRunAllModelsAsync] Critical error: {ex.Message}");
+                Debug.WriteLine($"❌ [ExecuteRunAllModelsAsync] Critical error: {ex.Message}");
+                await ShowAlert?.Invoke("Error", $"Failed to run all models: {ex.Message}", "OK");
+            }
+        }
+
+        private List<NodeViewModel> BuildDependencyBasedExecutionOrder(List<NodeViewModel> modelNodes)
+        {
+            var executionOrder = new List<NodeViewModel>();
+            var visited = new HashSet<string>();
+            var visiting = new HashSet<string>(); // For cycle detection
+
+            foreach (var node in modelNodes)
+            {
+                if (!visited.Contains(node.Id))
+                {
+                    TopologicalSort(node, visited, visiting, executionOrder);
+                }
+            }
+
+            return executionOrder;
+        }
+
+        private void TopologicalSort(NodeViewModel node, HashSet<string> visited, HashSet<string> visiting, List<NodeViewModel> executionOrder)
+        {
+            if (visiting.Contains(node.Id))
+            {
+                // Cycle detected - log warning but continue
+                Console.WriteLine($"⚠️ [TopologicalSort] Cycle detected involving node: {node.Name}");
+                Debug.WriteLine($"⚠️ [TopologicalSort] Cycle detected involving node: {node.Name}");
+                return;
+            }
+
+            if (visited.Contains(node.Id))
+                return;
+
+            visiting.Add(node.Id);
+
+            // Find all dependencies (nodes that this node depends on)
+            var dependencies = GetNodeDependencies(node);
+            foreach (var dependency in dependencies)
+            {
+                if (!visited.Contains(dependency.Id))
+                {
+                    TopologicalSort(dependency, visited, visiting, executionOrder);
+                }
+            }
+
+            visiting.Remove(node.Id);
+            visited.Add(node.Id);
+
+            // Only add model nodes to execution order
+            if (node.Type == NodeType.Model)
+            {
+                executionOrder.Add(node);
+            }
+        }
+
+        private List<NodeViewModel> GetNodeDependencies(NodeViewModel node)
+        {
+            var dependencies = new List<NodeViewModel>();
+
+            // Find all nodes that this node depends on (input connections)
+            var incomingConnections = Connections.Where(c => c.TargetNodeId == node.Id).ToList();
+
+            foreach (var connection in incomingConnections)
+            {
+                var sourceNode = Nodes.FirstOrDefault(n => n.Id == connection.SourceNodeId);
+                if (sourceNode != null)
+                {
+                    dependencies.Add(sourceNode);
+
+                    // If the source is also a model node, we need to ensure it runs first
+                    if (sourceNode.Type == NodeType.Model)
+                    {
+                        // Recursively add its dependencies
+                        dependencies.AddRange(GetNodeDependencies(sourceNode));
+                    }
+                }
+            }
+
+            return dependencies.Distinct().ToList();
+        }
+
+        private bool CanExecuteModelNode(NodeViewModel modelNode)
+        {
+            if (modelNode.Type != NodeType.Model)
+                return false;
+
+            // Check if the model has the minimum required inputs
+            var connectedInputNodes = GetConnectedInputNodes(modelNode);
+
+            // For ensemble models, need at least 2 inputs
+            if (modelNode.EnsembleInputCount > 1)
+            {
+                return connectedInputNodes.Count >= 2;
+            }
+
+            // For regular models, need at least 1 input or can run without inputs (depending on model type)
+            return true; // Allow execution even without inputs for some model types
+        }
+
+        private async Task ExecuteModelNodeAsync(NodeViewModel modelNode)
+        {
+            // Check if this is an ensemble model that requires multiple inputs
+            if (modelNode.EnsembleInputCount > 1)
+            {
+                // Use the existing ensemble execution logic
+                await ExecuteGenerateAsync();
+            }
+            else
+            {
+                // For single-input or no-input models, execute differently
+                await ExecuteSingleModelNodeAsync(modelNode);
+            }
+        }
+
+        private async Task ExecuteSingleModelNodeAsync(NodeViewModel modelNode)
+        {
+            try
+            {
+                Console.WriteLine($"🔧 [ExecuteSingleModelNodeAsync] Executing single model: {modelNode.Name}");
+                Debug.WriteLine($"🔧 [ExecuteSingleModelNodeAsync] Executing single model: {modelNode.Name}");
+
+                // Find corresponding model in NetPageViewModel
+                var correspondingModel = FindCorrespondingModel(_netPageViewModel, modelNode);
+                if (correspondingModel == null)
+                {
+                    Console.WriteLine($"❌ [ExecuteSingleModelNodeAsync] No corresponding model found for node: {modelNode.Name}");
+                    Debug.WriteLine($"❌ [ExecuteSingleModelNodeAsync] No corresponding model found for node: {modelNode.Name}");
+                    return;
+                }
+
+                // Get input from connected nodes or use default/empty input
+                var connectedInputNodes = GetConnectedInputNodes(modelNode);
+                string input = "";
+
+                if (connectedInputNodes.Count > 0)
+                {
+                    // Use content from the first connected input node
+                    var inputNode = connectedInputNodes.First();
+                    int stepForNodeContent = CurrentActionStep + 1;
+                    var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
+                    input = contentValue ?? "";
+                }
+
+                // Execute the model
+                string result = await ExecuteModelWithInput(correspondingModel, input);
+
+                // Determine result content type
+                string resultContentType = DetermineResultContentType(correspondingModel, result);
+
+                // Store the generated output in the model node
+                int currentStep = CurrentActionStep + 1;
+                modelNode.SetStepOutput(currentStep, resultContentType, result);
+
+                Console.WriteLine($"💾 [ExecuteSingleModelNodeAsync] Stored output in model node '{modelNode.Name}' at step {currentStep}");
+                Debug.WriteLine($"💾 [ExecuteSingleModelNodeAsync] Stored output in model node '{modelNode.Name}' at step {currentStep}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ [ExecuteSingleModelNodeAsync] Error executing model {modelNode.Name}: {ex.Message}");
+                Debug.WriteLine($"❌ [ExecuteSingleModelNodeAsync] Error executing model {modelNode.Name}: {ex.Message}");
+                throw; // Re-throw to be handled by the caller
+            }
         }
 
         // --- Generate Command Implementation ---
@@ -1850,6 +2134,35 @@ namespace CSimple.ViewModels
             bool result = _audioPlaybackService?.IsPlaying == true;
             Debug.WriteLine($"[CanStopAudio] Result: {result}, IsPlaying: {_audioPlaybackService?.IsPlaying}");
             return result;
+        }
+
+        // Debug method to check RunAllModelsCommand state
+        public void DebugRunAllModelsCommand()
+        {
+            Console.WriteLine("🐛 [DebugRunAllModelsCommand] === DEBUG INFO ===");
+            Debug.WriteLine("🐛 [DebugRunAllModelsCommand] === DEBUG INFO ===");
+            Console.WriteLine($"🐛 RunAllModelsCommand is null: {RunAllModelsCommand == null}");
+            Debug.WriteLine($"🐛 RunAllModelsCommand is null: {RunAllModelsCommand == null}");
+            Console.WriteLine($"🐛 Total nodes: {Nodes?.Count ?? 0}");
+            Debug.WriteLine($"🐛 Total nodes: {Nodes?.Count ?? 0}");
+            if (Nodes != null)
+            {
+                Console.WriteLine($"🐛 Model nodes: {Nodes.Count(n => n.Type == NodeType.Model)}");
+                Debug.WriteLine($"🐛 Model nodes: {Nodes.Count(n => n.Type == NodeType.Model)}");
+                foreach (var node in Nodes)
+                {
+                    Console.WriteLine($"🐛 Node: {node.Name} - Type: {node.Type}");
+                    Debug.WriteLine($"🐛 Node: {node.Name} - Type: {node.Type}");
+                }
+            }
+            if (RunAllModelsCommand != null)
+            {
+                bool canExecute = ((Command)RunAllModelsCommand).CanExecute(null);
+                Console.WriteLine($"🐛 CanExecute: {canExecute}");
+                Debug.WriteLine($"🐛 CanExecute: {canExecute}");
+            }
+            Console.WriteLine("🐛 [DebugRunAllModelsCommand] === END DEBUG ===");
+            Debug.WriteLine("🐛 [DebugRunAllModelsCommand] === END DEBUG ===");
         }
     }
 }
