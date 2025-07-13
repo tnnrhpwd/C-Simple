@@ -89,14 +89,17 @@ namespace CSimple.Services
                 foreach (var group in executionGroups)
                 {
                     var groupStopwatch = Stopwatch.StartNew();
-                    Debug.WriteLine($"📦 [PipelineExecutionService] Starting execution group {groupIndex + 1}/{executionGroups.Count} with {group.Count} models:");
+                    var groupStartTime = DateTime.UtcNow;
+                    Debug.WriteLine($"📦 [PipelineExecutionService] Starting execution group {groupIndex + 1}/{executionGroups.Count} with {group.Count} models at {groupStartTime:HH:mm:ss.fff}:");
 
-                    // Log models in this group
+                    // Log models in this group with better resource context
                     foreach (var modelNode in group)
                     {
                         var inputCount = connections.Count(c => c.TargetNodeId == modelNode.Id);
                         var hasCorrespondingModel = modelLookupCache.ContainsKey(modelNode.Id);
-                        Debug.WriteLine($"   🤖 '{modelNode.Name}' | Inputs: {inputCount} | Model Available: {hasCorrespondingModel} | Ensemble: {modelNode.SelectedEnsembleMethod}");
+                        var modelType = hasCorrespondingModel ? (modelLookupCache[modelNode.Id].HuggingFaceModelId?.Contains("whisper") == true ? "Audio" : 
+                                                               modelLookupCache[modelNode.Id].HuggingFaceModelId?.Contains("blip") == true ? "Vision" : "Text") : "Unknown";
+                        Debug.WriteLine($"   🤖 '{modelNode.Name}' | Type: {modelType} | Inputs: {inputCount} | Model Available: {hasCorrespondingModel} | Ensemble: {modelNode.SelectedEnsembleMethod}");
                     }
 
                     var tasks = group.Where(modelNode => CanExecuteModelNode(modelNode, connections) && modelLookupCache.ContainsKey(modelNode.Id))
@@ -140,14 +143,20 @@ namespace CSimple.Services
                     var actualParallelDuration = (latestEnd - earliestStart).TotalMilliseconds;
                     var totalSequentialTime = results.Sum(r => r.duration);
                     var parallelismEfficiency = totalSequentialTime > 0 ? (totalSequentialTime / actualParallelDuration) : 0;
+                    var groupEndTime = DateTime.UtcNow;
                     
-                    Debug.WriteLine($"📊 [PipelineExecutionService] Group {groupIndex + 1} completed in {groupStopwatch.ElapsedMilliseconds}ms:");
+                    // Calculate time overlap analysis
+                    var timeSpread = maxDuration - minDuration;
+                    var parallelismPercentage = actualParallelDuration > 0 ? (parallelismEfficiency / results.Length * 100) : 0;
+                    
+                    Debug.WriteLine($"📊 [PipelineExecutionService] Group {groupIndex + 1} completed in {groupStopwatch.ElapsedMilliseconds}ms at {groupEndTime:HH:mm:ss.fff}:");
                     Debug.WriteLine($"   ├── Models executed: {results.Length}/{group.Count}");
                     Debug.WriteLine($"   ├── Success: {successfulInGroup}, Failed: {failedInGroup}");
-                    Debug.WriteLine($"   ├── Individual durations: Min={minDuration}ms, Avg={avgDuration:F0}ms, Max={maxDuration}ms");
-                    Debug.WriteLine($"   ├── Parallel metrics: Wall time={actualParallelDuration:F0}ms, Total work={totalSequentialTime:F0}ms");
-                    Debug.WriteLine($"   ├── Parallelism efficiency: {parallelismEfficiency:F1}x (ideal={results.Length}x)");
-                    Debug.WriteLine($"   └── Task management overhead: {Math.Max(0, groupStopwatch.ElapsedMilliseconds - actualParallelDuration):F0}ms");
+                    Debug.WriteLine($"   ├── Individual durations: Min={minDuration}ms, Avg={avgDuration:F0}ms, Max={maxDuration}ms (Spread: {timeSpread}ms)");
+                    Debug.WriteLine($"   ├── Parallel analysis: Wall={actualParallelDuration:F0}ms, Work={totalSequentialTime:F0}ms, Efficiency={parallelismEfficiency:F1}x/{results.Length}x");
+                    Debug.WriteLine($"   ├── Concurrency level: {parallelismPercentage:F0}% ({(parallelismPercentage > 80 ? "HIGHLY PARALLEL" : parallelismPercentage > 50 ? "MODERATELY PARALLEL" : "MOSTLY SEQUENTIAL")})");
+                    Debug.WriteLine($"   ├── Resource contention: {(timeSpread > avgDuration * 0.5 ? "HIGH" : timeSpread > avgDuration * 0.2 ? "MODERATE" : "LOW")} (spread vs avg)");
+                    Debug.WriteLine($"   └── Task overhead: {Math.Max(0, groupStopwatch.ElapsedMilliseconds - actualParallelDuration):F0}ms ({(actualParallelDuration > 0 ? Math.Max(0, groupStopwatch.ElapsedMilliseconds - actualParallelDuration) / actualParallelDuration * 100 : 0):F1}%)");
 
                     successCount += results.Count(r => r.success);
                     skippedCount += group.Count - results.Length + results.Count(r => !r.success);

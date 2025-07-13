@@ -1164,10 +1164,24 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"   ├── Step 2 (Pipeline execution): {step2Stopwatch.ElapsedMilliseconds}ms ({(double)step2Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%) ← MAIN EXECUTION");
                 Debug.WriteLine($"   │   ├── Models processed: {successCount + skippedCount}");
                 Debug.WriteLine($"   │   ├── Success rate: {(successCount > 0 ? (double)successCount / (successCount + skippedCount) * 100 : 0):F1}%");
-                Debug.WriteLine($"   │   └── Avg time per model: {(successCount > 0 ? step2Stopwatch.ElapsedMilliseconds / successCount : 0):F0}ms");
+                Debug.WriteLine($"   │   ├── Avg time per model: {(successCount > 0 ? step2Stopwatch.ElapsedMilliseconds / successCount : 0):F0}ms");
+                Debug.WriteLine($"   │   ├── Expected parallel time: ~{(modelNodes.Count > 0 ? step2Stopwatch.ElapsedMilliseconds / modelNodes.Count : 0):F0}ms (if 100% parallel)");
+                Debug.WriteLine($"   │   └── Parallelism indicator: {(modelNodes.Count > 1 ? (step2Stopwatch.ElapsedMilliseconds / successCount < step2Stopwatch.ElapsedMilliseconds / 2 ? "PARALLEL" : "SEQUENTIAL") : "N/A")}");
                 Debug.WriteLine($"   ├── Step 3 (Restore selected node): {step3Stopwatch.ElapsedMilliseconds}ms ({(double)step3Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
                 Debug.WriteLine($"   └── Step 4 (Save pipeline): {step4Stopwatch.ElapsedMilliseconds}ms ({(double)step4Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
                 Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] TOTAL EXECUTION TIME: {totalStopwatch.ElapsedMilliseconds}ms");
+                
+                // Performance analysis summary
+                var avgModelTime = successCount > 0 ? step2Stopwatch.ElapsedMilliseconds / successCount : 0;
+                var expectedParallelTime = modelNodes.Count > 0 ? avgModelTime : 0;
+                var actualVsExpected = expectedParallelTime > 0 ? (double)step2Stopwatch.ElapsedMilliseconds / expectedParallelTime : 0;
+                
+                Debug.WriteLine("🔍 [ExecuteRunAllModelsAsync] PERFORMANCE ANALYSIS:");
+                Debug.WriteLine($"   ├── Individual model avg: {avgModelTime:F0}ms");
+                Debug.WriteLine($"   ├── Expected if parallel: {expectedParallelTime:F0}ms");
+                Debug.WriteLine($"   ├── Actual execution: {step2Stopwatch.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"   ├── Parallelism efficiency: {(actualVsExpected > 0 ? 1.0 / actualVsExpected * 100 : 0):F1}% (100% = perfect parallel)");
+                Debug.WriteLine($"   └── Execution pattern: {(actualVsExpected <= 1.2 ? "HIGHLY PARALLEL" : actualVsExpected <= 2.0 ? "PARTIALLY PARALLEL" : "MOSTLY SEQUENTIAL")}");
 
                 // await ShowAlert?.Invoke("Run All Models Complete", resultMessage, "OK");
             }
