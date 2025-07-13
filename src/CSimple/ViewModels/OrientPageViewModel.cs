@@ -26,6 +26,7 @@ namespace CSimple.ViewModels
         private readonly NodeManagementService _nodeManagementService; // ADDED
         private readonly PipelineManagementService _pipelineManagementService; // ADDED
         private readonly AudioPlaybackService _audioPlaybackService; // Added for audio playback
+        private readonly ActionReviewService _actionReviewService; // Added for action review functionality
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -188,7 +189,7 @@ namespace CSimple.ViewModels
 
         // --- Constructor ---
         // Ensure FileService and PythonBootstrapper are injected
-        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService)
+        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -197,6 +198,7 @@ namespace CSimple.ViewModels
             _nodeManagementService = nodeManagementService; // ADDED
             _pipelineManagementService = pipelineManagementService; // ADDED
             _audioPlaybackService = new AudioPlaybackService(); // Initialize audio playback service
+            _actionReviewService = actionReviewService; // Initialize action review service
 
             // Subscribe to audio playback events
             _audioPlaybackService.PlaybackStarted += OnAudioPlaybackStarted;
@@ -897,7 +899,7 @@ namespace CSimple.ViewModels
             _nodeManagementService.SetNodeClassification(node, classification, InvalidateCanvas);
         }
 
-        // Add these methods for Action Review functionality
+        // Add these methods for Action Review functionality using the service
         private async Task LoadAvailableActions()
         {
             try
@@ -905,34 +907,20 @@ namespace CSimple.ViewModels
                 // Clear existing items
                 AvailableActionNames.Clear();
 
-                // Use ActionService or appropriate service to load actions
-                var actionService = ServiceProvider.GetService<ActionService>();
-                if (actionService != null)
+                var actionNames = await _actionReviewService.LoadAvailableActionsAsync();
+
+                foreach (var actionName in actionNames)
                 {
-                    var actionItems = await actionService.LoadDataItemsFromFile();
-
-                    // Sort actions by date (newest first)
-                    actionItems = actionItems
-                        .OrderByDescending(item => item?.createdAt ?? DateTime.MinValue)
-                        .ToList();
-
-                    // Extract action names and add to collection
-                    foreach (var item in actionItems)
-                    {
-                        if (item?.Data?.ActionGroupObject?.ActionName != null)
-                        {
-                            AvailableActionNames.Add(item.Data.ActionGroupObject.ActionName);
-                        }
-                    }
-
-                    // Automatically select the most recent action if available
-                    if (AvailableActionNames.Count > 0)
-                    {
-                        SelectedReviewActionName = AvailableActionNames[0];
-                    }
-
-                    Debug.WriteLine($"Loaded {AvailableActionNames.Count} actions for review, selected: {SelectedReviewActionName ?? "none"}");
+                    AvailableActionNames.Add(actionName);
                 }
+
+                // Automatically select the most recent action if available
+                if (AvailableActionNames.Count > 0)
+                {
+                    SelectedReviewActionName = AvailableActionNames[0];
+                }
+
+                Debug.WriteLine($"Loaded {AvailableActionNames.Count} actions for review, selected: {SelectedReviewActionName ?? "none"}");
             }
             catch (Exception ex)
             {
@@ -974,6 +962,7 @@ namespace CSimple.ViewModels
             try
             {
                 Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Attempting to load action: {SelectedReviewActionName ?? "null"}");
+
                 // Reset current state
                 CurrentActionStep = 0; // Set to 0, so first StepForward goes to step 1 (index 0)
                 _currentActionItems.Clear();
@@ -986,90 +975,11 @@ namespace CSimple.ViewModels
                     Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Cleared ActionSteps for Input Node: {nodeVM.Name}");
                 }
 
-                var actionService = ServiceProvider.GetService<ActionService>();
-                if (actionService != null && !string.IsNullOrEmpty(SelectedReviewActionName))
-                {
-                    var allDataItems = await actionService.LoadAllDataItemsAsync();
-                    var selectedDataItem = allDataItems.FirstOrDefault(item =>
-                        item?.Data?.ActionGroupObject?.ActionName == SelectedReviewActionName);
+                // Use the ActionReviewService to load the action data
+                var actionReviewData = await _actionReviewService.LoadSelectedActionAsync(SelectedReviewActionName, Nodes);
+                _currentActionItems = actionReviewData.ActionItems;
 
-                    if (selectedDataItem?.Data?.ActionGroupObject != null)
-                    {
-                        _currentActionItems = selectedDataItem.Data.ActionGroupObject.ActionArray ?? new List<ActionItem>();
-                        Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Loaded '{SelectedReviewActionName}' with {_currentActionItems.Count} global action items.");
-
-                        var actionGroupFiles = selectedDataItem.Data.ActionGroupObject.Files;
-                        Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] ActionGroup has {actionGroupFiles.Count} associated files.");
-
-                        foreach (var nodeVM in Nodes.Where(n => n.Type == NodeType.Input))
-                        {
-                            nodeVM.ActionSteps.Clear(); // Already cleared above
-                            Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Populating ActionSteps for Input Node: {nodeVM.Name} (Node DataType: {nodeVM.DataType})");
-                            foreach (var actionItem in _currentActionItems)
-                            {
-                                string actionDescription = actionItem.ToString();
-                                bool added = false;
-
-                                // Check if the node is "Keyboard Text (Input)" and the action is a keyboard event
-                                if (nodeVM.Name == "Keyboard Text (Input)" && (actionItem.EventType == 256 || actionItem.EventType == 257))
-                                {
-                                    nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                    // Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}' (Keyboard Event)");
-                                    added = true;
-                                }
-                                // Check if the node is "Mouse Text (Input)" and the action is a mouse event
-                                else if (nodeVM.Name == "Mouse Text (Input)" && (actionItem.EventType == 512 || actionItem.EventType == 0x0200))
-                                {
-                                    nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                    // Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}' (Mouse Event)");
-                                    added = true;
-                                }
-                                // For image nodes, try to find the corresponding image file
-                                else if (nodeVM.DataType == "image")
-                                {
-                                    // Find the corresponding ActionFile
-                                    var imageFile = actionGroupFiles.FirstOrDefault(f => actionDescription.ToLower().Contains(f.Filename.ToLower()));
-
-                                    if (imageFile != null)
-                                    {
-                                        // Store the image data or path in the Value field
-                                        nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: imageFile.Data));
-                                        // Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='[Image Data]' (Image File)");
-                                        added = true;
-                                    }
-                                    else
-                                    {
-                                        Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   No image file found for action item: {actionDescription}");
-                                        // Fallback: store the description
-                                        nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                        added = true;
-                                    }
-                                }
-                                else
-                                {
-                                    nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                    // Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Added to '{nodeVM.Name}.ActionSteps': Type='{nodeVM.DataType}', Value='{actionDescription}' (DataType Match)");
-                                    added = true;
-                                }
-
-                                if (!added)
-                                {
-                                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]     Skipped action item for node '{nodeVM.Name}' - DataType mismatch (Action: {actionDescription}, Node: {nodeVM.DataType}).");
-                                }
-                            }
-                            Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction]   Finished populating ActionSteps for '{nodeVM.Name}'. Count: {nodeVM.ActionSteps.Count}");
-                        }
-                        // UpdateStepContent(); // Update content for the initial step (CurrentActionStep is 0)
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Action '{SelectedReviewActionName}' not found or has no ActionGroupObject.");
-                    }
-                }
-                else
-                {
-                    Debug.WriteLine("[OrientPageViewModel.LoadSelectedAction] ActionService is null or SelectedReviewActionName is empty.");
-                }
+                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Loaded '{SelectedReviewActionName}' with {_currentActionItems.Count} action items via service.");
             }
             catch (Exception ex)
             {
@@ -1131,44 +1041,11 @@ namespace CSimple.ViewModels
         {
             try
             {
-                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Called for CurrentActionStep (0-indexed): {CurrentActionStep}");
-                if (_currentActionItems == null || !_currentActionItems.Any())
-                {
-                    Debug.WriteLine("[OrientPageViewModel.LoadActionStepData] No global action items loaded (_currentActionItems is null or empty).");
-                    // StepContent = "No action loaded."; StepContentType = "Text"; // Handled by UpdateStepContent
-                    UpdateStepContent(); // Ensure UI reflects no content
-                    return;
-                }
-
-                if (CurrentActionStep < 0 || CurrentActionStep >= _currentActionItems.Count)
-                {
-                    Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] CurrentActionStep {CurrentActionStep} is out of bounds for _currentActionItems (Count: {_currentActionItems.Count}).");
-                    // StepContent = "End of action steps."; StepContentType = "Text"; // Handled by UpdateStepContent
-                    UpdateStepContent(); // Ensure UI reflects boundary
-                    return;
-                }
-
-                var globalActionItem = _currentActionItems[CurrentActionStep];
-                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Global ActionItem at index {CurrentActionStep}: {globalActionItem?.ToString() ?? "null"}");
-
-                // The crucial part: UpdateStepContent will call SelectedNode.GetStepContent.
-                // GetStepContent needs the *correct index for the SelectedNode's ActionSteps*.
-                // For now, UpdateStepContent passes the global CurrentActionStep + 1.
-                // This will only work correctly if the SelectedNode's ActionSteps are 1:1 with global steps OR
-                // if the Nth file for that node type in the ActionGroup.Files corresponds to the Nth time that
-                // GetStepContent is called for that node with an incrementing step.
-
-                // The population in LoadSelectedAction puts *all* relevant files for a node into its ActionSteps.
-                // So, if global step 5 is the 2nd image capture, and SelectedNode is "Webcam Image",
-                // we need to tell GetStepContent to get the 2nd item from its list.
-
-                // For now, we rely on UpdateStepContent to call GetStepContent.
-                // The debug logs in GetStepContent will show what index it receives and if it's valid for its own ActionSteps.
+                await _actionReviewService.LoadActionStepDataAsync(CurrentActionStep, _currentActionItems);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Error: {ex.Message}\nStackTrace: {ex.StackTrace}");
-                // StepContent = $"Error: {ex.Message}"; StepContentType = "Text";
+                Debug.WriteLine($"[OrientPageViewModel.LoadActionStepData] Error: {ex.Message}");
             }
             finally
             {
@@ -1200,144 +1077,14 @@ namespace CSimple.ViewModels
 
         public void UpdateStepContent()
         {
-            Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] Called.");
+            var stepContentData = _actionReviewService.UpdateStepContent(SelectedNode, CurrentActionStep, _currentActionItems, SelectedReviewActionName);
 
-            if (SelectedReviewActionName == null)
-            {
-                Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] No action selected for review. Clearing content.");
-                StepContentType = null;
-                StepContent = null;
-                OnPropertyChanged(nameof(StepContentType));
-                OnPropertyChanged(nameof(StepContent));
-                return;
-            }
-
-            if (SelectedNode == null)
-            {
-                Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] No node selected. Clearing content.");
-                StepContentType = null;
-                StepContent = null;
-                OnPropertyChanged(nameof(StepContentType));
-                OnPropertyChanged(nameof(StepContent));
-                return;
-            }
-
-            // Determine the step number for the selected node's content
-            // This logic might need adjustment based on how you want to map the global step to individual node steps
-            int stepForNodeContent = CurrentActionStep + 1; // Convert back to 1-based index for UI
-            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Using TEMPORARY logic: stepForNodeContent = GlobalCurrentActionStep + 1 = {stepForNodeContent}");
-
-            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Getting content for SelectedNode '{SelectedNode.Name}', attempting to fetch its step number {stepForNodeContent} (1-based).");
-
-            // For model nodes, first check if there's stored output for this step
-            if (SelectedNode.Type == NodeType.Model)
-            {
-                var (storedOutputType, storedOutputValue) = SelectedNode.GetStepOutput(stepForNodeContent);
-                if (!string.IsNullOrEmpty(storedOutputValue))
-                {
-                    Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Found stored output for model node '{SelectedNode.Name}' at step {stepForNodeContent}: Type='{storedOutputType}', Value length={storedOutputValue.Length}");
-                    StepContentType = storedOutputType;
-                    StepContent = storedOutputValue;
-                    OnPropertyChanged(nameof(StepContentType));
-                    OnPropertyChanged(nameof(StepContent));
-                    return;
-                }
-                else
-                {
-                    Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] No stored output found for model node '{SelectedNode.Name}' at step {stepForNodeContent}. Clearing content.");
-                    StepContentType = null;
-                    StepContent = null;
-                    OnPropertyChanged(nameof(StepContentType));
-                    OnPropertyChanged(nameof(StepContent));
-                    return;
-                }
-            }
-
-            // For non-model nodes, use the existing logic
-            var (contentType, contentValue) = SelectedNode.GetStepContent(stepForNodeContent);
-            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Content retrieved from NodeViewModel: Type='{contentType}', Supposed File/Content Value='{contentValue}'");
-
-            // Log the image file name if the content type is image
-            if (contentType == "image")
-            {
-                // Retrieve the ActionItem for the current step
-                if (CurrentActionStep >= 0 && CurrentActionStep < _currentActionItems.Count)
-                {
-                    var currentActionItem = _currentActionItems[CurrentActionStep];
-                    string imageFileName = SelectedNode.FindClosestImageFile(contentValue, contentType);
-                    if (!string.IsNullOrEmpty(imageFileName))
-                    {
-                        Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] The most recent image file for this step is: {imageFileName}");
-                        contentValue = imageFileName; // Set contentValue to the image file path
-                    }
-                    else
-                    {
-                        Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] No image file found for this step.");
-                    }
-                }
-            }
-
-            // --- Audio Segment Retrieval Logic ---
-            if (SelectedNode.DataType?.ToLower() == "audio" && !string.IsNullOrEmpty(SelectedReviewActionName))
-            {
-                // Retrieve the ActionItem for the current step
-                if (CurrentActionStep >= 0 && CurrentActionStep < _currentActionItems.Count)
-                {
-                    var currentActionItem = _currentActionItems[CurrentActionStep];
-
-                    // Find the previous ActionItem that also corresponds to this node
-                    ActionItem previousActionItem = null;
-                    for (int i = CurrentActionStep - 1; i >= 0; i--)
-                    {
-                        var item = _currentActionItems[i];
-                        // Check if the item corresponds to the same node based on some criteria (e.g., node ID)
-                        // This assumes you have a way to link ActionItems to specific nodes
-                        if (item != null)
-                        {
-                            previousActionItem = item;
-                            break;
-                        }
-                    }
-
-                    // Calculate start and end times based on ActionItem timestamps
-                    DateTime startTime = (previousActionItem?.Timestamp as DateTime?) ?? DateTime.MinValue;
-                    DateTime endTime = (currentActionItem?.Timestamp as DateTime?) ?? DateTime.MinValue;
-
-                    // Get the audio segment path from the NodeViewModel
-                    string audioSegmentPath = SelectedNode.GetAudioSegment(startTime, endTime);
-
-                    if (!string.IsNullOrEmpty(audioSegmentPath))
-                    {
-                        contentType = "audio";
-                        contentValue = audioSegmentPath;
-                        Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] Successfully retrieved audio segment: {audioSegmentPath}");
-                    }
-                    else
-                    {
-                        Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] Could not retrieve audio segment.");
-                        contentType = null;
-                        contentValue = null;
-                    }
-                }
-                else
-                {
-                    Debug.WriteLine("[OrientPageViewModel.UpdateStepContent] CurrentActionStep is out of bounds.");
-                    contentType = null;
-                    contentValue = null;
-                }
-            }
-            // --- End Audio Segment Retrieval Logic ---
-
-            StepContentType = contentType;
-            StepContent = contentValue; // File/Content Value for UI
+            StepContentType = stepContentData.ContentType;
+            StepContent = stepContentData.Content;
             OnPropertyChanged(nameof(StepContentType));
             OnPropertyChanged(nameof(StepContent));
-            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] ViewModel's StepContentType set to: '{StepContentType}', ViewModel's StepContent (File/Content Value for UI) set to: '{StepContent}'");
-
-            // Additional debug info for UI binding
-            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] SelectedNode: '{SelectedNode?.Name}', DataType: '{SelectedNode?.DataType}'");
-            Debug.WriteLine($"[OrientPageViewModel.UpdateStepContent] About to trigger CanExecute checks for audio commands");
         }
+
         private async void PlayAudio()
         {
             try
@@ -1474,7 +1221,7 @@ namespace CSimple.ViewModels
 
                 // Build execution groups based on dependencies
                 var executionGroups = BuildOptimizedExecutionGroups(modelNodes);
-                
+
                 Console.WriteLine($"📋 [ExecuteRunAllModelsAsync] Organized into {executionGroups.Count} execution groups");
 
                 // Store the original selected node to restore later
@@ -1535,7 +1282,7 @@ namespace CSimple.ViewModels
 
             // Create dependency levels - models in the same level can run in parallel
             var dependencyLevels = new Dictionary<NodeViewModel, int>();
-            
+
             foreach (var node in modelNodes)
             {
                 if (!visited.Contains(node.Id))
@@ -1553,7 +1300,7 @@ namespace CSimple.ViewModels
             return levelGroups;
         }
 
-        private int CalculateNodeLevel(NodeViewModel node, Dictionary<NodeViewModel, int> dependencyLevels, 
+        private int CalculateNodeLevel(NodeViewModel node, Dictionary<NodeViewModel, int> dependencyLevels,
                                        HashSet<string> visited, HashSet<string> processing, int currentLevel)
         {
             if (processing.Contains(node.Id))
@@ -1600,8 +1347,8 @@ namespace CSimple.ViewModels
                             var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
                             if (!string.IsNullOrEmpty(contentValue))
                             {
-                                stepContents.Add(contentType?.ToLowerInvariant() == "image" || contentType?.ToLowerInvariant() == "audio" 
-                                               ? contentValue 
+                                stepContents.Add(contentType?.ToLowerInvariant() == "image" || contentType?.ToLowerInvariant() == "audio"
+                                               ? contentValue
                                                : $"[{inputNode.Name}]: {contentValue}");
                             }
                         }
