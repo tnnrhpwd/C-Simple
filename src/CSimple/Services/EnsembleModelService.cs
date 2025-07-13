@@ -16,10 +16,18 @@ namespace CSimple.Services
     {
         private readonly NetPageViewModel _netPageViewModel;
         private readonly Dictionary<string, NodeViewModel> _nodeCache = new Dictionary<string, NodeViewModel>();
-
+        
+        // Cache for step content to avoid repeated expensive GetStepContent calls
+        private readonly Dictionary<string, string> _stepContentCache = new Dictionary<string, string>();
+        
         public EnsembleModelService(NetPageViewModel netPageViewModel)
         {
             _netPageViewModel = netPageViewModel ?? throw new ArgumentNullException(nameof(netPageViewModel));
+        }
+        
+        public void ClearStepContentCache()
+        {
+            _stepContentCache.Clear();
         }
 
         /// <summary>
@@ -233,23 +241,47 @@ namespace CSimple.Services
                 foreach (var inputNode in connectedInputNodes)
                 {
                     int stepForNodeContent = currentActionStep + 1;
-                    var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
-                    if (!string.IsNullOrEmpty(contentValue))
+                    
+                    // Use cache key to avoid repeated GetStepContent calls
+                    string cacheKey = $"{inputNode.Id}_{stepForNodeContent}";
+                    if (!_stepContentCache.TryGetValue(cacheKey, out string cachedContent))
                     {
-                        stepContents.Add(contentType?.ToLowerInvariant() == "image" || contentType?.ToLowerInvariant() == "audio"
-                                       ? contentValue
-                                       : $"[{inputNode.Name}]: {contentValue}");
+                        var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
+                        if (!string.IsNullOrEmpty(contentValue))
+                        {
+                            cachedContent = contentType?.ToLowerInvariant() == "image" || contentType?.ToLowerInvariant() == "audio"
+                                           ? contentValue
+                                           : $"[{inputNode.Name}]: {contentValue}";
+                        }
+                        else
+                        {
+                            cachedContent = "";
+                        }
+                        _stepContentCache[cacheKey] = cachedContent;
+                    }
+                    
+                    if (!string.IsNullOrEmpty(cachedContent))
+                    {
+                        stepContents.Add(cachedContent);
                     }
                 }
                 return CombineStepContents(stepContents, modelNode.SelectedEnsembleMethod);
             }
             else
             {
-                // Use single input
+                // Use single input with caching
                 var inputNode = connectedInputNodes.First();
                 int stepForNodeContent = currentActionStep + 1;
-                var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
-                return contentValue ?? "";
+                
+                string cacheKey = $"{inputNode.Id}_{stepForNodeContent}";
+                if (!_stepContentCache.TryGetValue(cacheKey, out string cachedContent))
+                {
+                    var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
+                    cachedContent = contentValue ?? "";
+                    _stepContentCache[cacheKey] = cachedContent;
+                }
+                
+                return cachedContent;
             }
         }
 

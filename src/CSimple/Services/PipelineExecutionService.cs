@@ -45,6 +45,7 @@ namespace CSimple.Services
                 // Clear caches for fresh execution
                 _nodeCache.Clear();
                 _dependencyCache.Clear();
+                _ensembleModelService.ClearStepContentCache();
 
                 // Step 1: Get all model nodes and build node cache
                 var step1Stopwatch = Stopwatch.StartNew();
@@ -91,11 +92,15 @@ namespace CSimple.Services
                 step3Stopwatch.Stop();
                 Debug.WriteLine($"⏱️ [Timing] Step 3 - Build execution groups: {step3Stopwatch.ElapsedMilliseconds}ms");
 
-                Debug.WriteLine($"📋 [PipelineExecutionService] Organized into {executionGroups.Count} execution groups:");
-                for (int i = 0; i < executionGroups.Count; i++)
+                Debug.WriteLine($"📋 [PipelineExecutionService] Organized into {executionGroups.Count} execution groups");
+                // Detailed group logging only for complex pipelines
+                if (executionGroups.Count > 1)
                 {
-                    var group = executionGroups[i];
-                    Debug.WriteLine($"   Group {i + 1}: {string.Join(", ", group.Select(n => $"'{n.Name}'"))} ({group.Count} models)");
+                    for (int i = 0; i < executionGroups.Count; i++)
+                    {
+                        var group = executionGroups[i];
+                        Debug.WriteLine($"   Group {i + 1}: {group.Count} models");
+                    }
                 }
 
                 int successCount = 0;
@@ -107,21 +112,39 @@ namespace CSimple.Services
                 foreach (var group in executionGroups)
                 {
                     var groupStopwatch = Stopwatch.StartNew();
-                    var groupStartTime = DateTime.UtcNow;
-                    Debug.WriteLine($"📦 [PipelineExecutionService] Starting execution group {groupIndex + 1}/{executionGroups.Count} with {group.Count} models at {groupStartTime:HH:mm:ss.fff}:");
-
-                    // Log models in this group with better resource context
-                    foreach (var modelNode in group)
+                    
+                    // Only log group start for larger groups to reduce overhead
+                    if (group.Count > 1 || groupIndex == 0)
                     {
-                        var inputCount = connections.Count(c => c.TargetNodeId == modelNode.Id);
-                        var hasCorrespondingModel = modelLookupCache.ContainsKey(modelNode.Id);
-                        var modelType = hasCorrespondingModel ? (modelLookupCache[modelNode.Id].HuggingFaceModelId?.Contains("whisper") == true ? "Audio" : 
-                                                               modelLookupCache[modelNode.Id].HuggingFaceModelId?.Contains("blip") == true ? "Vision" : "Text") : "Unknown";
-                        Debug.WriteLine($"   🤖 '{modelNode.Name}' | Type: {modelType} | Inputs: {inputCount} | Model Available: {hasCorrespondingModel} | Ensemble: {modelNode.SelectedEnsembleMethod}");
+                        Debug.WriteLine($"📦 [PipelineExecutionService] Starting group {groupIndex + 1}/{executionGroups.Count} with {group.Count} models");
                     }
 
-                    // Create tasks for TRUE parallel execution
-                    var executableModels = group.Where(modelNode => CanExecuteModelNode(modelNode, connections) && modelLookupCache.ContainsKey(modelNode.Id)).ToList();
+                    // Pre-build optimized connection count cache using array lookup for better performance
+                    var connectionCountCache = new Dictionary<string, int>(group.Count);
+                    var connectionsArray = connections.ToArray(); // Convert once for faster enumeration
+                    
+                    foreach (var modelNode in group)
+                    {
+                        var inputCount = 0;
+                        // Use for loop instead of LINQ for better performance
+                        for (int i = 0; i < connectionsArray.Length; i++)
+                        {
+                            if (connectionsArray[i].TargetNodeId == modelNode.Id)
+                                inputCount++;
+                        }
+                        connectionCountCache[modelNode.Id] = inputCount;
+                    }
+
+                    // Pre-filter executable models with batch processing (no LINQ)
+                    var executableModels = new List<NodeViewModel>(group.Count);
+                    foreach (var modelNode in group)
+                    {
+                        if (modelLookupCache.ContainsKey(modelNode.Id) && 
+                            CanExecuteModelNode(modelNode, connections, connectionCountCache))
+                        {
+                            executableModels.Add(modelNode);
+                        }
+                    }
                     
                     if (executableModels.Count == 0)
                     {
@@ -129,32 +152,54 @@ namespace CSimple.Services
                         continue;
                     }
                     
-                    Debug.WriteLine($"� [PipelineExecutionService] Starting TRUE parallel execution for {executableModels.Count} models");
-                    
-                    // Execute all models in the group truly in parallel using Task.WhenAll
-                    var parallelTasks = executableModels.Select(async modelNode =>
+                    // Only log parallel execution for multi-model groups
+                    if (executableModels.Count > 1)
                     {
-                        try
+                        Debug.WriteLine($"🚀 [PipelineExecutionService] Parallel execution: {executableModels.Count} models");
+                    }
+                    
+                    // Execute all models in the group truly in parallel using pre-allocated tasks array
+                    var parallelTasks = new Task<(bool success, NodeViewModel modelNode)>[executableModels.Count];
+                    for (int i = 0; i < executableModels.Count; i++)
+                    {
+                        var modelNode = executableModels[i];
+                        var correspondingModel = modelLookupCache[modelNode.Id]; // Cache lookup once
+                        
+                        parallelTasks[i] = Task.Run(async () =>
                         {
-                            var correspondingModel = modelLookupCache[modelNode.Id];
-                            await ExecuteOptimizedModelNodeAsync(modelNode, correspondingModel, nodes, connections, currentActionStep);
-                            return (success: true, modelNode);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"❌ [PipelineExecutionService] Model '{modelNode.Name}' failed: {ex.Message}");
-                            return (success: false, modelNode);
-                        }
-                    });
+                            try
+                            {
+                                await ExecuteOptimizedModelNodeAsync(modelNode, correspondingModel, nodes, connections, currentActionStep);
+                                return (true, modelNode);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"❌ [PipelineExecutionService] Model '{modelNode.Name}' failed: {ex.Message}");
+                                return (false, modelNode);
+                            }
+                        });
+                    }
                     
                     var results = await Task.WhenAll(parallelTasks);
-                    var batchSuccessCount = results.Count(r => r.success);
-                    var batchFailedCount = results.Count(r => !r.success);
+                    
+                    // Use fast counting instead of LINQ for better performance
+                    var batchSuccessCount = 0;
+                    var batchFailedCount = 0;
+                    for (int i = 0; i < results.Length; i++)
+                    {
+                        if (results[i].success)
+                            batchSuccessCount++;
+                        else
+                            batchFailedCount++;
+                    }
 
                     groupStopwatch.Stop();
                     
-                    // Simplified logging for performance
-                    Debug.WriteLine($"✅ [PipelineExecutionService] Group {groupIndex + 1} completed: {batchSuccessCount} successful, {batchFailedCount} failed in {groupStopwatch.ElapsedMilliseconds}ms");
+                    // Minimal logging for performance - only log if group took significant time or had failures
+                    if (groupStopwatch.ElapsedMilliseconds > 100 || batchFailedCount > 0)
+                    {
+                        Debug.WriteLine($"✅ [PipelineExecutionService] Group {groupIndex + 1}: {batchSuccessCount} successful, {batchFailedCount} failed in {groupStopwatch.ElapsedMilliseconds}ms");
+                    }
 
                     successCount += batchSuccessCount;
                     skippedCount += group.Count - batchSuccessCount - batchFailedCount;
@@ -187,10 +232,15 @@ namespace CSimple.Services
                 return new List<List<NodeViewModel>> { modelNodes };
             }
             
-            // Only consider ACTUAL model-to-model dependencies - use cached lookups
-            var actualModelConnections = new List<ConnectionViewModel>();
-            var modelNodeIds = new HashSet<string>(modelNodes.Select(m => m.Id));
+            // Pre-build model node ID hashset for faster lookups
+            var modelNodeIds = new HashSet<string>(modelNodes.Count);
+            foreach (var node in modelNodes)
+            {
+                modelNodeIds.Add(node.Id);
+            }
             
+            // Only consider ACTUAL model-to-model dependencies - use optimized filtering
+            var actualModelConnections = new List<ConnectionViewModel>();
             foreach (var c in connections)
             {
                 if (modelNodeIds.Contains(c.SourceNodeId) && modelNodeIds.Contains(c.TargetNodeId))
@@ -207,8 +257,8 @@ namespace CSimple.Services
             }
             
             // Build dependency graph only when needed
-            var dependencyLevels = new Dictionary<NodeViewModel, int>();
-            var dependencies = new Dictionary<string, HashSet<string>>();
+            var dependencyLevels = new Dictionary<NodeViewModel, int>(modelNodes.Count);
+            var dependencies = new Dictionary<string, HashSet<string>>(modelNodes.Count);
             
             // Initialize all nodes
             foreach (var node in modelNodes)
@@ -223,8 +273,12 @@ namespace CSimple.Services
             }
             
             // Calculate levels
-            var visited = new HashSet<string>();
-            var modelNodeLookup = modelNodes.ToDictionary(n => n.Id, n => n);
+            var visited = new HashSet<string>(modelNodes.Count);
+            var modelNodeLookup = new Dictionary<string, NodeViewModel>(modelNodes.Count);
+            foreach (var node in modelNodes)
+            {
+                modelNodeLookup[node.Id] = node;
+            }
             
             foreach (var node in modelNodes)
             {
@@ -235,10 +289,25 @@ namespace CSimple.Services
             }
 
             // Group by level
-            var levelGroups = dependencyLevels.GroupBy(kvp => kvp.Value)
-                                              .OrderBy(g => g.Key)
-                                              .Select(g => g.Select(kvp => kvp.Key).ToList())
-                                              .ToList();
+            var levelGroups = new List<List<NodeViewModel>>();
+            var levelDict = new Dictionary<int, List<NodeViewModel>>();
+            
+            foreach (var kvp in dependencyLevels)
+            {
+                var level = kvp.Value;
+                if (!levelDict.ContainsKey(level))
+                {
+                    levelDict[level] = new List<NodeViewModel>();
+                }
+                levelDict[level].Add(kvp.Key);
+            }
+            
+            // Sort levels and create final groups
+            var sortedLevels = levelDict.Keys.OrderBy(k => k);
+            foreach (var level in sortedLevels)
+            {
+                levelGroups.Add(levelDict[level]);
+            }
             
             Debug.WriteLine($"📊 [BuildOptimizedExecutionGroups] Created {levelGroups.Count} execution groups with dependencies");
             return levelGroups;
@@ -409,7 +478,7 @@ namespace CSimple.Services
         /// <summary>
         /// Determines if a model node can be executed based on its configuration and connections
         /// </summary>
-        private bool CanExecuteModelNode(NodeViewModel modelNode, ObservableCollection<ConnectionViewModel> connections)
+        private bool CanExecuteModelNode(NodeViewModel modelNode, ObservableCollection<ConnectionViewModel> connections, Dictionary<string, int> connectionCountCache = null)
         {
             // Quick check - only models can be executed
             if (modelNode.Type != NodeType.Model)
@@ -418,7 +487,20 @@ namespace CSimple.Services
             // For ensemble models, need at least 2 inputs
             if (modelNode.EnsembleInputCount > 1)
             {
-                var connectedInputCount = connections.Count(c => c.TargetNodeId == modelNode.Id);
+                int connectedInputCount;
+                if (connectionCountCache != null && connectionCountCache.TryGetValue(modelNode.Id, out connectedInputCount))
+                {
+                    return connectedInputCount >= 2;
+                }
+                
+                // Fallback: count connections manually (slower path)
+                connectedInputCount = 0;
+                foreach (var c in connections)
+                {
+                    if (c.TargetNodeId == modelNode.Id)
+                        connectedInputCount++;
+                }
+                connectionCountCache?.TryAdd(modelNode.Id, connectedInputCount);
                 return connectedInputCount >= 2;
             }
 

@@ -449,6 +449,7 @@ namespace CSimple.ViewModels
 
             // Use the NodeManagementService to add the node
             await _nodeManagementService.AddModelNodeAsync(Nodes, model.Id, modelName, modelType, new PointF(x, y));
+            InvalidatePipelineStateCache(); // Invalidate cache when structure changes
             UpdateEnsembleCounts(); // ADDED: Update counts after adding node
             Debug.WriteLine($"🔄 [AddModelNode] Updating RunAllModelsCommand CanExecute - Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)}");
             (RunAllModelsCommand as Command)?.ChangeCanExecute(); // Update Run All Models button state
@@ -461,6 +462,7 @@ namespace CSimple.ViewModels
             {
                 await _nodeManagementService.DeleteSelectedNodeAsync(Nodes, Connections, SelectedNode, InvalidateCanvas);
                 SelectedNode = null; // Deselect
+                InvalidatePipelineStateCache(); // Invalidate cache when structure changes
                 UpdateEnsembleCounts(); // ADDED: Update counts after removing connections
                 Debug.WriteLine($"🗑️ [DeleteSelectedNode] Updating RunAllModelsCommand CanExecute - Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)}");
                 (RunAllModelsCommand as Command)?.ChangeCanExecute(); // Update Run All Models button state
@@ -535,6 +537,7 @@ namespace CSimple.ViewModels
                     // Use the NodeManagementService to complete the connection
                     _nodeManagementService.CompleteConnection(Connections, _temporaryConnectionState, targetNode, InvalidateCanvas);
                     Debug.WriteLine($"Completed connection from {_temporaryConnectionState.Name} to {targetNode.Name}");
+                    InvalidatePipelineStateCache(); // Invalidate cache when structure changes
                     UpdateEnsembleCounts(); // ADDED: Update counts after adding
                     await SaveCurrentPipelineAsync(); // Save after adding connection
                 }
@@ -901,18 +904,22 @@ namespace CSimple.ViewModels
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-            // Update command states if necessary when properties change
-            if (propertyName == nameof(SelectedNode) || propertyName == nameof(Nodes) || propertyName == nameof(Connections))
+            
+            // Update command states only when necessary (optimized)
+            switch (propertyName)
             {
-                // Example: ((Command)DeleteSelectedNodeCommand)?.ChangeCanExecute();
-            }
-
-            // Update audio command states when relevant properties change
-            if (propertyName == nameof(StepContent) || propertyName == nameof(StepContentType))
-            {
-                ((Command)PlayAudioCommand)?.ChangeCanExecute();
-                ((Command)StopAudioCommand)?.ChangeCanExecute();
-                Debug.WriteLine($"[OrientPageViewModel.OnPropertyChanged] Updated audio command states for property: {propertyName}");
+                case nameof(SelectedNode):
+                case nameof(Nodes):
+                case nameof(Connections):
+                    InvalidatePipelineStateCache(); // Invalidate cache when structure changes
+                    break;
+                    
+                case nameof(StepContent):
+                case nameof(StepContentType):
+                    // Update audio command states when relevant properties change
+                    ((Command)PlayAudioCommand)?.ChangeCanExecute();
+                    ((Command)StopAudioCommand)?.ChangeCanExecute();
+                    break;
             }
         }
 
@@ -1096,39 +1103,58 @@ namespace CSimple.ViewModels
             SelectedPipelineName = name;
         }
 
+        // --- Cached data for performance ---
+        private List<NodeViewModel> _cachedModelNodes;
+        private List<NodeViewModel> _cachedInputNodes;
+        private Dictionary<string, int> _cachedConnectionCounts;
+        private bool _pipelineStateCacheValid = false;
+
+        // Cache pipeline state for performance
+        private void CachePipelineState()
+        {
+            _cachedModelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
+            _cachedInputNodes = Nodes.Where(n => n.Type == NodeType.Input).ToList();
+            _cachedConnectionCounts = new Dictionary<string, int>();
+            
+            foreach (var node in _cachedModelNodes)
+            {
+                _cachedConnectionCounts[node.Id] = Connections.Count(c => c.TargetNodeId == node.Id);
+            }
+            
+            _pipelineStateCacheValid = true;
+        }
+
+        // Invalidate cache when pipeline structure changes
+        private void InvalidatePipelineStateCache()
+        {
+            _pipelineStateCacheValid = false;
+        }
+
         // --- Run All Models Command Implementation ---
         private async Task ExecuteRunAllModelsAsync()
         {
             var totalStopwatch = Stopwatch.StartNew();
-            Debug.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting execution using PipelineExecutionService");
+            Debug.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting optimized execution");
 
-            // Log pipeline state before execution
-            var modelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
-            var inputNodes = Nodes.Where(n => n.Type == NodeType.Input).ToList();
+            // Use cached pipeline state for faster access
+            if (!_pipelineStateCacheValid)
+            {
+                CachePipelineState();
+            }
+
             Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] Pipeline Overview:");
-            Debug.WriteLine($"   • Total Nodes: {Nodes.Count} (Models: {modelNodes.Count}, Inputs: {inputNodes.Count})");
+            Debug.WriteLine($"   • Total Nodes: {Nodes.Count} (Models: {_cachedModelNodes.Count}, Inputs: {_cachedInputNodes.Count})");
             Debug.WriteLine($"   • Total Connections: {Connections.Count}");
             Debug.WriteLine($"   • Current Action Step: {CurrentActionStep}");
-            Debug.WriteLine($"   • Pipeline Name: {CurrentPipelineName}");
 
             try
             {
-                // Step 1: Store the original selected node
-                var step1Stopwatch = Stopwatch.StartNew();
+                // Store the original selected node (minimal overhead)
                 var originalSelectedNode = SelectedNode;
-                step1Stopwatch.Stop();
-                Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] Step 1 - Store selected node: {step1Stopwatch.ElapsedMilliseconds}ms");
 
-                // Step 2: Execute all models using pipeline execution service
-                var step2Stopwatch = Stopwatch.StartNew();
-                Debug.WriteLine($"🚀 [ExecuteRunAllModelsAsync] Step 2 - Starting pipeline execution with {modelNodes.Count} models...");
-
-                // Log model nodes details before execution
-                foreach (var modelNode in modelNodes)
-                {
-                    var inputCount = Connections.Count(c => c.TargetNodeId == modelNode.Id);
-                    Debug.WriteLine($"   🤖 Model: '{modelNode.Name}' | Inputs: {inputCount} | Ensemble: {modelNode.SelectedEnsembleMethod} | Ready: {inputCount > 0}");
-                }
+                // Execute all models using pipeline execution service
+                var executionStopwatch = Stopwatch.StartNew();
+                Debug.WriteLine($"🚀 [ExecuteRunAllModelsAsync] Starting pipeline execution with {_cachedModelNodes.Count} models...");
 
                 var (successCount, skippedCount) = await _pipelineExecutionService.ExecuteAllModelsAsync(
                     Nodes,
@@ -1136,38 +1162,37 @@ namespace CSimple.ViewModels
                     CurrentActionStep,
                     ShowAlert
                 );
-                step2Stopwatch.Stop();
-                Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] Step 2 - Pipeline execution completed: {step2Stopwatch.ElapsedMilliseconds}ms");
-                Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] Pipeline Results: {successCount} successful, {skippedCount} skipped");
+                executionStopwatch.Stop();
+                Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] Pipeline execution: {executionStopwatch.ElapsedMilliseconds}ms");
 
-                // Step 3: Restore the original selected node
-                var step3Stopwatch = Stopwatch.StartNew();
+                // Restore the original selected node
                 SelectedNode = originalSelectedNode;
-                step3Stopwatch.Stop();
-                Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] Step 3 - Restore selected node: {step3Stopwatch.ElapsedMilliseconds}ms");
 
-                // Step 4: Save the pipeline
-                var step4Stopwatch = Stopwatch.StartNew();
-                Debug.WriteLine($"💾 [ExecuteRunAllModelsAsync] Step 4 - Saving pipeline '{CurrentPipelineName}'...");
-                await SaveCurrentPipelineAsync();
-                step4Stopwatch.Stop();
-                Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] Step 4 - Save pipeline: {step4Stopwatch.ElapsedMilliseconds}ms");
+                // Defer pipeline saving to reduce I/O overhead during execution
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await SaveCurrentPipelineAsync();
+                        Debug.WriteLine($"� [ExecuteRunAllModelsAsync] Pipeline saved asynchronously");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"⚠️ [ExecuteRunAllModelsAsync] Async save failed: {ex.Message}");
+                    }
+                });
 
                 totalStopwatch.Stop();
                 string resultMessage = $"Execution completed!\nSuccessful: {successCount}\nSkipped: {skippedCount}";
                 Debug.WriteLine($"🎉 [ExecuteRunAllModelsAsync] {resultMessage}");
-                Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] TOTAL UI EXECUTION TIME: {totalStopwatch.ElapsedMilliseconds}ms");
-
-                // Enhanced timing breakdown with more context
-                Debug.WriteLine("📊 [ExecuteRunAllModelsAsync] DETAILED TIMING BREAKDOWN:");
-                Debug.WriteLine($"   ├── Step 1 (Store selected node): {step1Stopwatch.ElapsedMilliseconds}ms ({(double)step1Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
-                Debug.WriteLine($"   ├── Step 2 (Pipeline execution): {step2Stopwatch.ElapsedMilliseconds}ms ({(double)step2Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%) ← MAIN EXECUTION");
-                Debug.WriteLine($"   │   ├── Models processed: {successCount + skippedCount}");
-                Debug.WriteLine($"   │   ├── Success rate: {(successCount > 0 ? (double)successCount / (successCount + skippedCount) * 100 : 0):F1}%");
-                Debug.WriteLine($"   │   ├── Avg time per model: {(successCount > 0 ? step2Stopwatch.ElapsedMilliseconds / successCount : 0):F0}ms");
-                Debug.WriteLine($"   ├── Step 3 (Restore selected node): {step3Stopwatch.ElapsedMilliseconds}ms ({(double)step3Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
-                Debug.WriteLine($"   └── Step 4 (Save pipeline): {step4Stopwatch.ElapsedMilliseconds}ms ({(double)step4Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
-                Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] TOTAL EXECUTION TIME: {totalStopwatch.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] TOTAL UI TIME: {totalStopwatch.ElapsedMilliseconds}ms (Execution: {executionStopwatch.ElapsedMilliseconds}ms)");
+                
+                // Simplified performance stats
+                Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] Results: {successCount} successful, {skippedCount} skipped");
+                if (successCount > 0)
+                {
+                    Debug.WriteLine($"   └── Avg time per model: {executionStopwatch.ElapsedMilliseconds / successCount:F0}ms");
+                }
             }
             catch (Exception ex)
             {

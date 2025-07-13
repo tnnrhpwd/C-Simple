@@ -1,6 +1,7 @@
 using CSimple.Models;
 using CSimple.Services.AppModeService;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -14,10 +15,11 @@ namespace CSimple.Services
     {
         private readonly CSimple.Services.AppModeService.AppModeService _appModeService;
         
-        // Cache for file existence checks to avoid repeated I/O
-        private readonly Dictionary<string, bool> _fileExistsCache = new Dictionary<string, bool>();
-        private DateTime _lastCacheReset = DateTime.UtcNow;
+        // Static cache shared across all instances to avoid repeated file checks
+        private static readonly Dictionary<string, bool> _globalFileExistsCache = new Dictionary<string, bool>();
+        private static DateTime _lastCacheReset = DateTime.UtcNow;
         private static readonly TimeSpan CacheTimeout = TimeSpan.FromMinutes(5);
+        private static readonly object _cacheLock = new object();
 
         // Events for status updates
         public event Action<string> StatusUpdated;
@@ -29,21 +31,24 @@ namespace CSimple.Services
             _appModeService = appModeService;
         }
         
-        private bool FileExistsCached(string filePath)
+        private static bool FileExistsCached(string filePath)
         {
-            // Reset cache periodically to catch file changes
-            if (DateTime.UtcNow - _lastCacheReset > CacheTimeout)
+            lock (_cacheLock)
             {
-                _fileExistsCache.Clear();
-                _lastCacheReset = DateTime.UtcNow;
+                // Reset cache periodically to catch file changes
+                if (DateTime.UtcNow - _lastCacheReset > CacheTimeout)
+                {
+                    _globalFileExistsCache.Clear();
+                    _lastCacheReset = DateTime.UtcNow;
+                }
+                
+                if (!_globalFileExistsCache.TryGetValue(filePath, out bool exists))
+                {
+                    exists = File.Exists(filePath);
+                    _globalFileExistsCache[filePath] = exists;
+                }
+                return exists;
             }
-            
-            if (!_fileExistsCache.TryGetValue(filePath, out bool exists))
-            {
-                exists = File.Exists(filePath);
-                _fileExistsCache[filePath] = exists;
-            }
-            return exists;
         }
 
         /// <summary>
