@@ -111,7 +111,9 @@ namespace CSimple.Services
                         {
                             Debug.WriteLine($"🚀 [PipelineExecutionService] [{taskStartTime:HH:mm:ss.fff}] Starting execution: {modelNode.Name}");
 
-                            await ExecuteOptimizedModelNodeAsync(modelNode, modelLookupCache[modelNode.Id], nodes, connections, currentActionStep);
+                            // Execute with Task.Run to ensure true parallelism
+                            await Task.Run(async () => 
+                                await ExecuteOptimizedModelNodeAsync(modelNode, modelLookupCache[modelNode.Id], nodes, connections, currentActionStep));
 
                             modelStopwatch.Stop();
                             var taskEndTime = DateTime.UtcNow;
@@ -196,17 +198,43 @@ namespace CSimple.Services
         /// </summary>
         private List<List<NodeViewModel>> BuildOptimizedExecutionGroups(List<NodeViewModel> modelNodes, ObservableCollection<ConnectionViewModel> connections)
         {
-            var visited = new HashSet<string>();
-            var processing = new HashSet<string>(); // For cycle detection
-
-            // Create dependency levels - models in the same level can run in parallel
             var dependencyLevels = new Dictionary<NodeViewModel, int>();
-
+            
+            // Simple approach: if models don't depend on each other directly, they can run in parallel
+            var modelConnections = connections.Where(c => 
+                modelNodes.Any(m => m.Id == c.SourceNodeId) && 
+                modelNodes.Any(m => m.Id == c.TargetNodeId)).ToList();
+            
+            if (modelConnections.Count == 0)
+            {
+                // No dependencies between models - all can run in parallel
+                Debug.WriteLine("📊 [BuildOptimizedExecutionGroups] No model-to-model dependencies found - enabling full parallelism");
+                return new List<List<NodeViewModel>> { modelNodes };
+            }
+            
+            // Build dependency graph for models that do depend on each other
+            var dependents = new Dictionary<string, HashSet<string>>();
+            var dependencies = new Dictionary<string, HashSet<string>>();
+            
+            foreach (var node in modelNodes)
+            {
+                dependents[node.Id] = new HashSet<string>();
+                dependencies[node.Id] = new HashSet<string>();
+            }
+            
+            foreach (var connection in modelConnections)
+            {
+                dependents[connection.SourceNodeId].Add(connection.TargetNodeId);
+                dependencies[connection.TargetNodeId].Add(connection.SourceNodeId);
+            }
+            
+            // Assign levels based on dependency depth
+            var visited = new HashSet<string>();
             foreach (var node in modelNodes)
             {
                 if (!visited.Contains(node.Id))
                 {
-                    CalculateNodeLevel(node, dependencyLevels, visited, processing, 0, connections);
+                    CalculateNodeLevelOptimized(node, dependencyLevels, dependencies, visited, modelNodes);
                 }
             }
 
@@ -215,39 +243,111 @@ namespace CSimple.Services
                                               .OrderBy(g => g.Key)
                                               .Select(g => g.Select(kvp => kvp.Key).ToList())
                                               .ToList();
+            
+            Debug.WriteLine($"📊 [BuildOptimizedExecutionGroups] Created {levelGroups.Count} execution levels:");
+            for (int i = 0; i < levelGroups.Count; i++)
+            {
+                Debug.WriteLine($"   Level {i}: {string.Join(", ", levelGroups[i].Select(n => n.Name))} ({levelGroups[i].Count} models)");
+            }
 
             return levelGroups;
         }
 
         /// <summary>
-        /// Calculates the dependency level of a node using recursive traversal
+        /// Calculates the dependency level of a node using iterative approach
         /// </summary>
-        private int CalculateNodeLevel(NodeViewModel node, Dictionary<NodeViewModel, int> dependencyLevels,
-                                       HashSet<string> visited, HashSet<string> processing, int currentLevel,
-                                       ObservableCollection<ConnectionViewModel> connections)
+        private void CalculateNodeLevelOptimized(NodeViewModel node, Dictionary<NodeViewModel, int> dependencyLevels,
+                                                Dictionary<string, HashSet<string>> dependencies, HashSet<string> visited, 
+                                                List<NodeViewModel> modelNodes)
         {
-            if (processing.Contains(node.Id))
-                return currentLevel; // Cycle detection - use current level
-
             if (visited.Contains(node.Id))
-                return dependencyLevels.GetValueOrDefault(node, 0);
-
-            processing.Add(node.Id);
-
-            var dependencies = GetNodeDependencies(node, connections).Where(d => d.Type == NodeType.Model);
-            int maxDepLevel = currentLevel;
-
-            foreach (var dependency in dependencies)
+                return;
+                
+            // Simple case: if node has no dependencies, it's level 0
+            if (!dependencies.ContainsKey(node.Id) || dependencies[node.Id].Count == 0)
             {
-                int depLevel = CalculateNodeLevel(dependency, dependencyLevels, visited, processing, currentLevel, connections);
-                maxDepLevel = Math.Max(maxDepLevel, depLevel + 1);
+                dependencyLevels[node] = 0;
+                visited.Add(node.Id);
+                return;
             }
-
-            processing.Remove(node.Id);
-            visited.Add(node.Id);
-            dependencyLevels[node] = maxDepLevel;
-
-            return maxDepLevel;
+                
+            var toProcess = new Stack<NodeViewModel>();
+            var processing = new HashSet<string>();
+            toProcess.Push(node);
+            
+            while (toProcess.Count > 0)
+            {
+                var current = toProcess.Peek();
+                
+                if (visited.Contains(current.Id))
+                {
+                    toProcess.Pop();
+                    continue;
+                }
+                
+                if (processing.Contains(current.Id))
+                {
+                    // We've processed all dependencies, now calculate level
+                    var maxLevel = 0;
+                    if (dependencies.ContainsKey(current.Id))
+                    {
+                        foreach (var depId in dependencies[current.Id])
+                        {
+                            var depNode = modelNodes.FirstOrDefault(n => n.Id == depId);
+                            if (depNode != null && dependencyLevels.ContainsKey(depNode))
+                            {
+                                maxLevel = Math.Max(maxLevel, dependencyLevels[depNode] + 1);
+                            }
+                        }
+                    }
+                    
+                    dependencyLevels[current] = maxLevel;
+                    visited.Add(current.Id);
+                    processing.Remove(current.Id);
+                    toProcess.Pop();
+                }
+                else
+                {
+                    processing.Add(current.Id);
+                    
+                    // Add dependencies to stack if not already processed
+                    if (dependencies.ContainsKey(current.Id))
+                    {
+                        bool allDepsProcessed = true;
+                        foreach (var depId in dependencies[current.Id])
+                        {
+                            var depNode = modelNodes.FirstOrDefault(n => n.Id == depId);
+                            if (depNode != null && !visited.Contains(depId))
+                            {
+                                if (!processing.Contains(depId))
+                                {
+                                    toProcess.Push(depNode);
+                                    allDepsProcessed = false;
+                                }
+                            }
+                        }
+                        
+                        // If all dependencies are being processed or don't exist, we can continue
+                        if (allDepsProcessed)
+                        {
+                            var maxLevel = 0;
+                            foreach (var depId in dependencies[current.Id])
+                            {
+                                var depNode = modelNodes.FirstOrDefault(n => n.Id == depId);
+                                if (depNode != null && dependencyLevels.ContainsKey(depNode))
+                                {
+                                    maxLevel = Math.Max(maxLevel, dependencyLevels[depNode] + 1);
+                                }
+                            }
+                            
+                            dependencyLevels[current] = maxLevel;
+                            visited.Add(current.Id);
+                            processing.Remove(current.Id);
+                            toProcess.Pop();
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>
