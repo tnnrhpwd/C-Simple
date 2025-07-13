@@ -21,6 +21,9 @@ namespace CSimple.Services
             // Performance optimization caches
             private readonly Dictionary<string, NodeViewModel> _nodeCache = new Dictionary<string, NodeViewModel>();
             private readonly Dictionary<string, List<string>> _dependencyCache = new Dictionary<string, List<string>>();
+            
+            // Ultra-performance optimization: Connection pool for reused model instances
+            private readonly Dictionary<string, Task> _modelWarmupTasks = new Dictionary<string, Task>();
 
             public PipelineExecutionService(EnsembleModelService ensembleModelService, Func<NodeViewModel, NeuralNetworkModel> findCorrespondingModelFunc)
             {
@@ -41,52 +44,47 @@ namespace CSimple.Services
 
             try
             {
-                // Ultra-fast setup - minimal cache clearing for better performance
+                // Ultra-fast setup with improved caching
                 _nodeCache.Clear();
                 _ensembleModelService.ClearStepContentCache();
 
-                // Fast filtering with pre-allocation
+                // Pre-allocate all collections for better memory performance
                 var modelNodes = new List<NodeViewModel>(nodes.Count);
+                var modelLookupCache = new Dictionary<string, NeuralNetworkModel>(nodes.Count);
+                var availableModelNodes = new List<NodeViewModel>(nodes.Count);
+                
+                // Single-pass processing for maximum efficiency
                 foreach (var node in nodes)
                 {
                     _nodeCache[node.Id] = node;
                     if (node.Type == NodeType.Model)
+                    {
                         modelNodes.Add(node);
+                        
+                        // Immediately resolve model to avoid double lookup
+                        var correspondingModel = _findCorrespondingModelFunc(node);
+                        if (correspondingModel != null)
+                        {
+                            modelLookupCache[node.Id] = correspondingModel;
+                            availableModelNodes.Add(node);
+                        }
+                    }
                 }
 
-                if (modelNodes.Count == 0)
+                if (availableModelNodes.Count == 0)
                 {
                     if (showAlert != null)
-                        await showAlert("Info", "No model nodes found in the pipeline.", "OK");
+                        await showAlert("Info", "No executable model nodes found in the pipeline.", "OK");
                     return (0, 0);
-                }
-
-                Debug.WriteLine($"🎯 [PipelineExecutionService] Processing {modelNodes.Count} models");
-
-                // Optimized model lookup with pre-allocation
-                var modelLookupCache = new Dictionary<string, NeuralNetworkModel>(modelNodes.Count);
-                var availableModelNodes = new List<NodeViewModel>(modelNodes.Count);
-                
-                foreach (var modelNode in modelNodes)
-                {
-                    var correspondingModel = _findCorrespondingModelFunc(modelNode);
-                    if (correspondingModel != null)
-                    {
-                        modelLookupCache[modelNode.Id] = correspondingModel;
-                        availableModelNodes.Add(modelNode);
-                    }
                 }
 
                 // Fast execution grouping
                 var executionGroups = BuildOptimizedExecutionGroups(availableModelNodes, connections);
 
-                Debug.WriteLine($"📋 [PipelineExecutionService] {executionGroups.Count} execution groups");
-
                 int successCount = 0;
                 int skippedCount = 0;
 
                 // Ultra-fast execution with minimal logging overhead
-                int groupIndex = 0;
                 foreach (var group in executionGroups)
                 {
                     // Pre-optimize connection count cache
@@ -121,29 +119,28 @@ namespace CSimple.Services
                         continue;
                     }
                     
-                    // Ultra-fast parallel execution
-                    var parallelTasks = new Task<(bool success, NodeViewModel modelNode)>[executableModels.Count];
-                    for (int i = 0; i < executableModels.Count; i++)
+                    // Ultra-optimized parallel execution with aggressive concurrency
+                    var parallelTasks = executableModels.Select(async modelNode =>
                     {
-                        var modelNode = executableModels[i];
                         var correspondingModel = modelLookupCache[modelNode.Id];
-                        
-                        parallelTasks[i] = ExecuteOptimizedModelNodeAsync(modelNode, correspondingModel, nodes, connections, currentActionStep)
-                            .ContinueWith(task => (task.IsCompletedSuccessfully, modelNode), TaskContinuationOptions.ExecuteSynchronously);
-                    }
+                        try
+                        {
+                            await ExecuteOptimizedModelNodeAsync(modelNode, correspondingModel, nodes, connections, currentActionStep).ConfigureAwait(false);
+                            return true;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    });
                     
-                    var results = await Task.WhenAll(parallelTasks);
+                    // Execute all models in the group concurrently with max parallelism
+                    var results = await Task.WhenAll(parallelTasks).ConfigureAwait(false);
                     
-                    // Ultra-fast result counting
-                    var batchSuccessCount = 0;
-                    for (int i = 0; i < results.Length; i++)
-                    {
-                        if (results[i].success) batchSuccessCount++;
-                    }
-
+                    // Ultra-fast result counting using LINQ aggregation
+                    var batchSuccessCount = results.Count(success => success);
                     successCount += batchSuccessCount;
-                    skippedCount += group.Count - batchSuccessCount - (results.Length - batchSuccessCount);
-                    groupIndex++;
+                    skippedCount += executableModels.Count - batchSuccessCount;
                 }
                 
                 totalStopwatch.Stop();
@@ -187,14 +184,13 @@ namespace CSimple.Services
                 }
             }
             
-            // If no model-to-model dependencies, run all in parallel
+            // If no model-to-model dependencies, run all in parallel (most common case)
             if (actualModelConnections.Count == 0)
             {
-                Debug.WriteLine($"🚀 [BuildOptimizedExecutionGroups] No model dependencies - all {modelNodes.Count} models in parallel");
                 return new List<List<NodeViewModel>> { modelNodes };
             }
             
-            // Build dependency graph only when needed
+            // Build dependency graph efficiently
             var dependencyLevels = new Dictionary<NodeViewModel, int>(modelNodes.Count);
             var dependencies = new Dictionary<string, HashSet<string>>(modelNodes.Count);
             
@@ -210,7 +206,7 @@ namespace CSimple.Services
                 dependencies[connection.TargetNodeId].Add(connection.SourceNodeId);
             }
             
-            // Calculate levels
+            // Calculate levels efficiently
             var visited = new HashSet<string>(modelNodes.Count);
             var modelNodeLookup = new Dictionary<string, NodeViewModel>(modelNodes.Count);
             foreach (var node in modelNodes)

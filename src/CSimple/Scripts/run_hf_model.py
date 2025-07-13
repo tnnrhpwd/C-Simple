@@ -27,14 +27,14 @@ import importlib.util
 
 
 def progress_callback(filename: str, current: int, total: int):
-    """Progress callback for HuggingFace downloads."""
+    """Minimal progress callback for HuggingFace downloads."""
+    # Reduce logging for performance - only log at 50% and 100%
     if total > 0:
         percentage = (current / total) * 100
-        # Only print every 10% to avoid spam
-        if percentage % 10 < 1:
-            print(f"Progress: {filename} - {percentage:.0f}% ({current}/{total} bytes)", file=sys.stderr)
-    else:
-        print(f"Progress: {filename} - {current} bytes downloaded", file=sys.stderr)
+        if percentage >= 50 and percentage < 60:  # Only log once around 50%
+            print(f"Progress: {filename} - 50%", file=sys.stderr)
+        elif percentage >= 100:
+            print(f"Progress: {filename} - Complete", file=sys.stderr)
 
 
 def parse_arguments() -> argparse.Namespace:

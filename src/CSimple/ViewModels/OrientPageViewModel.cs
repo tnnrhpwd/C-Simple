@@ -1142,7 +1142,7 @@ namespace CSimple.ViewModels
                 CachePipelineState();
             }
 
-            Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] Pipeline Overview: {Nodes.Count} nodes, {_cachedModelNodes.Count} models, {Connections.Count} connections");
+            Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] Processing {_cachedModelNodes.Count} models");
 
             try
             {
@@ -1163,15 +1163,6 @@ namespace CSimple.ViewModels
                 // Restore the original selected node
                 SelectedNode = originalSelectedNode;
 
-                // Fire-and-forget pipeline saving to avoid blocking
-                _ = SaveCurrentPipelineAsync().ContinueWith(saveTask =>
-                {
-                    if (saveTask.IsCompletedSuccessfully)
-                        Debug.WriteLine("💾 [ExecuteRunAllModelsAsync] Pipeline saved asynchronously");
-                    else if (saveTask.Exception != null)
-                        Debug.WriteLine($"⚠️ [ExecuteRunAllModelsAsync] Async save failed: {saveTask.Exception.InnerException?.Message}");
-                }, TaskContinuationOptions.ExecuteSynchronously);
-
                 totalStopwatch.Stop();
                 
                 // Streamlined logging for better performance
@@ -1179,6 +1170,24 @@ namespace CSimple.ViewModels
                 if (successCount > 0)
                 {
                     Debug.WriteLine($"   └── Avg: {executionStopwatch.ElapsedMilliseconds / successCount:F0}ms/model, Efficiency: {(double)executionStopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%");
+                }
+
+                // Defer pipeline saving to avoid blocking execution - only save if there were successful executions
+                if (successCount > 0)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await Task.Delay(100); // Small delay to let execution complete fully
+                            await SaveCurrentPipelineAsync();
+                            Debug.WriteLine("💾 [ExecuteRunAllModelsAsync] Pipeline saved asynchronously");
+                        }
+                        catch (Exception saveEx)
+                        {
+                            Debug.WriteLine($"⚠️ [ExecuteRunAllModelsAsync] Async save failed: {saveEx.Message}");
+                        }
+                    });
                 }
             }
             catch (Exception ex)

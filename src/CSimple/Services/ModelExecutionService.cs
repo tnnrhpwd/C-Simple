@@ -84,11 +84,11 @@ namespace CSimple.Services
                     argumentsBuilder.Append($" --local_model_path \"{localModelPath}\"");
                 }
 
-                // Performance optimizations
-                argumentsBuilder.Append(" --cpu_optimize");
+                // Performance optimizations - add speed optimizations
+                argumentsBuilder.Append(" --cpu_optimize --temperature 0.3 --top_p 0.8"); // Lower creativity for speed
                 
-                // Aggressive max length limiting for speed
-                int maxLength = Math.Min(150, inputText?.Split(' ')?.Length + 50 ?? 50);
+                // Ultra-aggressive max length limiting for much faster execution
+                int maxLength = Math.Min(50, inputText?.Split(' ')?.Length + 15 ?? 15); // Even more aggressive
                 argumentsBuilder.Append($" --max_length {maxLength}");
 
                 if (_appModeService.CurrentMode == AppMode.Offline)
@@ -131,12 +131,12 @@ namespace CSimple.Services
                 process.BeginErrorReadLine();
                 process.BeginOutputReadLine();
 
-                // Aggressive timeout optimization for speed
+                // Ultra-aggressive timeout optimization for speed
                 var cpuFriendlyModels = new[] { "gpt2", "distilgpt2", "microsoft/DialoGPT" };
                 bool isCpuFriendly = cpuFriendlyModels.Any(cpu => modelId.Contains(cpu, StringComparison.OrdinalIgnoreCase));
                 
-                // Reduced timeouts for faster execution
-                int baseTimeoutMs = isCpuFriendly ? 60000 : 120000; // 1-2 min instead of 2-5 min
+                // Much shorter timeouts for faster overall execution
+                int baseTimeoutMs = isCpuFriendly ? 20000 : 30000; // 20-30 seconds for even faster execution
                 int timeoutMs = baseTimeoutMs;
 
                 using var cts = new CancellationTokenSource(timeoutMs);

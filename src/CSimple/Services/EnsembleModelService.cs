@@ -291,7 +291,7 @@ namespace CSimple.Services
                 string input = PrepareModelInput(modelNode, connectedInputNodes, currentActionStep);
 
                 // Execute model without excessive logging
-                string result = await ExecuteModelWithInput(correspondingModel, input);
+                string result = await ExecuteModelWithInput(correspondingModel, input).ConfigureAwait(false);
 
                 // Fast result storage
                 string resultContentType = DetermineResultContentType(correspondingModel, result);
@@ -299,7 +299,11 @@ namespace CSimple.Services
                 modelNode.SetStepOutput(currentStep, resultContentType, result);
 
                 totalStopwatch.Stop();
-                Debug.WriteLine($"💾 [ExecuteSingleModelNodeAsync] '{modelNode.Name}' completed in {totalStopwatch.ElapsedMilliseconds}ms");
+                // Only log if execution took longer than 8 seconds (reduced threshold)
+                if (totalStopwatch.ElapsedMilliseconds > 8000)
+                {
+                    Debug.WriteLine($"⏱️ [ExecuteSingleModelNodeAsync] '{modelNode.Name}' completed in {totalStopwatch.ElapsedMilliseconds}ms");
+                }
             }
             catch (Exception ex)
             {
