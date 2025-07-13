@@ -20,6 +20,9 @@ namespace CSimple.Services
         // Cache for step content to avoid repeated expensive GetStepContent calls
         private readonly Dictionary<string, string> _stepContentCache = new Dictionary<string, string>();
         
+        // Model execution optimization: batch similar models together
+        private readonly Dictionary<string, List<(NodeViewModel node, string input)>> _batchedExecutions = new Dictionary<string, List<(NodeViewModel, string)>>();
+        
         public EnsembleModelService(NetPageViewModel netPageViewModel)
         {
             _netPageViewModel = netPageViewModel ?? throw new ArgumentNullException(nameof(netPageViewModel));
@@ -28,6 +31,7 @@ namespace CSimple.Services
         public void ClearStepContentCache()
         {
             _stepContentCache.Clear();
+            _batchedExecutions.Clear();
         }
 
         /// <summary>
@@ -311,6 +315,40 @@ namespace CSimple.Services
                 Debug.WriteLine($"❌ [ExecuteSingleModelNodeAsync] Error executing model {modelNode.Name} after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
                 throw; // Re-throw to be handled by the caller
             }
+        }
+
+        /// <summary>
+        /// Batched model execution for better performance when multiple nodes use the same model
+        /// </summary>
+        public async Task ExecuteBatchedModelsAsync(List<(NodeViewModel node, NeuralNetworkModel model, string input)> modelExecutions, int currentActionStep)
+        {
+            // Group by model ID for batched execution
+            var modelGroups = modelExecutions.GroupBy(e => e.model.HuggingFaceModelId).ToList();
+            
+            var tasks = modelGroups.Select(async group =>
+            {
+                var modelId = group.Key;
+                var executions = group.ToList();
+                
+                // For same-model executions, we can potentially optimize by keeping the model loaded
+                foreach (var (node, model, input) in executions)
+                {
+                    try
+                    {
+                        var result = await ExecuteModelWithInput(model, input).ConfigureAwait(false);
+                        var resultContentType = DetermineResultContentType(model, result);
+                        var currentStep = currentActionStep + 1;
+                        node.SetStepOutput(currentStep, resultContentType, result);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"❌ [ExecuteBatchedModelsAsync] Error executing {node.Name}: {ex.Message}");
+                        // Continue with other executions even if one fails
+                    }
+                }
+            });
+            
+            await Task.WhenAll(tasks).ConfigureAwait(false);
         }
     }
 }

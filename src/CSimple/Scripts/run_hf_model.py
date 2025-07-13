@@ -55,28 +55,17 @@ def parse_arguments() -> argparse.Namespace:
 def check_and_install_package(package_name: str) -> bool:
     """Check if a package is installed, and try to install it if not."""
     if importlib.util.find_spec(package_name) is not None:
-        print(f"✓ {package_name} already installed", file=sys.stderr)
+        # Skip printing for speed - most packages should already be installed
         return True
     
-    print(f"Progress: Installing {package_name}...", file=sys.stderr)
     print(f"Installing {package_name}...", file=sys.stderr)
     try:
-        # Redirect pip output to stderr to avoid mixing with model output
-        result = subprocess.run([sys.executable, "-m", "pip", "install", package_name], 
+        # Use --quiet flag to reduce output
+        result = subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", package_name], 
                               capture_output=True, text=True, check=True)
-        # Print pip output to stderr
-        if result.stdout:
-            print(result.stdout, file=sys.stderr, end='')
-        if result.stderr:
-            print(result.stderr, file=sys.stderr, end='')
-        print(f"✓ {package_name} installed successfully", file=sys.stderr)
         return True
     except subprocess.CalledProcessError as e:
-        print(f"Failed to install {package_name}", file=sys.stderr)
-        if e.stdout:
-            print(e.stdout, file=sys.stderr, end='')
-        if e.stderr:
-            print(e.stderr, file=sys.stderr, end='')
+        print(f"Failed to install {package_name}: {e.stderr}", file=sys.stderr)
         return False
 
 
@@ -356,16 +345,16 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any], 
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
-                max_new_tokens=min(params.get("max_length", 100), 50),  # Cap at 50 tokens for cleaner output
-                temperature=0.8,  # Slightly higher temperature for more natural output
-                top_p=0.9,
-                top_k=50,  # Add top-k filtering
+                max_new_tokens=min(params.get("max_length", 30), 30),  # Even smaller for speed
+                temperature=0.5,  # Lower temperature for faster, more deterministic output
+                top_p=0.8,
+                top_k=40,  # Smaller top-k for speed
                 do_sample=True,
                 num_return_sequences=1,
                 pad_token_id=tokenizer.eos_token_id,
                 eos_token_id=tokenizer.eos_token_id,
-                repetition_penalty=1.2,  # Stronger repetition penalty
-                no_repeat_ngram_size=3,  # Prevent 3-gram repetition
+                repetition_penalty=1.1,  # Lighter penalty for speed
+                no_repeat_ngram_size=2,  # Smaller n-gram for speed
                 early_stopping=True  # Stop at natural endings
             )        # Decode the generated text
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)

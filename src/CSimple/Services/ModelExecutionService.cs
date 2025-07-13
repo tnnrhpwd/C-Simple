@@ -85,10 +85,10 @@ namespace CSimple.Services
                 }
 
                 // Performance optimizations - add speed optimizations
-                argumentsBuilder.Append(" --cpu_optimize --temperature 0.3 --top_p 0.8"); // Lower creativity for speed
+                argumentsBuilder.Append(" --cpu_optimize --temperature 0.2 --top_p 0.7"); // Even lower for faster execution
                 
                 // Ultra-aggressive max length limiting for much faster execution
-                int maxLength = Math.Min(50, inputText?.Split(' ')?.Length + 15 ?? 15); // Even more aggressive
+                int maxLength = Math.Min(40, inputText?.Split(' ')?.Length + 10 ?? 10); // More aggressive for speed
                 argumentsBuilder.Append($" --max_length {maxLength}");
 
                 if (_appModeService.CurrentMode == AppMode.Offline)
@@ -136,7 +136,7 @@ namespace CSimple.Services
                 bool isCpuFriendly = cpuFriendlyModels.Any(cpu => modelId.Contains(cpu, StringComparison.OrdinalIgnoreCase));
                 
                 // Much shorter timeouts for faster overall execution
-                int baseTimeoutMs = isCpuFriendly ? 20000 : 30000; // 20-30 seconds for even faster execution
+                int baseTimeoutMs = isCpuFriendly ? 15000 : 25000; // 15-25 seconds for even faster execution
                 int timeoutMs = baseTimeoutMs;
 
                 using var cts = new CancellationTokenSource(timeoutMs);

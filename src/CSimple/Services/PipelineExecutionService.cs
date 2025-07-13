@@ -21,15 +21,19 @@ namespace CSimple.Services
             // Performance optimization caches
             private readonly Dictionary<string, NodeViewModel> _nodeCache = new Dictionary<string, NodeViewModel>();
             private readonly Dictionary<string, List<string>> _dependencyCache = new Dictionary<string, List<string>>();
-            
-            // Ultra-performance optimization: Connection pool for reused model instances
-            private readonly Dictionary<string, Task> _modelWarmupTasks = new Dictionary<string, Task>();
+                  // Ultra-performance optimization: Connection pool for reused model instances
+        private readonly Dictionary<string, Task> _modelWarmupTasks = new Dictionary<string, Task>();
+        
+        // Pre-computed execution metadata cache
+        private readonly Dictionary<string, List<NodeViewModel>> _inputNodeCache = new Dictionary<string, List<NodeViewModel>>();
+        private readonly Dictionary<string, string> _preparedInputCache = new Dictionary<string, string>();
+        private bool _executionCacheValid = false;
 
-            public PipelineExecutionService(EnsembleModelService ensembleModelService, Func<NodeViewModel, NeuralNetworkModel> findCorrespondingModelFunc)
-            {
-                _ensembleModelService = ensembleModelService ?? throw new ArgumentNullException(nameof(ensembleModelService));
-                _findCorrespondingModelFunc = findCorrespondingModelFunc ?? throw new ArgumentNullException(nameof(findCorrespondingModelFunc));
-            }
+        public PipelineExecutionService(EnsembleModelService ensembleModelService, Func<NodeViewModel, NeuralNetworkModel> findCorrespondingModelFunc)
+        {
+            _ensembleModelService = ensembleModelService ?? throw new ArgumentNullException(nameof(ensembleModelService));
+            _findCorrespondingModelFunc = findCorrespondingModelFunc ?? throw new ArgumentNullException(nameof(findCorrespondingModelFunc));
+        }
 
         /// <summary>
         /// Executes all model nodes in the pipeline with ultra-optimized performance
@@ -47,6 +51,11 @@ namespace CSimple.Services
                 // Ultra-fast setup with improved caching
                 _nodeCache.Clear();
                 _ensembleModelService.ClearStepContentCache();
+                
+                // Clear execution-specific caches
+                _inputNodeCache.Clear();
+                _preparedInputCache.Clear();
+                _executionCacheValid = false;
 
                 // Pre-allocate all collections for better memory performance
                 var modelNodes = new List<NodeViewModel>(nodes.Count);
@@ -78,36 +87,24 @@ namespace CSimple.Services
                     return (0, 0);
                 }
 
-                // Fast execution grouping
-                var executionGroups = BuildOptimizedExecutionGroups(availableModelNodes, connections);
+                // Pre-compute input relationships for all models at once
+                PrecomputeInputRelationships(availableModelNodes, nodes, connections, currentActionStep);
+
+                // Fast execution grouping with aggressive parallelization
+                var executionGroups = BuildUltraOptimizedExecutionGroups(availableModelNodes, connections);
 
                 int successCount = 0;
                 int skippedCount = 0;
 
-                // Ultra-fast execution with minimal logging overhead
+                // Hyper-optimized execution with minimal overhead
                 foreach (var group in executionGroups)
                 {
-                    // Pre-optimize connection count cache
-                    var connectionCountCache = new Dictionary<string, int>(group.Count);
-                    var connectionsArray = connections.ToArray(); // Use array for fast iteration
-                    
-                    foreach (var modelNode in group)
-                    {
-                        var inputCount = 0;
-                        for (int i = 0; i < connectionsArray.Length; i++)
-                        {
-                            if (connectionsArray[i].TargetNodeId == modelNode.Id)
-                                inputCount++;
-                        }
-                        connectionCountCache[modelNode.Id] = inputCount;
-                    }
-
-                    // Fast executable model filtering
+                    // Pre-filter executable models with cached connection counts
                     var executableModels = new List<NodeViewModel>(group.Count);
                     foreach (var modelNode in group)
                     {
                         if (modelLookupCache.ContainsKey(modelNode.Id) && 
-                            CanExecuteModelNode(modelNode, connections, connectionCountCache))
+                            CanExecuteModelNodeFast(modelNode, connections))
                         {
                             executableModels.Add(modelNode);
                         }
@@ -119,13 +116,13 @@ namespace CSimple.Services
                         continue;
                     }
                     
-                    // Ultra-optimized parallel execution with aggressive concurrency
+                    // Maximum parallelism execution with pre-computed inputs
                     var parallelTasks = executableModels.Select(async modelNode =>
                     {
                         var correspondingModel = modelLookupCache[modelNode.Id];
                         try
                         {
-                            await ExecuteOptimizedModelNodeAsync(modelNode, correspondingModel, nodes, connections, currentActionStep).ConfigureAwait(false);
+                            await ExecuteUltraOptimizedModelNodeAsync(modelNode, correspondingModel, nodes, connections, currentActionStep).ConfigureAwait(false);
                             return true;
                         }
                         catch
@@ -134,10 +131,10 @@ namespace CSimple.Services
                         }
                     });
                     
-                    // Execute all models in the group concurrently with max parallelism
+                    // Execute all models in the group with maximum concurrency
                     var results = await Task.WhenAll(parallelTasks).ConfigureAwait(false);
                     
-                    // Ultra-fast result counting using LINQ aggregation
+                    // Ultra-fast result counting
                     var batchSuccessCount = results.Count(success => success);
                     successCount += batchSuccessCount;
                     skippedCount += executableModels.Count - batchSuccessCount;
@@ -498,6 +495,163 @@ namespace CSimple.Services
             if (node.Type == NodeType.Model)
             {
                 executionOrder.Add(node);
+            }
+        }
+
+        /// <summary>
+        /// Pre-computes input relationships and prepared inputs for all models to avoid repeated work
+        /// </summary>
+        private void PrecomputeInputRelationships(List<NodeViewModel> modelNodes, ObservableCollection<NodeViewModel> nodes, 
+            ObservableCollection<ConnectionViewModel> connections, int currentActionStep)
+        {
+            foreach (var modelNode in modelNodes)
+            {
+                // Cache input nodes
+                var inputNodes = _ensembleModelService.GetConnectedInputNodes(modelNode, nodes, connections);
+                _inputNodeCache[modelNode.Id] = inputNodes;
+                
+                // Pre-compute input if possible (for models without dependencies)
+                if (inputNodes.All(n => n.Type == NodeType.Input))
+                {
+                    var preparedInput = _ensembleModelService.PrepareModelInput(modelNode, inputNodes, currentActionStep);
+                    _preparedInputCache[modelNode.Id] = preparedInput;
+                }
+            }
+            _executionCacheValid = true;
+        }
+
+        /// <summary>
+        /// Ultra-optimized execution groups with more aggressive parallelization
+        /// </summary>
+        private List<List<NodeViewModel>> BuildUltraOptimizedExecutionGroups(List<NodeViewModel> modelNodes, ObservableCollection<ConnectionViewModel> connections)
+        {
+            // Quick check: if no connections at all, run everything in parallel
+            if (connections.Count == 0)
+            {
+                Debug.WriteLine("📊 [BuildUltraOptimizedExecutionGroups] No dependencies found, executing all models in parallel");
+                return new List<List<NodeViewModel>> { modelNodes };
+            }
+            
+            // Build model node ID hashset for faster lookups
+            var modelNodeIds = new HashSet<string>(modelNodes.Count);
+            foreach (var node in modelNodes)
+            {
+                modelNodeIds.Add(node.Id);
+            }
+            
+            // Only consider ACTUAL model-to-model dependencies
+            var modelToModelDeps = new HashSet<string>();
+            foreach (var c in connections)
+            {
+                if (modelNodeIds.Contains(c.SourceNodeId) && modelNodeIds.Contains(c.TargetNodeId))
+                {
+                    modelToModelDeps.Add($"{c.SourceNodeId}->{c.TargetNodeId}");
+                }
+            }
+            
+            // If no model-to-model dependencies, run all in parallel
+            if (modelToModelDeps.Count == 0)
+            {
+                Debug.WriteLine("📊 [BuildUltraOptimizedExecutionGroups] No model-to-model dependencies, executing all models in parallel");
+                return new List<List<NodeViewModel>> { modelNodes };
+            }
+            
+            // For now, use simpler grouping - models with only input dependencies first, then dependent models
+            var independentModels = new List<NodeViewModel>();
+            var dependentModels = new List<NodeViewModel>();
+            
+            foreach (var modelNode in modelNodes)
+            {
+                var hasModelDependency = false;
+                foreach (var dep in modelToModelDeps)
+                {
+                    if (dep.EndsWith($"->{modelNode.Id}"))
+                    {
+                        hasModelDependency = true;
+                        break;
+                    }
+                }
+                
+                if (hasModelDependency)
+                    dependentModels.Add(modelNode);
+                else
+                    independentModels.Add(modelNode);
+            }
+            
+            var groups = new List<List<NodeViewModel>>();
+            if (independentModels.Count > 0)
+                groups.Add(independentModels);
+            if (dependentModels.Count > 0)
+                groups.Add(dependentModels);
+            
+            Debug.WriteLine($"📊 [BuildUltraOptimizedExecutionGroups] Created {groups.Count} groups: {independentModels.Count} independent, {dependentModels.Count} dependent");
+            return groups;
+        }
+
+        /// <summary>
+        /// Fast execution check with minimal overhead
+        /// </summary>
+        private bool CanExecuteModelNodeFast(NodeViewModel modelNode, ObservableCollection<ConnectionViewModel> connections)
+        {
+            if (modelNode.Type != NodeType.Model)
+                return false;
+
+            // For ensemble models, need at least 2 inputs
+            if (modelNode.EnsembleInputCount > 1)
+            {
+                int inputCount = 0;
+                foreach (var c in connections)
+                {
+                    if (c.TargetNodeId == modelNode.Id)
+                    {
+                        inputCount++;
+                        if (inputCount >= 2) return true; // Early exit
+                    }
+                }
+                return false;
+            }
+            
+            return true;
+        }
+
+        /// <summary>
+        /// Ultra-optimized model execution with pre-computed inputs
+        /// </summary>
+        private async Task ExecuteUltraOptimizedModelNodeAsync(NodeViewModel modelNode, NeuralNetworkModel correspondingModel,
+            ObservableCollection<NodeViewModel> nodes, ObservableCollection<ConnectionViewModel> connections, int currentActionStep)
+        {
+            try
+            {
+                // Use pre-computed input if available
+                string input;
+                if (_preparedInputCache.TryGetValue(modelNode.Id, out input))
+                {
+                    // Use cached input
+                }
+                else if (_inputNodeCache.TryGetValue(modelNode.Id, out var cachedInputNodes))
+                {
+                    // Use cached input nodes to prepare input
+                    input = _ensembleModelService.PrepareModelInput(modelNode, cachedInputNodes, currentActionStep);
+                }
+                else
+                {
+                    // Fallback to normal execution
+                    await _ensembleModelService.ExecuteSingleModelNodeAsync(modelNode, correspondingModel, nodes, connections, currentActionStep);
+                    return;
+                }
+
+                // Direct model execution without redundant input preparation
+                string result = await _ensembleModelService.ExecuteModelWithInput(correspondingModel, input).ConfigureAwait(false);
+                
+                // Fast result storage
+                string resultContentType = _ensembleModelService.DetermineResultContentType(correspondingModel, result);
+                int currentStep = currentActionStep + 1;
+                modelNode.SetStepOutput(currentStep, resultContentType, result);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ [ExecuteUltraOptimizedModelNodeAsync] Error executing model {modelNode.Name}: {ex.Message}");
+                throw;
             }
         }
 
