@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace CSimple.Services
@@ -88,10 +89,11 @@ namespace CSimple.Services
                     WorkingDirectory = Path.GetDirectoryName(huggingFaceScriptPath)
                 };
 
-                Debug.WriteLine($"Starting process: {processStartInfo.FileName} {processStartInfo.Arguments}"); using var process = new Process { StartInfo = processStartInfo };
+                Debug.WriteLine($"Starting process: {processStartInfo.FileName} {processStartInfo.Arguments}");                using var process = new Process { StartInfo = processStartInfo };
 
                 // Collect stderr output for final processing
                 var stderrOutput = new StringBuilder();
+                var stdoutOutput = new StringBuilder();
 
                 // Set up real-time stderr reading for progress updates
                 process.ErrorDataReceived += (sender, e) =>
@@ -99,7 +101,8 @@ namespace CSimple.Services
                     if (!string.IsNullOrEmpty(e.Data))
                     {
                         Debug.WriteLine($"Python stderr: {e.Data}");
-                        stderrOutput.AppendLine(e.Data);                        // Update status if it looks like a progress message
+                        stderrOutput.AppendLine(e.Data);
+                        // Update status if it looks like a progress message
                         if (e.Data.Contains("Progress:") || e.Data.Contains("Loading") || e.Data.Contains("Downloading") ||
                             e.Data.Contains("Installing") || e.Data.Contains("Tokenizer"))
                         {
@@ -114,10 +117,21 @@ namespace CSimple.Services
                     }
                 };
 
+                // Set up real-time stdout reading for better async handling
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        Debug.WriteLine($"Python stdout: {e.Data}");
+                        stdoutOutput.AppendLine(e.Data);
+                    }
+                };
+
                 process.Start();
                 process.BeginErrorReadLine(); // Start async reading of stderr
+                process.BeginOutputReadLine(); // Start async reading of stdout
 
-                var outputTask = process.StandardOutput.ReadToEndAsync();                // Determine timeout based on model type and first-time setup
+                // Determine timeout based on model type and first-time setup
                 var cpuFriendlyModels = new[] { "gpt2", "distilgpt2", "microsoft/DialoGPT" };
                 bool isCpuFriendly = cpuFriendlyModels.Any(cpu => modelId.Contains(cpu, StringComparison.OrdinalIgnoreCase));
 
@@ -127,17 +141,25 @@ namespace CSimple.Services
 
                 StatusUpdated?.Invoke($"Processing with {modelId} (timeout: {timeoutMs / 1000}s)...");
 
-                // Wait for process to complete with dynamic timeout
-                bool completed = process.WaitForExit(timeoutMs);
-
-                if (!completed)
+                // Use async waiting with CancellationToken for better parallelism
+                using var cts = new CancellationTokenSource(timeoutMs);
+                
+                try
+                {
+                    await process.WaitForExitAsync(cts.Token);
+                }
+                catch (OperationCanceledException)
                 {
                     process.Kill();
                     throw new TimeoutException($"Model execution timed out after {timeoutMs / 1000} seconds. " +
                         (isCpuFriendly ? "Try a shorter input message." : "Large models may require more time on first run."));
                 }
-                string output = await outputTask;
-                string error = stderrOutput.ToString(); // Use collected stderr instead of reading again
+
+                // Wait a moment for async readers to complete
+                await Task.Delay(100);
+                
+                string output = stdoutOutput.ToString();
+                string error = stderrOutput.ToString();
                 int exitCode = process.ExitCode;
 
                 Debug.WriteLine($"Process completed with exit code: {exitCode}");

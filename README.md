@@ -37,13 +37,13 @@ This section provides recommended GitHub Copilot commands and best practices for
 **Extract Complex Logic to Services:**
 
 ```bash
-please reduce the size of [FileName] by refactor outsourcing similar logic to a service file. only do one the best file compatible with outsourcing so you dont over extend yourself. then do a build checking for errors with cd "c:\Users\tanne\Documents\Github\C-Simple\src"; dotnet run --project CSimple --framework net8.0-windows10.0.19041.0
+please reduce the size of [FileName] by refactor outsourcing similar logic to a service file. only do one the best file compatible with outsourcing so you dont over extend yourself. then do a build checking for errors with cd "c:\Users\tanne\Documents\Github\C-Simple\src\CSimple"; dotnet run --framework net8.0-windows10.0.19041.0
 ```
 
 **Optimize Model Execution:**
 
 ```text
-please try to optimize my run all models logic so it is faster. dont over extend yourself. then do a build checking for errors with cd "c:\Users\tanne\Documents\Github\C-Simple\src"; dotnet run --project CSimple --framework net8.0-windows10.0.19041.0
+please try to optimize my run all models logic so it is faster. dont over extend yourself. then do a build checking for errors with cd "c:\Users\tanne\Documents\Github\C-Simple\src\CSimple"; dotnet run --framework net8.0-windows10.0.19041.0
 ```
 
 **Extract Methods:**
