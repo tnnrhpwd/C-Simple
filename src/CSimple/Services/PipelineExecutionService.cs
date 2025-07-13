@@ -110,13 +110,13 @@ namespace CSimple.Services
                     // Optimize task scheduling within the group
                     executableModels = OptimizeGroupTaskScheduling(executableModels);
                     
-                    Debug.WriteLine($"🔧 [PipelineExecutionService] Using OPTIMIZED BATCH execution for {executableModels.Count} models (Python Process Management)");
+                    Debug.WriteLine($"🔧 [PipelineExecutionService] Using UNLIMITED parallel execution for {executableModels.Count} models (Maximum Performance Mode)");
                     
-                    // Use batched execution to limit Python process concurrency
+                    // Use unlimited execution to maximize parallel performance
                     var (batchSuccessCount, batchFailedCount) = await ExecuteBatchedModelsAsync(executableModels, modelLookupCache, nodes, connections, currentActionStep);
                     
                     taskCreationStopwatch.Stop();
-                    Debug.WriteLine($"⚡ [PipelineExecutionService] Completed batch execution in {taskCreationStopwatch.ElapsedMilliseconds}ms with controlled Python concurrency");
+                    Debug.WriteLine($"⚡ [PipelineExecutionService] Completed unlimited parallel execution in {taskCreationStopwatch.ElapsedMilliseconds}ms with maximum performance mode");
 
                     // Create results array to match the original structure
                     var results = executableModels.Select(model => new { 
@@ -196,19 +196,32 @@ namespace CSimple.Services
         {
             var dependencyLevels = new Dictionary<NodeViewModel, int>();
             
-            // Enhanced approach: analyze actual data flow dependencies, not just any connections
-            var modelConnections = connections.Where(c => 
-                modelNodes.Any(m => m.Id == c.SourceNodeId) && 
-                modelNodes.Any(m => m.Id == c.TargetNodeId)).ToList();
-            
-            // If no direct model-to-model dependencies, maximize parallelism by grouping smartly
-            if (modelConnections.Count == 0)
+            // ENHANCED ANALYSIS: Only consider ACTUAL model-to-model dependencies
+            var actualModelConnections = connections.Where(c => 
             {
-                Debug.WriteLine("📊 [BuildOptimizedExecutionGroups] No model-to-model dependencies found - enabling maximum parallelism");
+                var sourceIsModel = modelNodes.Any(m => m.Id == c.SourceNodeId);
+                var targetIsModel = modelNodes.Any(m => m.Id == c.TargetNodeId);
+                return sourceIsModel && targetIsModel; // Both must be models for a real dependency
+            }).ToList();
+            
+            Debug.WriteLine($"📊 [BuildOptimizedExecutionGroups] Found {actualModelConnections.Count} actual model-to-model connections out of {connections.Count} total connections");
+            
+            // If no ACTUAL model-to-model dependencies, force maximum parallelism
+            if (actualModelConnections.Count == 0)
+            {
+                Debug.WriteLine("📊 [BuildOptimizedExecutionGroups] NO ACTUAL MODEL DEPENDENCIES - FORCING MAXIMUM PARALLELISM");
+                Debug.WriteLine($"📊 [BuildOptimizedExecutionGroups] All {modelNodes.Count} models will execute in parallel");
                 
-                // FORCE ALL MODELS INTO ONE GROUP FOR MAXIMUM PARALLELISM
-                // Since there are no dependencies, all models can run simultaneously
-                Debug.WriteLine($"📊 [BuildOptimizedExecutionGroups] Forcing all {modelNodes.Count} models into single parallel group");
+                // Log connection details for debugging
+                foreach (var conn in connections)
+                {
+                    var sourceNode = modelNodes.FirstOrDefault(m => m.Id == conn.SourceNodeId);
+                    var targetNode = modelNodes.FirstOrDefault(m => m.Id == conn.TargetNodeId);
+                    var sourceType = sourceNode?.Type.ToString() ?? "Input/Output";
+                    var targetType = targetNode?.Type.ToString() ?? "Input/Output";
+                    Debug.WriteLine($"   Connection: {sourceType} -> {targetType} (not a model dependency)");
+                }
+                
                 return new List<List<NodeViewModel>> { modelNodes };
             }
             
@@ -222,7 +235,7 @@ namespace CSimple.Services
                 dependencies[node.Id] = new HashSet<string>();
             }
             
-            foreach (var connection in modelConnections)
+            foreach (var connection in actualModelConnections)
             {
                 dependents[connection.SourceNodeId].Add(connection.TargetNodeId);
                 dependencies[connection.TargetNodeId].Add(connection.SourceNodeId);
@@ -523,35 +536,35 @@ namespace CSimple.Services
             ObservableCollection<ConnectionViewModel> connections,
             int currentActionStep)
         {
-            Debug.WriteLine($"🎯 [ExecuteBatchedModelsAsync] Starting batched execution for {executableModels.Count} models");
+            Debug.WriteLine($"🎯 [ExecuteBatchedModelsAsync] Starting UNLIMITED parallel execution for {executableModels.Count} models");
             
             var tasks = new List<Task<(bool success, NodeViewModel node)>>();
             var successCount = 0;
             var failedCount = 0;
 
-            // Create a limited number of concurrent Python execution slots to prevent resource exhaustion
-            using var pythonConcurrencySemaphore = new SemaphoreSlim(Math.Min(executableModels.Count, 3), Math.Min(executableModels.Count, 3));
+            // REMOVE SEMAPHORE LIMITATION - Execute all models truly in parallel
+            Debug.WriteLine($"🚀 [ExecuteBatchedModelsAsync] Launching {executableModels.Count} models with NO CONCURRENCY LIMITS");
             
             foreach (var modelNode in executableModels)
             {
                 var task = Task.Run(async () =>
                 {
-                    await pythonConcurrencySemaphore.WaitAsync();
                     try
                     {
-                        Debug.WriteLine($"🐍 [ExecuteBatchedModelsAsync] Starting Python execution: {modelNode.Name}");
+                        var startTime = DateTime.UtcNow;
+                        Debug.WriteLine($"🐍 [ExecuteBatchedModelsAsync] [{startTime:HH:mm:ss.fff}] Starting unlimited parallel execution: {modelNode.Name}");
+                        
                         await ExecuteOptimizedModelNodeAsync(modelNode, modelLookupCache[modelNode.Id], nodes, connections, currentActionStep).ConfigureAwait(false);
-                        Debug.WriteLine($"✅ [ExecuteBatchedModelsAsync] Python execution completed: {modelNode.Name}");
+                        
+                        var endTime = DateTime.UtcNow;
+                        var duration = (endTime - startTime).TotalMilliseconds;
+                        Debug.WriteLine($"✅ [ExecuteBatchedModelsAsync] [{endTime:HH:mm:ss.fff}] Unlimited parallel execution completed: {modelNode.Name} in {duration:F0}ms");
                         return (success: true, node: modelNode);
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"❌ [ExecuteBatchedModelsAsync] Python execution failed for {modelNode.Name}: {ex.Message}");
+                        Debug.WriteLine($"❌ [ExecuteBatchedModelsAsync] Unlimited parallel execution failed for {modelNode.Name}: {ex.Message}");
                         return (success: false, node: modelNode);
-                    }
-                    finally
-                    {
-                        pythonConcurrencySemaphore.Release();
                     }
                 });
                 tasks.Add(task);
@@ -562,7 +575,7 @@ namespace CSimple.Services
             successCount = results.Count(r => r.success);
             failedCount = results.Count(r => !r.success);
             
-            Debug.WriteLine($"📊 [ExecuteBatchedModelsAsync] Batch execution completed: {successCount} successful, {failedCount} failed");
+            Debug.WriteLine($"📊 [ExecuteBatchedModelsAsync] UNLIMITED parallel execution completed: {successCount} successful, {failedCount} failed");
             return (successCount, failedCount);
         }
     }
