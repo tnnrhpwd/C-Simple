@@ -25,7 +25,7 @@ namespace CSimple.ViewModels
         private readonly PythonBootstrapper _pythonBootstrapper; // Added
         private readonly NodeManagementService _nodeManagementService; // ADDED
         private readonly PipelineManagementService _pipelineManagementService; // ADDED
-        private readonly AudioPlaybackService _audioPlaybackService; // Added for audio playback
+        private readonly AudioStepContentService _audioStepContentService; // Added for audio step content management
         private readonly ActionReviewService _actionReviewService; // Added for action review functionality
 
         // --- Properties ---
@@ -197,12 +197,12 @@ namespace CSimple.ViewModels
             _pythonBootstrapper = pythonBootstrapper; // Store injected service
             _nodeManagementService = nodeManagementService; // ADDED
             _pipelineManagementService = pipelineManagementService; // ADDED
-            _audioPlaybackService = new AudioPlaybackService(); // Initialize audio playback service
+            _audioStepContentService = new AudioStepContentService(); // Initialize audio step content service
             _actionReviewService = actionReviewService; // Initialize action review service
 
             // Subscribe to audio playback events
-            _audioPlaybackService.PlaybackStarted += OnAudioPlaybackStarted;
-            _audioPlaybackService.PlaybackStopped += OnAudioPlaybackStopped;
+            _audioStepContentService.PlaybackStarted += OnAudioPlaybackStarted;
+            _audioStepContentService.PlaybackStopped += OnAudioPlaybackStopped;
 
             // Initialize Commands
             AddModelNodeCommand = new Command<HuggingFaceModel>(async (model) => await AddModelNode(model));
@@ -1087,92 +1087,12 @@ namespace CSimple.ViewModels
 
         private async void PlayAudio()
         {
-            try
-            {
-                // Check if we have valid audio content to play
-                if (string.IsNullOrEmpty(StepContent))
-                {
-                    Debug.WriteLine("No step content to play");
-                    return;
-                }
-
-                // Check if the step content is an audio file path
-                if (StepContentType?.ToLowerInvariant() == "audio")
-                {
-                    string audioFilePath = StepContent;
-
-                    // If the direct path doesn't exist, try to find the source audio file
-                    if (!File.Exists(audioFilePath))
-                    {
-                        Debug.WriteLine($"Direct audio file path doesn't exist: {audioFilePath}");
-
-                        // Try to find actual audio files in the same directory
-                        if (SelectedNode != null && SelectedNode.DataType?.ToLower() == "audio")
-                        {
-                            string directory = Path.GetDirectoryName(audioFilePath);
-                            if (Directory.Exists(directory))
-                            {
-                                // Look for actual audio files (not segments) in the directory
-                                var audioFiles = Directory.GetFiles(directory, "*.wav")
-                                    .Concat(Directory.GetFiles(directory, "*.mp3"))
-                                    .Concat(Directory.GetFiles(directory, "*.aac"))
-                                    .Where(f => !Path.GetFileName(f).StartsWith("Segment_"))
-                                    .OrderByDescending(f => File.GetCreationTime(f))
-                                    .ToList();
-
-                                if (audioFiles.Any())
-                                {
-                                    audioFilePath = audioFiles.First();
-                                    Debug.WriteLine($"Using latest audio file from directory: {audioFilePath}");
-                                }
-                                else
-                                {
-                                    Debug.WriteLine($"No non-segment audio files found in directory: {directory}");
-                                }
-                            }
-                            else
-                            {
-                                Debug.WriteLine($"Directory does not exist: {directory}");
-                            }
-                        }
-                    }
-
-                    if (File.Exists(audioFilePath))
-                    {
-                        Debug.WriteLine($"Playing audio file: {audioFilePath}");
-                        bool success = await _audioPlaybackService.PlayAudioAsync(audioFilePath);
-                        if (!success)
-                        {
-                            Debug.WriteLine("Failed to start audio playback");
-                        }
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"Audio file not found: {audioFilePath}");
-                    }
-                }
-                else
-                {
-                    Debug.WriteLine($"Step content is not audio type. Type: {StepContentType}, Content: {StepContent}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error playing audio: {ex.Message}");
-            }
+            await _audioStepContentService.PlayStepContentAsync(StepContent, StepContentType, SelectedNode);
         }
 
         private async void StopAudio()
         {
-            try
-            {
-                Debug.WriteLine("Stopping audio playback");
-                await _audioPlaybackService.StopAudioAsync();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error stopping audio: {ex.Message}");
-            }
+            await _audioStepContentService.StopAudioAsync();
         }
 
         private Task DisplayAlert(string message)
@@ -1878,11 +1798,11 @@ namespace CSimple.ViewModels
         // IDisposable implementation
         public void Dispose()
         {
-            if (_audioPlaybackService != null)
+            if (_audioStepContentService != null)
             {
-                _audioPlaybackService.PlaybackStarted -= OnAudioPlaybackStarted;
-                _audioPlaybackService.PlaybackStopped -= OnAudioPlaybackStopped;
-                _audioPlaybackService.Dispose();
+                _audioStepContentService.PlaybackStarted -= OnAudioPlaybackStarted;
+                _audioStepContentService.PlaybackStopped -= OnAudioPlaybackStopped;
+                _audioStepContentService.Dispose();
             }
         }
 
@@ -1902,78 +1822,13 @@ namespace CSimple.ViewModels
 
         private bool CanPlayAudio()
         {
-            bool result = false;
-            string reason = "";
-
-            // More robust check for audio playability
-            if (string.IsNullOrEmpty(StepContent))
-            {
-                reason = "StepContent is null or empty";
-            }
-            else if (string.IsNullOrEmpty(StepContentType))
-            {
-                reason = "StepContentType is null or empty";
-            }
-            else if (StepContentType.ToLowerInvariant() != "audio")
-            {
-                reason = $"StepContentType is '{StepContentType}', not 'audio'";
-            }
-            else
-            {
-                // Check if it's a valid audio file path
-                if (File.Exists(StepContent))
-                {
-                    result = true;
-                    reason = "Direct audio file exists";
-                }
-                else
-                {
-                    // For audio segments that don't exist, check if we can find an alternative in the directory
-                    try
-                    {
-                        string directory = Path.GetDirectoryName(StepContent);
-                        if (Directory.Exists(directory))
-                        {
-                            var audioFiles = Directory.GetFiles(directory, "*.wav")
-                                .Concat(Directory.GetFiles(directory, "*.mp3"))
-                                .Concat(Directory.GetFiles(directory, "*.aac"))
-                                .Where(f => !Path.GetFileName(f).StartsWith("Segment_"))
-                                .ToList();
-
-                            if (audioFiles.Any())
-                            {
-                                result = true;
-                                reason = "Alternative audio file found in directory";
-                            }
-                            else
-                            {
-                                result = false;
-                                reason = "No audio files found in directory";
-                            }
-                        }
-                        else
-                        {
-                            result = false;
-                            reason = "Directory does not exist";
-                        }
-                    }
-                    catch
-                    {
-                        // Fallback: if we have audio content type, assume it might be playable
-                        result = true;
-                        reason = "Audio content type with unknown file status";
-                    }
-                }
-            }
-
-            Debug.WriteLine($"[CanPlayAudio] Result: {result}, Reason: {reason}, StepContent: '{StepContent}', StepContentType: '{StepContentType}'");
-            return result;
+            return _audioStepContentService.CanPlayStepContent(StepContent, StepContentType);
         }
 
         private bool CanStopAudio()
         {
-            bool result = _audioPlaybackService?.IsPlaying == true;
-            Debug.WriteLine($"[CanStopAudio] Result: {result}, IsPlaying: {_audioPlaybackService?.IsPlaying}");
+            bool result = _audioStepContentService?.IsPlaying == true;
+            Debug.WriteLine($"[CanStopAudio] Result: {result}, IsPlaying: {_audioStepContentService?.IsPlaying}");
             return result;
         }
 
