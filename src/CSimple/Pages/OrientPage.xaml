@@ -304,7 +304,7 @@
                     <StackLayout IsVisible="{Binding SelectedNode.IsModel}"
                                  Spacing="4"
                                  Margin="0,8,0,0">
-                        <Button Text="Generate"
+                        <Button Text="Generate (Single run)"
                                 Command="{Binding GenerateCommand}"
                                 BackgroundColor="{StaticResource Primary}"
                                 TextColor="{AppThemeBinding Light={StaticResource TextOnPrimary}, Dark={StaticResource TextOnPrimary}}"
