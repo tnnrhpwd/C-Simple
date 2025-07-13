@@ -103,80 +103,50 @@ namespace CSimple.Services
                         Debug.WriteLine($"   🤖 '{modelNode.Name}' | Type: {modelType} | Inputs: {inputCount} | Model Available: {hasCorrespondingModel} | Ensemble: {modelNode.SelectedEnsembleMethod}");
                     }
 
-                    // Create tasks for parallel execution with optimized Python process management
-                    var taskCreationStopwatch = Stopwatch.StartNew();
+                    // Create tasks for TRUE parallel execution
                     var executableModels = group.Where(modelNode => CanExecuteModelNode(modelNode, connections) && modelLookupCache.ContainsKey(modelNode.Id)).ToList();
                     
-                    // Optimize task scheduling within the group
-                    executableModels = OptimizeGroupTaskScheduling(executableModels);
+                    if (executableModels.Count == 0)
+                    {
+                        skippedCount += group.Count;
+                        continue;
+                    }
                     
-                    Debug.WriteLine($"🔧 [PipelineExecutionService] Using UNLIMITED parallel execution for {executableModels.Count} models (Maximum Performance Mode)");
+                    Debug.WriteLine($"� [PipelineExecutionService] Starting TRUE parallel execution for {executableModels.Count} models");
                     
-                    // Use unlimited execution to maximize parallel performance
-                    var (batchSuccessCount, batchFailedCount) = await ExecuteBatchedModelsAsync(executableModels, modelLookupCache, nodes, connections, currentActionStep);
+                    // Execute all models in the group truly in parallel using Task.WhenAll
+                    var parallelTasks = executableModels.Select(async modelNode =>
+                    {
+                        try
+                        {
+                            var correspondingModel = modelLookupCache[modelNode.Id];
+                            await ExecuteOptimizedModelNodeAsync(modelNode, correspondingModel, nodes, connections, currentActionStep);
+                            return (success: true, modelNode);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"❌ [PipelineExecutionService] Model '{modelNode.Name}' failed: {ex.Message}");
+                            return (success: false, modelNode);
+                        }
+                    });
                     
-                    taskCreationStopwatch.Stop();
-                    Debug.WriteLine($"⚡ [PipelineExecutionService] Completed unlimited parallel execution in {taskCreationStopwatch.ElapsedMilliseconds}ms with maximum performance mode");
+                    var results = await Task.WhenAll(parallelTasks);
+                    var batchSuccessCount = results.Count(r => r.success);
+                    var batchFailedCount = results.Count(r => !r.success);
 
-                    // Create results array to match the original structure
-                    var results = executableModels.Select(model => new { 
-                        success = batchSuccessCount > 0, // Simplified for now - in reality we'd track individual results
-                        node = model, 
-                        duration = taskCreationStopwatch.ElapsedMilliseconds / Math.Max(1, executableModels.Count),
-                        startTime = DateTime.UtcNow.AddMilliseconds(-taskCreationStopwatch.ElapsedMilliseconds),
-                        endTime = DateTime.UtcNow
-                    }).ToArray();
                     groupStopwatch.Stop();
-
-                    // Enhanced group completion logging with better timing analysis
-                    var successfulInGroup = batchSuccessCount;
-                    var failedInGroup = batchFailedCount;
-                    var avgDuration = results.Length > 0 ? results.Average(r => r.duration) : 0;
-                    var maxDuration = results.Length > 0 ? results.Max(r => r.duration) : 0;
-                    var minDuration = results.Length > 0 ? results.Min(r => r.duration) : 0;
                     
-                    // Calculate actual parallelism metrics
-                    var earliestStart = results.Length > 0 ? results.Min(r => r.startTime) : DateTime.UtcNow;
-                    var latestEnd = results.Length > 0 ? results.Max(r => r.endTime) : DateTime.UtcNow;
-                    var actualParallelDuration = (latestEnd - earliestStart).TotalMilliseconds;
-                    var totalSequentialTime = results.Sum(r => r.duration);
-                    var parallelismEfficiency = totalSequentialTime > 0 ? (totalSequentialTime / actualParallelDuration) : 0;
-                    var groupEndTime = DateTime.UtcNow;
-                    
-                    // Calculate time overlap analysis
-                    var timeSpread = maxDuration - minDuration;
-                    var parallelismPercentage = actualParallelDuration > 0 ? (parallelismEfficiency / results.Length * 100) : 0;
-                    
-                    Debug.WriteLine($"📊 [PipelineExecutionService] Group {groupIndex + 1} completed in {groupStopwatch.ElapsedMilliseconds}ms at {groupEndTime:HH:mm:ss.fff}:");
-                    Debug.WriteLine($"   ├── Models executed: {results.Length}/{group.Count}");
-                    Debug.WriteLine($"   ├── Success: {successfulInGroup}, Failed: {failedInGroup}");
-                    Debug.WriteLine($"   ├── Individual durations: Min={minDuration}ms, Avg={avgDuration:F0}ms, Max={maxDuration}ms (Spread: {timeSpread}ms)");
-                    Debug.WriteLine($"   ├── Parallel analysis: Wall={actualParallelDuration:F0}ms, Work={totalSequentialTime:F0}ms, Efficiency={parallelismEfficiency:F1}x/{results.Length}x");
-                    Debug.WriteLine($"   ├── Concurrency level: {parallelismPercentage:F0}% ({(parallelismPercentage > 80 ? "HIGHLY PARALLEL" : parallelismPercentage > 50 ? "MODERATELY PARALLEL" : "MOSTLY SEQUENTIAL")})");
-                    Debug.WriteLine($"   ├── Resource contention: {(timeSpread > avgDuration * 0.5 ? "HIGH" : timeSpread > avgDuration * 0.2 ? "MODERATE" : "LOW")} (spread vs avg)");
-                    Debug.WriteLine($"   ├── Task overhead: {Math.Max(0, groupStopwatch.ElapsedMilliseconds - actualParallelDuration):F0}ms ({(actualParallelDuration > 0 ? Math.Max(0, groupStopwatch.ElapsedMilliseconds - actualParallelDuration) / actualParallelDuration * 100 : 0):F1}%)");
+                    // Simplified logging for performance
+                    Debug.WriteLine($"✅ [PipelineExecutionService] Group {groupIndex + 1} completed: {batchSuccessCount} successful, {batchFailedCount} failed in {groupStopwatch.ElapsedMilliseconds}ms");
 
                     successCount += batchSuccessCount;
                     skippedCount += group.Count - batchSuccessCount - batchFailedCount;
                     groupIndex++;
                 }
                 step4Stopwatch.Stop();
-                Debug.WriteLine($"⏱️ [Timing] Step 4 - Execute all groups: {step4Stopwatch.ElapsedMilliseconds}ms");
-
+                
                 totalStopwatch.Stop();
-                Debug.WriteLine($"⏱️ [Timing] TOTAL EXECUTION TIME: {totalStopwatch.ElapsedMilliseconds}ms");
-
-                string resultMessage = $"Execution completed!\nSuccessful: {successCount}\nSkipped: {skippedCount}";
-                Debug.WriteLine($"🎉 [PipelineExecutionService] {resultMessage}");
-
-                // Enhanced summary with execution breakdown
-                Debug.WriteLine("📊 [PipelineExecutionService] EXECUTION SUMMARY:");
-                Debug.WriteLine($"   ├── Models processed: {successCount + skippedCount}");
-                Debug.WriteLine($"   ├── Success rate: {(successCount > 0 ? (double)successCount / (successCount + skippedCount) * 100 : 0):F1}%");
-                Debug.WriteLine($"   ├── Execution groups: {executionGroups.Count}");
-                Debug.WriteLine($"   ├── Pipeline execution time: {totalStopwatch.ElapsedMilliseconds}ms");
-                Debug.WriteLine($"   ├── Time per successful model: {(successCount > 0 ? totalStopwatch.ElapsedMilliseconds / successCount : 0):F0}ms");
-                Debug.WriteLine($"   ├── Setup overhead: {step1Stopwatch.ElapsedMilliseconds + step2Stopwatch.ElapsedMilliseconds + step3Stopwatch.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"🎉 [PipelineExecutionService] Pipeline completed: {successCount} successful, {skippedCount} skipped in {totalStopwatch.ElapsedMilliseconds}ms");
                 Debug.WriteLine($"   └── Execution efficiency: {(step4Stopwatch.ElapsedMilliseconds > 0 ? (double)step4Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100 : 0):F1}% actual execution");
 
                 return (successCount, skippedCount);
@@ -194,66 +164,42 @@ namespace CSimple.Services
         /// </summary>
         private List<List<NodeViewModel>> BuildOptimizedExecutionGroups(List<NodeViewModel> modelNodes, ObservableCollection<ConnectionViewModel> connections)
         {
-            var dependencyLevels = new Dictionary<NodeViewModel, int>();
+            // Quick check: if no connections at all, run everything in parallel
+            if (connections.Count == 0)
+            {
+                return new List<List<NodeViewModel>> { modelNodes };
+            }
             
-            // ENHANCED ANALYSIS: Only consider ACTUAL model-to-model dependencies
-            // A model-to-model dependency exists only when one model's OUTPUT feeds into another model's INPUT
+            // Only consider ACTUAL model-to-model dependencies
             var actualModelConnections = connections.Where(c => 
             {
                 var sourceNode = modelNodes.FirstOrDefault(m => m.Id == c.SourceNodeId);
                 var targetNode = modelNodes.FirstOrDefault(m => m.Id == c.TargetNodeId);
-                
-                // Both nodes must be models AND the source must have already produced output
-                // that the target depends on (not just input->model connections)
-                bool isModelToModel = sourceNode?.Type == NodeType.Model && targetNode?.Type == NodeType.Model;
-                
-                if (isModelToModel)
-                {
-                    Debug.WriteLine($"   🔗 Found model-to-model dependency: '{sourceNode.Name}' -> '{targetNode.Name}'");
-                }
-                
-                return isModelToModel;
+                return sourceNode?.Type == NodeType.Model && targetNode?.Type == NodeType.Model;
             }).ToList();
             
-            Debug.WriteLine($"📊 [BuildOptimizedExecutionGroups] Found {actualModelConnections.Count} actual model-to-model connections out of {connections.Count} total connections");
-            
-            // OPTIMIZATION: Check if we can achieve maximum parallelism
-            // Most pipelines should run all models in parallel unless there are explicit model chains
+            // If no model-to-model dependencies, run all in parallel
             if (actualModelConnections.Count == 0)
             {
-                Debug.WriteLine("� [BuildOptimizedExecutionGroups] NO MODEL-TO-MODEL DEPENDENCIES - ENABLING MAXIMUM PARALLELISM");
-                Debug.WriteLine($"⚡ [BuildOptimizedExecutionGroups] All {modelNodes.Count} models will execute in parallel for optimal performance");
-                
-                // Log all connections for debugging but don't treat them as dependencies
-                foreach (var conn in connections)
-                {
-                    var sourceNode = modelNodes.FirstOrDefault(m => m.Id == conn.SourceNodeId);
-                    var targetNode = modelNodes.FirstOrDefault(m => m.Id == conn.TargetNodeId);
-                    var sourceType = sourceNode?.Type.ToString() ?? "Input/Other";
-                    var targetType = targetNode?.Type.ToString() ?? "Output/Other";
-                    Debug.WriteLine($"   📎 Connection: {sourceType} -> {targetType} (input/output flow, not execution dependency)");
-                }
-                
+                Debug.WriteLine($"🚀 [BuildOptimizedExecutionGroups] No model dependencies - all {modelNodes.Count} models in parallel");
                 return new List<List<NodeViewModel>> { modelNodes };
             }
             
-            // Build dependency graph for models that do depend on each other
-            var dependents = new Dictionary<string, HashSet<string>>();
+            // Build dependency graph only when needed
+            var dependencyLevels = new Dictionary<NodeViewModel, int>();
             var dependencies = new Dictionary<string, HashSet<string>>();
             
             foreach (var node in modelNodes)
             {
-                dependents[node.Id] = new HashSet<string>();
                 dependencies[node.Id] = new HashSet<string>();
             }
             
             foreach (var connection in actualModelConnections)
             {
-                dependents[connection.SourceNodeId].Add(connection.TargetNodeId);
                 dependencies[connection.TargetNodeId].Add(connection.SourceNodeId);
             }
             
-            // Assign levels based on dependency depth
+            // Calculate levels
             var visited = new HashSet<string>();
             foreach (var node in modelNodes)
             {
@@ -263,18 +209,13 @@ namespace CSimple.Services
                 }
             }
 
-            // Group nodes by their dependency level
+            // Group by level
             var levelGroups = dependencyLevels.GroupBy(kvp => kvp.Value)
                                               .OrderBy(g => g.Key)
                                               .Select(g => g.Select(kvp => kvp.Key).ToList())
                                               .ToList();
             
-            Debug.WriteLine($"📊 [BuildOptimizedExecutionGroups] Created {levelGroups.Count} execution levels:");
-            for (int i = 0; i < levelGroups.Count; i++)
-            {
-                Debug.WriteLine($"   Level {i}: {string.Join(", ", levelGroups[i].Select(n => n.Name))} ({levelGroups[i].Count} models)");
-            }
-
+            Debug.WriteLine($"📊 [BuildOptimizedExecutionGroups] Created {levelGroups.Count} execution groups with dependencies");
             return levelGroups;
         }
 
@@ -447,20 +388,19 @@ namespace CSimple.Services
         /// </summary>
         private bool CanExecuteModelNode(NodeViewModel modelNode, ObservableCollection<ConnectionViewModel> connections)
         {
+            // Quick check - only models can be executed
             if (modelNode.Type != NodeType.Model)
                 return false;
-
-            // Check if the model has the minimum required inputs
-            var connectedInputCount = connections.Count(c => c.TargetNodeId == modelNode.Id);
 
             // For ensemble models, need at least 2 inputs
             if (modelNode.EnsembleInputCount > 1)
             {
+                var connectedInputCount = connections.Count(c => c.TargetNodeId == modelNode.Id);
                 return connectedInputCount >= 2;
             }
 
-            // For regular models, need at least 1 input or can run without inputs (depending on model type)
-            return true; // Allow execution even without inputs for some model types
+            // Regular models can always be executed
+            return true;
         }
 
         /// <summary>
@@ -522,73 +462,5 @@ namespace CSimple.Services
             }
         }
 
-        /// <summary>
-        /// Optimizes task scheduling within a group for better resource utilization
-        /// </summary>
-        private List<NodeViewModel> OptimizeGroupTaskScheduling(List<NodeViewModel> group)
-        {
-            // Sort by estimated execution complexity (simple heuristic)
-            return group.OrderBy(node => 
-            {
-                // Prioritize lighter models first to reduce overall completion time
-                if (node.Name.Contains("small") || node.Name.Contains("tiny")) return 1;
-                if (node.Name.Contains("base") || node.Name.Contains("medium")) return 2;
-                if (node.Name.Contains("large")) return 3;
-                return 2; // Default priority
-            }).ToList();
-        }
-
-        /// <summary>
-        /// Executes multiple models in optimized batches to reduce Python startup overhead
-        /// </summary>
-        private async Task<(int successCount, int failedCount)> ExecuteBatchedModelsAsync(
-            List<NodeViewModel> executableModels, 
-            Dictionary<string, NeuralNetworkModel> modelLookupCache,
-            ObservableCollection<NodeViewModel> nodes,
-            ObservableCollection<ConnectionViewModel> connections,
-            int currentActionStep)
-        {
-            Debug.WriteLine($"🎯 [ExecuteBatchedModelsAsync] Starting UNLIMITED parallel execution for {executableModels.Count} models");
-            
-            var tasks = new List<Task<(bool success, NodeViewModel node)>>();
-            var successCount = 0;
-            var failedCount = 0;
-
-            // REMOVE SEMAPHORE LIMITATION - Execute all models truly in parallel
-            Debug.WriteLine($"🚀 [ExecuteBatchedModelsAsync] Launching {executableModels.Count} models with NO CONCURRENCY LIMITS");
-            
-            foreach (var modelNode in executableModels)
-            {
-                var task = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var startTime = DateTime.UtcNow;
-                        Debug.WriteLine($"🐍 [ExecuteBatchedModelsAsync] [{startTime:HH:mm:ss.fff}] Starting unlimited parallel execution: {modelNode.Name}");
-                        
-                        await ExecuteOptimizedModelNodeAsync(modelNode, modelLookupCache[modelNode.Id], nodes, connections, currentActionStep).ConfigureAwait(false);
-                        
-                        var endTime = DateTime.UtcNow;
-                        var duration = (endTime - startTime).TotalMilliseconds;
-                        Debug.WriteLine($"✅ [ExecuteBatchedModelsAsync] [{endTime:HH:mm:ss.fff}] Unlimited parallel execution completed: {modelNode.Name} in {duration:F0}ms");
-                        return (success: true, node: modelNode);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"❌ [ExecuteBatchedModelsAsync] Unlimited parallel execution failed for {modelNode.Name}: {ex.Message}");
-                        return (success: false, node: modelNode);
-                    }
-                });
-                tasks.Add(task);
-            }
-
-            var results = await Task.WhenAll(tasks);
-            
-            successCount = results.Count(r => r.success);
-            failedCount = results.Count(r => !r.success);
-            
-            Debug.WriteLine($"📊 [ExecuteBatchedModelsAsync] UNLIMITED parallel execution completed: {successCount} successful, {failedCount} failed");
-            return (successCount, failedCount);
-        }
     }
 }
