@@ -73,7 +73,12 @@ namespace CSimple.Services
                 step3Stopwatch.Stop();
                 Debug.WriteLine($"⏱️ [Timing] Step 3 - Build execution groups: {step3Stopwatch.ElapsedMilliseconds}ms");
 
-                Debug.WriteLine($"📋 [PipelineExecutionService] Organized into {executionGroups.Count} execution groups");
+                Debug.WriteLine($"📋 [PipelineExecutionService] Organized into {executionGroups.Count} execution groups:");
+                for (int i = 0; i < executionGroups.Count; i++)
+                {
+                    var group = executionGroups[i];
+                    Debug.WriteLine($"   Group {i + 1}: {string.Join(", ", group.Select(n => $"'{n.Name}'"))} ({group.Count} models)");
+                }
 
                 int successCount = 0;
                 int skippedCount = 0;
@@ -84,7 +89,15 @@ namespace CSimple.Services
                 foreach (var group in executionGroups)
                 {
                     var groupStopwatch = Stopwatch.StartNew();
-                    Debug.WriteLine($"📦 [Timing] Starting execution group {groupIndex + 1}/{executionGroups.Count} with {group.Count} models");
+                    Debug.WriteLine($"📦 [PipelineExecutionService] Starting execution group {groupIndex + 1}/{executionGroups.Count} with {group.Count} models:");
+
+                    // Log models in this group
+                    foreach (var modelNode in group)
+                    {
+                        var inputCount = connections.Count(c => c.TargetNodeId == modelNode.Id);
+                        var hasCorrespondingModel = modelLookupCache.ContainsKey(modelNode.Id);
+                        Debug.WriteLine($"   🤖 '{modelNode.Name}' | Inputs: {inputCount} | Model Available: {hasCorrespondingModel} | Ensemble: {modelNode.SelectedEnsembleMethod}");
+                    }
 
                     var tasks = group.Where(modelNode => CanExecuteModelNode(modelNode, connections) && modelLookupCache.ContainsKey(modelNode.Id))
                                      .Select(async modelNode =>
@@ -98,19 +111,31 @@ namespace CSimple.Services
 
                             modelStopwatch.Stop();
                             Debug.WriteLine($"✅ [PipelineExecutionService] Successfully executed: {modelNode.Name} in {modelStopwatch.ElapsedMilliseconds}ms");
-                            return (success: true, node: modelNode);
+                            return (success: true, node: modelNode, duration: modelStopwatch.ElapsedMilliseconds);
                         }
                         catch (Exception ex)
                         {
                             modelStopwatch.Stop();
                             Debug.WriteLine($"❌ [PipelineExecutionService] Error executing {modelNode.Name} after {modelStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
-                            return (success: false, node: modelNode);
+                            return (success: false, node: modelNode, duration: modelStopwatch.ElapsedMilliseconds);
                         }
                     });
 
                     var results = await Task.WhenAll(tasks);
                     groupStopwatch.Stop();
-                    Debug.WriteLine($"⏱️ [Timing] Group {groupIndex + 1} completed in {groupStopwatch.ElapsedMilliseconds}ms");
+
+                    // Enhanced group completion logging
+                    var successfulInGroup = results.Count(r => r.success);
+                    var failedInGroup = results.Count(r => !r.success);
+                    var avgDuration = results.Length > 0 ? results.Average(r => r.duration) : 0;
+                    var maxDuration = results.Length > 0 ? results.Max(r => r.duration) : 0;
+                    var minDuration = results.Length > 0 ? results.Min(r => r.duration) : 0;
+
+                    Debug.WriteLine($"📊 [PipelineExecutionService] Group {groupIndex + 1} completed in {groupStopwatch.ElapsedMilliseconds}ms:");
+                    Debug.WriteLine($"   ├── Models executed: {results.Length}/{group.Count}");
+                    Debug.WriteLine($"   ├── Success: {successfulInGroup}, Failed: {failedInGroup}");
+                    Debug.WriteLine($"   ├── Duration stats: Min={minDuration}ms, Avg={avgDuration:F0}ms, Max={maxDuration}ms");
+                    Debug.WriteLine($"   └── Group overhead: {Math.Max(0, groupStopwatch.ElapsedMilliseconds - maxDuration)}ms");
 
                     successCount += results.Count(r => r.success);
                     skippedCount += group.Count - results.Length + results.Count(r => !r.success);
@@ -124,6 +149,14 @@ namespace CSimple.Services
 
                 string resultMessage = $"Execution completed!\nSuccessful: {successCount}\nSkipped: {skippedCount}";
                 Debug.WriteLine($"🎉 [PipelineExecutionService] {resultMessage}");
+
+                // Enhanced summary with execution breakdown
+                Debug.WriteLine("📊 [PipelineExecutionService] EXECUTION SUMMARY:");
+                Debug.WriteLine($"   ├── Models processed: {successCount + skippedCount}");
+                Debug.WriteLine($"   ├── Success rate: {(successCount > 0 ? (double)successCount / (successCount + skippedCount) * 100 : 0):F1}%");
+                Debug.WriteLine($"   ├── Execution groups: {executionGroups.Count}");
+                Debug.WriteLine($"   ├── Total time: {totalStopwatch.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"   └── Avg time per successful model: {(successCount > 0 ? totalStopwatch.ElapsedMilliseconds / successCount : 0):F0}ms");
 
                 return (successCount, skippedCount);
             }

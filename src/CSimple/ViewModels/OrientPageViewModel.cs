@@ -1102,6 +1102,15 @@ namespace CSimple.ViewModels
             var totalStopwatch = Stopwatch.StartNew();
             Debug.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting execution using PipelineExecutionService");
 
+            // Log pipeline state before execution
+            var modelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
+            var inputNodes = Nodes.Where(n => n.Type == NodeType.Input).ToList();
+            Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] Pipeline Overview:");
+            Debug.WriteLine($"   • Total Nodes: {Nodes.Count} (Models: {modelNodes.Count}, Inputs: {inputNodes.Count})");
+            Debug.WriteLine($"   • Total Connections: {Connections.Count}");
+            Debug.WriteLine($"   • Current Action Step: {CurrentActionStep}");
+            Debug.WriteLine($"   • Pipeline Name: {CurrentPipelineName}");
+
             try
             {
                 // Step 1: Store the original selected node
@@ -1112,6 +1121,15 @@ namespace CSimple.ViewModels
 
                 // Step 2: Execute all models using pipeline execution service
                 var step2Stopwatch = Stopwatch.StartNew();
+                Debug.WriteLine($"🚀 [ExecuteRunAllModelsAsync] Step 2 - Starting pipeline execution with {modelNodes.Count} models...");
+
+                // Log model nodes details before execution
+                foreach (var modelNode in modelNodes)
+                {
+                    var inputCount = Connections.Count(c => c.TargetNodeId == modelNode.Id);
+                    Debug.WriteLine($"   🤖 Model: '{modelNode.Name}' | Inputs: {inputCount} | Ensemble: {modelNode.SelectedEnsembleMethod} | Ready: {inputCount > 0}");
+                }
+
                 var (successCount, skippedCount) = await _pipelineExecutionService.ExecuteAllModelsAsync(
                     Nodes,
                     Connections,
@@ -1119,7 +1137,8 @@ namespace CSimple.ViewModels
                     ShowAlert
                 );
                 step2Stopwatch.Stop();
-                Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] Step 2 - Pipeline execution: {step2Stopwatch.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] Step 2 - Pipeline execution completed: {step2Stopwatch.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] Pipeline Results: {successCount} successful, {skippedCount} skipped");
 
                 // Step 3: Restore the original selected node
                 var step3Stopwatch = Stopwatch.StartNew();
@@ -1129,6 +1148,7 @@ namespace CSimple.ViewModels
 
                 // Step 4: Save the pipeline
                 var step4Stopwatch = Stopwatch.StartNew();
+                Debug.WriteLine($"💾 [ExecuteRunAllModelsAsync] Step 4 - Saving pipeline '{CurrentPipelineName}'...");
                 await SaveCurrentPipelineAsync();
                 step4Stopwatch.Stop();
                 Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] Step 4 - Save pipeline: {step4Stopwatch.ElapsedMilliseconds}ms");
@@ -1138,13 +1158,16 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"🎉 [ExecuteRunAllModelsAsync] {resultMessage}");
                 Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] TOTAL UI EXECUTION TIME: {totalStopwatch.ElapsedMilliseconds}ms");
 
-                // Summary of timing breakdown
-                Debug.WriteLine("📊 [ExecuteRunAllModelsAsync] TIMING BREAKDOWN:");
-                Debug.WriteLine($"   Step 1 (Store node): {step1Stopwatch.ElapsedMilliseconds}ms");
-                Debug.WriteLine($"   Step 2 (Pipeline exec): {step2Stopwatch.ElapsedMilliseconds}ms ({(double)step2Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
-                Debug.WriteLine($"   Step 3 (Restore node): {step3Stopwatch.ElapsedMilliseconds}ms");
-                Debug.WriteLine($"   Step 4 (Save pipeline): {step4Stopwatch.ElapsedMilliseconds}ms ({(double)step4Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
-                Debug.WriteLine($"   TOTAL: {totalStopwatch.ElapsedMilliseconds}ms");
+                // Enhanced timing breakdown with more context
+                Debug.WriteLine("📊 [ExecuteRunAllModelsAsync] DETAILED TIMING BREAKDOWN:");
+                Debug.WriteLine($"   ├── Step 1 (Store selected node): {step1Stopwatch.ElapsedMilliseconds}ms ({(double)step1Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
+                Debug.WriteLine($"   ├── Step 2 (Pipeline execution): {step2Stopwatch.ElapsedMilliseconds}ms ({(double)step2Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%) ← MAIN EXECUTION");
+                Debug.WriteLine($"   │   ├── Models processed: {successCount + skippedCount}");
+                Debug.WriteLine($"   │   ├── Success rate: {(successCount > 0 ? (double)successCount / (successCount + skippedCount) * 100 : 0):F1}%");
+                Debug.WriteLine($"   │   └── Avg time per model: {(successCount > 0 ? step2Stopwatch.ElapsedMilliseconds / successCount : 0):F0}ms");
+                Debug.WriteLine($"   ├── Step 3 (Restore selected node): {step3Stopwatch.ElapsedMilliseconds}ms ({(double)step3Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
+                Debug.WriteLine($"   └── Step 4 (Save pipeline): {step4Stopwatch.ElapsedMilliseconds}ms ({(double)step4Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
+                Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] TOTAL EXECUTION TIME: {totalStopwatch.ElapsedMilliseconds}ms");
 
                 // await ShowAlert?.Invoke("Run All Models Complete", resultMessage, "OK");
             }
