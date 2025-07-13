@@ -1107,6 +1107,7 @@ namespace CSimple.ViewModels
         // --- Run All Models Command Implementation ---
         private async Task ExecuteRunAllModelsAsync()
         {
+            var totalStopwatch = Stopwatch.StartNew();
             Console.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting execution using PipelineExecutionService");
             Debug.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting execution using PipelineExecutionService");
 
@@ -1127,18 +1128,25 @@ namespace CSimple.ViewModels
                 SelectedNode = originalSelectedNode;
 
                 // Save the pipeline once at the end to persist all generated outputs
+                var saveStopwatch = Stopwatch.StartNew();
                 await SaveCurrentPipelineAsync();
+                saveStopwatch.Stop();
+                Console.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] Pipeline save took: {saveStopwatch.ElapsedMilliseconds}ms");
 
+                totalStopwatch.Stop();
                 string resultMessage = $"Execution completed!\nSuccessful: {successCount}\nSkipped: {skippedCount}";
                 Console.WriteLine($"🎉 [ExecuteRunAllModelsAsync] {resultMessage}");
+                Console.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] TOTAL UI EXECUTION TIME: {totalStopwatch.ElapsedMilliseconds}ms");
                 Debug.WriteLine($"🎉 [ExecuteRunAllModelsAsync] {resultMessage}");
+                Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] TOTAL UI EXECUTION TIME: {totalStopwatch.ElapsedMilliseconds}ms");
 
                 // await ShowAlert?.Invoke("Run All Models Complete", resultMessage, "OK");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ [ExecuteRunAllModelsAsync] Critical error: {ex.Message}");
-                Debug.WriteLine($"❌ [ExecuteRunAllModelsAsync] Critical error: {ex.Message}");
+                totalStopwatch.Stop();
+                Console.WriteLine($"❌ [ExecuteRunAllModelsAsync] Critical error after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
+                Debug.WriteLine($"❌ [ExecuteRunAllModelsAsync] Critical error after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
                 await ShowAlert?.Invoke("Error", $"Failed to run all models: {ex.Message}", "OK");
             }
         }

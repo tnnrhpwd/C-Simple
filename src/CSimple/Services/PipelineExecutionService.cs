@@ -33,13 +33,18 @@ namespace CSimple.Services
             int currentActionStep,
             Func<string, string, string, Task> showAlert = null)
         {
-            Console.WriteLine("🎯 [PipelineExecutionService.ExecuteAllModelsAsync] Starting execution");
+            var totalStopwatch = Stopwatch.StartNew();
+            Debug.WriteLine("🎯 [PipelineExecutionService.ExecuteAllModelsAsync] Starting execution");
             Debug.WriteLine("🎯 [PipelineExecutionService.ExecuteAllModelsAsync] Starting execution");
 
             try
             {
-                // Get all model nodes
+                // Step 1: Get all model nodes
+                var step1Stopwatch = Stopwatch.StartNew();
                 var modelNodes = nodes.Where(n => n.Type == NodeType.Model).ToList();
+                step1Stopwatch.Stop();
+                Debug.WriteLine($"⏱️ [Timing] Step 1 - Get model nodes: {step1Stopwatch.ElapsedMilliseconds}ms");
+
                 if (modelNodes.Count == 0)
                 {
                     if (showAlert != null)
@@ -47,9 +52,10 @@ namespace CSimple.Services
                     return (0, 0);
                 }
 
-                Console.WriteLine($"📊 [PipelineExecutionService] Found {modelNodes.Count} model nodes to process");
+                Debug.WriteLine($"📊 [PipelineExecutionService] Found {modelNodes.Count} model nodes to process");
 
-                // Pre-cache model lookups to avoid repeated searches
+                // Step 2: Pre-cache model lookups to avoid repeated searches
+                var step2Stopwatch = Stopwatch.StartNew();
                 var modelLookupCache = new Dictionary<string, NeuralNetworkModel>();
                 foreach (var modelNode in modelNodes)
                 {
@@ -59,54 +65,76 @@ namespace CSimple.Services
                         modelLookupCache[modelNode.Id] = correspondingModel;
                     }
                 }
+                step2Stopwatch.Stop();
+                Debug.WriteLine($"⏱️ [Timing] Step 2 - Build model lookup cache: {step2Stopwatch.ElapsedMilliseconds}ms");
 
-                // Build execution groups based on dependencies
+                // Step 3: Build execution groups based on dependencies
+                var step3Stopwatch = Stopwatch.StartNew();
                 var executionGroups = BuildOptimizedExecutionGroups(modelNodes, connections);
+                step3Stopwatch.Stop();
+                Debug.WriteLine($"⏱️ [Timing] Step 3 - Build execution groups: {step3Stopwatch.ElapsedMilliseconds}ms");
 
-                Console.WriteLine($"📋 [PipelineExecutionService] Organized into {executionGroups.Count} execution groups");
+                Debug.WriteLine($"📋 [PipelineExecutionService] Organized into {executionGroups.Count} execution groups");
 
                 int successCount = 0;
                 int skippedCount = 0;
 
-                // Execute groups sequentially, but models within groups in parallel
+                // Step 4: Execute groups sequentially, but models within groups in parallel
+                var step4Stopwatch = Stopwatch.StartNew();
+                int groupIndex = 0;
                 foreach (var group in executionGroups)
                 {
+                    var groupStopwatch = Stopwatch.StartNew();
+                    Debug.WriteLine($"📦 [Timing] Starting execution group {groupIndex + 1}/{executionGroups.Count} with {group.Count} models");
+
                     var tasks = group.Where(modelNode => CanExecuteModelNode(modelNode, connections) && modelLookupCache.ContainsKey(modelNode.Id))
                                      .Select(async modelNode =>
                     {
+                        var modelStopwatch = Stopwatch.StartNew();
                         try
                         {
-                            Console.WriteLine($"🚀 [PipelineExecutionService] Executing model: {modelNode.Name}");
+                            Debug.WriteLine($"🚀 [PipelineExecutionService] Executing model: {modelNode.Name}");
                             Debug.WriteLine($"🚀 [PipelineExecutionService] Executing model: {modelNode.Name}");
 
                             await ExecuteOptimizedModelNodeAsync(modelNode, modelLookupCache[modelNode.Id], nodes, connections, currentActionStep);
 
-                            Console.WriteLine($"✅ [PipelineExecutionService] Successfully executed: {modelNode.Name}");
-                            Debug.WriteLine($"✅ [PipelineExecutionService] Successfully executed: {modelNode.Name}");
+                            modelStopwatch.Stop();
+                            Debug.WriteLine($"✅ [PipelineExecutionService] Successfully executed: {modelNode.Name} in {modelStopwatch.ElapsedMilliseconds}ms");
+                            Debug.WriteLine($"✅ [PipelineExecutionService] Successfully executed: {modelNode.Name} in {modelStopwatch.ElapsedMilliseconds}ms");
                             return (success: true, node: modelNode);
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"❌ [PipelineExecutionService] Error executing {modelNode.Name}: {ex.Message}");
-                            Debug.WriteLine($"❌ [PipelineExecutionService] Error executing {modelNode.Name}: {ex.Message}");
+                            modelStopwatch.Stop();
+                            Debug.WriteLine($"❌ [PipelineExecutionService] Error executing {modelNode.Name} after {modelStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
+                            Debug.WriteLine($"❌ [PipelineExecutionService] Error executing {modelNode.Name} after {modelStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
                             return (success: false, node: modelNode);
                         }
                     });
 
                     var results = await Task.WhenAll(tasks);
+                    groupStopwatch.Stop();
+                    Debug.WriteLine($"⏱️ [Timing] Group {groupIndex + 1} completed in {groupStopwatch.ElapsedMilliseconds}ms");
+
                     successCount += results.Count(r => r.success);
                     skippedCount += group.Count - results.Length + results.Count(r => !r.success);
+                    groupIndex++;
                 }
+                step4Stopwatch.Stop();
+                Debug.WriteLine($"⏱️ [Timing] Step 4 - Execute all groups: {step4Stopwatch.ElapsedMilliseconds}ms");
+
+                totalStopwatch.Stop();
+                Debug.WriteLine($"⏱️ [Timing] TOTAL EXECUTION TIME: {totalStopwatch.ElapsedMilliseconds}ms");
 
                 string resultMessage = $"Execution completed!\nSuccessful: {successCount}\nSkipped: {skippedCount}";
-                Console.WriteLine($"🎉 [PipelineExecutionService] {resultMessage}");
+                Debug.WriteLine($"🎉 [PipelineExecutionService] {resultMessage}");
                 Debug.WriteLine($"🎉 [PipelineExecutionService] {resultMessage}");
 
                 return (successCount, skippedCount);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ [PipelineExecutionService] Critical error: {ex.Message}");
+                Debug.WriteLine($"❌ [PipelineExecutionService] Critical error: {ex.Message}");
                 Debug.WriteLine($"❌ [PipelineExecutionService] Critical error: {ex.Message}");
                 throw;
             }
@@ -187,7 +215,7 @@ namespace CSimple.Services
                 // Note: We need the nodes collection to find the actual NodeViewModel
                 // This will be passed as a parameter in a real implementation
                 // For now, we'll return an empty list and handle this in the calling code
-                Console.WriteLine($"🔗 [GetNodeDependencies] Found dependency connection: {connection.SourceNodeId} -> {node.Id}");
+                Debug.WriteLine($"🔗 [GetNodeDependencies] Found dependency connection: {connection.SourceNodeId} -> {node.Id}");
                 Debug.WriteLine($"🔗 [GetNodeDependencies] Found dependency connection: {connection.SourceNodeId} -> {node.Id}");
             }
 
@@ -235,7 +263,7 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ [ExecuteOptimizedModelNodeAsync] Error executing model {modelNode.Name}: {ex.Message}");
+                Debug.WriteLine($"❌ [ExecuteOptimizedModelNodeAsync] Error executing model {modelNode.Name}: {ex.Message}");
                 throw;
             }
         }
@@ -291,7 +319,7 @@ namespace CSimple.Services
             if (visiting.Contains(node.Id))
             {
                 // Cycle detected - log warning but continue
-                Console.WriteLine($"⚠️ [TopologicalSort] Cycle detected involving node: {node.Name}");
+                Debug.WriteLine($"⚠️ [TopologicalSort] Cycle detected involving node: {node.Name}");
                 Debug.WriteLine($"⚠️ [TopologicalSort] Cycle detected involving node: {node.Name}");
                 return;
             }

@@ -264,32 +264,42 @@ namespace CSimple.Services
         public async Task ExecuteSingleModelNodeAsync(NodeViewModel modelNode, NeuralNetworkModel correspondingModel,
             ObservableCollection<NodeViewModel> nodes, ObservableCollection<ConnectionViewModel> connections, int currentActionStep)
         {
+            var totalStopwatch = Stopwatch.StartNew();
             try
             {
                 Console.WriteLine($"🔧 [ExecuteSingleModelNodeAsync] Executing single model: {modelNode.Name}");
                 Debug.WriteLine($"🔧 [ExecuteSingleModelNodeAsync] Executing single model: {modelNode.Name}");
 
-                // Get input from connected nodes or use default/empty input
+                // Step 1: Get input from connected nodes
+                var inputPrepStopwatch = Stopwatch.StartNew();
                 var connectedInputNodes = GetConnectedInputNodes(modelNode, nodes, connections);
                 string input = PrepareModelInput(modelNode, connectedInputNodes, currentActionStep);
+                inputPrepStopwatch.Stop();
+                Console.WriteLine($"⏱️ [ExecuteSingleModelNodeAsync] Input preparation took: {inputPrepStopwatch.ElapsedMilliseconds}ms");
 
-                // Execute the model
+                // Step 2: Execute the model
+                var modelExecStopwatch = Stopwatch.StartNew();
                 string result = await ExecuteModelWithInput(correspondingModel, input);
+                modelExecStopwatch.Stop();
+                Console.WriteLine($"⏱️ [ExecuteSingleModelNodeAsync] Model execution took: {modelExecStopwatch.ElapsedMilliseconds}ms");
 
-                // Determine result content type
+                // Step 3: Determine result content type and store
+                var storeStopwatch = Stopwatch.StartNew();
                 string resultContentType = DetermineResultContentType(correspondingModel, result);
-
-                // Store the generated output in the model node
                 int currentStep = currentActionStep + 1;
                 modelNode.SetStepOutput(currentStep, resultContentType, result);
+                storeStopwatch.Stop();
+                Console.WriteLine($"⏱️ [ExecuteSingleModelNodeAsync] Output storage took: {storeStopwatch.ElapsedMilliseconds}ms");
 
-                Console.WriteLine($"💾 [ExecuteSingleModelNodeAsync] Stored output in model node '{modelNode.Name}' at step {currentStep}");
-                Debug.WriteLine($"💾 [ExecuteSingleModelNodeAsync] Stored output in model node '{modelNode.Name}' at step {currentStep}");
+                totalStopwatch.Stop();
+                Console.WriteLine($"💾 [ExecuteSingleModelNodeAsync] Stored output in model node '{modelNode.Name}' at step {currentStep} - Total: {totalStopwatch.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"💾 [ExecuteSingleModelNodeAsync] Stored output in model node '{modelNode.Name}' at step {currentStep} - Total: {totalStopwatch.ElapsedMilliseconds}ms");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ [ExecuteSingleModelNodeAsync] Error executing model {modelNode.Name}: {ex.Message}");
-                Debug.WriteLine($"❌ [ExecuteSingleModelNodeAsync] Error executing model {modelNode.Name}: {ex.Message}");
+                totalStopwatch.Stop();
+                Console.WriteLine($"❌ [ExecuteSingleModelNodeAsync] Error executing model {modelNode.Name} after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
+                Debug.WriteLine($"❌ [ExecuteSingleModelNodeAsync] Error executing model {modelNode.Name} after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
                 throw; // Re-throw to be handled by the caller
             }
         }
