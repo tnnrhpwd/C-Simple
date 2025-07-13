@@ -52,12 +52,12 @@ namespace CSimple.Services
         }
 
         /// <summary>
-        /// Executes a HuggingFace model with enhanced error handling and parameter optimization
+        /// Executes a HuggingFace model with enhanced error handling and ultra-optimized performance
         /// </summary>
         public async Task<string> ExecuteHuggingFaceModelAsyncEnhanced(string modelId, string inputText,
             NeuralNetworkModel model, string pythonExecutablePath, string huggingFaceScriptPath, string localModelPath = null)
         {
-            // Validate inputs
+            // Fast validation using cached results
             if (string.IsNullOrEmpty(pythonExecutablePath))
             {
                 throw new InvalidOperationException("Python is not available. Please install Python and restart the application.");
@@ -70,40 +70,33 @@ namespace CSimple.Services
 
             try
             {
-                Debug.WriteLine($"Executing Python script with model: {modelId}");
-                Debug.WriteLine($"Script path: {huggingFaceScriptPath}");
-                Debug.WriteLine($"Python path: {pythonExecutablePath}");
-
-                StatusUpdated?.Invoke($"Executing model {modelId}...");                // Escape quotes in input text and clean up whitespace
-                string cleanedInput = inputText.Trim().Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
+                // Ultra-fast input processing
+                string cleanedInput = inputText?.Trim()?.Replace("\r\n", " ")?.Replace("\n", " ")?.Replace("\r", " ") ?? "";
                 string escapedInput = cleanedInput.Replace("\"", "\\\"");
 
-                // Build arguments with enhanced parameters
-                var argumentsBuilder = new StringBuilder();
+                // Optimized argument building
+                var argumentsBuilder = new StringBuilder(512); // Pre-allocate
                 argumentsBuilder.Append($"\"{huggingFaceScriptPath}\" --model_id \"{modelId}\" --input \"{escapedInput}\"");
 
-                // Add local model path if provided to force local-only execution
+                // Fast local model path check
                 if (!string.IsNullOrEmpty(localModelPath) && Directory.Exists(localModelPath))
                 {
                     argumentsBuilder.Append($" --local_model_path \"{localModelPath}\"");
-                    Debug.WriteLine($"Using local model path for execution: {localModelPath}");
                 }
 
-                // Add CPU optimization flag for better local performance
+                // Performance optimizations
                 argumentsBuilder.Append(" --cpu_optimize");
-
-                // Add max length parameter to prevent overly long responses
-                int maxLength = Math.Min(200, inputText.Split(' ').Length + 100);
+                
+                // Aggressive max length limiting for speed
+                int maxLength = Math.Min(150, inputText?.Split(' ')?.Length + 50 ?? 50);
                 argumentsBuilder.Append($" --max_length {maxLength}");
 
-                // Add offline mode flag when in offline mode to disable API fallback
                 if (_appModeService.CurrentMode == AppMode.Offline)
                 {
                     argumentsBuilder.Append(" --offline_mode");
                 }
 
-                string arguments = argumentsBuilder.ToString();
-
+                string arguments = argumentsBuilder.ToString();                // Optimized process setup
                 var processStartInfo = new ProcessStartInfo
                 {
                     FileName = pythonExecutablePath,
@@ -112,63 +105,40 @@ namespace CSimple.Services
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    // Set working directory to script location for better relative path handling
                     WorkingDirectory = Path.GetDirectoryName(huggingFaceScriptPath)
                 };
 
-                Debug.WriteLine($"Starting process: {processStartInfo.FileName} {processStartInfo.Arguments}");                using var process = new Process { StartInfo = processStartInfo };
+                using var process = new Process { StartInfo = processStartInfo };
 
-                // Collect stderr output for final processing
-                var stderrOutput = new StringBuilder();
-                var stdoutOutput = new StringBuilder();
+                // Lightweight output collection
+                var stdoutOutput = new StringBuilder(1024);
+                var stderrOutput = new StringBuilder(512);
 
-                // Set up real-time stderr reading for progress updates
+                // Minimal event handlers for speed
                 process.ErrorDataReceived += (sender, e) =>
                 {
                     if (!string.IsNullOrEmpty(e.Data))
-                    {
-                        Debug.WriteLine($"Python stderr: {e.Data}");
                         stderrOutput.AppendLine(e.Data);
-                        // Update status if it looks like a progress message
-                        if (e.Data.Contains("Progress:") || e.Data.Contains("Loading") || e.Data.Contains("Downloading") ||
-                            e.Data.Contains("Installing") || e.Data.Contains("Tokenizer"))
-                        {
-                            StatusUpdated?.Invoke(e.Data);
-                        }
-                        // Also update status for important error messages
-                        else if (e.Data.Contains("Fast tokenizer failed") || e.Data.Contains("SentencePiece") ||
-                                e.Data.Contains("Attempting to load slow tokenizer"))
-                        {
-                            StatusUpdated?.Invoke(e.Data);
-                        }
-                    }
                 };
 
-                // Set up real-time stdout reading for better async handling
                 process.OutputDataReceived += (sender, e) =>
                 {
                     if (!string.IsNullOrEmpty(e.Data))
-                    {
-                        Debug.WriteLine($"Python stdout: {e.Data}");
                         stdoutOutput.AppendLine(e.Data);
-                    }
                 };
 
                 process.Start();
-                process.BeginErrorReadLine(); // Start async reading of stderr
-                process.BeginOutputReadLine(); // Start async reading of stdout
+                process.BeginErrorReadLine();
+                process.BeginOutputReadLine();
 
-                // Determine timeout based on model type and first-time setup
+                // Aggressive timeout optimization for speed
                 var cpuFriendlyModels = new[] { "gpt2", "distilgpt2", "microsoft/DialoGPT" };
                 bool isCpuFriendly = cpuFriendlyModels.Any(cpu => modelId.Contains(cpu, StringComparison.OrdinalIgnoreCase));
+                
+                // Reduced timeouts for faster execution
+                int baseTimeoutMs = isCpuFriendly ? 60000 : 120000; // 1-2 min instead of 2-5 min
+                int timeoutMs = baseTimeoutMs;
 
-                // Increase timeout for first-time downloads and package installations
-                int baseTimeoutMs = isCpuFriendly ? 120000 : 300000; // 2 min for CPU-friendly, 5 min for others
-                int timeoutMs = baseTimeoutMs * 2; // Double timeout for package installation scenarios
-
-                StatusUpdated?.Invoke($"Processing with {modelId} (timeout: {timeoutMs / 1000}s)...");
-
-                // Use async waiting with CancellationToken for better parallelism
                 using var cts = new CancellationTokenSource(timeoutMs);
                 
                 try
@@ -179,33 +149,27 @@ namespace CSimple.Services
                 {
                     process.Kill();
                     throw new TimeoutException($"Model execution timed out after {timeoutMs / 1000} seconds. " +
-                        (isCpuFriendly ? "Try a shorter input message." : "Large models may require more time on first run."));
+                        (isCpuFriendly ? "Try a shorter input message." : "Consider using a smaller model."));
                 }
 
-                // Wait a moment for async readers to complete
-                await Task.Delay(100);
+                // Minimal wait for output completion
+                await Task.Delay(50);
                 
                 string output = stdoutOutput.ToString();
                 string error = stderrOutput.ToString();
                 int exitCode = process.ExitCode;
-
-                Debug.WriteLine($"Process completed with exit code: {exitCode}");
-                Debug.WriteLine($"Raw Output: '{output}'");
-                Debug.WriteLine($"Raw Error: '{error}'");
 
                 if (exitCode != 0)
                 {
                     throw ProcessModelExecutionError(modelId, exitCode, error);
                 }
 
-                // Enhanced output processing
                 return ProcessModelOutput(modelId, output, error);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error running model: {ex.Message}");
                 ErrorOccurred?.Invoke($"Model execution failed for {modelId}", ex);
-                throw; // Re-throw to be handled by caller
+                throw;
             }
         }
 

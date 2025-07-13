@@ -29,7 +29,7 @@ namespace CSimple.Services
             }
 
         /// <summary>
-        /// Executes all model nodes in the pipeline with optimal dependency-based ordering
+        /// Executes all model nodes in the pipeline with ultra-optimized performance
         /// </summary>
         public async Task<(int successCount, int skippedCount)> ExecuteAllModelsAsync(
             ObservableCollection<NodeViewModel> nodes,
@@ -38,27 +38,21 @@ namespace CSimple.Services
             Func<string, string, string, Task> showAlert = null)
         {
             var totalStopwatch = Stopwatch.StartNew();
-            Debug.WriteLine("🎯 [PipelineExecutionService.ExecuteAllModelsAsync] Starting execution");
 
             try
             {
-                // Clear caches for fresh execution
+                // Ultra-fast setup - minimal cache clearing for better performance
                 _nodeCache.Clear();
-                _dependencyCache.Clear();
                 _ensembleModelService.ClearStepContentCache();
 
-                // Step 1: Get all model nodes and build node cache
-                var step1Stopwatch = Stopwatch.StartNew();
-                var modelNodes = nodes.Where(n => n.Type == NodeType.Model).ToList();
-                
-                // Build node lookup cache once for the entire execution
+                // Fast filtering with pre-allocation
+                var modelNodes = new List<NodeViewModel>(nodes.Count);
                 foreach (var node in nodes)
                 {
                     _nodeCache[node.Id] = node;
+                    if (node.Type == NodeType.Model)
+                        modelNodes.Add(node);
                 }
-                
-                step1Stopwatch.Stop();
-                Debug.WriteLine($"⏱️ [Timing] Step 1 - Get model nodes and cache: {step1Stopwatch.ElapsedMilliseconds}ms");
 
                 if (modelNodes.Count == 0)
                 {
@@ -67,12 +61,11 @@ namespace CSimple.Services
                     return (0, 0);
                 }
 
-                Debug.WriteLine($"📊 [PipelineExecutionService] Found {modelNodes.Count} model nodes to process");
+                Debug.WriteLine($"🎯 [PipelineExecutionService] Processing {modelNodes.Count} models");
 
-                // Step 2: Pre-cache model lookups and validate availability
-                var step2Stopwatch = Stopwatch.StartNew();
-                var modelLookupCache = new Dictionary<string, NeuralNetworkModel>();
-                var availableModelNodes = new List<NodeViewModel>();
+                // Optimized model lookup with pre-allocation
+                var modelLookupCache = new Dictionary<string, NeuralNetworkModel>(modelNodes.Count);
+                var availableModelNodes = new List<NodeViewModel>(modelNodes.Count);
                 
                 foreach (var modelNode in modelNodes)
                 {
@@ -83,50 +76,26 @@ namespace CSimple.Services
                         availableModelNodes.Add(modelNode);
                     }
                 }
-                step2Stopwatch.Stop();
-                Debug.WriteLine($"⏱️ [Timing] Step 2 - Build model lookup cache: {step2Stopwatch.ElapsedMilliseconds}ms");
 
-                // Step 3: Build execution groups based on dependencies (use availableModelNodes only)
-                var step3Stopwatch = Stopwatch.StartNew();
+                // Fast execution grouping
                 var executionGroups = BuildOptimizedExecutionGroups(availableModelNodes, connections);
-                step3Stopwatch.Stop();
-                Debug.WriteLine($"⏱️ [Timing] Step 3 - Build execution groups: {step3Stopwatch.ElapsedMilliseconds}ms");
 
-                Debug.WriteLine($"📋 [PipelineExecutionService] Organized into {executionGroups.Count} execution groups");
-                // Detailed group logging only for complex pipelines
-                if (executionGroups.Count > 1)
-                {
-                    for (int i = 0; i < executionGroups.Count; i++)
-                    {
-                        var group = executionGroups[i];
-                        Debug.WriteLine($"   Group {i + 1}: {group.Count} models");
-                    }
-                }
+                Debug.WriteLine($"📋 [PipelineExecutionService] {executionGroups.Count} execution groups");
 
                 int successCount = 0;
                 int skippedCount = 0;
 
-                // Step 4: Execute groups sequentially, but models within groups in parallel
-                var step4Stopwatch = Stopwatch.StartNew();
+                // Ultra-fast execution with minimal logging overhead
                 int groupIndex = 0;
                 foreach (var group in executionGroups)
                 {
-                    var groupStopwatch = Stopwatch.StartNew();
-                    
-                    // Only log group start for larger groups to reduce overhead
-                    if (group.Count > 1 || groupIndex == 0)
-                    {
-                        Debug.WriteLine($"📦 [PipelineExecutionService] Starting group {groupIndex + 1}/{executionGroups.Count} with {group.Count} models");
-                    }
-
-                    // Pre-build optimized connection count cache using array lookup for better performance
+                    // Pre-optimize connection count cache
                     var connectionCountCache = new Dictionary<string, int>(group.Count);
-                    var connectionsArray = connections.ToArray(); // Convert once for faster enumeration
+                    var connectionsArray = connections.ToArray(); // Use array for fast iteration
                     
                     foreach (var modelNode in group)
                     {
                         var inputCount = 0;
-                        // Use for loop instead of LINQ for better performance
                         for (int i = 0; i < connectionsArray.Length; i++)
                         {
                             if (connectionsArray[i].TargetNodeId == modelNode.Id)
@@ -135,7 +104,7 @@ namespace CSimple.Services
                         connectionCountCache[modelNode.Id] = inputCount;
                     }
 
-                    // Pre-filter executable models with batch processing (no LINQ)
+                    // Fast executable model filtering
                     var executableModels = new List<NodeViewModel>(group.Count);
                     foreach (var modelNode in group)
                     {
@@ -152,64 +121,33 @@ namespace CSimple.Services
                         continue;
                     }
                     
-                    // Only log parallel execution for multi-model groups
-                    if (executableModels.Count > 1)
-                    {
-                        Debug.WriteLine($"🚀 [PipelineExecutionService] Parallel execution: {executableModels.Count} models");
-                    }
-                    
-                    // Execute all models in the group truly in parallel using pre-allocated tasks array
+                    // Ultra-fast parallel execution
                     var parallelTasks = new Task<(bool success, NodeViewModel modelNode)>[executableModels.Count];
                     for (int i = 0; i < executableModels.Count; i++)
                     {
                         var modelNode = executableModels[i];
-                        var correspondingModel = modelLookupCache[modelNode.Id]; // Cache lookup once
+                        var correspondingModel = modelLookupCache[modelNode.Id];
                         
-                        parallelTasks[i] = Task.Run(async () =>
-                        {
-                            try
-                            {
-                                await ExecuteOptimizedModelNodeAsync(modelNode, correspondingModel, nodes, connections, currentActionStep);
-                                return (true, modelNode);
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"❌ [PipelineExecutionService] Model '{modelNode.Name}' failed: {ex.Message}");
-                                return (false, modelNode);
-                            }
-                        });
+                        parallelTasks[i] = ExecuteOptimizedModelNodeAsync(modelNode, correspondingModel, nodes, connections, currentActionStep)
+                            .ContinueWith(task => (task.IsCompletedSuccessfully, modelNode), TaskContinuationOptions.ExecuteSynchronously);
                     }
                     
                     var results = await Task.WhenAll(parallelTasks);
                     
-                    // Use fast counting instead of LINQ for better performance
+                    // Ultra-fast result counting
                     var batchSuccessCount = 0;
-                    var batchFailedCount = 0;
                     for (int i = 0; i < results.Length; i++)
                     {
-                        if (results[i].success)
-                            batchSuccessCount++;
-                        else
-                            batchFailedCount++;
-                    }
-
-                    groupStopwatch.Stop();
-                    
-                    // Minimal logging for performance - only log if group took significant time or had failures
-                    if (groupStopwatch.ElapsedMilliseconds > 100 || batchFailedCount > 0)
-                    {
-                        Debug.WriteLine($"✅ [PipelineExecutionService] Group {groupIndex + 1}: {batchSuccessCount} successful, {batchFailedCount} failed in {groupStopwatch.ElapsedMilliseconds}ms");
+                        if (results[i].success) batchSuccessCount++;
                     }
 
                     successCount += batchSuccessCount;
-                    skippedCount += group.Count - batchSuccessCount - batchFailedCount;
+                    skippedCount += group.Count - batchSuccessCount - (results.Length - batchSuccessCount);
                     groupIndex++;
                 }
-                step4Stopwatch.Stop();
                 
                 totalStopwatch.Stop();
-                Debug.WriteLine($"🎉 [PipelineExecutionService] Pipeline completed: {successCount} successful, {skippedCount} skipped in {totalStopwatch.ElapsedMilliseconds}ms");
-                Debug.WriteLine($"   └── Execution efficiency: {(step4Stopwatch.ElapsedMilliseconds > 0 ? (double)step4Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100 : 0):F1}% actual execution");
+                Debug.WriteLine($"🎉 [PipelineExecutionService] Completed: {successCount} successful, {skippedCount} skipped in {totalStopwatch.ElapsedMilliseconds}ms");
 
                 return (successCount, skippedCount);
             }

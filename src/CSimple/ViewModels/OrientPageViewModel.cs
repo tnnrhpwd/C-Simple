@@ -1134,7 +1134,7 @@ namespace CSimple.ViewModels
         private async Task ExecuteRunAllModelsAsync()
         {
             var totalStopwatch = Stopwatch.StartNew();
-            Debug.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting optimized execution");
+            Debug.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting ultra-optimized execution");
 
             // Use cached pipeline state for faster access
             if (!_pipelineStateCacheValid)
@@ -1142,19 +1142,15 @@ namespace CSimple.ViewModels
                 CachePipelineState();
             }
 
-            Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] Pipeline Overview:");
-            Debug.WriteLine($"   • Total Nodes: {Nodes.Count} (Models: {_cachedModelNodes.Count}, Inputs: {_cachedInputNodes.Count})");
-            Debug.WriteLine($"   • Total Connections: {Connections.Count}");
-            Debug.WriteLine($"   • Current Action Step: {CurrentActionStep}");
+            Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] Pipeline Overview: {Nodes.Count} nodes, {_cachedModelNodes.Count} models, {Connections.Count} connections");
 
             try
             {
-                // Store the original selected node (minimal overhead)
+                // Store the original selected node reference only (no copying)
                 var originalSelectedNode = SelectedNode;
 
-                // Execute all models using pipeline execution service
+                // Execute all models using pipeline execution service with optimizations
                 var executionStopwatch = Stopwatch.StartNew();
-                Debug.WriteLine($"🚀 [ExecuteRunAllModelsAsync] Starting pipeline execution with {_cachedModelNodes.Count} models...");
 
                 var (successCount, skippedCount) = await _pipelineExecutionService.ExecuteAllModelsAsync(
                     Nodes,
@@ -1163,35 +1159,26 @@ namespace CSimple.ViewModels
                     ShowAlert
                 );
                 executionStopwatch.Stop();
-                Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] Pipeline execution: {executionStopwatch.ElapsedMilliseconds}ms");
 
                 // Restore the original selected node
                 SelectedNode = originalSelectedNode;
 
-                // Defer pipeline saving to reduce I/O overhead during execution
-                _ = Task.Run(async () =>
+                // Fire-and-forget pipeline saving to avoid blocking
+                _ = SaveCurrentPipelineAsync().ContinueWith(saveTask =>
                 {
-                    try
-                    {
-                        await SaveCurrentPipelineAsync();
-                        Debug.WriteLine($"� [ExecuteRunAllModelsAsync] Pipeline saved asynchronously");
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"⚠️ [ExecuteRunAllModelsAsync] Async save failed: {ex.Message}");
-                    }
-                });
+                    if (saveTask.IsCompletedSuccessfully)
+                        Debug.WriteLine("💾 [ExecuteRunAllModelsAsync] Pipeline saved asynchronously");
+                    else if (saveTask.Exception != null)
+                        Debug.WriteLine($"⚠️ [ExecuteRunAllModelsAsync] Async save failed: {saveTask.Exception.InnerException?.Message}");
+                }, TaskContinuationOptions.ExecuteSynchronously);
 
                 totalStopwatch.Stop();
-                string resultMessage = $"Execution completed!\nSuccessful: {successCount}\nSkipped: {skippedCount}";
-                Debug.WriteLine($"🎉 [ExecuteRunAllModelsAsync] {resultMessage}");
-                Debug.WriteLine($"⏱️ [ExecuteRunAllModelsAsync] TOTAL UI TIME: {totalStopwatch.ElapsedMilliseconds}ms (Execution: {executionStopwatch.ElapsedMilliseconds}ms)");
                 
-                // Simplified performance stats
-                Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] Results: {successCount} successful, {skippedCount} skipped");
+                // Streamlined logging for better performance
+                Debug.WriteLine($"🎉 [ExecuteRunAllModelsAsync] Completed in {totalStopwatch.ElapsedMilliseconds}ms: {successCount} successful, {skippedCount} skipped");
                 if (successCount > 0)
                 {
-                    Debug.WriteLine($"   └── Avg time per model: {executionStopwatch.ElapsedMilliseconds / successCount:F0}ms");
+                    Debug.WriteLine($"   └── Avg: {executionStopwatch.ElapsedMilliseconds / successCount:F0}ms/model, Efficiency: {(double)executionStopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%");
                 }
             }
             catch (Exception ex)
