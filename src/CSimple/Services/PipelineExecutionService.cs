@@ -9,21 +9,24 @@ using CSimple.Models;
 using CSimple.ViewModels;
 
 namespace CSimple.Services
-{
-    /// <summary>
-    /// Service for handling pipeline execution, including "Run All Models" functionality
-    /// with dependency resolution, topological sorting, and parallel execution
-    /// </summary>
-    public class PipelineExecutionService
-    {
-        private readonly EnsembleModelService _ensembleModelService;
-        private readonly Func<NodeViewModel, NeuralNetworkModel> _findCorrespondingModelFunc;
-
-        public PipelineExecutionService(EnsembleModelService ensembleModelService, Func<NodeViewModel, NeuralNetworkModel> findCorrespondingModelFunc)
+{        /// <summary>
+        /// Service for handling pipeline execution, including "Run All Models" functionality
+        /// with dependency resolution, topological sorting, and parallel execution
+        /// </summary>
+        public class PipelineExecutionService
         {
-            _ensembleModelService = ensembleModelService ?? throw new ArgumentNullException(nameof(ensembleModelService));
-            _findCorrespondingModelFunc = findCorrespondingModelFunc ?? throw new ArgumentNullException(nameof(findCorrespondingModelFunc));
-        }
+            private readonly EnsembleModelService _ensembleModelService;
+            private readonly Func<NodeViewModel, NeuralNetworkModel> _findCorrespondingModelFunc;
+            
+            // Performance optimization caches
+            private readonly Dictionary<string, NodeViewModel> _nodeCache = new Dictionary<string, NodeViewModel>();
+            private readonly Dictionary<string, List<string>> _dependencyCache = new Dictionary<string, List<string>>();
+
+            public PipelineExecutionService(EnsembleModelService ensembleModelService, Func<NodeViewModel, NeuralNetworkModel> findCorrespondingModelFunc)
+            {
+                _ensembleModelService = ensembleModelService ?? throw new ArgumentNullException(nameof(ensembleModelService));
+                _findCorrespondingModelFunc = findCorrespondingModelFunc ?? throw new ArgumentNullException(nameof(findCorrespondingModelFunc));
+            }
 
         /// <summary>
         /// Executes all model nodes in the pipeline with optimal dependency-based ordering
@@ -39,11 +42,22 @@ namespace CSimple.Services
 
             try
             {
-                // Step 1: Get all model nodes
+                // Clear caches for fresh execution
+                _nodeCache.Clear();
+                _dependencyCache.Clear();
+
+                // Step 1: Get all model nodes and build node cache
                 var step1Stopwatch = Stopwatch.StartNew();
                 var modelNodes = nodes.Where(n => n.Type == NodeType.Model).ToList();
+                
+                // Build node lookup cache once for the entire execution
+                foreach (var node in nodes)
+                {
+                    _nodeCache[node.Id] = node;
+                }
+                
                 step1Stopwatch.Stop();
-                Debug.WriteLine($"⏱️ [Timing] Step 1 - Get model nodes: {step1Stopwatch.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"⏱️ [Timing] Step 1 - Get model nodes and cache: {step1Stopwatch.ElapsedMilliseconds}ms");
 
                 if (modelNodes.Count == 0)
                 {
@@ -54,23 +68,26 @@ namespace CSimple.Services
 
                 Debug.WriteLine($"📊 [PipelineExecutionService] Found {modelNodes.Count} model nodes to process");
 
-                // Step 2: Pre-cache model lookups to avoid repeated searches
+                // Step 2: Pre-cache model lookups and validate availability
                 var step2Stopwatch = Stopwatch.StartNew();
                 var modelLookupCache = new Dictionary<string, NeuralNetworkModel>();
+                var availableModelNodes = new List<NodeViewModel>();
+                
                 foreach (var modelNode in modelNodes)
                 {
                     var correspondingModel = _findCorrespondingModelFunc(modelNode);
                     if (correspondingModel != null)
                     {
                         modelLookupCache[modelNode.Id] = correspondingModel;
+                        availableModelNodes.Add(modelNode);
                     }
                 }
                 step2Stopwatch.Stop();
                 Debug.WriteLine($"⏱️ [Timing] Step 2 - Build model lookup cache: {step2Stopwatch.ElapsedMilliseconds}ms");
 
-                // Step 3: Build execution groups based on dependencies
+                // Step 3: Build execution groups based on dependencies (use availableModelNodes only)
                 var step3Stopwatch = Stopwatch.StartNew();
-                var executionGroups = BuildOptimizedExecutionGroups(modelNodes, connections);
+                var executionGroups = BuildOptimizedExecutionGroups(availableModelNodes, connections);
                 step3Stopwatch.Stop();
                 Debug.WriteLine($"⏱️ [Timing] Step 3 - Build execution groups: {step3Stopwatch.ElapsedMilliseconds}ms");
 
@@ -170,13 +187,17 @@ namespace CSimple.Services
                 return new List<List<NodeViewModel>> { modelNodes };
             }
             
-            // Only consider ACTUAL model-to-model dependencies
-            var actualModelConnections = connections.Where(c => 
+            // Only consider ACTUAL model-to-model dependencies - use cached lookups
+            var actualModelConnections = new List<ConnectionViewModel>();
+            var modelNodeIds = new HashSet<string>(modelNodes.Select(m => m.Id));
+            
+            foreach (var c in connections)
             {
-                var sourceNode = modelNodes.FirstOrDefault(m => m.Id == c.SourceNodeId);
-                var targetNode = modelNodes.FirstOrDefault(m => m.Id == c.TargetNodeId);
-                return sourceNode?.Type == NodeType.Model && targetNode?.Type == NodeType.Model;
-            }).ToList();
+                if (modelNodeIds.Contains(c.SourceNodeId) && modelNodeIds.Contains(c.TargetNodeId))
+                {
+                    actualModelConnections.Add(c);
+                }
+            }
             
             // If no model-to-model dependencies, run all in parallel
             if (actualModelConnections.Count == 0)
@@ -189,11 +210,13 @@ namespace CSimple.Services
             var dependencyLevels = new Dictionary<NodeViewModel, int>();
             var dependencies = new Dictionary<string, HashSet<string>>();
             
+            // Initialize all nodes
             foreach (var node in modelNodes)
             {
                 dependencies[node.Id] = new HashSet<string>();
             }
             
+            // Build dependencies from actual model connections
             foreach (var connection in actualModelConnections)
             {
                 dependencies[connection.TargetNodeId].Add(connection.SourceNodeId);
@@ -201,11 +224,13 @@ namespace CSimple.Services
             
             // Calculate levels
             var visited = new HashSet<string>();
+            var modelNodeLookup = modelNodes.ToDictionary(n => n.Id, n => n);
+            
             foreach (var node in modelNodes)
             {
                 if (!visited.Contains(node.Id))
                 {
-                    CalculateNodeLevelOptimized(node, dependencyLevels, dependencies, visited, modelNodes);
+                    CalculateNodeLevelOptimized(node, dependencyLevels, dependencies, visited, modelNodeLookup);
                 }
             }
 
@@ -224,7 +249,7 @@ namespace CSimple.Services
         /// </summary>
         private void CalculateNodeLevelOptimized(NodeViewModel node, Dictionary<NodeViewModel, int> dependencyLevels,
                                                 Dictionary<string, HashSet<string>> dependencies, HashSet<string> visited, 
-                                                List<NodeViewModel> modelNodes)
+                                                Dictionary<string, NodeViewModel> modelNodeLookup)
         {
             if (visited.Contains(node.Id))
                 return;
@@ -259,8 +284,8 @@ namespace CSimple.Services
                     {
                         foreach (var depId in dependencies[current.Id])
                         {
-                            var depNode = modelNodes.FirstOrDefault(n => n.Id == depId);
-                            if (depNode != null && dependencyLevels.ContainsKey(depNode))
+                            // Use cached node lookup instead of FirstOrDefault
+                            if (modelNodeLookup.TryGetValue(depId, out var depNode) && dependencyLevels.ContainsKey(depNode))
                             {
                                 maxLevel = Math.Max(maxLevel, dependencyLevels[depNode] + 1);
                             }
@@ -282,8 +307,7 @@ namespace CSimple.Services
                         bool allDepsProcessed = true;
                         foreach (var depId in dependencies[current.Id])
                         {
-                            var depNode = modelNodes.FirstOrDefault(n => n.Id == depId);
-                            if (depNode != null && !visited.Contains(depId))
+                            if (modelNodeLookup.TryGetValue(depId, out var depNode) && !visited.Contains(depId))
                             {
                                 if (!processing.Contains(depId))
                                 {
@@ -299,8 +323,7 @@ namespace CSimple.Services
                             var maxLevel = 0;
                             foreach (var depId in dependencies[current.Id])
                             {
-                                var depNode = modelNodes.FirstOrDefault(n => n.Id == depId);
-                                if (depNode != null && dependencyLevels.ContainsKey(depNode))
+                                if (modelNodeLookup.TryGetValue(depId, out var depNode) && dependencyLevels.ContainsKey(depNode))
                                 {
                                     maxLevel = Math.Max(maxLevel, dependencyLevels[depNode] + 1);
                                 }

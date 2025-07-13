@@ -15,6 +15,7 @@ namespace CSimple.Services
     public class EnsembleModelService
     {
         private readonly NetPageViewModel _netPageViewModel;
+        private readonly Dictionary<string, NodeViewModel> _nodeCache = new Dictionary<string, NodeViewModel>();
 
         public EnsembleModelService(NetPageViewModel netPageViewModel)
         {
@@ -26,28 +27,33 @@ namespace CSimple.Services
         /// </summary>
         public List<NodeViewModel> GetConnectedInputNodes(NodeViewModel modelNode, ObservableCollection<NodeViewModel> nodes, ObservableCollection<ConnectionViewModel> connections)
         {
-            Console.WriteLine($"🔍 [GetConnectedInputNodes] Finding inputs for model node: {modelNode.Name}");
             Debug.WriteLine($"🔍 [GetConnectedInputNodes] Finding inputs for model node: {modelNode.Name}");
 
             var connectedNodes = new List<NodeViewModel>();
 
+            // Build node cache if empty or if new nodes were added
+            if (_nodeCache.Count != nodes.Count)
+            {
+                _nodeCache.Clear();
+                foreach (var node in nodes)
+                {
+                    _nodeCache[node.Id] = node;
+                }
+            }
+
             // Find all connections that target this model node
             var incomingConnections = connections.Where(c => c.TargetNodeId == modelNode.Id).ToList();
-            Console.WriteLine($"🔗 [GetConnectedInputNodes] Found {incomingConnections.Count} incoming connections");
             Debug.WriteLine($"🔗 [GetConnectedInputNodes] Found {incomingConnections.Count} incoming connections");
 
             foreach (var connection in incomingConnections)
             {
-                var sourceNode = nodes.FirstOrDefault(n => n.Id == connection.SourceNodeId);
-                if (sourceNode != null)
+                if (_nodeCache.TryGetValue(connection.SourceNodeId, out var sourceNode))
                 {
-                    Console.WriteLine($"🔗 [GetConnectedInputNodes] Connected node: {sourceNode.Name} (Type: {sourceNode.Type}, DataType: {sourceNode.DataType})");
                     Debug.WriteLine($"🔗 [GetConnectedInputNodes] Connected node: {sourceNode.Name} (Type: {sourceNode.Type}, DataType: {sourceNode.DataType})");
                     connectedNodes.Add(sourceNode);
                 }
                 else
                 {
-                    Console.WriteLine($"⚠️ [GetConnectedInputNodes] Warning: Source node with ID {connection.SourceNodeId} not found");
                     Debug.WriteLine($"⚠️ [GetConnectedInputNodes] Warning: Source node with ID {connection.SourceNodeId} not found");
                 }
             }
@@ -60,47 +66,43 @@ namespace CSimple.Services
         /// </summary>
         public string CombineStepContents(List<string> stepContents, string ensembleMethod)
         {
-            Console.WriteLine($"🔀 [CombineStepContents] Combining {stepContents.Count} contents using method: {ensembleMethod}");
             Debug.WriteLine($"🔀 [CombineStepContents] Combining {stepContents.Count} contents using method: {ensembleMethod}");
 
             if (stepContents == null || stepContents.Count == 0)
             {
-                Console.WriteLine("❌ [CombineStepContents] No content to combine");
                 Debug.WriteLine("❌ [CombineStepContents] No content to combine");
                 return string.Empty;
             }
 
-            // Check if we're dealing with image file paths (simple heuristic: check if first item looks like a file path)
-            bool isImageContent = stepContents.Count > 0 &&
-                                  (stepContents[0].Contains(@"\") || stepContents[0].Contains("/")) &&
-                                  (stepContents[0].EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
-                                   stepContents[0].EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
-                                   stepContents[0].EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase));
+            // Quick content type detection using optimized checks
+            var firstContent = stepContents[0];
+            bool isImageContent = firstContent.IndexOf('.') > 0 && 
+                                  (firstContent.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                                   firstContent.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                                   firstContent.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase));
 
-            // Check if we're dealing with audio file paths
-            bool isAudioContent = stepContents.Count > 0 &&
-                                  (stepContents[0].Contains(@"\") || stepContents[0].Contains("/")) &&
-                                  (stepContents[0].EndsWith(".wav", StringComparison.OrdinalIgnoreCase) ||
-                                   stepContents[0].EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) ||
-                                   stepContents[0].EndsWith(".aac", StringComparison.OrdinalIgnoreCase) ||
-                                   stepContents[0].EndsWith(".flac", StringComparison.OrdinalIgnoreCase));
+            bool isAudioContent = firstContent.IndexOf('.') > 0 &&
+                                  (firstContent.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) ||
+                                   firstContent.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) ||
+                                   firstContent.EndsWith(".aac", StringComparison.OrdinalIgnoreCase) ||
+                                   firstContent.EndsWith(".flac", StringComparison.OrdinalIgnoreCase));
 
             if (isImageContent)
             {
-                Console.WriteLine("🖼️ [CombineStepContents] Detected image content, using first image for model input");
                 Debug.WriteLine("🖼️ [CombineStepContents] Detected image content, using first image for model input");
-                // For image models, use the first image path (most image models process one image at a time)
-                // In the future, this could be enhanced to support multi-image ensemble methods
-                return stepContents[0];
+                return firstContent;
             }
 
             if (isAudioContent)
             {
-                Console.WriteLine("🔊 [CombineStepContents] Detected audio content, using first audio file for model input");
                 Debug.WriteLine("🔊 [CombineStepContents] Detected audio content, using first audio file for model input");
-                // For audio models, use the first audio file path (most audio models process one file at a time)
-                // In the future, this could be enhanced to support multi-audio ensemble methods
-                return stepContents[0];
+                return firstContent;
+            }
+
+            // Fast path for single content
+            if (stepContents.Count == 1)
+            {
+                return firstContent;
             }
 
             switch (ensembleMethod?.ToLowerInvariant())
@@ -109,28 +111,21 @@ namespace CSimple.Services
                 case "concat":
                 case null:
                 default:
-                    Console.WriteLine("🔗 [CombineStepContents] Using concatenation method");
                     Debug.WriteLine("🔗 [CombineStepContents] Using concatenation method");
                     return string.Join("\n\n", stepContents);
 
                 case "average":
                 case "averaging":
-                    Console.WriteLine("📊 [CombineStepContents] Using averaging method (fallback to concatenation for text)");
                     Debug.WriteLine("📊 [CombineStepContents] Using averaging method (fallback to concatenation for text)");
-                    // For text content, averaging doesn't make much sense, so we concatenate with averaging context
                     return $"[Ensemble Average of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
 
                 case "voting":
                 case "majority":
-                    Console.WriteLine("🗳️ [CombineStepContents] Using voting method (fallback to concatenation for text)");
                     Debug.WriteLine("🗳️ [CombineStepContents] Using voting method (fallback to concatenation for text)");
-                    // For text content, voting doesn't make much sense, so we concatenate with voting context
                     return $"[Ensemble Voting of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
 
                 case "weighted":
-                    Console.WriteLine("⚖️ [CombineStepContents] Using weighted method (fallback to concatenation for text)");
                     Debug.WriteLine("⚖️ [CombineStepContents] Using weighted method (fallback to concatenation for text)");
-                    // For text content, weighting doesn't make much sense, so we concatenate with weighting context
                     return $"[Ensemble Weighted of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
             }
         }
@@ -267,7 +262,6 @@ namespace CSimple.Services
             var totalStopwatch = Stopwatch.StartNew();
             try
             {
-                Console.WriteLine($"🔧 [ExecuteSingleModelNodeAsync] Executing single model: {modelNode.Name}");
                 Debug.WriteLine($"🔧 [ExecuteSingleModelNodeAsync] Executing single model: {modelNode.Name}");
 
                 // Step 1: Get input from connected nodes
@@ -275,14 +269,12 @@ namespace CSimple.Services
                 var connectedInputNodes = GetConnectedInputNodes(modelNode, nodes, connections);
                 string input = PrepareModelInput(modelNode, connectedInputNodes, currentActionStep);
                 inputPrepStopwatch.Stop();
-                Console.WriteLine($"📝 [ExecuteSingleModelNodeAsync] Step 1 - Input preparation: {inputPrepStopwatch.ElapsedMilliseconds}ms (Input length: {input?.Length ?? 0})");
                 Debug.WriteLine($"📝 [ExecuteSingleModelNodeAsync] Step 1 - Input preparation: {inputPrepStopwatch.ElapsedMilliseconds}ms (Input length: {input?.Length ?? 0})");
 
                 // Step 2: Execute the model
                 var modelExecStopwatch = Stopwatch.StartNew();
                 string result = await ExecuteModelWithInput(correspondingModel, input);
                 modelExecStopwatch.Stop();
-                Console.WriteLine($"🤖 [ExecuteSingleModelNodeAsync] Step 2 - Model execution: {modelExecStopwatch.ElapsedMilliseconds}ms (Result length: {result?.Length ?? 0})");
                 Debug.WriteLine($"🤖 [ExecuteSingleModelNodeAsync] Step 2 - Model execution: {modelExecStopwatch.ElapsedMilliseconds}ms (Result length: {result?.Length ?? 0})");
 
                 // Step 3: Determine result content type and store
@@ -291,23 +283,14 @@ namespace CSimple.Services
                 int currentStep = currentActionStep + 1;
                 modelNode.SetStepOutput(currentStep, resultContentType, result);
                 storeStopwatch.Stop();
-                Console.WriteLine($"💾 [ExecuteSingleModelNodeAsync] Step 3 - Output storage: {storeStopwatch.ElapsedMilliseconds}ms (Type: {resultContentType})");
                 Debug.WriteLine($"💾 [ExecuteSingleModelNodeAsync] Step 3 - Output storage: {storeStopwatch.ElapsedMilliseconds}ms (Type: {resultContentType})");
 
                 totalStopwatch.Stop();
-                
-                // Enhanced summary with timing breakdown
-                Console.WriteLine($"� [ExecuteSingleModelNodeAsync] '{modelNode.Name}' completed in {totalStopwatch.ElapsedMilliseconds}ms:");
-                Console.WriteLine($"   ├── Input prep: {inputPrepStopwatch.ElapsedMilliseconds}ms ({(double)inputPrepStopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
-                Console.WriteLine($"   ├── Model exec: {modelExecStopwatch.ElapsedMilliseconds}ms ({(double)modelExecStopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
-                Console.WriteLine($"   └── Output store: {storeStopwatch.ElapsedMilliseconds}ms ({(double)storeStopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
-                
                 Debug.WriteLine($"💾 [ExecuteSingleModelNodeAsync] Stored output in model node '{modelNode.Name}' at step {currentStep} - Total: {totalStopwatch.ElapsedMilliseconds}ms");
             }
             catch (Exception ex)
             {
                 totalStopwatch.Stop();
-                Console.WriteLine($"❌ [ExecuteSingleModelNodeAsync] Error executing model {modelNode.Name} after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
                 Debug.WriteLine($"❌ [ExecuteSingleModelNodeAsync] Error executing model {modelNode.Name} after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
                 throw; // Re-throw to be handled by the caller
             }

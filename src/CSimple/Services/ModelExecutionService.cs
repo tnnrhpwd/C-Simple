@@ -13,6 +13,11 @@ namespace CSimple.Services
     public class ModelExecutionService
     {
         private readonly CSimple.Services.AppModeService.AppModeService _appModeService;
+        
+        // Cache for file existence checks to avoid repeated I/O
+        private readonly Dictionary<string, bool> _fileExistsCache = new Dictionary<string, bool>();
+        private DateTime _lastCacheReset = DateTime.UtcNow;
+        private static readonly TimeSpan CacheTimeout = TimeSpan.FromMinutes(5);
 
         // Events for status updates
         public event Action<string> StatusUpdated;
@@ -22,6 +27,23 @@ namespace CSimple.Services
         public ModelExecutionService(CSimple.Services.AppModeService.AppModeService appModeService)
         {
             _appModeService = appModeService;
+        }
+        
+        private bool FileExistsCached(string filePath)
+        {
+            // Reset cache periodically to catch file changes
+            if (DateTime.UtcNow - _lastCacheReset > CacheTimeout)
+            {
+                _fileExistsCache.Clear();
+                _lastCacheReset = DateTime.UtcNow;
+            }
+            
+            if (!_fileExistsCache.TryGetValue(filePath, out bool exists))
+            {
+                exists = File.Exists(filePath);
+                _fileExistsCache[filePath] = exists;
+            }
+            return exists;
         }
 
         /// <summary>
@@ -36,7 +58,7 @@ namespace CSimple.Services
                 throw new InvalidOperationException("Python is not available. Please install Python and restart the application.");
             }
 
-            if (!File.Exists(huggingFaceScriptPath))
+            if (!FileExistsCached(huggingFaceScriptPath))
             {
                 throw new FileNotFoundException($"HuggingFace script not found at: {huggingFaceScriptPath}");
             }
@@ -194,7 +216,7 @@ namespace CSimple.Services
                 throw new InvalidOperationException("Python is not available. Please install Python and restart the application.");
             }
 
-            if (!File.Exists(huggingFaceScriptPath))
+            if (!FileExistsCached(huggingFaceScriptPath))
             {
                 throw new FileNotFoundException($"HuggingFace script not found at: {huggingFaceScriptPath}");
             }
