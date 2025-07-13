@@ -36,6 +36,7 @@ public static class MauiProgram
         services.AddSingleton<NodeManagementService>(); // ADDED
         services.AddSingleton<PipelineManagementService>(); // ADDED
         services.AddSingleton<ActionReviewService>(); // ADDED for action review functionality
+        services.AddSingleton<EnsembleModelService>(); // ADDED for ensemble model execution
         services.AddSingleton(sp =>
         {
             var actionService = sp.GetRequiredService<ActionService>();
