@@ -197,29 +197,41 @@ namespace CSimple.Services
             var dependencyLevels = new Dictionary<NodeViewModel, int>();
             
             // ENHANCED ANALYSIS: Only consider ACTUAL model-to-model dependencies
+            // A model-to-model dependency exists only when one model's OUTPUT feeds into another model's INPUT
             var actualModelConnections = connections.Where(c => 
             {
-                var sourceIsModel = modelNodes.Any(m => m.Id == c.SourceNodeId);
-                var targetIsModel = modelNodes.Any(m => m.Id == c.TargetNodeId);
-                return sourceIsModel && targetIsModel; // Both must be models for a real dependency
+                var sourceNode = modelNodes.FirstOrDefault(m => m.Id == c.SourceNodeId);
+                var targetNode = modelNodes.FirstOrDefault(m => m.Id == c.TargetNodeId);
+                
+                // Both nodes must be models AND the source must have already produced output
+                // that the target depends on (not just input->model connections)
+                bool isModelToModel = sourceNode?.Type == NodeType.Model && targetNode?.Type == NodeType.Model;
+                
+                if (isModelToModel)
+                {
+                    Debug.WriteLine($"   🔗 Found model-to-model dependency: '{sourceNode.Name}' -> '{targetNode.Name}'");
+                }
+                
+                return isModelToModel;
             }).ToList();
             
             Debug.WriteLine($"📊 [BuildOptimizedExecutionGroups] Found {actualModelConnections.Count} actual model-to-model connections out of {connections.Count} total connections");
             
-            // If no ACTUAL model-to-model dependencies, force maximum parallelism
+            // OPTIMIZATION: Check if we can achieve maximum parallelism
+            // Most pipelines should run all models in parallel unless there are explicit model chains
             if (actualModelConnections.Count == 0)
             {
-                Debug.WriteLine("📊 [BuildOptimizedExecutionGroups] NO ACTUAL MODEL DEPENDENCIES - FORCING MAXIMUM PARALLELISM");
-                Debug.WriteLine($"📊 [BuildOptimizedExecutionGroups] All {modelNodes.Count} models will execute in parallel");
+                Debug.WriteLine("� [BuildOptimizedExecutionGroups] NO MODEL-TO-MODEL DEPENDENCIES - ENABLING MAXIMUM PARALLELISM");
+                Debug.WriteLine($"⚡ [BuildOptimizedExecutionGroups] All {modelNodes.Count} models will execute in parallel for optimal performance");
                 
-                // Log connection details for debugging
+                // Log all connections for debugging but don't treat them as dependencies
                 foreach (var conn in connections)
                 {
                     var sourceNode = modelNodes.FirstOrDefault(m => m.Id == conn.SourceNodeId);
                     var targetNode = modelNodes.FirstOrDefault(m => m.Id == conn.TargetNodeId);
-                    var sourceType = sourceNode?.Type.ToString() ?? "Input/Output";
-                    var targetType = targetNode?.Type.ToString() ?? "Input/Output";
-                    Debug.WriteLine($"   Connection: {sourceType} -> {targetType} (not a model dependency)");
+                    var sourceType = sourceNode?.Type.ToString() ?? "Input/Other";
+                    var targetType = targetNode?.Type.ToString() ?? "Output/Other";
+                    Debug.WriteLine($"   📎 Connection: {sourceType} -> {targetType} (input/output flow, not execution dependency)");
                 }
                 
                 return new List<List<NodeViewModel>> { modelNodes };
