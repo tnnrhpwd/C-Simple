@@ -103,39 +103,51 @@ namespace CSimple.Services
                                      .Select(async modelNode =>
                     {
                         var modelStopwatch = Stopwatch.StartNew();
+                        var taskStartTime = DateTime.UtcNow;
                         try
                         {
-                            Debug.WriteLine($"🚀 [PipelineExecutionService] Executing model: {modelNode.Name}");
+                            Debug.WriteLine($"🚀 [PipelineExecutionService] [{taskStartTime:HH:mm:ss.fff}] Starting execution: {modelNode.Name}");
 
                             await ExecuteOptimizedModelNodeAsync(modelNode, modelLookupCache[modelNode.Id], nodes, connections, currentActionStep);
 
                             modelStopwatch.Stop();
-                            Debug.WriteLine($"✅ [PipelineExecutionService] Successfully executed: {modelNode.Name} in {modelStopwatch.ElapsedMilliseconds}ms");
-                            return (success: true, node: modelNode, duration: modelStopwatch.ElapsedMilliseconds);
+                            var taskEndTime = DateTime.UtcNow;
+                            Debug.WriteLine($"✅ [PipelineExecutionService] [{taskEndTime:HH:mm:ss.fff}] Successfully executed: {modelNode.Name} in {modelStopwatch.ElapsedMilliseconds}ms");
+                            return (success: true, node: modelNode, duration: modelStopwatch.ElapsedMilliseconds, startTime: taskStartTime, endTime: taskEndTime);
                         }
                         catch (Exception ex)
                         {
                             modelStopwatch.Stop();
-                            Debug.WriteLine($"❌ [PipelineExecutionService] Error executing {modelNode.Name} after {modelStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
-                            return (success: false, node: modelNode, duration: modelStopwatch.ElapsedMilliseconds);
+                            var taskEndTime = DateTime.UtcNow;
+                            Debug.WriteLine($"❌ [PipelineExecutionService] [{taskEndTime:HH:mm:ss.fff}] Error executing {modelNode.Name} after {modelStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
+                            return (success: false, node: modelNode, duration: modelStopwatch.ElapsedMilliseconds, startTime: taskStartTime, endTime: taskEndTime);
                         }
                     });
 
                     var results = await Task.WhenAll(tasks);
                     groupStopwatch.Stop();
 
-                    // Enhanced group completion logging
+                    // Enhanced group completion logging with better timing analysis
                     var successfulInGroup = results.Count(r => r.success);
                     var failedInGroup = results.Count(r => !r.success);
                     var avgDuration = results.Length > 0 ? results.Average(r => r.duration) : 0;
                     var maxDuration = results.Length > 0 ? results.Max(r => r.duration) : 0;
                     var minDuration = results.Length > 0 ? results.Min(r => r.duration) : 0;
-
+                    
+                    // Calculate actual parallelism metrics
+                    var earliestStart = results.Length > 0 ? results.Min(r => r.startTime) : DateTime.UtcNow;
+                    var latestEnd = results.Length > 0 ? results.Max(r => r.endTime) : DateTime.UtcNow;
+                    var actualParallelDuration = (latestEnd - earliestStart).TotalMilliseconds;
+                    var totalSequentialTime = results.Sum(r => r.duration);
+                    var parallelismEfficiency = totalSequentialTime > 0 ? (totalSequentialTime / actualParallelDuration) : 0;
+                    
                     Debug.WriteLine($"📊 [PipelineExecutionService] Group {groupIndex + 1} completed in {groupStopwatch.ElapsedMilliseconds}ms:");
                     Debug.WriteLine($"   ├── Models executed: {results.Length}/{group.Count}");
                     Debug.WriteLine($"   ├── Success: {successfulInGroup}, Failed: {failedInGroup}");
-                    Debug.WriteLine($"   ├── Duration stats: Min={minDuration}ms, Avg={avgDuration:F0}ms, Max={maxDuration}ms");
-                    Debug.WriteLine($"   └── Group overhead: {Math.Max(0, groupStopwatch.ElapsedMilliseconds - maxDuration)}ms");
+                    Debug.WriteLine($"   ├── Individual durations: Min={minDuration}ms, Avg={avgDuration:F0}ms, Max={maxDuration}ms");
+                    Debug.WriteLine($"   ├── Parallel metrics: Wall time={actualParallelDuration:F0}ms, Total work={totalSequentialTime:F0}ms");
+                    Debug.WriteLine($"   ├── Parallelism efficiency: {parallelismEfficiency:F1}x (ideal={results.Length}x)");
+                    Debug.WriteLine($"   └── Task management overhead: {Math.Max(0, groupStopwatch.ElapsedMilliseconds - actualParallelDuration):F0}ms");
 
                     successCount += results.Count(r => r.success);
                     skippedCount += group.Count - results.Length + results.Count(r => !r.success);
@@ -155,8 +167,10 @@ namespace CSimple.Services
                 Debug.WriteLine($"   ├── Models processed: {successCount + skippedCount}");
                 Debug.WriteLine($"   ├── Success rate: {(successCount > 0 ? (double)successCount / (successCount + skippedCount) * 100 : 0):F1}%");
                 Debug.WriteLine($"   ├── Execution groups: {executionGroups.Count}");
-                Debug.WriteLine($"   ├── Total time: {totalStopwatch.ElapsedMilliseconds}ms");
-                Debug.WriteLine($"   └── Avg time per successful model: {(successCount > 0 ? totalStopwatch.ElapsedMilliseconds / successCount : 0):F0}ms");
+                Debug.WriteLine($"   ├── Pipeline execution time: {totalStopwatch.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"   ├── Time per successful model: {(successCount > 0 ? totalStopwatch.ElapsedMilliseconds / successCount : 0):F0}ms");
+                Debug.WriteLine($"   ├── Setup overhead: {step1Stopwatch.ElapsedMilliseconds + step2Stopwatch.ElapsedMilliseconds + step3Stopwatch.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"   └── Execution efficiency: {(step4Stopwatch.ElapsedMilliseconds > 0 ? (double)step4Stopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100 : 0):F1}% actual execution");
 
                 return (successCount, skippedCount);
             }

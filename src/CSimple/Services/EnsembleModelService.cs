@@ -275,13 +275,15 @@ namespace CSimple.Services
                 var connectedInputNodes = GetConnectedInputNodes(modelNode, nodes, connections);
                 string input = PrepareModelInput(modelNode, connectedInputNodes, currentActionStep);
                 inputPrepStopwatch.Stop();
-                Console.WriteLine($"⏱️ [ExecuteSingleModelNodeAsync] Input preparation took: {inputPrepStopwatch.ElapsedMilliseconds}ms");
+                Console.WriteLine($"📝 [ExecuteSingleModelNodeAsync] Step 1 - Input preparation: {inputPrepStopwatch.ElapsedMilliseconds}ms (Input length: {input?.Length ?? 0})");
+                Debug.WriteLine($"📝 [ExecuteSingleModelNodeAsync] Step 1 - Input preparation: {inputPrepStopwatch.ElapsedMilliseconds}ms (Input length: {input?.Length ?? 0})");
 
                 // Step 2: Execute the model
                 var modelExecStopwatch = Stopwatch.StartNew();
                 string result = await ExecuteModelWithInput(correspondingModel, input);
                 modelExecStopwatch.Stop();
-                Console.WriteLine($"⏱️ [ExecuteSingleModelNodeAsync] Model execution took: {modelExecStopwatch.ElapsedMilliseconds}ms");
+                Console.WriteLine($"🤖 [ExecuteSingleModelNodeAsync] Step 2 - Model execution: {modelExecStopwatch.ElapsedMilliseconds}ms (Result length: {result?.Length ?? 0})");
+                Debug.WriteLine($"🤖 [ExecuteSingleModelNodeAsync] Step 2 - Model execution: {modelExecStopwatch.ElapsedMilliseconds}ms (Result length: {result?.Length ?? 0})");
 
                 // Step 3: Determine result content type and store
                 var storeStopwatch = Stopwatch.StartNew();
@@ -289,10 +291,17 @@ namespace CSimple.Services
                 int currentStep = currentActionStep + 1;
                 modelNode.SetStepOutput(currentStep, resultContentType, result);
                 storeStopwatch.Stop();
-                Console.WriteLine($"⏱️ [ExecuteSingleModelNodeAsync] Output storage took: {storeStopwatch.ElapsedMilliseconds}ms");
+                Console.WriteLine($"💾 [ExecuteSingleModelNodeAsync] Step 3 - Output storage: {storeStopwatch.ElapsedMilliseconds}ms (Type: {resultContentType})");
+                Debug.WriteLine($"💾 [ExecuteSingleModelNodeAsync] Step 3 - Output storage: {storeStopwatch.ElapsedMilliseconds}ms (Type: {resultContentType})");
 
                 totalStopwatch.Stop();
-                Console.WriteLine($"💾 [ExecuteSingleModelNodeAsync] Stored output in model node '{modelNode.Name}' at step {currentStep} - Total: {totalStopwatch.ElapsedMilliseconds}ms");
+                
+                // Enhanced summary with timing breakdown
+                Console.WriteLine($"� [ExecuteSingleModelNodeAsync] '{modelNode.Name}' completed in {totalStopwatch.ElapsedMilliseconds}ms:");
+                Console.WriteLine($"   ├── Input prep: {inputPrepStopwatch.ElapsedMilliseconds}ms ({(double)inputPrepStopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
+                Console.WriteLine($"   ├── Model exec: {modelExecStopwatch.ElapsedMilliseconds}ms ({(double)modelExecStopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
+                Console.WriteLine($"   └── Output store: {storeStopwatch.ElapsedMilliseconds}ms ({(double)storeStopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%)");
+                
                 Debug.WriteLine($"💾 [ExecuteSingleModelNodeAsync] Stored output in model node '{modelNode.Name}' at step {currentStep} - Total: {totalStopwatch.ElapsedMilliseconds}ms");
             }
             catch (Exception ex)
