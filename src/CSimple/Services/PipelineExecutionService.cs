@@ -35,7 +35,6 @@ namespace CSimple.Services
         {
             var totalStopwatch = Stopwatch.StartNew();
             Debug.WriteLine("🎯 [PipelineExecutionService.ExecuteAllModelsAsync] Starting execution");
-            Debug.WriteLine("🎯 [PipelineExecutionService.ExecuteAllModelsAsync] Starting execution");
 
             try
             {
@@ -94,19 +93,16 @@ namespace CSimple.Services
                         try
                         {
                             Debug.WriteLine($"🚀 [PipelineExecutionService] Executing model: {modelNode.Name}");
-                            Debug.WriteLine($"🚀 [PipelineExecutionService] Executing model: {modelNode.Name}");
 
                             await ExecuteOptimizedModelNodeAsync(modelNode, modelLookupCache[modelNode.Id], nodes, connections, currentActionStep);
 
                             modelStopwatch.Stop();
-                            Debug.WriteLine($"✅ [PipelineExecutionService] Successfully executed: {modelNode.Name} in {modelStopwatch.ElapsedMilliseconds}ms");
                             Debug.WriteLine($"✅ [PipelineExecutionService] Successfully executed: {modelNode.Name} in {modelStopwatch.ElapsedMilliseconds}ms");
                             return (success: true, node: modelNode);
                         }
                         catch (Exception ex)
                         {
                             modelStopwatch.Stop();
-                            Debug.WriteLine($"❌ [PipelineExecutionService] Error executing {modelNode.Name} after {modelStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
                             Debug.WriteLine($"❌ [PipelineExecutionService] Error executing {modelNode.Name} after {modelStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
                             return (success: false, node: modelNode);
                         }
@@ -128,13 +124,11 @@ namespace CSimple.Services
 
                 string resultMessage = $"Execution completed!\nSuccessful: {successCount}\nSkipped: {skippedCount}";
                 Debug.WriteLine($"🎉 [PipelineExecutionService] {resultMessage}");
-                Debug.WriteLine($"🎉 [PipelineExecutionService] {resultMessage}");
 
                 return (successCount, skippedCount);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ [PipelineExecutionService] Critical error: {ex.Message}");
                 Debug.WriteLine($"❌ [PipelineExecutionService] Critical error: {ex.Message}");
                 throw;
             }
@@ -215,7 +209,6 @@ namespace CSimple.Services
                 // Note: We need the nodes collection to find the actual NodeViewModel
                 // This will be passed as a parameter in a real implementation
                 // For now, we'll return an empty list and handle this in the calling code
-                Debug.WriteLine($"🔗 [GetNodeDependencies] Found dependency connection: {connection.SourceNodeId} -> {node.Id}");
                 Debug.WriteLine($"🔗 [GetNodeDependencies] Found dependency connection: {connection.SourceNodeId} -> {node.Id}");
             }
 
@@ -319,7 +312,6 @@ namespace CSimple.Services
             if (visiting.Contains(node.Id))
             {
                 // Cycle detected - log warning but continue
-                Debug.WriteLine($"⚠️ [TopologicalSort] Cycle detected involving node: {node.Name}");
                 Debug.WriteLine($"⚠️ [TopologicalSort] Cycle detected involving node: {node.Name}");
                 return;
             }
