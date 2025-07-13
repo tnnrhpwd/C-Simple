@@ -28,6 +28,8 @@ namespace CSimple.ViewModels
         private readonly AudioStepContentService _audioStepContentService; // Added for audio step content management
         private readonly ActionReviewService _actionReviewService; // Added for action review functionality
         private readonly EnsembleModelService _ensembleModelService; // Added for ensemble model execution
+        private readonly PipelineExecutionService _pipelineExecutionService; // Added for pipeline execution with dependency resolution
+        private readonly ActionStepNavigationService _actionStepNavigationService; // Added for action step navigation
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -190,7 +192,7 @@ namespace CSimple.ViewModels
 
         // --- Constructor ---
         // Ensure FileService and PythonBootstrapper are injected
-        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService)
+        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -201,6 +203,13 @@ namespace CSimple.ViewModels
             _audioStepContentService = new AudioStepContentService(); // Initialize audio step content service
             _actionReviewService = actionReviewService; // Initialize action review service
             _ensembleModelService = ensembleModelService; // Initialize ensemble model service
+            _actionStepNavigationService = actionStepNavigationService; // Initialize action step navigation service via DI
+
+            // Initialize pipeline execution service with dependency injection
+            _pipelineExecutionService = new PipelineExecutionService(
+                _ensembleModelService,
+                (node) => FindCorrespondingModel(_netPageViewModel, node)
+            );
 
             // Subscribe to audio playback events
             _audioStepContentService.PlaybackStarted += OnAudioPlaybackStarted;
@@ -223,10 +232,40 @@ namespace CSimple.ViewModels
             // Subscribe to NetPageViewModel's PropertyChanged event
             netPageViewModel.PropertyChanged += NetPageViewModel_PropertyChanged;
 
-            // Initialize Review Action commands
-            StepForwardCommand = new Command(ExecuteStepForward, () => !string.IsNullOrEmpty(SelectedReviewActionName) && _currentActionItems != null && CurrentActionStep < _currentActionItems.Count);
-            StepBackwardCommand = new Command(ExecuteStepBackward, () => !string.IsNullOrEmpty(SelectedReviewActionName) && CurrentActionStep > 0);
-            ResetActionCommand = new Command(ExecuteResetAction, () => !string.IsNullOrEmpty(SelectedReviewActionName));
+            // Initialize Review Action commands using the service
+            StepForwardCommand = new Command(async () =>
+                await _actionStepNavigationService.ExecuteStepForwardAsync(
+                    CurrentActionStep,
+                    _currentActionItems,
+                    SetCurrentActionStepAsync,
+                    () =>
+                    {
+                        (StepForwardCommand as Command)?.ChangeCanExecute();
+                        (StepBackwardCommand as Command)?.ChangeCanExecute();
+                    }),
+                () => _actionStepNavigationService.CanStepForward(SelectedReviewActionName, _currentActionItems, CurrentActionStep));
+
+            StepBackwardCommand = new Command(async () =>
+                await _actionStepNavigationService.ExecuteStepBackwardAsync(
+                    CurrentActionStep,
+                    SetCurrentActionStepAsync,
+                    () =>
+                    {
+                        (StepForwardCommand as Command)?.ChangeCanExecute();
+                        (StepBackwardCommand as Command)?.ChangeCanExecute();
+                    }),
+                () => _actionStepNavigationService.CanStepBackward(SelectedReviewActionName, CurrentActionStep));
+
+            ResetActionCommand = new Command(async () =>
+                await _actionStepNavigationService.ExecuteResetActionAsync(
+                    CurrentActionStep,
+                    SetCurrentActionStepAsync,
+                    () =>
+                    {
+                        (StepForwardCommand as Command)?.ChangeCanExecute();
+                        (StepBackwardCommand as Command)?.ChangeCanExecute();
+                    }),
+                () => _actionStepNavigationService.CanResetAction(SelectedReviewActionName));
             GenerateCommand = new Command(async () => await ExecuteGenerateAsync(), () => SelectedNode != null && SelectedNode.Type == NodeType.Model && SelectedNode.EnsembleInputCount > 1);
 
             // Initialize RunAllModelsCommand with debug logging
@@ -965,23 +1004,20 @@ namespace CSimple.ViewModels
             {
                 Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Attempting to load action: {SelectedReviewActionName ?? "null"}");
 
-                // Reset current state
-                CurrentActionStep = 0; // Set to 0, so first StepForward goes to step 1 (index 0)
-                _currentActionItems.Clear();
-                OnPropertyChanged(nameof(CurrentActionStep)); // Ensure UI updates if it was already 0
+                // Use the ActionStepNavigationService to load the action
+                var result = await _actionStepNavigationService.LoadSelectedActionAsync(
+                    SelectedReviewActionName,
+                    Nodes,
+                    SetCurrentActionStepAsync,
+                    () =>
+                    {
+                        (StepForwardCommand as Command)?.ChangeCanExecute();
+                        (StepBackwardCommand as Command)?.ChangeCanExecute();
+                    });
 
-                // Clear ActionSteps for all input nodes
-                foreach (var nodeVM in Nodes.Where(n => n.Type == NodeType.Input))
-                {
-                    nodeVM.ActionSteps.Clear();
-                    Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Cleared ActionSteps for Input Node: {nodeVM.Name}");
-                }
+                _currentActionItems = result.ActionItems;
 
-                // Use the ActionReviewService to load the action data
-                var actionReviewData = await _actionReviewService.LoadSelectedActionAsync(SelectedReviewActionName, Nodes);
-                _currentActionItems = actionReviewData.ActionItems;
-
-                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Loaded '{SelectedReviewActionName}' with {_currentActionItems.Count} action items via service.");
+                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Loaded '{SelectedReviewActionName}' with {_currentActionItems.Count} action items via navigation service.");
             }
             catch (Exception ex)
             {
@@ -993,50 +1029,6 @@ namespace CSimple.ViewModels
                 (StepBackwardCommand as Command)?.ChangeCanExecute();
                 UpdateStepContent(); // Call this to reflect the state for CurrentActionStep = 0
             }
-        }
-
-        private async void ExecuteStepForward()
-        {
-            if (_currentActionItems == null || CurrentActionStep >= _currentActionItems.Count - 1) // Check if already at the last step or beyond
-            {
-                Debug.WriteLine($"[OrientPageViewModel.ExecuteStepForward] Cannot step forward. CurrentActionStep: {CurrentActionStep}, TotalItems: {_currentActionItems?.Count ?? 0}");
-                (StepForwardCommand as Command)?.ChangeCanExecute(); // Re-evaluate CanExecute
-                return;
-            }
-
-            CurrentActionStep++;
-            Debug.WriteLine($"[OrientPageViewModel.ExecuteStepForward] CurrentActionStep incremented to: {CurrentActionStep}");
-            await LoadActionStepData(); // Load data for the new CurrentActionStep
-
-            (StepBackwardCommand as Command)?.ChangeCanExecute();
-            (StepForwardCommand as Command)?.ChangeCanExecute();
-        }
-
-        private async void ExecuteStepBackward()
-        {
-            if (CurrentActionStep <= 0)
-            {
-                Debug.WriteLine($"[OrientPageViewModel.ExecuteStepBackward] Cannot step backward. CurrentActionStep: {CurrentActionStep}");
-                (StepBackwardCommand as Command)?.ChangeCanExecute(); // Re-evaluate CanExecute
-                return;
-            }
-            CurrentActionStep--;
-            Debug.WriteLine($"[OrientPageViewModel.ExecuteStepBackward] CurrentActionStep decremented to: {CurrentActionStep}");
-            await LoadActionStepData();
-
-            (StepBackwardCommand as Command)?.ChangeCanExecute();
-            (StepForwardCommand as Command)?.ChangeCanExecute();
-        }
-
-        private async void ExecuteResetAction()
-        {
-            Debug.WriteLine($"[OrientPageViewModel.ExecuteResetAction] Resetting action. CurrentActionStep was: {CurrentActionStep}");
-            CurrentActionStep = 0; // This will trigger UpdateStepContent via its setter if value changes
-            await LoadActionStepData(); // Load data for step 0
-
-            (StepBackwardCommand as Command)?.ChangeCanExecute();
-            (StepForwardCommand as Command)?.ChangeCanExecute();
-            Debug.WriteLine($"[OrientPageViewModel.ExecuteResetAction] Action reset. CurrentActionStep is now: {CurrentActionStep}");
         }
 
         private async Task LoadActionStepData()
@@ -1115,66 +1107,21 @@ namespace CSimple.ViewModels
         // --- Run All Models Command Implementation ---
         private async Task ExecuteRunAllModelsAsync()
         {
-            Console.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting execution");
-            Debug.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting execution");
+            Console.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting execution using PipelineExecutionService");
+            Debug.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting execution using PipelineExecutionService");
 
             try
             {
-                // Get all model nodes
-                var modelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
-                if (modelNodes.Count == 0)
-                {
-                    await ShowAlert?.Invoke("Info", "No model nodes found in the pipeline.", "OK");
-                    return;
-                }
-
-                Console.WriteLine($"� [ExecuteRunAllModelsAsync] Found {modelNodes.Count} model nodes to process");
-
-                // Pre-cache model lookups to avoid repeated searches
-                var modelLookupCache = new Dictionary<string, NeuralNetworkModel>();
-                foreach (var modelNode in modelNodes)
-                {
-                    var correspondingModel = FindCorrespondingModel(_netPageViewModel, modelNode);
-                    if (correspondingModel != null)
-                    {
-                        modelLookupCache[modelNode.Id] = correspondingModel;
-                    }
-                }
-
-                // Build execution groups based on dependencies
-                var executionGroups = BuildOptimizedExecutionGroups(modelNodes);
-
-                Console.WriteLine($"📋 [ExecuteRunAllModelsAsync] Organized into {executionGroups.Count} execution groups");
-
                 // Store the original selected node to restore later
                 var originalSelectedNode = SelectedNode;
 
-                int successCount = 0;
-                int skippedCount = 0;
-
-                // Execute groups sequentially, but models within groups in parallel
-                foreach (var group in executionGroups)
-                {
-                    var tasks = group.Where(modelNode => CanExecuteModelNode(modelNode) && modelLookupCache.ContainsKey(modelNode.Id))
-                                     .Select(async modelNode =>
-                    {
-                        try
-                        {
-                            await ExecuteOptimizedModelNodeAsync(modelNode, modelLookupCache[modelNode.Id]);
-                            Console.WriteLine($"✅ [ExecuteRunAllModelsAsync] Successfully executed: {modelNode.Name}");
-                            return (modelNode.Name, success: true);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"❌ [ExecuteRunAllModelsAsync] Error executing model {modelNode.Name}: {ex.Message}");
-                            return (modelNode.Name, success: false);
-                        }
-                    });
-
-                    var results = await Task.WhenAll(tasks);
-                    successCount += results.Count(r => r.success);
-                    skippedCount += group.Count - results.Length + results.Count(r => !r.success);
-                }
+                // Use the pipeline execution service to handle the complex logic
+                var (successCount, skippedCount) = await _pipelineExecutionService.ExecuteAllModelsAsync(
+                    Nodes,
+                    Connections,
+                    CurrentActionStep,
+                    ShowAlert
+                );
 
                 // Restore the original selected node
                 SelectedNode = originalSelectedNode;
@@ -1194,197 +1141,6 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"❌ [ExecuteRunAllModelsAsync] Critical error: {ex.Message}");
                 await ShowAlert?.Invoke("Error", $"Failed to run all models: {ex.Message}", "OK");
             }
-        }
-
-        private List<List<NodeViewModel>> BuildOptimizedExecutionGroups(List<NodeViewModel> modelNodes)
-        {
-            var groups = new List<List<NodeViewModel>>();
-            var visited = new HashSet<string>();
-            var processing = new HashSet<string>(); // For cycle detection
-
-            // Create dependency levels - models in the same level can run in parallel
-            var dependencyLevels = new Dictionary<NodeViewModel, int>();
-
-            foreach (var node in modelNodes)
-            {
-                if (!visited.Contains(node.Id))
-                {
-                    CalculateNodeLevel(node, dependencyLevels, visited, processing, 0);
-                }
-            }
-
-            // Group nodes by their dependency level
-            var levelGroups = dependencyLevels.GroupBy(kvp => kvp.Value)
-                                              .OrderBy(g => g.Key)
-                                              .Select(g => g.Select(kvp => kvp.Key).ToList())
-                                              .ToList();
-
-            return levelGroups;
-        }
-
-        private int CalculateNodeLevel(NodeViewModel node, Dictionary<NodeViewModel, int> dependencyLevels,
-                                       HashSet<string> visited, HashSet<string> processing, int currentLevel)
-        {
-            if (processing.Contains(node.Id))
-                return currentLevel; // Cycle detection - use current level
-
-            if (visited.Contains(node.Id))
-                return dependencyLevels.GetValueOrDefault(node, 0);
-
-            processing.Add(node.Id);
-
-            var dependencies = GetNodeDependencies(node).Where(d => d.Type == NodeType.Model);
-            int maxDepLevel = currentLevel;
-
-            foreach (var dependency in dependencies)
-            {
-                int depLevel = CalculateNodeLevel(dependency, dependencyLevels, visited, processing, currentLevel);
-                maxDepLevel = Math.Max(maxDepLevel, depLevel + 1);
-            }
-
-            processing.Remove(node.Id);
-            visited.Add(node.Id);
-            dependencyLevels[node] = maxDepLevel;
-
-            return maxDepLevel;
-        }
-
-        private async Task ExecuteOptimizedModelNodeAsync(NodeViewModel modelNode, NeuralNetworkModel correspondingModel)
-        {
-            try
-            {
-                await _ensembleModelService.ExecuteSingleModelNodeAsync(modelNode, correspondingModel, Nodes, Connections, CurrentActionStep);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ [ExecuteOptimizedModelNodeAsync] Error executing model {modelNode.Name}: {ex.Message}");
-                throw;
-            }
-        }
-
-        private List<NodeViewModel> BuildDependencyBasedExecutionOrder(List<NodeViewModel> modelNodes)
-        {
-            var executionOrder = new List<NodeViewModel>();
-            var visited = new HashSet<string>();
-            var visiting = new HashSet<string>(); // For cycle detection
-
-            foreach (var node in modelNodes)
-            {
-                if (!visited.Contains(node.Id))
-                {
-                    TopologicalSort(node, visited, visiting, executionOrder);
-                }
-            }
-
-            return executionOrder;
-        }
-
-        private void TopologicalSort(NodeViewModel node, HashSet<string> visited, HashSet<string> visiting, List<NodeViewModel> executionOrder)
-        {
-            if (visiting.Contains(node.Id))
-            {
-                // Cycle detected - log warning but continue
-                Console.WriteLine($"⚠️ [TopologicalSort] Cycle detected involving node: {node.Name}");
-                Debug.WriteLine($"⚠️ [TopologicalSort] Cycle detected involving node: {node.Name}");
-                return;
-            }
-
-            if (visited.Contains(node.Id))
-                return;
-
-            visiting.Add(node.Id);
-
-            // Find all dependencies (nodes that this node depends on)
-            var dependencies = GetNodeDependencies(node);
-            foreach (var dependency in dependencies)
-            {
-                if (!visited.Contains(dependency.Id))
-                {
-                    TopologicalSort(dependency, visited, visiting, executionOrder);
-                }
-            }
-
-            visiting.Remove(node.Id);
-            visited.Add(node.Id);
-
-            // Only add model nodes to execution order
-            if (node.Type == NodeType.Model)
-            {
-                executionOrder.Add(node);
-            }
-        }
-
-        private List<NodeViewModel> GetNodeDependencies(NodeViewModel node)
-        {
-            var dependencies = new List<NodeViewModel>();
-
-            // Find all nodes that this node depends on (input connections)
-            var incomingConnections = Connections.Where(c => c.TargetNodeId == node.Id).ToList();
-
-            foreach (var connection in incomingConnections)
-            {
-                var sourceNode = Nodes.FirstOrDefault(n => n.Id == connection.SourceNodeId);
-                if (sourceNode != null)
-                {
-                    dependencies.Add(sourceNode);
-
-                    // If the source is also a model node, we need to ensure it runs first
-                    if (sourceNode.Type == NodeType.Model)
-                    {
-                        // Recursively add its dependencies
-                        dependencies.AddRange(GetNodeDependencies(sourceNode));
-                    }
-                }
-            }
-
-            return dependencies.Distinct().ToList();
-        }
-
-        private bool CanExecuteModelNode(NodeViewModel modelNode)
-        {
-            if (modelNode.Type != NodeType.Model)
-                return false;
-
-            // Check if the model has the minimum required inputs
-            var connectedInputNodes = GetConnectedInputNodes(modelNode);
-
-            // For ensemble models, need at least 2 inputs
-            if (modelNode.EnsembleInputCount > 1)
-            {
-                return connectedInputNodes.Count >= 2;
-            }
-
-            // For regular models, need at least 1 input or can run without inputs (depending on model type)
-            return true; // Allow execution even without inputs for some model types
-        }
-
-        private async Task ExecuteModelNodeAsync(NodeViewModel modelNode)
-        {
-            // Check if this is an ensemble model that requires multiple inputs
-            if (modelNode.EnsembleInputCount > 1)
-            {
-                // Use the existing ensemble execution logic
-                await ExecuteGenerateAsync();
-            }
-            else
-            {
-                // For single-input or no-input models, execute differently
-                await ExecuteSingleModelNodeAsync(modelNode);
-            }
-        }
-
-        private async Task ExecuteSingleModelNodeAsync(NodeViewModel modelNode)
-        {
-            // Find corresponding model in NetPageViewModel
-            var correspondingModel = FindCorrespondingModel(_netPageViewModel, modelNode);
-            if (correspondingModel == null)
-            {
-                Console.WriteLine($"❌ [ExecuteSingleModelNodeAsync] No corresponding model found for node: {modelNode.Name}");
-                Debug.WriteLine($"❌ [ExecuteSingleModelNodeAsync] No corresponding model found for node: {modelNode.Name}");
-                return;
-            }
-
-            await _ensembleModelService.ExecuteSingleModelNodeAsync(modelNode, correspondingModel, Nodes, Connections, CurrentActionStep);
         }
 
         // --- Generate Command Implementation ---
@@ -1619,5 +1375,16 @@ namespace CSimple.ViewModels
             Console.WriteLine("🐛 [DebugRunAllModelsCommand] === END DEBUG ===");
             Debug.WriteLine("🐛 [DebugRunAllModelsCommand] === END DEBUG ===");
         }
+
+        /// <summary>
+        /// Helper method for the navigation service to set current action step asynchronously
+        /// </summary>
+        private Task SetCurrentActionStepAsync(int newStep)
+        {
+            CurrentActionStep = newStep;
+            return Task.CompletedTask;
+        }
+
+        // --- Event Handlers ---
     }
 }
