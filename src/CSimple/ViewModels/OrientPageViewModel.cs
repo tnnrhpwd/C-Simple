@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text; // Added for StringBuilder
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
@@ -164,13 +165,17 @@ namespace CSimple.ViewModels
             get => _currentActionStep;
             set
             {
-                Debug.WriteLine($"[OrientPageViewModel.CurrentActionStep_Set] Attempting to set from {_currentActionStep} to {value}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.CurrentActionStep_Set] Attempting to set from {_currentActionStep} to {value}");
                 if (SetProperty(ref _currentActionStep, value))
                 {
-                    Debug.WriteLine($"[OrientPageViewModel.CurrentActionStep_Set] CurrentActionStep changed to: {CurrentActionStep}. Calling UpdateStepContent.");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.CurrentActionStep_Set] CurrentActionStep changed to: {CurrentActionStep}. Calling UpdateStepContent.");
                     // Invalidate execution optimization cache when step changes
                     _executionOptimizationCacheValid = false;
                     UpdateStepContent();
+
+                    // Trigger proactive preparation for "Run All Models" when step changes
+                    TriggerProactivePreparation();
+
                     // Update command can execute status
                     (StepBackwardCommand as Command)?.ChangeCanExecute();
                     (StepForwardCommand as Command)?.ChangeCanExecute(); // Ensure forward is also updated
@@ -271,15 +276,15 @@ namespace CSimple.ViewModels
             GenerateCommand = new Command(async () => await ExecuteGenerateAsync(), () => SelectedNode != null && SelectedNode.Type == NodeType.Model && SelectedNode.EnsembleInputCount > 1);
 
             // Initialize RunAllModelsCommand with debug logging
-            Debug.WriteLine("🔧 [OrientPageViewModel.Constructor] Initializing RunAllModelsCommand");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔧 [OrientPageViewModel.Constructor] Initializing RunAllModelsCommand");
             RunAllModelsCommand = new Command(async () =>
             {
-                Debug.WriteLine("🚀 [RunAllModelsCommand] Button clicked - executing command");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🚀 [RunAllModelsCommand] Button clicked - executing command");
                 await ExecuteRunAllModelsAsync();
             }, () =>
             {
                 bool canExecute = Nodes.Any(n => n.Type == NodeType.Model);
-                Debug.WriteLine($"🔍 [RunAllModelsCommand.CanExecute] Checking: {canExecute} (Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)})");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllModelsCommand.CanExecute] Checking: {canExecute} (Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)})");
                 return canExecute;
             });
 
@@ -289,11 +294,11 @@ namespace CSimple.ViewModels
 
             // Load available pipelines on initialization
             _ = LoadAvailablePipelinesAsync();
-            
+
             // Start background warmup immediately to avoid delays later
             StartBackgroundWarmup();
         }
-        
+
         /// <summary>
         /// Start background warmup to avoid delays during execution
         /// </summary>
@@ -303,8 +308,8 @@ namespace CSimple.ViewModels
             {
                 if (_backgroundWarmupTask == null && !_environmentPrewarmed)
                 {
-                    Debug.WriteLine("🔥 [StartBackgroundWarmup] Starting background environment warmup...");
-                    _backgroundWarmupTask = Task.Run(async () => 
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔥 [StartBackgroundWarmup] Starting background environment warmup...");
+                    _backgroundWarmupTask = Task.Run(async () =>
                     {
                         try
                         {
@@ -313,38 +318,38 @@ namespace CSimple.ViewModels
                             {
                                 _environmentPrewarmed = true;
                             }
-                            Debug.WriteLine("✅ [StartBackgroundWarmup] Background warmup completed successfully");
+                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [StartBackgroundWarmup] Background warmup completed successfully");
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"⚠️ [StartBackgroundWarmup] Background warmup failed (non-critical): {ex.Message}");
+                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚠️ [StartBackgroundWarmup] Background warmup failed (non-critical): {ex.Message}");
                         }
                     });
                 }
             }
         }
-        
+
         /// <summary>
         /// Background warmup that doesn't block initialization
         /// </summary>
         private async Task BackgroundWarmupAsync()
         {
             var stopwatch = Stopwatch.StartNew();
-            
+
             // 1. Ensure Python environment is ready in background
             if (_pythonBootstrapper != null)
             {
                 try
                 {
                     var isReady = await _pythonBootstrapper.AreRequiredPackagesInstalledAsync();
-                    Debug.WriteLine($"🐍 [BackgroundWarmup] Python ready: {isReady}");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🐍 [BackgroundWarmup] Python ready: {isReady}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"⚠️ [BackgroundWarmup] Python check failed: {ex.Message}");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚠️ [BackgroundWarmup] Python check failed: {ex.Message}");
                 }
             }
-            
+
             // 2. Pre-warm file system caches by accessing common directories
             try
             {
@@ -353,10 +358,10 @@ namespace CSimple.ViewModels
                     var commonPaths = new[]
                     {
                         @"C:\Users\tanne\Documents\CSimple\Resources\WebcamImages",
-                        @"C:\Users\tanne\Documents\CSimple\Resources\PCAudio", 
+                        @"C:\Users\tanne\Documents\CSimple\Resources\PCAudio",
                         @"C:\Users\tanne\Documents\CSimple\Resources\HFModels"
                     };
-                    
+
                     foreach (var path in commonPaths)
                     {
                         try
@@ -371,9 +376,9 @@ namespace CSimple.ViewModels
                 });
             }
             catch { /* Ignore warmup errors */ }
-            
+
             stopwatch.Stop();
-            Debug.WriteLine($"🔥 [BackgroundWarmup] Completed in {stopwatch.ElapsedMilliseconds}ms");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔥 [BackgroundWarmup] Completed in {stopwatch.ElapsedMilliseconds}ms");
         }
 
         // --- Event Handlers ---
@@ -991,7 +996,7 @@ namespace CSimple.ViewModels
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-            
+
             // Update command states only when necessary (optimized)
             switch (propertyName)
             {
@@ -1000,7 +1005,7 @@ namespace CSimple.ViewModels
                 case nameof(Connections):
                     InvalidatePipelineStateCache(); // Invalidate cache when structure changes
                     break;
-                    
+
                 case nameof(StepContent):
                 case nameof(StepContentType):
                     // Update audio command states when relevant properties change
@@ -1195,18 +1200,24 @@ namespace CSimple.ViewModels
         private List<NodeViewModel> _cachedInputNodes;
         private Dictionary<string, int> _cachedConnectionCounts;
         private bool _pipelineStateCacheValid = false;
-        
+
         // --- Ultra-fast execution caches ---
         private Dictionary<string, NeuralNetworkModel> _preloadedModelCache = new Dictionary<string, NeuralNetworkModel>();
         private Dictionary<string, (string contentType, string content)> _precomputedStepContentCache = new Dictionary<string, (string, string)>();
         private Dictionary<string, List<NodeViewModel>> _precomputedInputRelationships = new Dictionary<string, List<NodeViewModel>>();
         private Dictionary<string, string> _precomputedCombinedInputs = new Dictionary<string, string>();
         private bool _executionOptimizationCacheValid = false;
-        
+
         // --- Background warmup optimization ---
         private Task _backgroundWarmupTask = null;
         private bool _environmentPrewarmed = false;
         private readonly object _warmupLock = new object();
+
+        // --- Proactive preparation for Run All Models optimization ---
+        private Task _proactivePreparationTask = null;
+        private bool _modelExecutionPrepared = false;
+        private readonly object _preparationLock = new object();
+        private CancellationTokenSource _preparationCancellationSource = null;
 
         // Cache pipeline state for performance
         private void CachePipelineState()
@@ -1214,12 +1225,12 @@ namespace CSimple.ViewModels
             _cachedModelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
             _cachedInputNodes = Nodes.Where(n => n.Type == NodeType.Input).ToList();
             _cachedConnectionCounts = new Dictionary<string, int>();
-            
+
             foreach (var node in _cachedModelNodes)
             {
                 _cachedConnectionCounts[node.Id] = Connections.Count(c => c.TargetNodeId == node.Id);
             }
-            
+
             _pipelineStateCacheValid = true;
         }
 
@@ -1228,7 +1239,7 @@ namespace CSimple.ViewModels
         {
             _pipelineStateCacheValid = false;
             _executionOptimizationCacheValid = false;
-            
+
             // Also invalidate background warmup if pipeline structure changed
             lock (_warmupLock)
             {
@@ -1240,31 +1251,31 @@ namespace CSimple.ViewModels
         }
 
         // --- Ultra-fast execution optimization methods ---
-        
+
         /// <summary>
         /// Pre-loads and caches all expensive operations before model execution
         /// </summary>
         private async Task PrecomputeExecutionOptimizationsAsync()
         {
             if (_executionOptimizationCacheValid) return;
-            
+
             var stopwatch = Stopwatch.StartNew();
-            Debug.WriteLine("🚀 [PrecomputeExecutionOptimizations] Starting pre-computation...");
-            
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🚀 [PrecomputeExecutionOptimizations] Starting pre-computation...");
+
             // Clear existing caches
             _preloadedModelCache.Clear();
             _precomputedStepContentCache.Clear();
             _precomputedInputRelationships.Clear();
             _precomputedCombinedInputs.Clear();
-            
+
             // Ensure pipeline state is cached
             if (!_pipelineStateCacheValid)
             {
                 CachePipelineState();
             }
-            
+
             // 1. Pre-load all neural network models to avoid lookup delays (parallel)
-            Debug.WriteLine("📚 [PrecomputeExecutionOptimizations] Pre-loading model references...");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📚 [PrecomputeExecutionOptimizations] Pre-loading model references...");
             var modelTasks = _cachedModelNodes.Select(async modelNode =>
             {
                 try
@@ -1287,16 +1298,16 @@ namespace CSimple.ViewModels
                     Debug.WriteLine($"   ⚠️ Failed to cache model {modelNode.Name}: {ex.Message}");
                 }
             }).ToArray();
-            
+
             await Task.WhenAll(modelTasks);
-            
+
             // 2. Ensure background warmup is ready (but don't wait if it's not)
             await EnsureWarmupReadyAsync(maxWaitMs: 2000); // Quick check, don't block
-            
+
             // 3. Pre-compute step content for all input nodes (parallel)
-            Debug.WriteLine("📄 [PrecomputeExecutionOptimizations] Pre-computing step content...");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📄 [PrecomputeExecutionOptimizations] Pre-computing step content...");
             int stepIndex = CurrentActionStep + 1; // Convert to 1-based
-            
+
             var stepContentTasks = _cachedInputNodes.Select(async inputNode =>
             {
                 try
@@ -1319,11 +1330,11 @@ namespace CSimple.ViewModels
                     Debug.WriteLine($"   ⚠️ Failed to cache content for {inputNode.Name}: {ex.Message}");
                 }
             }).ToArray();
-            
+
             await Task.WhenAll(stepContentTasks);
-            
+
             // 4. Pre-compute input relationships and combined inputs for all models (parallel)
-            Debug.WriteLine("🔗 [PrecomputeExecutionOptimizations] Pre-computing input relationships...");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔗 [PrecomputeExecutionOptimizations] Pre-computing input relationships...");
             var relationshipTasks = _cachedModelNodes.Select(async modelNode =>
             {
                 try
@@ -1335,16 +1346,16 @@ namespace CSimple.ViewModels
                         {
                             _precomputedInputRelationships[modelNode.Id] = connectedInputNodes;
                         }
-                        
+
                         // Only pre-compute for models that have direct input node connections
                         var directInputNodes = connectedInputNodes.Where(n => n.Type == NodeType.Input).ToList();
-                        
+
                         if (directInputNodes.Count > 0)
                         {
                             // Pre-compute combined input based on cached step content for direct inputs only
                             var stepContents = new List<string>();
                             bool allInputsAvailable = true;
-                            
+
                             foreach (var inputNode in directInputNodes)
                             {
                                 lock (_precomputedStepContentCache)
@@ -1368,7 +1379,7 @@ namespace CSimple.ViewModels
                                     }
                                 }
                             }
-                            
+
                             if (allInputsAvailable && stepContents.Count > 0)
                             {
                                 string combinedInput = CombineStepContents(stepContents, modelNode.SelectedEnsembleMethod);
@@ -1394,14 +1405,14 @@ namespace CSimple.ViewModels
                     Debug.WriteLine($"   ⚠️ Failed to compute relationships for {modelNode.Name}: {ex.Message}");
                 }
             }).ToArray();
-            
+
             await Task.WhenAll(relationshipTasks);
-            
+
             _executionOptimizationCacheValid = true;
             stopwatch.Stop();
             Debug.WriteLine($"🎉 [PrecomputeExecutionOptimizations] Completed in {stopwatch.ElapsedMilliseconds}ms");
         }
-        
+
         /// <summary>
         /// Ensures background warmup is ready, with optional timeout
         /// </summary>
@@ -1411,7 +1422,7 @@ namespace CSimple.ViewModels
             {
                 if (_environmentPrewarmed) return;
             }
-            
+
             if (_backgroundWarmupTask != null)
             {
                 try
@@ -1435,14 +1446,14 @@ namespace CSimple.ViewModels
         private async Task PrewarmExecutionEnvironmentAsync()
         {
             var stopwatch = Stopwatch.StartNew();
-            Debug.WriteLine("🔥 [PrewarmExecutionEnvironment] Starting environment pre-warming...");
-            
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔥 [PrewarmExecutionEnvironment] Starting environment pre-warming...");
+
             try
             {
                 // 1. Ensure Python environment is ready
                 if (_pythonBootstrapper != null)
                 {
-                    Debug.WriteLine("🐍 [PrewarmExecutionEnvironment] Ensuring Python environment is ready...");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🐍 [PrewarmExecutionEnvironment] Ensuring Python environment is ready...");
                     await Task.Run(async () =>
                     {
                         // This will ensure Python is available and packages are installed
@@ -1450,12 +1461,12 @@ namespace CSimple.ViewModels
                         Debug.WriteLine($"🐍 [PrewarmExecutionEnvironment] Python ready: {isReady}");
                     });
                 }
-                
+
                 // 2. Pre-warm NetPageViewModel execution pipeline if we have models (OPTIMIZED VERSION)
                 if (_preloadedModelCache.Count > 0 && _netPageViewModel != null)
                 {
-                    Debug.WriteLine("🤖 [PrewarmExecutionEnvironment] Pre-warming model execution pipeline...");
-                    
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🤖 [PrewarmExecutionEnvironment] Pre-warming model execution pipeline...");
+
                     // Run a quick test execution with a minimal input to warm up the pipeline
                     var firstModel = _preloadedModelCache.Values.FirstOrDefault();
                     if (firstModel != null)
@@ -1469,21 +1480,21 @@ namespace CSimple.ViewModels
                                 // Use a minimal test input that won't affect the actual results
                                 await _netPageViewModel.ExecuteModelAsync(firstModel.HuggingFaceModelId, "test");
                             });
-                            Debug.WriteLine("✅ [PrewarmExecutionEnvironment] Model execution pipeline warmed up");
+                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [PrewarmExecutionEnvironment] Model execution pipeline warmed up");
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"⚠️ [PrewarmExecutionEnvironment] Warmup failed (non-critical): {ex.Message}");
+                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚠️ [PrewarmExecutionEnvironment] Warmup failed (non-critical): {ex.Message}");
                         }
                     }
                 }
-                
+
                 stopwatch.Stop();
                 Debug.WriteLine($"🔥 [PrewarmExecutionEnvironment] Completed in {stopwatch.ElapsedMilliseconds}ms");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"⚠️ [PrewarmExecutionEnvironment] Error (non-critical): {ex.Message}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚠️ [PrewarmExecutionEnvironment] Error (non-critical): {ex.Message}");
             }
         }
 
@@ -1491,29 +1502,39 @@ namespace CSimple.ViewModels
         private async Task ExecuteRunAllModelsAsync()
         {
             var totalStopwatch = Stopwatch.StartNew();
-            Debug.WriteLine("🎯 [ExecuteRunAllModelsAsync] Starting ultra-optimized execution");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🎯 [ExecuteRunAllModelsAsync] Starting ultra-optimized execution with proactive preparation");
 
             try
             {
-                // Step 1: Pre-compute all expensive operations before execution
-                Debug.WriteLine("🔧 [ExecuteRunAllModelsAsync] Pre-computing optimizations...");
-                var precomputeStopwatch = Stopwatch.StartNew();
-                
-                // Use cached pipeline state for faster access
-                if (!_pipelineStateCacheValid)
-                {
-                    CachePipelineState();
-                }
-                
-                // Ensure background warmup is ready (don't wait too long)
-                await EnsureWarmupReadyAsync(maxWaitMs: 3000);
-                
-                // Pre-compute all execution optimizations
-                await PrecomputeExecutionOptimizationsAsync();
-                precomputeStopwatch.Stop();
-                Debug.WriteLine($"⚡ [ExecuteRunAllModelsAsync] Pre-computation completed in {precomputeStopwatch.ElapsedMilliseconds}ms");
+                // Step 1: Check if proactive preparation is ready (fast path)
+                bool preparationReady = await IsProactivePreparationReadyAsync(maxWaitMs: 1500);
 
-                Debug.WriteLine($"📊 [ExecuteRunAllModelsAsync] Processing {_cachedModelNodes.Count} models");
+                if (!preparationReady)
+                {
+                    // Fallback: Pre-compute optimizations if proactive preparation wasn't ready
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔧 [ExecuteRunAllModelsAsync] Fallback: Pre-computing optimizations...");
+                    var precomputeStopwatch = Stopwatch.StartNew();
+
+                    // Use cached pipeline state for faster access
+                    if (!_pipelineStateCacheValid)
+                    {
+                        CachePipelineState();
+                    }
+
+                    // Ensure background warmup is ready (don't wait too long)
+                    await EnsureWarmupReadyAsync(maxWaitMs: 3000);
+
+                    // Pre-compute all execution optimizations
+                    await PrecomputeExecutionOptimizationsAsync();
+                    precomputeStopwatch.Stop();
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚡ [ExecuteRunAllModelsAsync] Fallback pre-computation completed in {precomputeStopwatch.ElapsedMilliseconds}ms");
+                }
+                else
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🚀 [ExecuteRunAllModelsAsync] Using proactive preparation - skipping expensive setup!");
+                }
+
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📊 [ExecuteRunAllModelsAsync] Processing {_cachedModelNodes?.Count ?? 0} models");
 
                 // Store the original selected node reference only (no copying)
                 var originalSelectedNode = SelectedNode;
@@ -1535,13 +1556,14 @@ namespace CSimple.ViewModels
                 SelectedNode = originalSelectedNode;
 
                 totalStopwatch.Stop();
-                
+
                 // Streamlined logging for better performance
-                Debug.WriteLine($"🎉 [ExecuteRunAllModelsAsync] Completed in {totalStopwatch.ElapsedMilliseconds}ms: {successCount} successful, {skippedCount} skipped");
+                string preparationMethod = preparationReady ? "proactive" : "fallback";
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🎉 [ExecuteRunAllModelsAsync] Completed in {totalStopwatch.ElapsedMilliseconds}ms using {preparationMethod} preparation: {successCount} successful, {skippedCount} skipped");
                 if (successCount > 0)
                 {
-                    Debug.WriteLine($"   └── Pre-compute: {precomputeStopwatch.ElapsedMilliseconds}ms, Execution: {executionStopwatch.ElapsedMilliseconds}ms");
-                    Debug.WriteLine($"   └── Avg: {executionStopwatch.ElapsedMilliseconds / successCount:F0}ms/model, Efficiency: {(double)executionStopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]    └── Execution: {executionStopwatch.ElapsedMilliseconds}ms");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]    └── Avg: {executionStopwatch.ElapsedMilliseconds / successCount:F0}ms/model, Efficiency: {(double)executionStopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%");
                 }
 
                 // Defer pipeline saving to avoid blocking execution - only save if there were successful executions
@@ -1553,11 +1575,11 @@ namespace CSimple.ViewModels
                         {
                             await Task.Delay(100); // Small delay to let execution complete fully
                             await SaveCurrentPipelineAsync();
-                            Debug.WriteLine("💾 [ExecuteRunAllModelsAsync] Pipeline saved asynchronously");
+                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 💾 [ExecuteRunAllModelsAsync] Pipeline saved asynchronously");
                         }
                         catch (Exception saveEx)
                         {
-                            Debug.WriteLine($"⚠️ [ExecuteRunAllModelsAsync] Async save failed: {saveEx.Message}");
+                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚠️ [ExecuteRunAllModelsAsync] Async save failed: {saveEx.Message}");
                         }
                     });
                 }
@@ -1565,7 +1587,7 @@ namespace CSimple.ViewModels
             catch (Exception ex)
             {
                 totalStopwatch.Stop();
-                Debug.WriteLine($"❌ [ExecuteRunAllModelsAsync] Critical error after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteRunAllModelsAsync] Critical error after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
                 await ShowAlert?.Invoke("Error", $"Failed to run all models: {ex.Message}", "OK");
             }
         }
@@ -1579,14 +1601,14 @@ namespace CSimple.ViewModels
 
                 if (SelectedNode == null || SelectedNode.Type != NodeType.Model)
                 {
-                    Debug.WriteLine("❌ [ExecuteGenerateAsync] No valid model node selected");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteGenerateAsync] No valid model node selected");
                     await ShowAlert?.Invoke("Error", "Please select a model node to generate content.", "OK");
                     return;
                 }
 
                 if (SelectedNode.EnsembleInputCount <= 1)
                 {
-                    Debug.WriteLine("❌ [ExecuteGenerateAsync] Not enough input connections for ensemble generation");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteGenerateAsync] Not enough input connections for ensemble generation");
                     await ShowAlert?.Invoke("Error", "This model node needs multiple input connections to use ensemble generation.", "OK");
                     return;
                 }
@@ -1600,7 +1622,7 @@ namespace CSimple.ViewModels
 
                 if (connectedInputNodes.Count == 0)
                 {
-                    Debug.WriteLine("❌ [ExecuteGenerateAsync] No connected input nodes found");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteGenerateAsync] No connected input nodes found");
                     await ShowAlert?.Invoke("Error", "No connected input nodes found for this model.", "OK");
                     return;
                 }
@@ -1640,7 +1662,7 @@ namespace CSimple.ViewModels
 
                 if (stepContents.Count == 0)
                 {
-                    Debug.WriteLine("❌ [ExecuteGenerateAsync] No valid step content found from connected nodes");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteGenerateAsync] No valid step content found from connected nodes");
                     await ShowAlert?.Invoke("Error", "No valid content found from connected input nodes.", "OK");
                     return;
                 }
@@ -1683,7 +1705,7 @@ namespace CSimple.ViewModels
                 // Note: Pipeline saving is deferred to reduce I/O operations
                 // It will be saved when appropriate (e.g., on action completion or manual save)
 
-                Debug.WriteLine($"✅ [ExecuteGenerateAsync] Generation completed successfully");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [ExecuteGenerateAsync] Generation completed successfully");
 
                 // await ShowAlert?.Invoke("Success", $"Generated content using {SelectedNode.SelectedEnsembleMethod} ensemble method with {connectedInputNodes.Count} inputs.", "OK");
 
@@ -1719,6 +1741,18 @@ namespace CSimple.ViewModels
         // IDisposable implementation
         public void Dispose()
         {
+            // Clean up proactive preparation resources
+            try
+            {
+                _preparationCancellationSource?.Cancel();
+                _preparationCancellationSource?.Dispose();
+                _preparationCancellationSource = null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ [Dispose] Error cleaning up preparation resources: {ex.Message}");
+            }
+
             if (_audioStepContentService != null)
             {
                 _audioStepContentService.PlaybackStarted -= OnAudioPlaybackStarted;
@@ -1756,7 +1790,7 @@ namespace CSimple.ViewModels
         // Debug method to check RunAllModelsCommand state
         public void DebugRunAllModelsCommand()
         {
-            Debug.WriteLine("🐛 [DebugRunAllModelsCommand] === DEBUG INFO ===");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🐛 [DebugRunAllModelsCommand] === DEBUG INFO ===");
             Debug.WriteLine($"🐛 RunAllModelsCommand is null: {RunAllModelsCommand == null}");
             Debug.WriteLine($"🐛 Total nodes: {Nodes?.Count ?? 0}");
             if (Nodes != null)
@@ -1772,7 +1806,7 @@ namespace CSimple.ViewModels
                 bool canExecute = ((Command)RunAllModelsCommand).CanExecute(null);
                 Debug.WriteLine($"🐛 CanExecute: {canExecute}");
             }
-            Debug.WriteLine("🐛 [DebugRunAllModelsCommand] === END DEBUG ===");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🐛 [DebugRunAllModelsCommand] === END DEBUG ===");
         }
 
         /// <summary>
@@ -1785,5 +1819,205 @@ namespace CSimple.ViewModels
         }
 
         // --- Event Handlers ---
+
+        // --- Proactive Preparation for Run All Models Optimization ---
+
+        /// <summary>
+        /// Triggers proactive preparation for model execution to optimize "Run All Models" performance
+        /// </summary>
+        private void TriggerProactivePreparation()
+        {
+            lock (_preparationLock)
+            {
+                // Cancel any existing preparation
+                _preparationCancellationSource?.Cancel();
+                _preparationCancellationSource?.Dispose();
+                _preparationCancellationSource = new CancellationTokenSource();
+
+                // Mark as not prepared to force fresh preparation
+                _modelExecutionPrepared = false;
+
+                // Start new proactive preparation task
+                var cancellationToken = _preparationCancellationSource.Token;
+                _proactivePreparationTask = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await PerformProactivePreparationAsync(cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔄 [TriggerProactivePreparation] Preparation cancelled (new step change)");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚠️ [TriggerProactivePreparation] Error: {ex.Message}");
+                    }
+                }, cancellationToken);
+            }
+        }
+
+        /// <summary>
+        /// Performs proactive preparation for model execution in background
+        /// </summary>
+        private async Task PerformProactivePreparationAsync(CancellationToken cancellationToken)
+        {
+            var preparationStopwatch = Stopwatch.StartNew();
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🚀 [PerformProactivePreparation] Starting proactive preparation for step {CurrentActionStep}");
+
+            try
+            {
+                // Step 1: Ensure environment warmup is ready
+                await EnsureWarmupReadyAsync(maxWaitMs: 2000);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Step 2: Update pipeline state cache
+                if (!_pipelineStateCacheValid)
+                {
+                    await Task.Run(() => CachePipelineState(), cancellationToken);
+                }
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Step 3: Pre-compute execution optimizations
+                await PrecomputeExecutionOptimizationsAsync();
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Step 4: Pre-warm Python environment and models in background
+                await PrewarmModelExecutionEnvironmentAsync(cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                lock (_preparationLock)
+                {
+                    _modelExecutionPrepared = true;
+                }
+
+                preparationStopwatch.Stop();
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [PerformProactivePreparation] Completed in {preparationStopwatch.ElapsedMilliseconds}ms");
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔄 [PerformProactivePreparation] Cancelled after {preparationStopwatch.ElapsedMilliseconds}ms");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                preparationStopwatch.Stop();
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [PerformProactivePreparation] Failed after {preparationStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Pre-warms the Python environment and model cache for faster execution
+        /// </summary>
+        private async Task PrewarmModelExecutionEnvironmentAsync(CancellationToken cancellationToken)
+        {
+            if (!_pipelineStateCacheValid || _cachedModelNodes == null || _cachedModelNodes.Count == 0)
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⏭️ [PrewarmModelExecution] No models to pre-warm");
+                return;
+            }
+
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔥 [PrewarmModelExecution] Pre-warming environment for {_cachedModelNodes.Count} models");
+
+            try
+            {
+                // Pre-load models that will likely be executed
+                var modelsToPreload = _cachedModelNodes
+                    .Where(node => !string.IsNullOrEmpty(node.OriginalModelId))
+                    .Take(3) // Limit to avoid overwhelming the system
+                    .ToList();
+
+                if (modelsToPreload.Count == 0)
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⏭️ [PrewarmModelExecution] No configured models to pre-warm");
+                    return;
+                }
+
+                // Run model preloading operations in parallel (but with limited concurrency)
+                var preloadTasks = modelsToPreload.Select(async modelNode =>
+                {
+                    try
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        await Task.Run(() =>
+                        {
+                            var correspondingModel = FindCorrespondingModel(_netPageViewModel, modelNode);
+                            if (correspondingModel != null)
+                            {
+                                // Cache the model reference for faster lookup during execution
+                                lock (_preloadedModelCache)
+                                {
+                                    _preloadedModelCache[modelNode.Id] = correspondingModel;
+                                }
+                                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]    ✅ Pre-cached model: {modelNode.Name}");
+                            }
+                        }, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]    ⚠️ Failed to pre-cache {modelNode.Name}: {ex.Message}");
+                    }
+                }).ToArray();
+
+                await Task.WhenAll(preloadTasks);
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🎯 [PrewarmModelExecution] Pre-warmed {modelsToPreload.Count} models");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚠️ [PrewarmModelExecution] Error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Checks if proactive preparation is complete, with optional wait
+        /// </summary>
+        private async Task<bool> IsProactivePreparationReadyAsync(int maxWaitMs = 1000)
+        {
+            lock (_preparationLock)
+            {
+                if (_modelExecutionPrepared)
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚡ [IsProactivePreparationReady] Already prepared!");
+                    return true;
+                }
+            }
+
+            if (_proactivePreparationTask != null && !_proactivePreparationTask.IsCompleted)
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⏳ [IsProactivePreparationReady] Waiting up to {maxWaitMs}ms for preparation...");
+                try
+                {
+                    await _proactivePreparationTask.WaitAsync(TimeSpan.FromMilliseconds(maxWaitMs));
+
+                    lock (_preparationLock)
+                    {
+                        if (_modelExecutionPrepared)
+                        {
+                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [IsProactivePreparationReady] Preparation completed in time!");
+                            return true;
+                        }
+                    }
+                }
+                catch (TimeoutException)
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⏰ [IsProactivePreparationReady] Preparation timeout - will proceed anyway");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚠️ [IsProactivePreparationReady] Error waiting: {ex.Message}");
+                }
+            }
+
+            return false;
+        }
     }
 }
