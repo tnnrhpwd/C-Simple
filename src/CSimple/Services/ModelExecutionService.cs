@@ -85,7 +85,7 @@ namespace CSimple.Services
                 }
 
                 // Performance optimizations - add speed optimizations
-                argumentsBuilder.Append(" --cpu_optimize --temperature 0.2 --top_p 0.7"); // Even lower for faster execution
+                argumentsBuilder.Append(" --cpu_optimize --temperature 0.2 --top_p 0.7 --fast_mode"); // Add fast_mode for ultra speed
                 
                 // Ultra-aggressive max length limiting for much faster execution
                 int maxLength = Math.Min(40, inputText?.Split(' ')?.Length + 10 ?? 10); // More aggressive for speed

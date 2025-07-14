@@ -25,16 +25,16 @@ torch = None
 from typing import Dict, Any, Optional
 import importlib.util
 
+# Global model cache to avoid reloading models
+_model_cache = {}
+_tokenizer_cache = {}
+
 
 def progress_callback(filename: str, current: int, total: int):
     """Minimal progress callback for HuggingFace downloads."""
-    # Reduce logging for performance - only log at 50% and 100%
-    if total > 0:
-        percentage = (current / total) * 100
-        if percentage >= 50 and percentage < 60:  # Only log once around 50%
-            print(f"Progress: {filename} - 50%", file=sys.stderr)
-        elif percentage >= 100:
-            print(f"Progress: {filename} - Complete", file=sys.stderr)
+    # Minimal logging for performance - only log at completion
+    if total > 0 and current >= total:
+        print(f"✓ Downloaded: {filename}", file=sys.stderr)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -49,6 +49,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--cpu_optimize", action="store_true", help="Force CPU optimization mode")
     parser.add_argument("--offline_mode", action="store_true", help="Force offline mode (no API fallback)")
     parser.add_argument("--local_model_path", type=str, help="Local path to model directory (overrides model_id for loading)")
+    parser.add_argument("--fast_mode", action="store_true", help="Enable fast mode with minimal output and optimizations")
     return parser.parse_args()
 
 
@@ -77,10 +78,10 @@ def setup_environment() -> bool:
     os.environ["TRANSFORMERS_CACHE"] = cache_dir
     os.environ["HF_HOME"] = cache_dir
     os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
-    # Enable progress bars for downloads
-    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"  # Disable for compatibility
-    
-    print(f"Set model cache directory to: {cache_dir}", file=sys.stderr)
+    # Disable progress bars for faster loading
+    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
+    # Reduce verbosity for speed
+    os.environ["TRANSFORMERS_VERBOSITY"] = "error"
     
     required_packages = {
         "transformers": "transformers",
@@ -110,6 +111,11 @@ def setup_environment() -> bool:
         # Import torch for model operations
         global torch
         import torch
+        
+        # Optimize torch settings for inference speed
+        if torch.cuda.is_available():
+            torch.backends.cudnn.benchmark = True
+            torch.backends.cuda.matmul.allow_tf32 = True
         
         # Set environment variables to handle security warnings
         os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
@@ -157,246 +163,72 @@ def detect_model_type(model_id: str) -> str:
 
 
 def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
-    """Run text generation with enhanced error handling for quantized models."""
+    """Run text generation with optimized performance and caching."""
     try:
-        from transformers import AutoTokenizer, AutoModelForCausalLM
         import torch
         
-        # Determine the actual model path to use
-        model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
+        fast_mode = params.get("fast_mode", False)
         
-        if local_model_path and os.path.exists(local_model_path):
-            print(f"Using local model path: {local_model_path}", file=sys.stderr)
-        else:
-            print(f"Loading tokenizer for {model_id}...", file=sys.stderr)
-          # Load tokenizer with enhanced error handling for SentencePiece/Tiktoken issues
-        try:
-            print(f"Attempting fast tokenizer load for {model_path_to_use}...", file=sys.stderr)
-            # First try with fast tokenizer (default)
-            tokenizer = AutoTokenizer.from_pretrained(
-                model_path_to_use, 
-                trust_remote_code=params.get("trust_remote_code", True),
-                cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels" if not local_model_path else None,
-                resume_download=True if not local_model_path else False,
-                local_files_only=bool(local_model_path)
-            )
-            print(f"✓ Tokenizer loaded successfully (fast tokenizer)", file=sys.stderr)
-        except Exception as fast_error:
-            print(f"Fast tokenizer failed: {type(fast_error).__name__}: {fast_error}", file=sys.stderr)
-            print(f"Attempting to load slow tokenizer...", file=sys.stderr)
-            
-            try:
-                # Fallback to slow tokenizer if fast tokenizer fails
-                tokenizer = AutoTokenizer.from_pretrained(
-                    model_path_to_use, 
-                    trust_remote_code=params.get("trust_remote_code", True),
-                    cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels" if not local_model_path else None,
-                    resume_download=True if not local_model_path else False,
-                    use_fast=False,  # Force slow tokenizer
-                    local_files_only=bool(local_model_path)
-                )
-                print(f"✓ Tokenizer loaded successfully (slow tokenizer)", file=sys.stderr)
-            except Exception as slow_error:
-                print(f"Both fast and slow tokenizers failed", file=sys.stderr)
-                print(f"Fast error: {type(fast_error).__name__}: {fast_error}", file=sys.stderr)
-                print(f"Slow error: {type(slow_error).__name__}: {slow_error}", file=sys.stderr)
-                
-                # Check if it's a SentencePiece conversion error
-                if "sentencepiece" in str(fast_error).lower() or "tiktoken" in str(fast_error).lower():
-                    print(f"This appears to be a SentencePiece/Tiktoken tokenizer compatibility issue", file=sys.stderr)
-                    print(f"Try installing required packages: pip install sentencepiece protobuf", file=sys.stderr)
-                      # Try installing sentencepiece if not present
-                    try:
-                        import sentencepiece
-                        print(f"SentencePiece is already installed", file=sys.stderr)
-                    except ImportError:
-                        print(f"Installing SentencePiece...", file=sys.stderr)
-                        result = subprocess.run([sys.executable, "-m", "pip", "install", "sentencepiece"], 
-                                              capture_output=True, text=True, check=True)
-                        if result.stdout:
-                            print(result.stdout, file=sys.stderr, end='')
-                        if result.stderr:
-                            print(result.stderr, file=sys.stderr, end='')
-                        print(f"✓ SentencePiece installed", file=sys.stderr)
-                        
-                        # Try loading tokenizer again after installing sentencepiece
-                        tokenizer = AutoTokenizer.from_pretrained(
-                            model_id, 
-                            trust_remote_code=params.get("trust_remote_code", True),
-                            cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels",
-                            resume_download=True,
-                            use_fast=False
-                        )
-                        print(f"✓ Tokenizer loaded after installing SentencePiece", file=sys.stderr)
-                else:
-                    # If it's not a SentencePiece issue, try with additional fallback options
-                    print(f"Trying final fallback tokenizer options...", file=sys.stderr)
-                    try:
-                        # Try with minimal options
-                        tokenizer = AutoTokenizer.from_pretrained(
-                            model_id,
-                            use_fast=False,
-                            trust_remote_code=False,  # Disable remote code as fallback
-                            cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels"
-                        )
-                        print(f"✓ Tokenizer loaded with fallback options", file=sys.stderr)
-                    except Exception as final_error:
-                        print(f"All tokenizer loading attempts failed", file=sys.stderr)
-                        print(f"Final error: {type(final_error).__name__}: {final_error}", file=sys.stderr)
-                        raise final_error
+        # Get cached or load model
+        model, tokenizer = get_or_load_model(model_id, params, local_model_path)
         
-        print(f"Loading model {model_id}...", file=sys.stderr)
-        
-        # Check if CPU optimization is requested or if CUDA is not available
-        force_cpu = params.get("cpu_optimize", False) or not torch.cuda.is_available()
-        
-        if force_cpu:
-            print("Using CPU mode (GPU disabled or not available)", file=sys.stderr)
-            # Force CPU execution
-            device = "cpu"
-            torch_dtype = torch.float32
-            device_map = None
-        else:
-            print("Using GPU acceleration", file=sys.stderr)
-            device = "auto"
-            torch_dtype = torch.float16
-            device_map = "auto"
-        
-        # Load model with appropriate device settings and proper cache
-        model_kwargs = {
-            "trust_remote_code": params.get("trust_remote_code", True),
-            "torch_dtype": torch_dtype,
-            "low_cpu_mem_usage": True,
-            "cache_dir": "C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels" if not local_model_path else None,
-            "resume_download": True if not local_model_path else False,
-            "local_files_only": bool(local_model_path)
-        }
-        
-        if device_map:
-            model_kwargs["device_map"] = device_map
-        
-        if local_model_path and os.path.exists(local_model_path):
-            print(f"Loading model from local path: {local_model_path}", file=sys.stderr)
-        else:        print(f"Downloading/loading model files (this may take a while for first-time downloads)...", file=sys.stderr)
-        print(f"Progress: Starting model download/load...", file=sys.stderr)
-        
-        # Only check HuggingFace cache if not using local model path
-        if not local_model_path or not os.path.exists(local_model_path):
-            # Check if model is already cached
-            from huggingface_hub import try_to_load_from_cache
-            try:
-                # Try to check if model is already cached
-                cached_file = try_to_load_from_cache(
-                    model_id, 
-                    "config.json",
-                    cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels"
-                )
-                if cached_file:
-                    print(f"Progress: Model found in cache, loading from disk...", file=sys.stderr)
-                else:
-                    print(f"Progress: Model not in cache, downloading from HuggingFace...", file=sys.stderr)
-            except Exception:
-                print(f"Progress: Checking cache status, downloading if needed...", file=sys.stderr)
-        else:
-            print(f"Progress: Loading model from local path: {local_model_path}", file=sys.stderr)
-        
-        # Load model with progress indication
-        model = AutoModelForCausalLM.from_pretrained(model_path_to_use, **model_kwargs)
-        
-        print(f"✓ Model loaded successfully", file=sys.stderr)
-        print(f"Progress: Model loading complete", file=sys.stderr)
-          # Move model to CPU if force_cpu is enabled
-        if force_cpu and device_map is None:
-            model = model.to("cpu")
-        
-        print("Tokenizing input...", file=sys.stderr)
-        
-        # Clean and validate input text
+        # Clean and validate input
         clean_input = input_text.strip()
         if not clean_input:
             return "ERROR: Empty input provided"
-        
-        print(f"Clean input: '{clean_input}'", file=sys.stderr)
         
         # Handle tokenization
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         
+        # Optimized tokenization for speed
         inputs = tokenizer(
-            clean_input, 
-            return_tensors="pt", 
-            truncation=True, 
-            max_length=512,
+            clean_input,
+            return_tensors="pt",
+            truncation=True,
+            max_length=256,  # Reduced from 512 for speed
+            padding=False,   # No padding needed for single sequence
             add_special_tokens=True
         )
-          # Move inputs to the same device as model
-        if force_cpu:
-            inputs = {k: v.to("cpu") for k, v in inputs.items()}
-        else:
-            device = next(model.parameters()).device
-            inputs = {k: v.to(device) for k, v in inputs.items()}
         
-        print("Generating response...", file=sys.stderr)
+        # Move inputs to model device
+        device = next(model.parameters()).device
+        inputs = {k: v.to(device) for k, v in inputs.items()}
         
-        # Validate inputs before generation
-        print(f"Input shape: {inputs['input_ids'].shape}", file=sys.stderr)
-        print(f"Input tokens: {inputs['input_ids'].tolist()}", file=sys.stderr)
-          # Generate with improved parameters
+        # Ultra-fast generation settings optimized for speed
+        max_new_tokens = 15 if fast_mode else min(params.get("max_length", 30), 30)
+        
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
-                max_new_tokens=min(params.get("max_length", 30), 30),  # Even smaller for speed
-                temperature=0.5,  # Lower temperature for faster, more deterministic output
-                top_p=0.8,
-                top_k=40,  # Smaller top-k for speed
+                max_new_tokens=max_new_tokens,
+                temperature=0.3,    # Lower for more deterministic/faster
+                top_p=0.7,          # Reduced search space
+                top_k=20,           # Much smaller for speed
                 do_sample=True,
                 num_return_sequences=1,
                 pad_token_id=tokenizer.eos_token_id,
                 eos_token_id=tokenizer.eos_token_id,
-                repetition_penalty=1.1,  # Lighter penalty for speed
-                no_repeat_ngram_size=2,  # Smaller n-gram for speed
-                early_stopping=True  # Stop at natural endings
-            )        # Decode the generated text
+                repetition_penalty=1.05,  # Minimal penalty
+                early_stopping=True,
+                use_cache=True      # Enable KV cache for speed
+            )
+        
+        # Quick decode
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         
-        print(f"Raw generated text: '{generated_text}'", file=sys.stderr)
-        
-        # Remove the input text from the output if it's included
+        # Remove input from output if present
         if generated_text.startswith(clean_input):
             generated_text = generated_text[len(clean_input):].strip()
         
-        print(f"Cleaned generated text: '{generated_text}'", file=sys.stderr)
-        
-        # Ensure we have a reasonable response
-        if not generated_text or len(generated_text.strip()) == 0:
-            return f"Model processed '{clean_input}' successfully but generated no additional text."
-        
-        # Check for repeated patterns that might indicate corruption
-        words = generated_text.split()
-        if len(set(words)) < 3 and len(words) > 5:
-            print("Warning: Detected repetitive output, possibly corrupted", file=sys.stderr)
-            return f"Model response may be corrupted. Original input: '{clean_input}'"
-        
-        # Check for technical/config file patterns that suggest corruption
-        if any(pattern in generated_text.lower() for pattern in ['.cfg', 'kernel_', 'lib64', 'steam', 'program files']):
-            print("Warning: Detected system file patterns, regenerating...", file=sys.stderr)
-            return f"Model produced system file output for input '{clean_input}'. This may indicate a corrupted model cache."
+        # Quick validation
+        if not generated_text:
+            return f"Model processed input successfully."
         
         return generated_text
         
     except Exception as e:
-        error_msg = str(e)
-        print(f"Error in text generation: {error_msg}", file=sys.stderr)
-        
-        # Provide specific error messages
-        if "accelerate" in error_msg.lower():
-            return "ERROR: This model requires the 'accelerate' package. Please install it with: pip install accelerate"
-        elif "cuda" in error_msg.lower() or "memory" in error_msg.lower():
-            return "ERROR: Insufficient GPU memory. Try using a smaller model or running on CPU."
-        elif "trust_remote_code" in error_msg.lower():
-            return "ERROR: Model requires trust_remote_code=True but was blocked for security."
-        else:
-            return f"ERROR: {error_msg}"
+        return f"ERROR: {str(e)}"
 
 
 def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
@@ -803,36 +635,89 @@ def force_download_model(model_id: str) -> bool:
         return False
 
 
+def get_or_load_model(model_id: str, params: Dict[str, Any], local_model_path: Optional[str] = None):
+    """Get model and tokenizer from cache or load them."""
+    cache_key = local_model_path if local_model_path else model_id
+    
+    # Check if already cached
+    if cache_key in _model_cache and cache_key in _tokenizer_cache:
+        return _model_cache[cache_key], _tokenizer_cache[cache_key]
+    
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+    import torch
+    
+    model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
+    
+    # Load tokenizer with minimal logging
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path_to_use,
+            trust_remote_code=params.get("trust_remote_code", True),
+            cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels" if not local_model_path else None,
+            local_files_only=bool(local_model_path),
+            use_fast=True  # Prefer fast tokenizer for speed
+        )
+    except Exception:
+        # Fallback to slow tokenizer
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path_to_use,
+            trust_remote_code=params.get("trust_remote_code", True),
+            cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels" if not local_model_path else None,
+            local_files_only=bool(local_model_path),
+            use_fast=False
+        )
+    
+    # Configure model loading for speed
+    force_cpu = params.get("cpu_optimize", False) or not torch.cuda.is_available()
+    
+    model_kwargs = {
+        "trust_remote_code": params.get("trust_remote_code", True),
+        "torch_dtype": torch.float32 if force_cpu else torch.float16,
+        "low_cpu_mem_usage": True,
+        "cache_dir": "C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels" if not local_model_path else None,
+        "local_files_only": bool(local_model_path)
+    }
+    
+    if not force_cpu:
+        model_kwargs["device_map"] = "auto"
+    
+    # Load model
+    model = AutoModelForCausalLM.from_pretrained(model_path_to_use, **model_kwargs)
+    
+    if force_cpu and "device_map" not in model_kwargs:
+        model = model.to("cpu")
+    
+    # Cache for future use
+    _model_cache[cache_key] = model
+    _tokenizer_cache[cache_key] = tokenizer
+    
+    return model, tokenizer
+
+
 def main() -> int:
     """Main entry point."""
     try:
         args = parse_arguments()
         
-        print(f"Setting up environment for model: {args.model_id}", file=sys.stderr)
+        if not args.fast_mode:
+            print(f"Setting up environment for model: {args.model_id}", file=sys.stderr)
         
         if not setup_environment():
             print("ERROR: Failed to set up Python environment", file=sys.stderr)
             return 1
         
-        print(f"Processing input: '{args.input}'", file=sys.stderr)
-        
         # Only check cache status and force download if no local model path is provided
         if not args.local_model_path or not os.path.exists(args.local_model_path):
-            # Check model cache status
-            cache_valid = check_model_cache_status(args.model_id)
-            
-            # If cache is invalid/corrupted, force download
-            if not cache_valid:
-                print(f"Model cache invalid, attempting fresh download...", file=sys.stderr)
-                if not force_download_model(args.model_id):
-                    print(f"ERROR: Failed to download model {args.model_id}", file=sys.stderr)
-                    return 1
-                print(f"Model download completed, proceeding with inference...", file=sys.stderr)
-        else:
-            print(f"Using provided local model path: {args.local_model_path}", file=sys.stderr)
-          # Detect model type and run appropriate function
+            # Skip cache validation in fast mode unless needed
+            if not args.fast_mode:
+                cache_valid = check_model_cache_status(args.model_id)
+                if not cache_valid:
+                    if not force_download_model(args.model_id):
+                        print(f"ERROR: Failed to download model {args.model_id}", file=sys.stderr)
+                        return 1
+        
+        # Detect model type and run appropriate function
         model_type = detect_model_type(args.model_id)
-        print(f"Detected model type: {model_type}", file=sys.stderr)
         
         params = {
             "max_length": args.max_length,
@@ -840,7 +725,8 @@ def main() -> int:
             "top_p": args.top_p,
             "trust_remote_code": args.trust_remote_code,
             "cpu_optimize": args.cpu_optimize,
-            "offline_mode": args.offline_mode
+            "offline_mode": args.offline_mode,
+            "fast_mode": args.fast_mode
         }
         
         if model_type == "text-generation":
@@ -852,10 +738,10 @@ def main() -> int:
         else:
             result = f"Model type '{model_type}' not fully implemented yet. Basic response: Processed '{args.input}' with {args.model_id}"
         
-        # Ensure clean output - strip any extra whitespace and ensure single line output for short responses
+        # Ensure clean output
         clean_result = result.strip()
         
-        # Print result to stdout with explicit flush to ensure it's not buffered
+        # Print result to stdout with explicit flush
         print(clean_result, flush=True)
         return 0
         
@@ -864,7 +750,8 @@ def main() -> int:
         return 1
     except Exception as e:
         print(f"ERROR: Unhandled exception: {str(e)}", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
+        if not args.fast_mode:
+            traceback.print_exc(file=sys.stderr)
         return 1
 
 
