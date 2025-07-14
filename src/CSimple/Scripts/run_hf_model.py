@@ -54,7 +54,7 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run inference using HuggingFace models")
     parser.add_argument("--model_id", type=str, required=True, help="HuggingFace model ID")
     parser.add_argument("--input", type=str, required=True, help="Input text for the model")
-    parser.add_argument("--max_length", type=int, default=150, help="Maximum length of generated text")
+    parser.add_argument("--max_length", type=int, default=100, help="Maximum length of generated text (capped at 100 tokens)")
     parser.add_argument("--temperature", type=float, default=0.7, help="Temperature for sampling")
     parser.add_argument("--top_p", type=float, default=0.9, help="Top-p sampling parameter")
     parser.add_argument("--trust_remote_code", action="store_true", default=True, help="Trust remote code")
@@ -229,28 +229,24 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any], 
         device = next(model.parameters()).device
         inputs = {k: v.to(device, non_blocking=True) for k, v in inputs.items()}
         
-        # Ultra-optimized generation parameters
-        max_new_tokens = 10 if fast_mode else min(params.get("max_length", 25), 25)
+        # Ultra-optimized generation parameters with 100 token hard limit
+        max_new_tokens = 10 if fast_mode else min(params.get("max_length", 25), 100)  # Hard cap at 100 tokens
         
-        # Fastest possible generation settings
+        # Fastest possible generation settings with randomness enabled
         generation_kwargs = {
             "max_new_tokens": max_new_tokens,
-            "do_sample": False if fast_mode else True,  # Greedy decoding in fast mode
+            "do_sample": True,  # Always enable sampling for randomness
             "num_return_sequences": 1,
             "pad_token_id": tokenizer.eos_token_id,
             "eos_token_id": tokenizer.eos_token_id,
             "early_stopping": True,
-            "use_cache": True
+            "use_cache": True,
+            # Use command line parameters for randomness
+            "temperature": params.get("temperature", 0.8),
+            "top_p": params.get("top_p", 0.9),
+            "top_k": 50,  # Add top_k for more diversity
+            "repetition_penalty": 1.1  # Reduce repetition
         }
-        
-        # Add sampling params only if not in fast mode
-        if not fast_mode:
-            generation_kwargs.update({
-                "temperature": 0.3,
-                "top_p": 0.7,
-                "top_k": 20,
-                "repetition_penalty": 1.05
-            })
         
         # Inference with minimal overhead
         with torch.no_grad():

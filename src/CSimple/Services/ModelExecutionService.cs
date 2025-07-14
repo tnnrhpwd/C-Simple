@@ -14,7 +14,7 @@ namespace CSimple.Services
     public class ModelExecutionService
     {
         private readonly CSimple.Services.AppModeService.AppModeService _appModeService;
-        
+
         // Static cache shared across all instances to avoid repeated file checks
         private static readonly Dictionary<string, bool> _globalFileExistsCache = new Dictionary<string, bool>();
         private static DateTime _lastCacheReset = DateTime.UtcNow;
@@ -30,7 +30,7 @@ namespace CSimple.Services
         {
             _appModeService = appModeService;
         }
-        
+
         private static bool FileExistsCached(string filePath)
         {
             lock (_cacheLock)
@@ -41,7 +41,7 @@ namespace CSimple.Services
                     _globalFileExistsCache.Clear();
                     _lastCacheReset = DateTime.UtcNow;
                 }
-                
+
                 if (!_globalFileExistsCache.TryGetValue(filePath, out bool exists))
                 {
                     exists = File.Exists(filePath);
@@ -84,11 +84,11 @@ namespace CSimple.Services
                     argumentsBuilder.Append($" --local_model_path \"{localModelPath}\"");
                 }
 
-                // Performance optimizations - add speed optimizations
-                argumentsBuilder.Append(" --cpu_optimize --temperature 0.2 --top_p 0.7 --fast_mode"); // Add fast_mode for ultra speed
-                
-                // Ultra-aggressive max length limiting for much faster execution
-                int maxLength = Math.Min(40, inputText?.Split(' ')?.Length + 10 ?? 10); // More aggressive for speed
+                // Performance optimizations with randomness for varied outputs
+                argumentsBuilder.Append(" --cpu_optimize --temperature 0.8 --top_p 0.9"); // Higher temperature for more randomness
+
+                // Limit to maximum 100 tokens for all model execution
+                int maxLength = Math.Min(100, Math.Min(40, inputText?.Split(' ')?.Length + 10 ?? 10)); // Cap at 100 tokens max
                 argumentsBuilder.Append($" --max_length {maxLength}");
 
                 if (_appModeService.CurrentMode == AppMode.Offline)
@@ -134,13 +134,13 @@ namespace CSimple.Services
                 // Ultra-aggressive timeout optimization for speed
                 var cpuFriendlyModels = new[] { "gpt2", "distilgpt2", "microsoft/DialoGPT" };
                 bool isCpuFriendly = cpuFriendlyModels.Any(cpu => modelId.Contains(cpu, StringComparison.OrdinalIgnoreCase));
-                
+
                 // Much shorter timeouts for faster overall execution
                 int baseTimeoutMs = isCpuFriendly ? 15000 : 25000; // 15-25 seconds for even faster execution
                 int timeoutMs = baseTimeoutMs;
 
                 using var cts = new CancellationTokenSource(timeoutMs);
-                
+
                 try
                 {
                     await process.WaitForExitAsync(cts.Token);
@@ -154,7 +154,7 @@ namespace CSimple.Services
 
                 // Minimal wait for output completion
                 await Task.Delay(50);
-                
+
                 string output = stdoutOutput.ToString();
                 string error = stderrOutput.ToString();
                 int exitCode = process.ExitCode;
