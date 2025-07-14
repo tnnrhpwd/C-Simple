@@ -74,15 +74,12 @@ namespace CSimple.Services
         }
 
         /// <summary>
-        /// Combines multiple step contents using the specified ensemble method
+        /// Combines multiple step contents using the specified ensemble method (optimized for performance)
         /// </summary>
         public string CombineStepContents(List<string> stepContents, string ensembleMethod)
         {
-            Debug.WriteLine($"🔀 [CombineStepContents] Combining {stepContents.Count} contents using method: {ensembleMethod}");
-
             if (stepContents == null || stepContents.Count == 0)
             {
-                Debug.WriteLine("❌ [CombineStepContents] No content to combine");
                 return string.Empty;
             }
 
@@ -116,6 +113,9 @@ namespace CSimple.Services
             {
                 return firstContent;
             }
+
+            // Reduced debug logging for performance - only log method used
+            Debug.WriteLine($"🔀 [CombineStepContents] Combining {stepContents.Count} contents using method: {ensembleMethod}");
 
             switch (ensembleMethod?.ToLowerInvariant())
             {

@@ -239,7 +239,7 @@ namespace CSimple.Services
                         }
                         else
                         {
-                            stepContentData.Content = "No image file available for this step.";
+                            // stepContentData.Content = "No image file available for this step.";
                             stepContentData.ContentType = "text";
                         }
                     }

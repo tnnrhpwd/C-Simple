@@ -17,17 +17,29 @@ import urllib.error
 import ssl
 import time
 import json
+import re
+import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
+import importlib.util
 
 # Will be imported after environment setup
 torch = None
-from typing import Dict, Any, Optional
-import importlib.util
+transformers = None
 
 # Global model cache to avoid reloading models
 _model_cache = {}
 _tokenizer_cache = {}
+
+# Global environment setup flag to avoid repeated setup
+_environment_setup_done = False
+
+# Pre-compiled regex patterns for performance
+_audio_patterns = [
+    re.compile(r'\]:\s*([A-Z]:[^:]+\.(wav|mp3|m4a|flac|ogg|aac))', re.IGNORECASE),
+    re.compile(r':\s*([A-Z]:[^:\[\]]+\.(wav|mp3|m4a|flac|ogg|aac))', re.IGNORECASE),
+    re.compile(r'([A-Z]:[^:\[\]]+\.(wav|mp3|m4a|flac|ogg|aac))', re.IGNORECASE)
+]
 
 
 def progress_callback(filename: str, current: int, total: int):
@@ -50,6 +62,8 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--offline_mode", action="store_true", help="Force offline mode (no API fallback)")
     parser.add_argument("--local_model_path", type=str, help="Local path to model directory (overrides model_id for loading)")
     parser.add_argument("--fast_mode", action="store_true", help="Enable fast mode with minimal output and optimizations")
+    parser.add_argument("--preload_models", type=str, nargs="*", help="Pre-load models into cache for faster subsequent runs")
+    parser.add_argument("--batch_size", type=int, default=1, help="Batch size for processing multiple inputs")
     return parser.parse_args()
 
 
@@ -71,7 +85,13 @@ def check_and_install_package(package_name: str) -> bool:
 
 
 def setup_environment() -> bool:
-    """Set up the environment with all required packages."""
+    """Set up the environment with all required packages - optimized for repeated calls."""
+    global _environment_setup_done, torch, transformers
+    
+    # Skip setup if already done (for repeated model executions)
+    if _environment_setup_done:
+        return True
+    
     # Set up the cache directory BEFORE importing transformers
     cache_dir = "C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels"
     os.makedirs(cache_dir, exist_ok=True)
@@ -82,7 +102,11 @@ def setup_environment() -> bool:
     os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
     # Reduce verbosity for speed
     os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+    # Additional optimizations
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Avoid threading overhead
+    os.environ["HF_HUB_CACHE"] = cache_dir
     
+    # Quick check for core packages (avoid slow imports if already available)
     required_packages = {
         "transformers": "transformers",
         "torch": "torch", 
@@ -92,34 +116,45 @@ def setup_environment() -> bool:
         "safetensors": "safetensors"  # Required for secure model loading
     }
     
+    # Fast package availability check
     missing_packages = []
     for package_name, pip_name in required_packages.items():
-        if not check_and_install_package(pip_name):
-            missing_packages.append(package_name)
+        if importlib.util.find_spec(package_name) is None:
+            missing_packages.append(pip_name)
     
+    # Only install missing packages
     if missing_packages:
-        print(f"Failed to install required packages: {missing_packages}", file=sys.stderr)
-        return False
-    
+        print(f"Installing missing packages: {missing_packages}", file=sys.stderr)
+        for package in missing_packages:
+            if not check_and_install_package(package):
+                print(f"Failed to install required packages: {missing_packages}", file=sys.stderr)
+                return False
+
     try:
-        # Configure logging to reduce noise
-        import transformers
+        # Import core modules once
+        import transformers as tf_module
+        import torch as torch_module
         import logging
+        
+        # Set globals
+        transformers = tf_module
+        torch = torch_module
+        
+        # Configure logging to reduce noise (do this once)
         transformers.logging.set_verbosity_error()
         logging.getLogger().setLevel(logging.ERROR)
         
-        # Import torch for model operations
-        global torch
-        import torch
-        
-        # Optimize torch settings for inference speed
+        # Optimize torch settings for inference speed (do this once)
         if torch.cuda.is_available():
             torch.backends.cudnn.benchmark = True
             torch.backends.cuda.matmul.allow_tf32 = True
+            # Pre-warm CUDA context
+            torch.cuda.empty_cache()
         
-        # Set environment variables to handle security warnings
-        os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+        # Mark setup as complete
+        _environment_setup_done = True
         return True
+        
     except Exception as e:
         print(f"Error configuring environment: {e}", file=sys.stderr)
         return False
@@ -165,59 +200,66 @@ def detect_model_type(model_id: str) -> str:
 def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
     """Run text generation with optimized performance and caching."""
     try:
-        import torch
-        
         fast_mode = params.get("fast_mode", False)
         
-        # Get cached or load model
+        # Get cached or load model (optimized caching)
         model, tokenizer = get_or_load_model(model_id, params, local_model_path)
         
-        # Clean and validate input
+        # Minimal input validation for speed
         clean_input = input_text.strip()
         if not clean_input:
             return "ERROR: Empty input provided"
         
-        # Handle tokenization
+        # Optimize tokenization setup (do once)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         
-        # Optimized tokenization for speed
+        # Highly optimized tokenization for maximum speed
+        max_input_length = 128 if fast_mode else 256  # Even shorter for fast mode
         inputs = tokenizer(
             clean_input,
             return_tensors="pt",
             truncation=True,
-            max_length=256,  # Reduced from 512 for speed
-            padding=False,   # No padding needed for single sequence
+            max_length=max_input_length,
+            padding=False,
             add_special_tokens=True
         )
         
-        # Move inputs to model device
+        # Direct device placement for speed
         device = next(model.parameters()).device
-        inputs = {k: v.to(device) for k, v in inputs.items()}
+        inputs = {k: v.to(device, non_blocking=True) for k, v in inputs.items()}
         
-        # Ultra-fast generation settings optimized for speed
-        max_new_tokens = 15 if fast_mode else min(params.get("max_length", 30), 30)
+        # Ultra-optimized generation parameters
+        max_new_tokens = 10 if fast_mode else min(params.get("max_length", 25), 25)
         
+        # Fastest possible generation settings
+        generation_kwargs = {
+            "max_new_tokens": max_new_tokens,
+            "do_sample": False if fast_mode else True,  # Greedy decoding in fast mode
+            "num_return_sequences": 1,
+            "pad_token_id": tokenizer.eos_token_id,
+            "eos_token_id": tokenizer.eos_token_id,
+            "early_stopping": True,
+            "use_cache": True
+        }
+        
+        # Add sampling params only if not in fast mode
+        if not fast_mode:
+            generation_kwargs.update({
+                "temperature": 0.3,
+                "top_p": 0.7,
+                "top_k": 20,
+                "repetition_penalty": 1.05
+            })
+        
+        # Inference with minimal overhead
         with torch.no_grad():
-            outputs = model.generate(
-                **inputs,
-                max_new_tokens=max_new_tokens,
-                temperature=0.3,    # Lower for more deterministic/faster
-                top_p=0.7,          # Reduced search space
-                top_k=20,           # Much smaller for speed
-                do_sample=True,
-                num_return_sequences=1,
-                pad_token_id=tokenizer.eos_token_id,
-                eos_token_id=tokenizer.eos_token_id,
-                repetition_penalty=1.05,  # Minimal penalty
-                early_stopping=True,
-                use_cache=True      # Enable KV cache for speed
-            )
+            outputs = model.generate(**inputs, **generation_kwargs)
         
-        # Quick decode
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        # Fast decode with minimal processing
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=False)
         
-        # Remove input from output if present
+        # Quick input removal
         if generated_text.startswith(clean_input):
             generated_text = generated_text[len(clean_input):].strip()
         
@@ -251,18 +293,9 @@ def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any
             if len(parts) > 1:
                 audio_file_path = parts[1].strip()
         elif ".wav" in input_text or ".mp3" in input_text or ".m4a" in input_text or ".flac" in input_text:
-            # Look for file paths in ensemble format [Node Name]: C:\path\to\file.ext
-            import re
-            # Find all file paths that end with audio extensions
-            # Updated patterns to correctly handle Windows paths with drive letters
-            audio_patterns = [
-                r'\]:\s*([A-Z]:[^:]+\.(wav|mp3|m4a|flac|ogg|aac))',  # Match after ]: C:\path
-                r':\s*([A-Z]:[^:\[\]]+\.(wav|mp3|m4a|flac|ogg|aac))',  # Match after : C:\path (but not inside brackets)
-                r'([A-Z]:[^:\[\]]+\.(wav|mp3|m4a|flac|ogg|aac))'      # Direct match C:\path
-            ]
-            
-            for pattern in audio_patterns:
-                matches = re.findall(pattern, input_text, re.IGNORECASE)
+            # Look for file paths in ensemble format using pre-compiled patterns for speed
+            for pattern in _audio_patterns:
+                matches = pattern.findall(input_text)
                 if matches:
                     # Take the first match (for ensemble, we use the first audio file)
                     if isinstance(matches[0], tuple):
@@ -636,26 +669,28 @@ def force_download_model(model_id: str) -> bool:
 
 
 def get_or_load_model(model_id: str, params: Dict[str, Any], local_model_path: Optional[str] = None):
-    """Get model and tokenizer from cache or load them."""
+    """Get model and tokenizer from cache or load them with optimized performance."""
     cache_key = local_model_path if local_model_path else model_id
     
-    # Check if already cached
+    # Check if already cached - fast path
     if cache_key in _model_cache and cache_key in _tokenizer_cache:
         return _model_cache[cache_key], _tokenizer_cache[cache_key]
     
+    # Use global imports for better performance
     from transformers import AutoTokenizer, AutoModelForCausalLM
-    import torch
     
     model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
     
-    # Load tokenizer with minimal logging
+    # Optimized tokenizer loading
     try:
+        # Try fast tokenizer first with optimized settings
         tokenizer = AutoTokenizer.from_pretrained(
             model_path_to_use,
             trust_remote_code=params.get("trust_remote_code", True),
             cache_dir="C:\\Users\\tanne\\Documents\\CSimple\\Resources\\HFModels" if not local_model_path else None,
             local_files_only=bool(local_model_path),
-            use_fast=True  # Prefer fast tokenizer for speed
+            use_fast=True,  # Prefer fast tokenizer for speed
+            padding_side="left"  # Optimize for generation
         )
     except Exception:
         # Fallback to slow tokenizer
@@ -667,8 +702,9 @@ def get_or_load_model(model_id: str, params: Dict[str, Any], local_model_path: O
             use_fast=False
         )
     
-    # Configure model loading for speed
+    # Configure model loading for maximum speed
     force_cpu = params.get("cpu_optimize", False) or not torch.cuda.is_available()
+    fast_mode = params.get("fast_mode", False)
     
     model_kwargs = {
         "trust_remote_code": params.get("trust_remote_code", True),
@@ -678,12 +714,37 @@ def get_or_load_model(model_id: str, params: Dict[str, Any], local_model_path: O
         "local_files_only": bool(local_model_path)
     }
     
+    # Optimize model loading strategy
     if not force_cpu:
-        model_kwargs["device_map"] = "auto"
+        if fast_mode:
+            # For fast mode, use simple GPU placement
+            model_kwargs["device_map"] = "cuda:0" if torch.cuda.is_available() else "cpu"
+        else:
+            model_kwargs["device_map"] = "auto"
     
-    # Load model
-    model = AutoModelForCausalLM.from_pretrained(model_path_to_use, **model_kwargs)
+    # Load model with error handling
+    try:
+        model = AutoModelForCausalLM.from_pretrained(model_path_to_use, **model_kwargs)
+    except Exception as e:
+        # Fallback to CPU if GPU loading fails
+        if not force_cpu:
+            print(f"GPU loading failed, falling back to CPU: {e}", file=sys.stderr)
+            model_kwargs["device_map"] = "cpu"
+            model_kwargs["torch_dtype"] = torch.float32
+            model = AutoModelForCausalLM.from_pretrained(model_path_to_use, **model_kwargs)
+        else:
+            raise
     
+    # Set model to eval mode for inference optimization
+    model.eval()
+    
+    # Optimize for inference
+    if hasattr(model, 'generation_config'):
+        model.generation_config.use_cache = True
+        if fast_mode:
+            model.generation_config.max_new_tokens = 15  # Limit tokens in fast mode
+    
+    # Apply CPU optimization if needed
     if force_cpu and "device_map" not in model_kwargs:
         model = model.to("cpu")
     
@@ -694,31 +755,41 @@ def get_or_load_model(model_id: str, params: Dict[str, Any], local_model_path: O
     return model, tokenizer
 
 
+def preload_models(model_ids: list, params: Dict[str, Any]) -> bool:
+    """Pre-load models into cache for faster subsequent execution."""
+    if not model_ids:
+        return True
+    
+    print(f"Pre-loading {len(model_ids)} models into cache...", file=sys.stderr)
+    
+    for model_id in model_ids:
+        try:
+            print(f"Loading {model_id}...", file=sys.stderr)
+            model, tokenizer = get_or_load_model(model_id, params)
+            print(f"✓ {model_id} loaded and cached", file=sys.stderr)
+        except Exception as e:
+            print(f"✗ Failed to preload {model_id}: {e}", file=sys.stderr)
+            return False
+    
+    print(f"✓ All {len(model_ids)} models pre-loaded successfully", file=sys.stderr)
+    return True
+
+
 def main() -> int:
-    """Main entry point."""
+    """Main entry point - optimized for speed."""
     try:
         args = parse_arguments()
         
+        # Skip verbose logging in fast mode for speed
         if not args.fast_mode:
             print(f"Setting up environment for model: {args.model_id}", file=sys.stderr)
         
+        # Environment setup with caching
         if not setup_environment():
             print("ERROR: Failed to set up Python environment", file=sys.stderr)
             return 1
         
-        # Only check cache status and force download if no local model path is provided
-        if not args.local_model_path or not os.path.exists(args.local_model_path):
-            # Skip cache validation in fast mode unless needed
-            if not args.fast_mode:
-                cache_valid = check_model_cache_status(args.model_id)
-                if not cache_valid:
-                    if not force_download_model(args.model_id):
-                        print(f"ERROR: Failed to download model {args.model_id}", file=sys.stderr)
-                        return 1
-        
-        # Detect model type and run appropriate function
-        model_type = detect_model_type(args.model_id)
-        
+        # Pre-build params dict to avoid repeated dict creation
         params = {
             "max_length": args.max_length,
             "temperature": args.temperature,
@@ -729,6 +800,43 @@ def main() -> int:
             "fast_mode": args.fast_mode
         }
         
+        # Pre-load models if specified (for batch processing optimization)
+        if hasattr(args, 'preload_models') and args.preload_models:
+            if not preload_models(args.preload_models, params):
+                print("WARNING: Some models failed to preload", file=sys.stderr)
+        
+        # Skip expensive cache validation in fast mode
+        if not args.local_model_path or not os.path.exists(args.local_model_path):
+            if not args.fast_mode:
+                # Only do cache validation in non-fast mode
+                cache_valid = check_model_cache_status(args.model_id)
+                if not cache_valid:
+                    if not force_download_model(args.model_id):
+                        print(f"ERROR: Failed to download model {args.model_id}", file=sys.stderr)
+                        return 1
+        
+        # Detect model type once
+        model_type = detect_model_type(args.model_id)
+        
+        # Pre-build params dict to avoid repeated dict creation
+        params = {
+            "max_length": args.max_length,
+            "temperature": args.temperature,
+            "top_p": args.top_p,
+            "trust_remote_code": args.trust_remote_code,
+            "cpu_optimize": args.cpu_optimize,
+            "offline_mode": args.offline_mode,
+            "fast_mode": args.fast_mode
+        }
+        
+        # Preload models if specified
+        if args.preload_models:
+            preload_success = preload_models(args.preload_models, params)
+            if not preload_success:
+                print("ERROR: Failed to preload specified models", file=sys.stderr)
+                return 1
+        
+        # Direct dispatch for performance
         if model_type == "text-generation":
             result = run_text_generation(args.model_id, args.input, params, args.local_model_path)
         elif model_type == "automatic-speech-recognition":
@@ -736,12 +844,13 @@ def main() -> int:
         elif model_type == "image-to-text":
             result = run_image_to_text(args.model_id, args.input, params, args.local_model_path)
         else:
+            # Fast fallback for unknown types
             result = f"Model type '{model_type}' not fully implemented yet. Basic response: Processed '{args.input}' with {args.model_id}"
         
-        # Ensure clean output
-        clean_result = result.strip()
+        # Minimal output processing for speed
+        clean_result = result.strip() if result else "No output generated"
         
-        # Print result to stdout with explicit flush
+        # Direct output with flush for immediate response
         print(clean_result, flush=True)
         return 0
         
@@ -749,8 +858,10 @@ def main() -> int:
         print("ERROR: Operation cancelled by user", file=sys.stderr)
         return 1
     except Exception as e:
-        print(f"ERROR: Unhandled exception: {str(e)}", file=sys.stderr)
-        if not args.fast_mode:
+        error_msg = f"ERROR: {str(e)}"
+        print(error_msg, file=sys.stderr)
+        # Skip traceback in fast mode to avoid overhead
+        if not getattr(args, 'fast_mode', False):
             traceback.print_exc(file=sys.stderr)
         return 1
 
