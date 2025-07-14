@@ -653,11 +653,11 @@ namespace CSimple.ViewModels
             {
                 if (!_isPythonEnvironmentSetup)
                 {
-                    Debug.WriteLine("NetPageViewModel: First-time Python environment setup required");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] NetPageViewModel: First-time Python environment setup required");
                 }
                 else
                 {
-                    Debug.WriteLine("NetPageViewModel: Python environment already set up, skipping setup");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] NetPageViewModel: Python environment already set up, skipping setup");
                     // Use previously set paths
                     _pythonExecutablePath = _pythonEnvironmentService.PythonExecutablePath;
                     _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
@@ -677,7 +677,7 @@ namespace CSimple.ViewModels
                 lock (_pythonSetupLock)
                 {
                     _isPythonEnvironmentSetup = true;
-                    Debug.WriteLine("NetPageViewModel: Python environment setup completed");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] NetPageViewModel: Python environment setup completed");
                 }
             }
 
@@ -781,7 +781,7 @@ namespace CSimple.ViewModels
 
         public async Task ImportModelAsync()
         {
-            Debug.WriteLine("ViewModel: Import Model triggered");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ViewModel: Import Model triggered");
             try
             {
                 CurrentModelStatus = "Opening file picker...";
@@ -789,7 +789,7 @@ namespace CSimple.ViewModels
 
                 if (fileResult == null)
                 {
-                    Debug.WriteLine("File selection canceled");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] File selection canceled");
                     CurrentModelStatus = "Model import canceled";
                     return;
                 }
@@ -982,7 +982,7 @@ namespace CSimple.ViewModels
                 // Ensure Python environment is properly initialized before processing media
                 if (string.IsNullOrEmpty(_pythonExecutablePath) || _pythonExecutablePath == "python")
                 {
-                    Debug.WriteLine("NetPageViewModel: Python environment not properly initialized for media processing. Re-initializing...");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] NetPageViewModel: Python environment not properly initialized for media processing. Re-initializing...");
                     _pythonExecutablePath = _pythonEnvironmentService.PythonExecutablePath;
                     _huggingFaceScriptPath = _pythonEnvironmentService.HuggingFaceScriptPath;
                     Debug.WriteLine($"NetPageViewModel: Re-initialized Python paths. Python path: '{_pythonExecutablePath}', Script path: '{_huggingFaceScriptPath}'");
@@ -1051,7 +1051,7 @@ namespace CSimple.ViewModels
                 // Only exclude GPU-required models if no GPU is detected
                 // For now, we'll be more permissive and allow GPU models in offline mode
                 // The Python script will handle the actual GPU availability check
-                Debug.WriteLine("Offline mode: Allowing GPU models - hardware compatibility will be checked during execution");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Offline mode: Allowing GPU models - hardware compatibility will be checked during execution");
             }
 
             // First, try to find a CPU-friendly model
@@ -1160,39 +1160,39 @@ namespace CSimple.ViewModels
         }        // FIXED: Async method to update model input type with IMMEDIATE save
         private async Task UpdateModelInputTypeAsync(NeuralNetworkModel model, ModelInputType inputType)
         {
-            Console.WriteLine($"🔥🔥🔥 UpdateModelInputTypeAsync CALLED - Model: '{model?.Name}', InputType: {inputType}");
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔥🔥🔥 UpdateModelInputTypeAsync CALLED - Model: '{model?.Name}', InputType: {inputType}");
 
             if (model == null)
             {
-                Console.WriteLine("❌ Model is null, returning");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ Model is null, returning");
                 return;
             }
 
             try
             {
                 // Log current model state for debugging
-                Console.WriteLine($"📊 CURRENT MODEL STATE: Name='{model.Name}', CurrentInputType={model.InputType}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📊 CURRENT MODEL STATE: Name='{model.Name}', CurrentInputType={model.InputType}");
 
                 // Check if the input type is actually changing
                 bool isChanged = model.InputType != inputType;
-                Console.WriteLine($"🔍 InputType changing? {isChanged} (from {model.InputType} to {inputType})");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 InputType changing? {isChanged} (from {model.InputType} to {inputType})");
 
                 // FORCE SAVE - Let's bypass the no-change check temporarily to test the save chain
                 if (!isChanged)
                 {
-                    Console.WriteLine("⚠️ NO CHANGE DETECTED - but forcing save anyway to test the save chain");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚠️ NO CHANGE DETECTED - but forcing save anyway to test the save chain");
                     // Don't return - continue with save to test the chain
                 }
                 else
                 {
-                    Console.WriteLine($"🔄 CHANGE DETECTED - continuing with save");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔄 CHANGE DETECTED - continuing with save");
                 }
 
-                Console.WriteLine($"🔄 STARTING InputType change for '{model.Name}' from {model.InputType} to {inputType}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔄 STARTING InputType change for '{model.Name}' from {model.InputType} to {inputType}");
                 Debug.WriteLine($"🔄 STARTING InputType change for '{model.Name}' from {model.InputType} to {inputType}");
 
                 model.InputType = inputType;
-                Console.WriteLine($"✏️ Model.InputType updated to: {model.InputType}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✏️ Model.InputType updated to: {model.InputType}");
 
                 // IMMEDIATE save for InputType changes - NO DEBOUNCING
                 CurrentModelStatus = $"Saving '{model.Name}' InputType = {inputType} to file...";
@@ -1200,19 +1200,19 @@ namespace CSimple.ViewModels
 
                 try
                 {
-                    Console.WriteLine($"💾 CALLING SavePersistedModelsAsync for '{model.Name}' InputType change");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 💾 CALLING SavePersistedModelsAsync for '{model.Name}' InputType change");
                     Debug.WriteLine($"💾 CALLING SavePersistedModelsAsync for '{model.Name}' InputType change");
 
                     await SavePersistedModelsAsync();
 
-                    Console.WriteLine($"✅ SUCCESSFULLY SAVED InputType change for '{model.Name}' to huggingFaceModels.json");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ SUCCESSFULLY SAVED InputType change for '{model.Name}' to huggingFaceModels.json");
                     Debug.WriteLine($"✅ SUCCESSFULLY SAVED InputType change for '{model.Name}' to huggingFaceModels.json");
                     CurrentModelStatus = $"✅ Saved '{model.Name}' InputType = {inputType} to file";
                 }
                 catch (Exception saveEx)
                 {
-                    Console.WriteLine($"❌ ERROR saving InputType change: {saveEx.Message}");
-                    Console.WriteLine($"❌ Stack trace: {saveEx.StackTrace}");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ ERROR saving InputType change: {saveEx.Message}");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ Stack trace: {saveEx.StackTrace}");
                     Debug.WriteLine($"❌ ERROR saving InputType change: {saveEx.Message}");
                     Debug.WriteLine($"❌ Stack trace: {saveEx.StackTrace}");
                     CurrentModelStatus = $"❌ Error saving InputType: {saveEx.Message}";
@@ -1221,8 +1221,8 @@ namespace CSimple.ViewModels
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ ERROR in UpdateModelInputTypeAsync: {ex.Message}");
-                Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ ERROR in UpdateModelInputTypeAsync: {ex.Message}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ Stack trace: {ex.StackTrace}");
                 Debug.WriteLine($"❌ ERROR in UpdateModelInputTypeAsync: {ex.Message}");
                 HandleError($"Error updating input type for model: {model?.Name}", ex);
             }
@@ -1321,7 +1321,7 @@ namespace CSimple.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error guessing input type: {ex.Message}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error guessing input type: {ex.Message}");
             }
 
             return ModelInputType.Unknown;
@@ -1411,7 +1411,7 @@ namespace CSimple.ViewModels
                 // For now, assume Specific takes precedence if both are somehow true
                 // _isGeneralModeActive = false; // Modify backing field directly to avoid loop
                 // OnPropertyChanged(nameof(IsGeneralModeActive));
-                Debug.WriteLine("Warning: Both modes were active, check toggle logic.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Warning: Both modes were active, check toggle logic.");
             }
         }
 
@@ -1420,7 +1420,7 @@ namespace CSimple.ViewModels
             try
             {
                 var modelsToDeactivate = ActiveModels.Where(m => m?.Type == type).ToList();
-                Debug.WriteLine($"Deactivating {modelsToDeactivate.Count} models of type {type}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Deactivating {modelsToDeactivate.Count} models of type {type}");
                 foreach (var model in modelsToDeactivate)
                 {
                     DeactivateModel(model);
@@ -1443,14 +1443,14 @@ namespace CSimple.ViewModels
                     .Where(m => m.IsActive && m.Type == type && !ActiveModels.Any(am => am?.Id == m.Id))
                     .ToList();
 
-                Debug.WriteLine($"RestoreActiveModelsOfType: Found {modelsToActivate.Count} models of type {type} to restore");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] RestoreActiveModelsOfType: Found {modelsToActivate.Count} models of type {type} to restore");
 
                 foreach (var model in modelsToActivate)
                 {
                     // Add to ActiveModels collection without triggering save (to avoid excessive saves)
                     ActiveModels.Add(model);
                     StartModelMonitoring(model);
-                    Debug.WriteLine($"RestoreActiveModelsOfType: Restored active state for model '{model.Name}' of type {type}");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] RestoreActiveModelsOfType: Restored active state for model '{model.Name}' of type {type}");
                 }
 
                 // Update UI property notifications
@@ -1459,7 +1459,7 @@ namespace CSimple.ViewModels
                 if (modelsToActivate.Count > 0)
                 {
                     CurrentModelStatus = $"Restored {modelsToActivate.Count} {type} model(s)";
-                    Debug.WriteLine($"RestoreActiveModelsOfType: Successfully restored {modelsToActivate.Count} models of type {type}");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] RestoreActiveModelsOfType: Successfully restored {modelsToActivate.Count} models of type {type}");
                 }
             }
             catch (Exception ex)
@@ -1548,19 +1548,19 @@ namespace CSimple.ViewModels
                 .Where(m => m.IsHuggingFaceReference || !string.IsNullOrEmpty(m.HuggingFaceModelId))
                 .ToList();
 
-            Console.WriteLine($"🔍 SavePersistedModelsAsync: Found {modelsToSave.Count} models to save out of {AvailableModels?.Count ?? 0} available models");
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 SavePersistedModelsAsync: Found {modelsToSave.Count} models to save out of {AvailableModels?.Count ?? 0} available models");
             Debug.WriteLine($"🔍 SavePersistedModelsAsync: Found {modelsToSave.Count} models to save out of {AvailableModels?.Count ?? 0} available models");
 
             // Log InputType values before saving
             foreach (var model in modelsToSave)
             {
-                Console.WriteLine($"📋 Model '{model.Name}' - InputType: {model.InputType}, IsHuggingFaceReference: {model.IsHuggingFaceReference}, HuggingFaceModelId: '{model.HuggingFaceModelId}'");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📋 Model '{model.Name}' - InputType: {model.InputType}, IsHuggingFaceReference: {model.IsHuggingFaceReference}, HuggingFaceModelId: '{model.HuggingFaceModelId}'");
                 Debug.WriteLine($"📋 Model '{model.Name}' - InputType: {model.InputType}, IsHuggingFaceReference: {model.IsHuggingFaceReference}, HuggingFaceModelId: '{model.HuggingFaceModelId}'");
             }
 
-            Console.WriteLine($"💾 Calling SavePersistedModelsAsync overload with {modelsToSave.Count} models");
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 💾 Calling SavePersistedModelsAsync overload with {modelsToSave.Count} models");
             await SavePersistedModelsAsync(modelsToSave); // Call the overload
-            Console.WriteLine($"✅ SavePersistedModelsAsync overload completed");
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ SavePersistedModelsAsync overload completed");
         }
 
         // Debounced save method to prevent excessive saves
@@ -1591,7 +1591,7 @@ namespace CSimple.ViewModels
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error in debounced save: {ex.Message}");
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error in debounced save: {ex.Message}");
                     }
                 }, token);
             }
@@ -1620,7 +1620,7 @@ namespace CSimple.ViewModels
             Directory.CreateDirectory(modelDirectory); // Ensure it exists
 
             // Log the model directory for user awareness
-            Debug.WriteLine($"[Model Directory] {modelId} -> {modelDirectory}");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Model Directory] {modelId} -> {modelDirectory}");
 
             return modelDirectory;
         }
@@ -1632,7 +1632,7 @@ namespace CSimple.ViewModels
                 var infoDirectory = GetModelDirectoryPath(model.ModelId ?? model.Id);
                 string infoContent = $"Model ID: {model.ModelId ?? model.Id}\nAuthor: {model.Author}\nType: {model.Pipeline_tag}\nPython:\nfrom transformers import AutoModel\nmodel = AutoModel.from_pretrained(\"{model.ModelId ?? model.Id}\", trust_remote_code=True)";
                 await File.WriteAllTextAsync(Path.Combine(infoDirectory, "model_info.txt"), infoContent);
-                Debug.WriteLine($"Saved Python reference info for {model.ModelId}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Saved Python reference info for {model.ModelId}");
             }
             catch (Exception ex) { HandleError("Error saving Python reference info", ex); }
         }
@@ -1652,7 +1652,7 @@ namespace CSimple.ViewModels
                 {
                     await sourceStream.CopyToAsync(destinationStream);
                 }
-                Debug.WriteLine($"Model file copied to: {destinationPath}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Model file copied to: {destinationPath}");
                 return destinationPath;
             }
             catch (Exception ex)
@@ -1694,8 +1694,8 @@ namespace CSimple.ViewModels
             }, null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
         }
 
-        private void StartModelMonitoring(NeuralNetworkModel model) => Debug.WriteLine($"VM: Starting monitoring for {model.Name}");
-        private void StopModelMonitoring(NeuralNetworkModel model) => Debug.WriteLine($"VM: Stopping monitoring for {model.Name}");
+        private void StartModelMonitoring(NeuralNetworkModel model) => Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] VM: Starting monitoring for {model.Name}");
+        private void StopModelMonitoring(NeuralNetworkModel model) => Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] VM: Stopping monitoring for {model.Name}");
 
         // --- Chat Methods ---
         private async Task SendMessageAsync()
@@ -1718,7 +1718,7 @@ namespace CSimple.ViewModels
             var userMessage = hasText ? CurrentMessage.Trim() : string.Empty;
             CurrentMessage = string.Empty; // Clear input
 
-            Debug.WriteLine($"Chat: Sending {(hasText ? $"message '{userMessage}'" : "media-only message")} to active models (count: {ActiveModelsCount})");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Chat: Sending {(hasText ? $"message '{userMessage}'" : "media-only message")} to active models (count: {ActiveModelsCount})");
 
             // Update UI properties
             IsAiTyping = true;
@@ -1728,7 +1728,7 @@ namespace CSimple.ViewModels
             {
                 // Use the existing CommunicateWithModelAsync method which handles the full chat flow
                 await CommunicateWithModelAsync(userMessage);
-                Debug.WriteLine($"Chat: Message processed successfully. ChatMessages count: {ChatMessages.Count}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Chat: Message processed successfully. ChatMessages count: {ChatMessages.Count}");
             }
             catch (Exception ex)
             {                // Add error message to chat if something goes wrong
@@ -1736,7 +1736,7 @@ namespace CSimple.ViewModels
                 ChatMessages.Add(errorMessage);
 
                 LastModelOutput = $"Error: {ex.Message}";
-                Debug.WriteLine($"Chat error: {ex}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Chat error: {ex}");
             }
             finally
             {
@@ -1806,7 +1806,7 @@ namespace CSimple.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error suggesting models: {ex.Message}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error suggesting models: {ex.Message}");
             }
         }
         private void ClearChat()
@@ -1823,7 +1823,7 @@ namespace CSimple.ViewModels
             {
                 // Set IsEditing to true for the selected message
                 message.IsEditing = true;
-                Debug.WriteLine($"Started editing message: {message.Content}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Started editing message: {message.Content}");
             }
             catch (Exception ex)
             {
@@ -2333,7 +2333,7 @@ namespace CSimple.ViewModels
         // Public method to execute a model from OrientPageViewModel
         public async Task<string> ExecuteModelAsync(string modelId, string inputText)
         {
-            Console.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
             Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
 
             try
@@ -2354,14 +2354,14 @@ namespace CSimple.ViewModels
                 var result = await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(
                     modelId, inputText, model, _pythonExecutablePath, _huggingFaceScriptPath, localModelPath);
 
-                Console.WriteLine($"✅ [NetPageViewModel.ExecuteModelAsync] Model execution successful, result length: {result?.Length ?? 0}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [NetPageViewModel.ExecuteModelAsync] Model execution successful, result length: {result?.Length ?? 0}");
                 Debug.WriteLine($"✅ [NetPageViewModel.ExecuteModelAsync] Model execution successful, result length: {result?.Length ?? 0}");
 
                 return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ [NetPageViewModel.ExecuteModelAsync] Model execution failed: {ex.Message}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [NetPageViewModel.ExecuteModelAsync] Model execution failed: {ex.Message}");
                 Debug.WriteLine($"❌ [NetPageViewModel.ExecuteModelAsync] Model execution failed: {ex.Message}");
                 throw;
             }
