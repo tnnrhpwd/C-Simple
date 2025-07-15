@@ -1563,7 +1563,7 @@ namespace CSimple.ViewModels
                 if (successCount > 0)
                 {
                     Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]    └── Execution: {executionStopwatch.ElapsedMilliseconds}ms");
-                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]    └── Avg: {executionStopwatch.ElapsedMilliseconds / successCount:F0}ms/model, Efficiency: {(double)executionStopwatch.ElapsedMilliseconds / totalStopwatch.ElapsedMilliseconds * 100:F1}%");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]    └── Avg: {executionStopwatch.ElapsedMilliseconds / successCount:F0}ms/model");
                 }
 
                 // Defer pipeline saving to avoid blocking execution - only save if there were successful executions

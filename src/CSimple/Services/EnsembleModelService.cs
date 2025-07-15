@@ -98,13 +98,13 @@ namespace CSimple.Services
 
             if (isImageContent)
             {
-                Debug.WriteLine("🖼️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected image content, using first image for model input");
+                Debug.WriteLine($"🖼️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected image content, using first image for model input");
                 return firstContent;
             }
 
             if (isAudioContent)
             {
-                Debug.WriteLine("🔊 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected audio content, using first audio file for model input");
+                Debug.WriteLine($"🔊 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected audio content, using first audio file for model input");
                 return firstContent;
             }
 
@@ -123,21 +123,21 @@ namespace CSimple.Services
                 case "concat":
                 case null:
                 default:
-                    Debug.WriteLine("🔗 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using concatenation method");
+                    Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using concatenation method");
                     return string.Join("\n\n", stepContents);
 
                 case "average":
                 case "averaging":
-                    Debug.WriteLine("📊 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using averaging method (fallback to concatenation for text)");
+                    Debug.WriteLine($"📊 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using averaging method (fallback to concatenation for text)");
                     return $"[Ensemble Average of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
 
                 case "voting":
                 case "majority":
-                    Debug.WriteLine("🗳️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using voting method (fallback to concatenation for text)");
+                    Debug.WriteLine($"🗳️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using voting method (fallback to concatenation for text)");
                     return $"[Ensemble Voting of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
 
                 case "weighted":
-                    Debug.WriteLine("⚖️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using weighted method (fallback to concatenation for text)");
+                    Debug.WriteLine($"⚖️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using weighted method (fallback to concatenation for text)");
                     return $"[Ensemble Weighted of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
             }
         }
