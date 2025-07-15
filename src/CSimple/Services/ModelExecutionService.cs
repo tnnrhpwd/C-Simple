@@ -192,9 +192,9 @@ namespace CSimple.Services
 
             try
             {
-                Debug.WriteLine($"Executing Python script with model: {modelId}");
-                Debug.WriteLine($"Script path: {huggingFaceScriptPath}");
-                Debug.WriteLine($"Python path: {pythonExecutablePath}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Executing Python script with model: {modelId}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Script path: {huggingFaceScriptPath}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Python path: {pythonExecutablePath}");
 
                 StatusUpdated?.Invoke($"Executing model {modelId}...");
 
@@ -212,7 +212,7 @@ namespace CSimple.Services
                     CreateNoWindow = true
                 };
 
-                Debug.WriteLine($"Starting process: {processStartInfo.FileName} {processStartInfo.Arguments}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Starting process: {processStartInfo.FileName} {processStartInfo.Arguments}");
 
                 using var process = new Process { StartInfo = processStartInfo };
                 process.Start();
@@ -233,9 +233,9 @@ namespace CSimple.Services
                 string error = await errorTask;
                 int exitCode = process.ExitCode;
 
-                Debug.WriteLine($"Process completed with exit code: {exitCode}");
-                Debug.WriteLine($"Output: {output}");
-                Debug.WriteLine($"Error: {error}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Process completed with exit code: {exitCode}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Output: {output}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error: {error}");
 
                 if (exitCode != 0)
                 {
@@ -247,7 +247,7 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error running model: {ex.Message}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error running model: {ex.Message}");
                 ErrorOccurred?.Invoke($"Model execution failed for {modelId}", ex);
                 throw; // Re-throw to be handled by caller
             }
@@ -260,7 +260,7 @@ namespace CSimple.Services
         {
             try
             {
-                Debug.WriteLine("Installing accelerate package...");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Installing accelerate package...");
                 StatusUpdated?.Invoke("Installing accelerate package...");
 
                 var processStartInfo = new ProcessStartInfo
@@ -284,7 +284,7 @@ namespace CSimple.Services
                 if (!completed)
                 {
                     process.Kill();
-                    Debug.WriteLine("Accelerate installation timed out");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Accelerate installation timed out");
                     StatusUpdated?.Invoke("Accelerate installation timed out");
                     return false;
                 }
@@ -293,9 +293,9 @@ namespace CSimple.Services
                 string error = await errorTask;
                 int exitCode = process.ExitCode;
 
-                Debug.WriteLine($"Accelerate installation completed with exit code: {exitCode}");
-                Debug.WriteLine($"Output: {output}");
-                Debug.WriteLine($"Error: {error}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Accelerate installation completed with exit code: {exitCode}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Output: {output}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error: {error}");
 
                 bool success = exitCode == 0;
                 StatusUpdated?.Invoke(success ? "Accelerate package installed successfully" : "Failed to install accelerate package");
@@ -304,7 +304,7 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error installing accelerate package: {ex.Message}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error installing accelerate package: {ex.Message}");
                 ErrorOccurred?.Invoke("Failed to install accelerate package", ex);
                 return false;
             }
@@ -477,9 +477,9 @@ namespace CSimple.Services
             }
 
             // Debug the processing
-            Debug.WriteLine($"Original output lines: {lines.Length}");
-            Debug.WriteLine($"Filtered output lines: {filteredLines.Length}");
-            Debug.WriteLine($"Final cleaned output: '{cleanedOutput}'");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Original output lines: {lines.Length}");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Filtered output lines: {filteredLines.Length}");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Final cleaned output: '{cleanedOutput}'");
 
             // Final validation
             if (string.IsNullOrWhiteSpace(cleanedOutput))

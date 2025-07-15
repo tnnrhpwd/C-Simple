@@ -759,7 +759,7 @@ namespace CSimple.Services
             Func<string, string, string, Task> showAlert = null)
         {
             var totalStopwatch = Stopwatch.StartNew();
-            Debug.WriteLine("⚡ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Using pre-computed optimizations");
+            Debug.WriteLine($"⚡ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Using pre-computed optimizations");
 
             try
             {

@@ -16,18 +16,18 @@ namespace CSimple.Services
     {
         private readonly NetPageViewModel _netPageViewModel;
         private readonly Dictionary<string, NodeViewModel> _nodeCache = new Dictionary<string, NodeViewModel>();
-        
+
         // Cache for step content to avoid repeated expensive GetStepContent calls
         private readonly Dictionary<string, string> _stepContentCache = new Dictionary<string, string>();
-        
+
         // Model execution optimization: batch similar models together
         private readonly Dictionary<string, List<(NodeViewModel node, string input)>> _batchedExecutions = new Dictionary<string, List<(NodeViewModel, string)>>();
-        
+
         public EnsembleModelService(NetPageViewModel netPageViewModel)
         {
             _netPageViewModel = netPageViewModel ?? throw new ArgumentNullException(nameof(netPageViewModel));
         }
-        
+
         public void ClearStepContentCache()
         {
             _stepContentCache.Clear();
@@ -39,7 +39,7 @@ namespace CSimple.Services
         /// </summary>
         public List<NodeViewModel> GetConnectedInputNodes(NodeViewModel modelNode, ObservableCollection<NodeViewModel> nodes, ObservableCollection<ConnectionViewModel> connections)
         {
-            Debug.WriteLine($"🔍 [GetConnectedInputNodes] Finding inputs for model node: {modelNode.Name}");
+            Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Finding inputs for model node: {modelNode.Name}");
 
             var connectedNodes = new List<NodeViewModel>();
 
@@ -55,18 +55,18 @@ namespace CSimple.Services
 
             // Find all connections that target this model node
             var incomingConnections = connections.Where(c => c.TargetNodeId == modelNode.Id).ToList();
-            Debug.WriteLine($"🔗 [GetConnectedInputNodes] Found {incomingConnections.Count} incoming connections");
+            Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Found {incomingConnections.Count} incoming connections");
 
             foreach (var connection in incomingConnections)
             {
                 if (_nodeCache.TryGetValue(connection.SourceNodeId, out var sourceNode))
                 {
-                    Debug.WriteLine($"🔗 [GetConnectedInputNodes] Connected node: {sourceNode.Name} (Type: {sourceNode.Type}, DataType: {sourceNode.DataType})");
+                    Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Connected node: {sourceNode.Name} (Type: {sourceNode.Type}, DataType: {sourceNode.DataType})");
                     connectedNodes.Add(sourceNode);
                 }
                 else
                 {
-                    Debug.WriteLine($"⚠️ [GetConnectedInputNodes] Warning: Source node with ID {connection.SourceNodeId} not found");
+                    Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Warning: Source node with ID {connection.SourceNodeId} not found");
                 }
             }
 
@@ -85,7 +85,7 @@ namespace CSimple.Services
 
             // Quick content type detection using optimized checks
             var firstContent = stepContents[0];
-            bool isImageContent = firstContent.IndexOf('.') > 0 && 
+            bool isImageContent = firstContent.IndexOf('.') > 0 &&
                                   (firstContent.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
                                    firstContent.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
                                    firstContent.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase));
@@ -98,13 +98,13 @@ namespace CSimple.Services
 
             if (isImageContent)
             {
-                Debug.WriteLine("🖼️ [CombineStepContents] Detected image content, using first image for model input");
+                Debug.WriteLine("🖼️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected image content, using first image for model input");
                 return firstContent;
             }
 
             if (isAudioContent)
             {
-                Debug.WriteLine("🔊 [CombineStepContents] Detected audio content, using first audio file for model input");
+                Debug.WriteLine("🔊 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected audio content, using first audio file for model input");
                 return firstContent;
             }
 
@@ -115,7 +115,7 @@ namespace CSimple.Services
             }
 
             // Reduced debug logging for performance - only log method used
-            Debug.WriteLine($"🔀 [CombineStepContents] Combining {stepContents.Count} contents using method: {ensembleMethod}");
+            Debug.WriteLine($"🔀 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Combining {stepContents.Count} contents using method: {ensembleMethod}");
 
             switch (ensembleMethod?.ToLowerInvariant())
             {
@@ -123,21 +123,21 @@ namespace CSimple.Services
                 case "concat":
                 case null:
                 default:
-                    Debug.WriteLine("🔗 [CombineStepContents] Using concatenation method");
+                    Debug.WriteLine("🔗 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using concatenation method");
                     return string.Join("\n\n", stepContents);
 
                 case "average":
                 case "averaging":
-                    Debug.WriteLine("📊 [CombineStepContents] Using averaging method (fallback to concatenation for text)");
+                    Debug.WriteLine("📊 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using averaging method (fallback to concatenation for text)");
                     return $"[Ensemble Average of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
 
                 case "voting":
                 case "majority":
-                    Debug.WriteLine("🗳️ [CombineStepContents] Using voting method (fallback to concatenation for text)");
+                    Debug.WriteLine("🗳️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using voting method (fallback to concatenation for text)");
                     return $"[Ensemble Voting of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
 
                 case "weighted":
-                    Debug.WriteLine("⚖️ [CombineStepContents] Using weighted method (fallback to concatenation for text)");
+                    Debug.WriteLine("⚖️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using weighted method (fallback to concatenation for text)");
                     return $"[Ensemble Weighted of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
             }
         }
@@ -160,7 +160,7 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ [ExecuteModelWithInput] Model execution failed: {ex.Message}");
+                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] Model execution failed: {ex.Message}");
                 throw;
             }
         }
@@ -170,8 +170,8 @@ namespace CSimple.Services
         /// </summary>
         public string DetermineResultContentType(NeuralNetworkModel model, string result)
         {
-            Console.WriteLine($"🔍 [DetermineResultContentType] Analyzing model: {model?.Name}, HF ID: {model?.HuggingFaceModelId}");
-            Debug.WriteLine($"🔍 [DetermineResultContentType] Analyzing model: {model?.Name}, HF ID: {model?.HuggingFaceModelId}");
+            Console.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Analyzing model: {model?.Name}, HF ID: {model?.HuggingFaceModelId}");
+            Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Analyzing model: {model?.Name}, HF ID: {model?.HuggingFaceModelId}");
 
             // Check if this is an image-to-text model based on the HuggingFace model ID or name
             if (model?.HuggingFaceModelId != null)
@@ -182,8 +182,8 @@ namespace CSimple.Services
                     modelId.Contains("vit-gpt2") ||
                     modelId.Contains("clip-interrogator"))
                 {
-                    Console.WriteLine($"🖼️➡️📝 [DetermineResultContentType] Detected image-to-text model, output type: text");
-                    Debug.WriteLine($"🖼️➡️📝 [DetermineResultContentType] Detected image-to-text model, output type: text");
+                    Console.WriteLine($"🖼️➡️📝 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Detected image-to-text model, output type: text");
+                    Debug.WriteLine($"🖼️➡️📝 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Detected image-to-text model, output type: text");
                     return "text";
                 }
             }
@@ -195,8 +195,8 @@ namespace CSimple.Services
                  result.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
                  result.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase)))
             {
-                Console.WriteLine($"🎨 [DetermineResultContentType] Result looks like image file path, output type: image");
-                Debug.WriteLine($"🎨 [DetermineResultContentType] Result looks like image file path, output type: image");
+                Console.WriteLine($"🎨 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Result looks like image file path, output type: image");
+                Debug.WriteLine($"🎨 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Result looks like image file path, output type: image");
                 return "image";
             }
 
@@ -207,14 +207,14 @@ namespace CSimple.Services
                  result.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) ||
                  result.EndsWith(".aac", StringComparison.OrdinalIgnoreCase)))
             {
-                Console.WriteLine($"🔊 [DetermineResultContentType] Result looks like audio file path, output type: audio");
-                Debug.WriteLine($"🔊 [DetermineResultContentType] Result looks like audio file path, output type: audio");
+                Console.WriteLine($"🔊 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Result looks like audio file path, output type: audio");
+                Debug.WriteLine($"🔊 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Result looks like audio file path, output type: audio");
                 return "audio";
             }
 
             // Default to text for any other output
-            Console.WriteLine($"📝 [DetermineResultContentType] Defaulting to text output type");
-            Debug.WriteLine($"📝 [DetermineResultContentType] Defaulting to text output type");
+            Console.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Defaulting to text output type");
+            Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Defaulting to text output type");
             return "text";
         }
 
@@ -235,7 +235,7 @@ namespace CSimple.Services
                 foreach (var inputNode in connectedInputNodes)
                 {
                     int stepForNodeContent = currentActionStep + 1;
-                    
+
                     // Use cache key to avoid repeated GetStepContent calls
                     string cacheKey = $"{inputNode.Id}_{stepForNodeContent}";
                     if (!_stepContentCache.TryGetValue(cacheKey, out string cachedContent))
@@ -253,7 +253,7 @@ namespace CSimple.Services
                         }
                         _stepContentCache[cacheKey] = cachedContent;
                     }
-                    
+
                     if (!string.IsNullOrEmpty(cachedContent))
                     {
                         stepContents.Add(cachedContent);
@@ -266,7 +266,7 @@ namespace CSimple.Services
                 // Use single input with caching
                 var inputNode = connectedInputNodes.First();
                 int stepForNodeContent = currentActionStep + 1;
-                
+
                 string cacheKey = $"{inputNode.Id}_{stepForNodeContent}";
                 if (!_stepContentCache.TryGetValue(cacheKey, out string cachedContent))
                 {
@@ -274,7 +274,7 @@ namespace CSimple.Services
                     cachedContent = contentValue ?? "";
                     _stepContentCache[cacheKey] = cachedContent;
                 }
-                
+
                 return cachedContent;
             }
         }
@@ -306,13 +306,13 @@ namespace CSimple.Services
                 // Only log if execution took longer than 8 seconds (reduced threshold)
                 if (totalStopwatch.ElapsedMilliseconds > 8000)
                 {
-                    Debug.WriteLine($"⏱️ [ExecuteSingleModelNodeAsync] '{modelNode.Name}' completed in {totalStopwatch.ElapsedMilliseconds}ms");
+                    Debug.WriteLine($"⏱️ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteSingleModelNodeAsync] '{modelNode.Name}' completed in {totalStopwatch.ElapsedMilliseconds}ms");
                 }
             }
             catch (Exception ex)
             {
                 totalStopwatch.Stop();
-                Debug.WriteLine($"❌ [ExecuteSingleModelNodeAsync] Error executing model {modelNode.Name} after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
+                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteSingleModelNodeAsync] Error executing model {modelNode.Name} after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
                 throw; // Re-throw to be handled by the caller
             }
         }
@@ -324,12 +324,12 @@ namespace CSimple.Services
         {
             // Group by model ID for batched execution
             var modelGroups = modelExecutions.GroupBy(e => e.model.HuggingFaceModelId).ToList();
-            
+
             var tasks = modelGroups.Select(async group =>
             {
                 var modelId = group.Key;
                 var executions = group.ToList();
-                
+
                 // For same-model executions, we can potentially optimize by keeping the model loaded
                 foreach (var (node, model, input) in executions)
                 {
@@ -342,12 +342,12 @@ namespace CSimple.Services
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"❌ [ExecuteBatchedModelsAsync] Error executing {node.Name}: {ex.Message}");
+                        Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteBatchedModelsAsync] Error executing {node.Name}: {ex.Message}");
                         // Continue with other executions even if one fails
                     }
                 }
             });
-            
+
             await Task.WhenAll(tasks).ConfigureAwait(false);
         }
     }
