@@ -237,48 +237,48 @@ namespace CSimple.ViewModels
 
         public (string Type, string Value) GetStepContent(int step) // step is 1-based
         {
-            Debug.WriteLine($"[NodeViewModel.GetStepContent] Node '{Name}' (Type: {Type}, DataType: {DataType}), Requested Step: {step} (1-based), ActionSteps.Count: {ActionSteps.Count}");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Node '{Name}' (Type: {Type}, DataType: {DataType}), Requested Step: {step} (1-based), ActionSteps.Count: {ActionSteps.Count}");
 
             if (ActionSteps == null)
             {
-                Debug.WriteLine($"[NodeViewModel.GetStepContent] ActionSteps list is null. Returning null content.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] ActionSteps list is null. Returning null content.");
                 return (null, null);
             }
 
             // Allow both Input and Model nodes to have step content
             if (Type != NodeType.Input && Type != NodeType.Model)
             {
-                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Node is not of Input or Model type (Type: {Type}). Returning null content.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Condition not met: Node is not of Input or Model type (Type: {Type}). Returning null content.");
                 return (null, null);
             }
 
             if (step <= 0)
             {
-                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Requested step {step} (1-based) is not a positive integer. Returning null content.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Condition not met: Requested step {step} (1-based) is not a positive integer. Returning null content.");
                 return (null, null);
             }
 
             if (ActionSteps.Count == 0)
             {
-                Debug.WriteLine($"[NodeViewModel.GetStepContent] ActionSteps is empty. Cannot retrieve content for step {step}. Returning null content.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] ActionSteps is empty. Cannot retrieve content for step {step}. Returning null content.");
                 return (null, null);
             }
 
             if (step > ActionSteps.Count)
             {
-                Debug.WriteLine($"[NodeViewModel.GetStepContent] Condition not met: Requested step {step} (1-based) is out of bounds for this node's ActionSteps (Count: {ActionSteps.Count}). Returning null content.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Condition not met: Requested step {step} (1-based) is out of bounds for this node's ActionSteps (Count: {ActionSteps.Count}). Returning null content.");
                 return (null, null);
             }
 
             // Adjust step to be 0-indexed for list access
             var stepData = ActionSteps[step - 1];
-            Debug.WriteLine($"[NodeViewModel.GetStepContent] Accessing ActionSteps[{step - 1}]. Step Data: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value}'");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Accessing ActionSteps[{step - 1}]. Step Data: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value}'");
 
             // Ensure the stepData.Type matches the node's DataType for relevance
             // This check might be redundant if ActionSteps was already populated with matching types.
             if (!string.Equals(stepData.Type, this.DataType, StringComparison.OrdinalIgnoreCase))
             {
-                Debug.WriteLine($"[NodeViewModel.GetStepContent] Warning: Step data type '{stepData.Type}' from ActionSteps[{step - 1}] does not match node's DataType '{this.DataType}'. Returning content as is.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Warning: Step data type '{stepData.Type}' from ActionSteps[{step - 1}] does not match node's DataType '{this.DataType}'. Returning content as is.");
             }
 
             // For Model nodes, if we have stored output (generated content), return it directly
@@ -286,7 +286,7 @@ namespace CSimple.ViewModels
             // This prevents issues where generated text like "Image Caption: ..." gets parsed as timestamp data
             if (Type == NodeType.Model && !string.IsNullOrEmpty(stepData.Value))
             {
-                Debug.WriteLine($"[NodeViewModel.GetStepContent] Model node has stored output, returning directly: Type='{stepData.Type}', Value length={stepData.Value.Length}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Model node has stored output, returning directly: Type='{stepData.Type}', Value length={stepData.Value.Length}");
                 return (stepData.Type, stepData.Value);
             }
 
@@ -307,13 +307,13 @@ namespace CSimple.ViewModels
                 imageFileName = FindClosestImageFile(stepData.Value, stepData.Type);
                 if (!string.IsNullOrEmpty(imageFileName))
                 {
-                    Debug.WriteLine($"[NodeViewModel.GetStepContent] Found corresponding image file: {imageFileName}");
-                    Debug.WriteLine($"[NodeViewModel.GetStepContent] Returning image file path for model input: {imageFileName}");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Found corresponding image file: {imageFileName}");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Returning image file path for model input: {imageFileName}");
                     return (stepData.Type, imageFileName); // Return the actual image file path for model execution
                 }
                 else
                 {
-                    Debug.WriteLine("[NodeViewModel.GetStepContent] No corresponding image file found.");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] No corresponding image file found.");
                 }
             }
 
@@ -328,22 +328,22 @@ namespace CSimple.ViewModels
                     string audioSegmentPath = GetAudioSegment(DateTime.MinValue, DateTime.MinValue); // Simplified for now
                     if (!string.IsNullOrEmpty(audioSegmentPath))
                     {
-                        Debug.WriteLine($"[NodeViewModel.GetStepContent] Found corresponding audio file: {audioSegmentPath}");
-                        Debug.WriteLine($"[NodeViewModel.GetStepContent] Returning audio file path for model input: {audioSegmentPath}");
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Found corresponding audio file: {audioSegmentPath}");
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Returning audio file path for model input: {audioSegmentPath}");
                         return (stepData.Type, audioSegmentPath); // Return the actual audio file path for model execution
                     }
                     else
                     {
-                        Debug.WriteLine("[NodeViewModel.GetStepContent] No corresponding audio file found.");
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] No corresponding audio file found.");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[NodeViewModel.GetStepContent] Error getting audio segment: {ex.Message}");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Error getting audio segment: {ex.Message}");
                 }
             }
 
-            Debug.WriteLine($"[NodeViewModel.GetStepContent] Returning for UI: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value}'");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Returning for UI: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value}'");
             return (stepData.Type, stepData.Value);
         }
 
@@ -351,7 +351,7 @@ namespace CSimple.ViewModels
         {
             if (string.IsNullOrEmpty(actionDescription))
             {
-                Debug.WriteLine("[NodeViewModel.FindClosestImageFile] Action description is null or empty.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Action description is null or empty.");
                 return null;
             }
 
@@ -363,7 +363,7 @@ namespace CSimple.ViewModels
                 actionDescription.Length > 100 ||
                 (!actionDescription.Contains("_") && !actionDescription.Contains(":")))
             {
-                Debug.WriteLine($"[NodeViewModel.FindClosestImageFile] Action description appears to be generated content, not a timestamp: {actionDescription.Substring(0, Math.Min(50, actionDescription.Length))}...");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Action description appears to be generated content, not a timestamp: {actionDescription.Substring(0, Math.Min(50, actionDescription.Length))}...");
                 return null;
             }
 
@@ -383,7 +383,7 @@ namespace CSimple.ViewModels
 
             if (!Directory.Exists(directoryPath))
             {
-                Debug.WriteLine($"[NodeViewModel.FindClosestImageFile] Directory does not exist: {directoryPath}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Directory does not exist: {directoryPath}");
                 return null;
             }
 
@@ -439,28 +439,28 @@ namespace CSimple.ViewModels
                         }
                         else
                         {
-                            Debug.WriteLine($"[NodeViewModel.FindClosestImageFile] Could not parse timestamp: {timestampPart}");
+                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Could not parse timestamp: {timestampPart}");
                         }
                     }
                     else
                     {
-                        Debug.WriteLine($"[NodeViewModel.FindClosestImageFile] Filename is too short or does not contain underscore: {fileName}");
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Filename is too short or does not contain underscore: {fileName}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[NodeViewModel.FindClosestImageFile] Error finding closest image file: {ex.Message}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Error finding closest image file: {ex.Message}");
                 return null;
             }
 
             if (closestFile != null)
             {
-                Debug.WriteLine($"[NodeViewModel.FindClosestImageFile] Found closest image file: {closestFile}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Found closest image file: {closestFile}");
             }
             else
             {
-                Debug.WriteLine("[NodeViewModel.FindClosestImageFile] No suitable image file found.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] No suitable image file found.");
             }
 
             return closestFile;
@@ -477,13 +477,13 @@ namespace CSimple.ViewModels
         {
             if (string.IsNullOrEmpty(AudioFilePath))
             {
-                Debug.WriteLine("[NodeViewModel.GetAudioSegment] Audio file path is not set. Attempting to find closest audio file by timestamp.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] Audio file path is not set. Attempting to find closest audio file by timestamp.");
                 // Implement logic to find the audio file with the closest timestamp
                 string audioFilePath = FindClosestAudioFile(startTime);
 
                 if (string.IsNullOrEmpty(audioFilePath))
                 {
-                    Debug.WriteLine("[NodeViewModel.GetAudioSegment] No audio file found with a timestamp close to the action review timestamp.");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] No audio file found with a timestamp close to the action review timestamp.");
                     return null;
                 }
 
@@ -494,13 +494,13 @@ namespace CSimple.ViewModels
 
             if (Type != NodeType.Input || DataType?.ToLower() != "audio")
             {
-                Debug.WriteLine("[NodeViewModel.GetAudioSegment] Node is not an audio input node.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] Node is not an audio input node.");
                 return null;
             }
 
             if (startTime == DateTime.MinValue || endTime == DateTime.MinValue)
             {
-                Debug.WriteLine("[NodeViewModel.GetAudioSegment] Invalid start or end time.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] Invalid start or end time.");
                 return null;
             }
 
@@ -515,7 +515,7 @@ namespace CSimple.ViewModels
 
             if (!Directory.Exists(directoryPath))
             {
-                Debug.WriteLine($"[NodeViewModel.FindClosestAudioFile] Directory does not exist: {directoryPath}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Directory does not exist: {directoryPath}");
                 return null;
             }
 
@@ -545,17 +545,17 @@ namespace CSimple.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[NodeViewModel.FindClosestAudioFile] Error finding closest audio file: {ex.Message}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Error finding closest audio file: {ex.Message}");
                 return null;
             }
 
             if (closestFile != null)
             {
-                Debug.WriteLine($"[NodeViewModel.FindClosestAudioFile] Found closest audio file: {closestFile}, difference: {closestDifference}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Found closest audio file: {closestFile}, difference: {closestDifference}");
             }
             else
             {
-                Debug.WriteLine("[NodeViewModel.FindClosestAudioFile] No suitable audio file found.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] No suitable audio file found.");
             }
 
             return closestFile;
@@ -572,7 +572,7 @@ namespace CSimple.ViewModels
             string segmentFileName = $"Segment_{startTime.Ticks}_{endTime.Ticks}.wav";
             string segmentPath = Path.Combine(Path.GetDirectoryName(fullPath), segmentFileName);
 
-            Debug.WriteLine($"[NodeViewModel.SimulateAudioSegmentExtraction] Simulated audio segment extraction from {fullPath} to {segmentPath} (Start: {startTime}, End: {endTime})");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SimulateAudioSegmentExtraction] Simulated audio segment extraction from {fullPath} to {segmentPath} (Start: {startTime}, End: {endTime})");
             return segmentPath;
         }
 
@@ -584,7 +584,7 @@ namespace CSimple.ViewModels
         /// <param name="outputValue">The generated output content</param>
         public void SetStepOutput(int step, string outputType, string outputValue)
         {
-            Debug.WriteLine($"[NodeViewModel.SetStepOutput] Setting output for node '{Name}' at step {step}: Type='{outputType}', Value length={outputValue?.Length ?? 0}");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SetStepOutput] Setting output for node '{Name}' at step {step}: Type='{outputType}', Value length={outputValue?.Length ?? 0}");
 
             if (ActionSteps == null)
             {
@@ -600,7 +600,7 @@ namespace CSimple.ViewModels
             // Set the output at the specified step (convert to 0-based index)
             ActionSteps[step - 1] = (outputType, outputValue);
 
-            Debug.WriteLine($"[NodeViewModel.SetStepOutput] Successfully stored output for step {step}. ActionSteps.Count is now {ActionSteps.Count}");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SetStepOutput] Successfully stored output for step {step}. ActionSteps.Count is now {ActionSteps.Count}");
         }
 
         /// <summary>

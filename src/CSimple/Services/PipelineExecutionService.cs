@@ -10,20 +10,20 @@ using CSimple.ViewModels;
 
 namespace CSimple.Services
 {        /// <summary>
-        /// Service for handling pipeline execution, including "Run All Models" functionality
-        /// with dependency resolution, topological sorting, and parallel execution
-        /// </summary>
-        public class PipelineExecutionService
-        {
-            private readonly EnsembleModelService _ensembleModelService;
-            private readonly Func<NodeViewModel, NeuralNetworkModel> _findCorrespondingModelFunc;
-            
-            // Performance optimization caches
-            private readonly Dictionary<string, NodeViewModel> _nodeCache = new Dictionary<string, NodeViewModel>();
-            private readonly Dictionary<string, List<string>> _dependencyCache = new Dictionary<string, List<string>>();
-                  // Ultra-performance optimization: Connection pool for reused model instances
+         /// Service for handling pipeline execution, including "Run All Models" functionality
+         /// with dependency resolution, topological sorting, and parallel execution
+         /// </summary>
+    public class PipelineExecutionService
+    {
+        private readonly EnsembleModelService _ensembleModelService;
+        private readonly Func<NodeViewModel, NeuralNetworkModel> _findCorrespondingModelFunc;
+
+        // Performance optimization caches
+        private readonly Dictionary<string, NodeViewModel> _nodeCache = new Dictionary<string, NodeViewModel>();
+        private readonly Dictionary<string, List<string>> _dependencyCache = new Dictionary<string, List<string>>();
+        // Ultra-performance optimization: Connection pool for reused model instances
         private readonly Dictionary<string, Task> _modelWarmupTasks = new Dictionary<string, Task>();
-        
+
         // Pre-computed execution metadata cache
         private readonly Dictionary<string, List<NodeViewModel>> _inputNodeCache = new Dictionary<string, List<NodeViewModel>>();
         private readonly Dictionary<string, string> _preparedInputCache = new Dictionary<string, string>();
@@ -51,7 +51,7 @@ namespace CSimple.Services
                 // Ultra-fast setup with improved caching
                 _nodeCache.Clear();
                 _ensembleModelService.ClearStepContentCache();
-                
+
                 // Clear execution-specific caches
                 _inputNodeCache.Clear();
                 _preparedInputCache.Clear();
@@ -62,7 +62,7 @@ namespace CSimple.Services
                 var modelLookupCache = new Dictionary<string, NeuralNetworkModel>(nodes.Count);
                 var availableModelNodes = new List<NodeViewModel>(nodes.Count);
                 var connectionCountCache = new Dictionary<string, int>(nodes.Count);
-                
+
                 // Single-pass processing for maximum efficiency
                 foreach (var node in nodes)
                 {
@@ -70,7 +70,7 @@ namespace CSimple.Services
                     if (node.Type == NodeType.Model)
                     {
                         modelNodes.Add(node);
-                        
+
                         // Immediately resolve model to avoid double lookup
                         var correspondingModel = _findCorrespondingModelFunc(node);
                         if (correspondingModel != null)
@@ -116,19 +116,19 @@ namespace CSimple.Services
                     var executableBatch = new List<(NodeViewModel node, NeuralNetworkModel model)>(group.Count);
                     foreach (var modelNode in group)
                     {
-                        if (modelLookupCache.TryGetValue(modelNode.Id, out var model) && 
+                        if (modelLookupCache.TryGetValue(modelNode.Id, out var model) &&
                             CanExecuteModelNodeHyperFast(modelNode, connectionCountCache))
                         {
                             executableBatch.Add((modelNode, model));
                         }
                     }
-                    
+
                     if (executableBatch.Count == 0)
                     {
                         skippedCount += group.Count;
                         continue;
                     }
-                    
+
                     // Create all tasks upfront for better memory allocation
                     var executionTasks = new Task<bool>[executableBatch.Count];
                     for (int i = 0; i < executableBatch.Count; i++)
@@ -136,17 +136,17 @@ namespace CSimple.Services
                         var (modelNode, correspondingModel) = executableBatch[i];
                         executionTasks[i] = ExecuteModelWithThrottlingAsync(modelNode, correspondingModel, nodes, connections, currentActionStep, semaphore);
                     }
-                    
+
                     // Execute all models with maximum concurrency
                     var results = await Task.WhenAll(executionTasks).ConfigureAwait(false);
-                    
+
                     // Ultra-fast result aggregation with single pass
                     int batchSuccessCount = 0;
                     for (int i = 0; i < results.Length; i++)
                     {
                         if (results[i]) batchSuccessCount++;
                     }
-                    
+
                     successCount += batchSuccessCount;
                     skippedCount += executableBatch.Count - batchSuccessCount;
 
@@ -156,15 +156,15 @@ namespace CSimple.Services
                         UpdateCacheAfterExecution(executableBatch.Take(batchSuccessCount).Select(x => x.node).ToList(), currentActionStep);
                     }
                 }
-                
+
                 totalStopwatch.Stop();
-                Debug.WriteLine($"🎉 [PipelineExecutionService] Completed: {successCount} successful, {skippedCount} skipped in {totalStopwatch.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"🎉 [{DateTime.Now:HH:mm:ss.fff}] [PipelineExecutionService] Completed: {successCount} successful, {skippedCount} skipped in {totalStopwatch.ElapsedMilliseconds}ms");
 
                 return (successCount, skippedCount);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ [PipelineExecutionService] Critical error: {ex.Message}");
+                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [PipelineExecutionService] Critical error: {ex.Message}");
                 throw;
             }
         }
@@ -180,14 +180,14 @@ namespace CSimple.Services
             {
                 return new List<List<NodeViewModel>> { modelNodes };
             }
-            
+
             // Pre-build model node ID hashset for faster lookups
             var modelNodeIds = new HashSet<string>(modelNodes.Count);
             foreach (var node in modelNodes)
             {
                 modelNodeIds.Add(node.Id);
             }
-            
+
             // Only consider ACTUAL model-to-model dependencies - use optimized filtering
             var actualModelConnections = new List<ConnectionViewModel>();
             foreach (var c in connections)
@@ -197,29 +197,29 @@ namespace CSimple.Services
                     actualModelConnections.Add(c);
                 }
             }
-            
+
             // If no model-to-model dependencies, run all in parallel (most common case)
             if (actualModelConnections.Count == 0)
             {
                 return new List<List<NodeViewModel>> { modelNodes };
             }
-            
+
             // Build dependency graph efficiently
             var dependencyLevels = new Dictionary<NodeViewModel, int>(modelNodes.Count);
             var dependencies = new Dictionary<string, HashSet<string>>(modelNodes.Count);
-            
+
             // Initialize all nodes
             foreach (var node in modelNodes)
             {
                 dependencies[node.Id] = new HashSet<string>();
             }
-            
+
             // Build dependencies from actual model connections
             foreach (var connection in actualModelConnections)
             {
                 dependencies[connection.TargetNodeId].Add(connection.SourceNodeId);
             }
-            
+
             // Calculate levels efficiently
             var visited = new HashSet<string>(modelNodes.Count);
             var modelNodeLookup = new Dictionary<string, NodeViewModel>(modelNodes.Count);
@@ -227,7 +227,7 @@ namespace CSimple.Services
             {
                 modelNodeLookup[node.Id] = node;
             }
-            
+
             foreach (var node in modelNodes)
             {
                 if (!visited.Contains(node.Id))
@@ -239,7 +239,7 @@ namespace CSimple.Services
             // Group by level
             var levelGroups = new List<List<NodeViewModel>>();
             var levelDict = new Dictionary<int, List<NodeViewModel>>();
-            
+
             foreach (var kvp in dependencyLevels)
             {
                 var level = kvp.Value;
@@ -249,15 +249,15 @@ namespace CSimple.Services
                 }
                 levelDict[level].Add(kvp.Key);
             }
-            
+
             // Sort levels and create final groups
             var sortedLevels = levelDict.Keys.OrderBy(k => k);
             foreach (var level in sortedLevels)
             {
                 levelGroups.Add(levelDict[level]);
             }
-            
-            Debug.WriteLine($"📊 [BuildOptimizedExecutionGroups] Created {levelGroups.Count} execution groups with dependencies");
+
+            Debug.WriteLine($"📊 [{DateTime.Now:HH:mm:ss.fff}] [BuildOptimizedExecutionGroups] Created {levelGroups.Count} execution groups with dependencies");
             return levelGroups;
         }
 
@@ -265,12 +265,12 @@ namespace CSimple.Services
         /// Calculates the dependency level of a node using iterative approach
         /// </summary>
         private void CalculateNodeLevelOptimized(NodeViewModel node, Dictionary<NodeViewModel, int> dependencyLevels,
-                                                Dictionary<string, HashSet<string>> dependencies, HashSet<string> visited, 
+                                                Dictionary<string, HashSet<string>> dependencies, HashSet<string> visited,
                                                 Dictionary<string, NodeViewModel> modelNodeLookup)
         {
             if (visited.Contains(node.Id))
                 return;
-                
+
             // Simple case: if node has no dependencies, it's level 0
             if (!dependencies.ContainsKey(node.Id) || dependencies[node.Id].Count == 0)
             {
@@ -278,21 +278,21 @@ namespace CSimple.Services
                 visited.Add(node.Id);
                 return;
             }
-                
+
             var toProcess = new Stack<NodeViewModel>();
             var processing = new HashSet<string>();
             toProcess.Push(node);
-            
+
             while (toProcess.Count > 0)
             {
                 var current = toProcess.Peek();
-                
+
                 if (visited.Contains(current.Id))
                 {
                     toProcess.Pop();
                     continue;
                 }
-                
+
                 if (processing.Contains(current.Id))
                 {
                     // We've processed all dependencies, now calculate level
@@ -308,7 +308,7 @@ namespace CSimple.Services
                             }
                         }
                     }
-                    
+
                     dependencyLevels[current] = maxLevel;
                     visited.Add(current.Id);
                     processing.Remove(current.Id);
@@ -317,7 +317,7 @@ namespace CSimple.Services
                 else
                 {
                     processing.Add(current.Id);
-                    
+
                     // Add dependencies to stack if not already processed
                     if (dependencies.ContainsKey(current.Id))
                     {
@@ -333,7 +333,7 @@ namespace CSimple.Services
                                 }
                             }
                         }
-                        
+
                         // If all dependencies are being processed or don't exist, we can continue
                         if (allDepsProcessed)
                         {
@@ -345,7 +345,7 @@ namespace CSimple.Services
                                     maxLevel = Math.Max(maxLevel, dependencyLevels[depNode] + 1);
                                 }
                             }
-                            
+
                             dependencyLevels[current] = maxLevel;
                             visited.Add(current.Id);
                             processing.Remove(current.Id);
@@ -371,7 +371,7 @@ namespace CSimple.Services
                 // Note: We need the nodes collection to find the actual NodeViewModel
                 // This will be passed as a parameter in a real implementation
                 // For now, we'll return an empty list and handle this in the calling code
-                Debug.WriteLine($"🔗 [GetNodeDependencies] Found dependency connection: {connection.SourceNodeId} -> {node.Id}");
+                Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [GetNodeDependencies] Found dependency connection: {connection.SourceNodeId} -> {node.Id}");
             }
 
             return dependencies;
@@ -418,7 +418,7 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ [ExecuteOptimizedModelNodeAsync] Error executing model {modelNode.Name}: {ex.Message}");
+                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteOptimizedModelNodeAsync] Error executing model {modelNode.Name}: {ex.Message}");
                 throw;
             }
         }
@@ -440,7 +440,7 @@ namespace CSimple.Services
                 {
                     return connectedInputCount >= 2;
                 }
-                
+
                 // Fallback: count connections manually (slower path)
                 connectedInputCount = 0;
                 foreach (var c in connections)
@@ -486,7 +486,7 @@ namespace CSimple.Services
             if (visiting.Contains(node.Id))
             {
                 // Cycle detected - log warning but continue
-                Debug.WriteLine($"⚠️ [TopologicalSort] Cycle detected involving node: {node.Name}");
+                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [TopologicalSort] Cycle detected involving node: {node.Name}");
                 return;
             }
 
@@ -518,7 +518,7 @@ namespace CSimple.Services
         /// <summary>
         /// Pre-computes input relationships and prepared inputs for all models to avoid repeated work
         /// </summary>
-        private void PrecomputeInputRelationships(List<NodeViewModel> modelNodes, ObservableCollection<NodeViewModel> nodes, 
+        private void PrecomputeInputRelationships(List<NodeViewModel> modelNodes, ObservableCollection<NodeViewModel> nodes,
             ObservableCollection<ConnectionViewModel> connections, int currentActionStep)
         {
             foreach (var modelNode in modelNodes)
@@ -526,7 +526,7 @@ namespace CSimple.Services
                 // Cache input nodes
                 var inputNodes = _ensembleModelService.GetConnectedInputNodes(modelNode, nodes, connections);
                 _inputNodeCache[modelNode.Id] = inputNodes;
-                
+
                 // Pre-compute input if possible (for models without dependencies)
                 if (inputNodes.All(n => n.Type == NodeType.Input))
                 {
@@ -540,12 +540,12 @@ namespace CSimple.Services
         /// <summary>
         /// Ultra-optimized input relationship pre-computation with aggressive caching
         /// </summary>
-        private void PrecomputeInputRelationshipsOptimized(List<NodeViewModel> modelNodes, ObservableCollection<NodeViewModel> nodes, 
+        private void PrecomputeInputRelationshipsOptimized(List<NodeViewModel> modelNodes, ObservableCollection<NodeViewModel> nodes,
             ObservableCollection<ConnectionViewModel> connections, int currentActionStep, Dictionary<string, int> connectionCountCache)
         {
             // Build connection lookup in a single pass for maximum efficiency
             var targetToSources = new Dictionary<string, List<NodeViewModel>>(modelNodes.Count);
-            
+
             foreach (var connection in connections)
             {
                 if (!targetToSources.TryGetValue(connection.TargetNodeId, out var sourcesList))
@@ -553,7 +553,7 @@ namespace CSimple.Services
                     sourcesList = new List<NodeViewModel>(4); // Pre-allocate common size
                     targetToSources[connection.TargetNodeId] = sourcesList;
                 }
-                
+
                 if (_nodeCache.TryGetValue(connection.SourceNodeId, out var sourceNode))
                 {
                     sourcesList.Add(sourceNode);
@@ -562,19 +562,19 @@ namespace CSimple.Services
 
             // Process models in parallel for input preparation
             var preparationTasks = new List<Task>(modelNodes.Count);
-            
+
             foreach (var modelNode in modelNodes)
             {
                 preparationTasks.Add(Task.Run(() =>
                 {
                     var inputNodes = targetToSources.GetValueOrDefault(modelNode.Id, new List<NodeViewModel>());
-                    
+
                     // Always cache input nodes for later use
                     lock (_inputNodeCache)
                     {
                         _inputNodeCache[modelNode.Id] = inputNodes;
                     }
-                    
+
                     // Pre-compute input only for models with Input-only dependencies (80% of cases)
                     if (inputNodes.Count > 0 && inputNodes.All(n => n.Type == NodeType.Input))
                     {
@@ -588,12 +588,12 @@ namespace CSimple.Services
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"⚠️ [PrecomputeInputRelationshipsOptimized] Failed to pre-compute input for {modelNode.Name}: {ex.Message}");
+                            Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [PrecomputeInputRelationshipsOptimized] Failed to pre-compute input for {modelNode.Name}: {ex.Message}");
                         }
                     }
                 }));
             }
-            
+
             // Wait for all preparation tasks with timeout
             try
             {
@@ -601,11 +601,11 @@ namespace CSimple.Services
             }
             catch (AggregateException ex)
             {
-                Debug.WriteLine($"⚠️ [PrecomputeInputRelationshipsOptimized] Some input preparations failed: {ex.Message}");
+                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [PrecomputeInputRelationshipsOptimized] Some input preparations failed: {ex.Message}");
             }
-            
+
             _executionCacheValid = true;
-            Debug.WriteLine($"✅ [PrecomputeInputRelationshipsOptimized] Cached {_preparedInputCache.Count}/{modelNodes.Count} inputs");
+            Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [PrecomputeInputRelationshipsOptimized] Cached {_preparedInputCache.Count}/{modelNodes.Count} inputs");
         }
 
         /// <summary>
@@ -616,21 +616,21 @@ namespace CSimple.Services
             // Quick optimization: if no connections at all, run everything in parallel
             if (connections.Count == 0)
             {
-                Debug.WriteLine("📊 [BuildHyperOptimizedExecutionGroups] No dependencies found, executing all models in parallel");
+                Debug.WriteLine("📊 [{DateTime.Now:HH:mm:ss.fff}] [BuildHyperOptimizedExecutionGroups] No dependencies found, executing all models in parallel");
                 return new List<List<NodeViewModel>> { modelNodes };
             }
-            
+
             // Build model node ID hashset for O(1) lookups
             var modelNodeIds = new HashSet<string>(modelNodes.Count);
             foreach (var node in modelNodes)
             {
                 modelNodeIds.Add(node.Id);
             }
-            
+
             // Fast check for model-to-model dependencies
             var hasModelDependencies = false;
             var dependentModelIds = new HashSet<string>();
-            
+
             foreach (var connection in connections)
             {
                 if (modelNodeIds.Contains(connection.SourceNodeId) && modelNodeIds.Contains(connection.TargetNodeId))
@@ -639,18 +639,18 @@ namespace CSimple.Services
                     dependentModelIds.Add(connection.TargetNodeId);
                 }
             }
-            
+
             // If no model-to-model dependencies, run all in parallel (most common case)
             if (!hasModelDependencies)
             {
-                Debug.WriteLine("📊 [BuildHyperOptimizedExecutionGroups] No model-to-model dependencies, executing all models in parallel");
+                Debug.WriteLine("📊 [{DateTime.Now:HH:mm:ss.fff}] [BuildHyperOptimizedExecutionGroups] No model-to-model dependencies, executing all models in parallel");
                 return new List<List<NodeViewModel>> { modelNodes };
             }
-            
+
             // Simple two-tier grouping for maximum performance
             var independentModels = new List<NodeViewModel>(modelNodes.Count);
             var dependentModels = new List<NodeViewModel>();
-            
+
             foreach (var modelNode in modelNodes)
             {
                 if (dependentModelIds.Contains(modelNode.Id))
@@ -658,14 +658,14 @@ namespace CSimple.Services
                 else
                     independentModels.Add(modelNode);
             }
-            
+
             var groups = new List<List<NodeViewModel>>(2);
             if (independentModels.Count > 0)
                 groups.Add(independentModels);
             if (dependentModels.Count > 0)
                 groups.Add(dependentModels);
-            
-            Debug.WriteLine($"📊 [BuildHyperOptimizedExecutionGroups] Created {groups.Count} groups: {independentModels.Count} independent, {dependentModels.Count} dependent");
+
+            Debug.WriteLine($"📊 [{DateTime.Now:HH:mm:ss.fff}] [BuildHyperOptimizedExecutionGroups] Created {groups.Count} groups: {independentModels.Count} independent, {dependentModels.Count} dependent");
             return groups;
         }
 
@@ -682,7 +682,7 @@ namespace CSimple.Services
             {
                 return connectionCountCache.GetValueOrDefault(modelNode.Id, 0) >= 2;
             }
-            
+
             return true;
         }
 
@@ -690,7 +690,7 @@ namespace CSimple.Services
         /// Optimized model execution with throttling and minimal overhead
         /// </summary>
         private async Task<bool> ExecuteModelWithThrottlingAsync(NodeViewModel modelNode, NeuralNetworkModel correspondingModel,
-            ObservableCollection<NodeViewModel> nodes, ObservableCollection<ConnectionViewModel> connections, 
+            ObservableCollection<NodeViewModel> nodes, ObservableCollection<ConnectionViewModel> connections,
             int currentActionStep, SemaphoreSlim semaphore)
         {
             await semaphore.WaitAsync().ConfigureAwait(false);
@@ -701,7 +701,7 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ [ExecuteModelWithThrottlingAsync] Model {modelNode.Name} failed: {ex.Message}");
+                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithThrottlingAsync] Model {modelNode.Name} failed: {ex.Message}");
                 return false;
             }
             finally
@@ -742,7 +742,7 @@ namespace CSimple.Services
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ [ExecuteHyperOptimizedModelNodeAsync] Error executing model {modelNode.Name}: {ex.Message}");
+                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteHyperOptimizedModelNodeAsync] Error executing model {modelNode.Name}: {ex.Message}");
                 throw;
             }
         }
@@ -759,7 +759,7 @@ namespace CSimple.Services
             Func<string, string, string, Task> showAlert = null)
         {
             var totalStopwatch = Stopwatch.StartNew();
-            Debug.WriteLine("⚡ [ExecuteAllModelsOptimizedAsync] Using pre-computed optimizations");
+            Debug.WriteLine("⚡ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Using pre-computed optimizations");
 
             try
             {
@@ -781,7 +781,7 @@ namespace CSimple.Services
                     return (0, 0);
                 }
 
-                Debug.WriteLine($"🚀 [ExecuteAllModelsOptimizedAsync] Found {availableModelNodes.Count} pre-loaded models");
+                Debug.WriteLine($"🚀 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Found {availableModelNodes.Count} pre-loaded models");
 
                 // Use existing optimized execution grouping
                 var executionGroups = BuildHyperOptimizedExecutionGroups(availableModelNodes, connections);
@@ -797,7 +797,7 @@ namespace CSimple.Services
                 {
                     // Create execution tasks for all models in the group
                     var executionTasks = new List<Task<bool>>();
-                    
+
                     foreach (var modelNode in group)
                     {
                         if (preloadedModelCache.TryGetValue(modelNode.Id, out var model))
@@ -818,27 +818,27 @@ namespace CSimple.Services
                         else
                         {
                             // Try to find model in case cache missed it - never skip unless absolutely necessary
-                            Debug.WriteLine($"⚠️ [ExecuteAllModelsOptimizedAsync] Model cache miss for {modelNode.Name}, attempting fallback lookup");
-                            
+                            Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Model cache miss for {modelNode.Name}, attempting fallback lookup");
+
                             // Create a fallback task that attempts to find and execute the model
                             executionTasks.Add(Task.Run(async () =>
                             {
                                 try
                                 {
                                     await semaphore.WaitAsync();
-                                    
+
                                     // Try to find the model using the available models in NetPageViewModel
                                     var netPageVM = ((App)Application.Current).NetPageViewModel;
                                     if (netPageVM?.AvailableModels != null)
                                     {
-                                        var fallbackModel = netPageVM.AvailableModels.FirstOrDefault(m => 
+                                        var fallbackModel = netPageVM.AvailableModels.FirstOrDefault(m =>
                                             m.Name.Equals(modelNode.Name, StringComparison.OrdinalIgnoreCase) ||
                                             m.HuggingFaceModelId.Contains(modelNode.Name, StringComparison.OrdinalIgnoreCase));
-                                            
+
                                         if (fallbackModel != null)
                                         {
-                                            Debug.WriteLine($"✅ [ExecuteAllModelsOptimizedAsync] Found fallback model for {modelNode.Name}: {fallbackModel.HuggingFaceModelId}");
-                                            
+                                            Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Found fallback model for {modelNode.Name}: {fallbackModel.HuggingFaceModelId}");
+
                                             // Use basic input gathering if no pre-computed input
                                             string inputContent = ""; // Default empty input
                                             try
@@ -851,24 +851,24 @@ namespace CSimple.Services
                                                 }
                                             }
                                             catch { /* Use default empty input */ }
-                                            
+
                                             // Execute with fallback model
                                             string result = await netPageVM.ExecuteModelAsync(fallbackModel.HuggingFaceModelId, inputContent);
                                             if (!string.IsNullOrEmpty(result))
                                             {
                                                 modelNode.SetStepOutput(currentActionStep + 1, "text", result);
-                                                Debug.WriteLine($"✅ [ExecuteAllModelsOptimizedAsync] Fallback execution successful for {modelNode.Name}");
+                                                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Fallback execution successful for {modelNode.Name}");
                                                 return true;
                                             }
                                         }
                                     }
-                                    
-                                    Debug.WriteLine($"❌ [ExecuteAllModelsOptimizedAsync] Could not execute {modelNode.Name} - no model found");
+
+                                    Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Could not execute {modelNode.Name} - no model found");
                                     return false;
                                 }
                                 catch (Exception ex)
                                 {
-                                    Debug.WriteLine($"❌ [ExecuteAllModelsOptimizedAsync] Fallback execution failed for {modelNode.Name}: {ex.Message}");
+                                    Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Fallback execution failed for {modelNode.Name}: {ex.Message}");
                                     return false;
                                 }
                                 finally
@@ -878,26 +878,26 @@ namespace CSimple.Services
                             }));
                         }
                     }
-                    
+
                     if (executionTasks.Count > 0)
                     {
                         // Execute all models in the group concurrently
                         var results = await Task.WhenAll(executionTasks).ConfigureAwait(false);
-                        
+
                         // Count successful executions
                         successCount += results.Count(r => r);
                         skippedCount += results.Count(r => !r);
                     }
                 }
-                
+
                 totalStopwatch.Stop();
-                Debug.WriteLine($"⚡ [ExecuteAllModelsOptimizedAsync] Completed: {successCount} successful, {skippedCount} skipped in {totalStopwatch.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"⚡ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Completed: {successCount} successful, {skippedCount} skipped in {totalStopwatch.ElapsedMilliseconds}ms");
 
                 return (successCount, skippedCount);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ [ExecuteAllModelsOptimizedAsync] Critical error: {ex.Message}");
+                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Critical error: {ex.Message}");
                 throw;
             }
         }
@@ -913,33 +913,33 @@ namespace CSimple.Services
             SemaphoreSlim semaphore)
         {
             await semaphore.WaitAsync().ConfigureAwait(false);
-            
+
             try
             {
-                Debug.WriteLine($"🤖 [ExecuteModelWithPrecomputedInputAsync] Executing {modelNode.Name} with pre-computed input ({precomputedInput?.Length ?? 0} chars)");
-                
+                Debug.WriteLine($"🤖 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithPrecomputedInputAsync] Executing {modelNode.Name} with pre-computed input ({precomputedInput?.Length ?? 0} chars)");
+
                 // Execute the model directly with pre-computed input
                 string result = await _ensembleModelService.ExecuteModelWithInput(model, precomputedInput);
-                
+
                 if (!string.IsNullOrEmpty(result))
                 {
                     // Determine content type and store result
                     string resultContentType = _ensembleModelService.DetermineResultContentType(model, result);
                     int stepIndex = currentActionStep + 1; // Convert to 1-based
                     modelNode.SetStepOutput(stepIndex, resultContentType, result);
-                    
-                    Debug.WriteLine($"✅ [ExecuteModelWithPrecomputedInputAsync] {modelNode.Name} completed successfully");
+
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithPrecomputedInputAsync] {modelNode.Name} completed successfully");
                     return true;
                 }
                 else
                 {
-                    Debug.WriteLine($"⚠️ [ExecuteModelWithPrecomputedInputAsync] {modelNode.Name} returned empty result");
+                    Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithPrecomputedInputAsync] {modelNode.Name} returned empty result");
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ [ExecuteModelWithPrecomputedInputAsync] {modelNode.Name} failed: {ex.Message}");
+                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithPrecomputedInputAsync] {modelNode.Name} failed: {ex.Message}");
                 return false;
             }
             finally
@@ -960,28 +960,28 @@ namespace CSimple.Services
             SemaphoreSlim semaphore)
         {
             await semaphore.WaitAsync().ConfigureAwait(false);
-            
+
             try
             {
-                Debug.WriteLine($"🔄 [ExecuteModelWithDynamicInputAsync] Computing input for {modelNode.Name} dynamically");
-                
+                Debug.WriteLine($"🔄 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Computing input for {modelNode.Name} dynamically");
+
                 // Get connected input nodes (both input nodes and model nodes)
                 var connectedInputNodes = _ensembleModelService.GetConnectedInputNodes(modelNode, nodes, connections);
-                
+
                 if (connectedInputNodes.Count == 0)
                 {
-                    Debug.WriteLine($"⚠️ [ExecuteModelWithDynamicInputAsync] No connected inputs for {modelNode.Name}");
+                    Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] No connected inputs for {modelNode.Name}");
                     return false;
                 }
-                
+
                 // Collect step content from connected nodes
                 var stepContents = new List<string>();
                 int stepIndex = currentActionStep + 1; // Convert to 1-based
-                
+
                 foreach (var inputNode in connectedInputNodes)
                 {
                     var (contentType, content) = inputNode.GetStepContent(stepIndex);
-                    
+
                     if (!string.IsNullOrEmpty(content))
                     {
                         if (contentType?.ToLowerInvariant() == "image" || contentType?.ToLowerInvariant() == "audio")
@@ -994,39 +994,39 @@ namespace CSimple.Services
                         }
                     }
                 }
-                
+
                 if (stepContents.Count == 0)
                 {
-                    Debug.WriteLine($"⚠️ [ExecuteModelWithDynamicInputAsync] No valid content found for {modelNode.Name}");
+                    Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] No valid content found for {modelNode.Name}");
                     return false;
                 }
-                
+
                 // Combine step contents using ensemble method
                 string combinedInput = _ensembleModelService.CombineStepContents(stepContents, modelNode.SelectedEnsembleMethod);
-                
-                Debug.WriteLine($"🤖 [ExecuteModelWithDynamicInputAsync] Executing {modelNode.Name} with dynamic input ({combinedInput?.Length ?? 0} chars)");
-                
+
+                Debug.WriteLine($"🤖 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Executing {modelNode.Name} with dynamic input ({combinedInput?.Length ?? 0} chars)");
+
                 // Execute the model with dynamically computed input
                 string result = await _ensembleModelService.ExecuteModelWithInput(model, combinedInput);
-                
+
                 if (!string.IsNullOrEmpty(result))
                 {
                     // Determine content type and store result
                     string resultContentType = _ensembleModelService.DetermineResultContentType(model, result);
                     modelNode.SetStepOutput(stepIndex, resultContentType, result);
-                    
-                    Debug.WriteLine($"✅ [ExecuteModelWithDynamicInputAsync] {modelNode.Name} completed successfully");
+
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] {modelNode.Name} completed successfully");
                     return true;
                 }
                 else
                 {
-                    Debug.WriteLine($"⚠️ [ExecuteModelWithDynamicInputAsync] {modelNode.Name} returned empty result");
+                    Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] {modelNode.Name} returned empty result");
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"❌ [ExecuteModelWithDynamicInputAsync] {modelNode.Name} failed: {ex.Message}");
+                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] {modelNode.Name} failed: {ex.Message}");
                 return false;
             }
             finally
