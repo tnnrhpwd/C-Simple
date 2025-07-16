@@ -123,6 +123,66 @@ namespace CSimple.ViewModels
         public ICommand RenamePipelineCommand { get; }
         public ICommand DeletePipelineCommand { get; }
 
+        // --- Model Execution Status Properties ---
+        private bool _isExecutingModels;
+        public bool IsExecutingModels
+        {
+            get => _isExecutingModels;
+            set => SetProperty(ref _isExecutingModels, value);
+        }
+
+        private string _executionStatus = "Ready";
+        public string ExecutionStatus
+        {
+            get => _executionStatus;
+            set => SetProperty(ref _executionStatus, value);
+        }
+
+        private int _executionProgress;
+        public int ExecutionProgress
+        {
+            get => _executionProgress;
+            set => SetProperty(ref _executionProgress, value);
+        }
+
+        private int _totalModelsToExecute;
+        public int TotalModelsToExecute
+        {
+            get => _totalModelsToExecute;
+            set => SetProperty(ref _totalModelsToExecute, value);
+        }
+
+        private int _modelsExecutedCount;
+        public int ModelsExecutedCount
+        {
+            get => _modelsExecutedCount;
+            set
+            {
+                if (SetProperty(ref _modelsExecutedCount, value))
+                {
+                    // Update progress percentage with safer calculation
+                    if (TotalModelsToExecute > 0)
+                    {
+                        ExecutionProgress = Math.Min(100, (int)((double)value / TotalModelsToExecute * 100));
+                    }
+                    else
+                    {
+                        ExecutionProgress = value > 0 ? 100 : 0;
+                    }
+                }
+            }
+        }
+
+        private string _currentExecutingModel = "";
+        public string CurrentExecutingModel
+        {
+            get => _currentExecutingModel;
+            set => SetProperty(ref _currentExecutingModel, value);
+        }
+
+        private List<string> _executionResults = new List<string>();
+        public ObservableCollection<string> ExecutionResults { get; } = new ObservableCollection<string>();
+
         // Add these properties and fields for Action Review functionality
         private ObservableCollection<string> _availableActionNames;
         public ObservableCollection<string> AvailableActionNames
@@ -395,6 +455,9 @@ namespace CSimple.ViewModels
 
         public async Task InitializeAsync()
         {
+            // Initialize execution status panel
+            InitializeExecutionStatus();
+
             // Get the NetPageViewModel and ensure it loads its models
             var netPageVM = ((App)Application.Current).NetPageViewModel;
             Debug.WriteLine($"InitializeAsync: Checking NetPageViewModel, HasModels: {netPageVM?.AvailableModels?.Count > 0}");
@@ -435,6 +498,9 @@ namespace CSimple.ViewModels
 
             // Load available actions for review
             await LoadAvailableActions();
+
+            // Update execution status based on loaded pipeline
+            UpdateExecutionStatusFromPipeline();
         }
 
         public async Task LoadAvailableModelsAsync()
@@ -546,6 +612,9 @@ namespace CSimple.ViewModels
             Debug.WriteLine($"🔄 [AddModelNode] Updating RunAllModelsCommand CanExecute - Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)}");
             (RunAllModelsCommand as Command)?.ChangeCanExecute(); // Update Run All Models button state
             await SaveCurrentPipelineAsync(); // Save after adding
+
+            // Update execution status
+            UpdateExecutionStatusFromPipeline();
         }
 
         public async Task DeleteSelectedNode()
@@ -560,6 +629,9 @@ namespace CSimple.ViewModels
                 (RunAllModelsCommand as Command)?.ChangeCanExecute(); // Update Run All Models button state
                 await SaveCurrentPipelineAsync(); // Save after deleting
                 InvalidateCanvas?.Invoke(); // ADDED: Ensure redraw after potential count update
+
+                // Update execution status
+                UpdateExecutionStatusFromPipeline();
             }
             else
             {
@@ -667,6 +739,9 @@ namespace CSimple.ViewModels
             Debug.WriteLine($"📂 [LoadPipelineAsync] Pipeline loaded. Total nodes: {Nodes.Count}, Model nodes: {Nodes.Count(n => n.Type == NodeType.Model)}");
             Debug.WriteLine($"📂 [LoadPipelineAsync] Updating RunAllModelsCommand CanExecute after pipeline load");
             (RunAllModelsCommand as Command)?.ChangeCanExecute(); // Update Run All Models button state after loading
+
+            // Update execution status after pipeline is loaded
+            UpdateExecutionStatusFromPipeline();
         }
 
         // Change from protected to public to make it accessible from OrientPage
@@ -1018,6 +1093,43 @@ namespace CSimple.ViewModels
         public Action InvalidateCanvas { get; set; }
 
         // --- Helper Methods ---
+
+        /// <summary>
+        /// Initialize execution status panel with default values
+        /// </summary>
+        private void InitializeExecutionStatus()
+        {
+            IsExecutingModels = false;
+            ExecutionStatus = "Ready";
+            ExecutionProgress = 0;
+            ModelsExecutedCount = 0;
+            TotalModelsToExecute = 0;
+            CurrentExecutingModel = "";
+            ExecutionResults.Clear();
+            ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] System initialized");
+        }
+
+        /// <summary>
+        /// Update execution status based on current pipeline state
+        /// </summary>
+        private void UpdateExecutionStatusFromPipeline()
+        {
+            var modelCount = Nodes.Count(n => n.Type == NodeType.Model);
+            if (modelCount != TotalModelsToExecute && !IsExecutingModels)
+            {
+                TotalModelsToExecute = modelCount;
+                if (modelCount > 0)
+                {
+                    ExecutionStatus = $"Pipeline loaded: {modelCount} models ready";
+                    ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] Pipeline loaded with {modelCount} models");
+                }
+                else
+                {
+                    ExecutionStatus = "No models in pipeline";
+                    ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] Empty pipeline loaded");
+                }
+            }
+        }
 
         // ADDED: Method to calculate and update ensemble input counts for all nodes
         private void UpdateEnsembleCounts()
@@ -1506,6 +1618,26 @@ namespace CSimple.ViewModels
 
             try
             {
+                // Set initial execution status
+                IsExecutingModels = true;
+                ExecutionStatus = "Preparing execution...";
+                ModelsExecutedCount = 0;
+                ExecutionProgress = 0;
+                ExecutionResults.Clear();
+
+                // Count total models to execute
+                var modelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
+                TotalModelsToExecute = modelNodes.Count;
+
+                if (TotalModelsToExecute == 0)
+                {
+                    ExecutionStatus = "No models to execute";
+                    await ShowAlert?.Invoke("No Models", "No model nodes found in the pipeline.", "OK");
+                    return;
+                }
+
+                ExecutionStatus = $"Executing {TotalModelsToExecute} models...";
+
                 // Step 1: Check if proactive preparation is ready (fast path)
                 bool preparationReady = await IsProactivePreparationReadyAsync(maxWaitMs: 1500);
 
@@ -1513,6 +1645,7 @@ namespace CSimple.ViewModels
                 {
                     // Fallback: Pre-compute optimizations if proactive preparation wasn't ready
                     Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔧 [ExecuteRunAllModelsAsync] Fallback: Pre-computing optimizations...");
+                    ExecutionStatus = "Optimizing execution...";
                     var precomputeStopwatch = Stopwatch.StartNew();
 
                     // Use cached pipeline state for faster access
@@ -1540,6 +1673,7 @@ namespace CSimple.ViewModels
                 var originalSelectedNode = SelectedNode;
 
                 // Step 2: Execute all models using optimized pipeline execution service
+                ExecutionStatus = "Executing models...";
                 var executionStopwatch = Stopwatch.StartNew();
 
                 var (successCount, skippedCount) = await _pipelineExecutionService.ExecuteAllModelsOptimizedAsync(
@@ -1556,6 +1690,18 @@ namespace CSimple.ViewModels
                 SelectedNode = originalSelectedNode;
 
                 totalStopwatch.Stop();
+
+                // Update final status
+                ExecutionStatus = $"Completed: {successCount} successful, {skippedCount} skipped";
+                ModelsExecutedCount = successCount;
+                ExecutionProgress = 100;
+
+                // Add execution results
+                ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] Executed {successCount} models successfully");
+                if (skippedCount > 0)
+                {
+                    ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] Skipped {skippedCount} models");
+                }
 
                 // Streamlined logging for better performance
                 string preparationMethod = preparationReady ? "proactive" : "fallback";
@@ -1587,8 +1733,26 @@ namespace CSimple.ViewModels
             catch (Exception ex)
             {
                 totalStopwatch.Stop();
+                ExecutionStatus = $"Error: {ex.Message}";
+                ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] ERROR: {ex.Message}");
                 Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteRunAllModelsAsync] Critical error after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
                 await ShowAlert?.Invoke("Error", $"Failed to run all models: {ex.Message}", "OK");
+            }
+            finally
+            {
+                IsExecutingModels = false;
+                // Don't reset ExecutionProgress immediately so user can see final result
+                // Reset it after a short delay
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(3000); // Show final progress for 3 seconds
+                    if (!IsExecutingModels) // Only reset if not executing again
+                    {
+                        ExecutionProgress = 0;
+                        ModelsExecutedCount = 0;
+                        CurrentExecutingModel = "";
+                    }
+                });
             }
         }
 
@@ -1597,10 +1761,20 @@ namespace CSimple.ViewModels
         {
             try
             {
+                // Set execution status for single model
+                IsExecutingModels = true;
+                ExecutionStatus = "Preparing generation...";
+                CurrentExecutingModel = SelectedNode?.Name ?? "Unknown";
+                TotalModelsToExecute = 1;
+                ModelsExecutedCount = 0;
+                ExecutionProgress = 0;
+                ExecutionResults.Clear();
+
                 Debug.WriteLine($"🚀 [OrientPageViewModel.ExecuteGenerateAsync] Starting generation for node: {SelectedNode?.Name}");
 
                 if (SelectedNode == null || SelectedNode.Type != NodeType.Model)
                 {
+                    ExecutionStatus = "Error: No model selected";
                     Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteGenerateAsync] No valid model node selected");
                     await ShowAlert?.Invoke("Error", "Please select a model node to generate content.", "OK");
                     return;
@@ -1608,10 +1782,14 @@ namespace CSimple.ViewModels
 
                 if (SelectedNode.EnsembleInputCount <= 1)
                 {
+                    ExecutionStatus = "Error: Insufficient inputs";
                     Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteGenerateAsync] Not enough input connections for ensemble generation");
                     await ShowAlert?.Invoke("Error", "This model node needs multiple input connections to use ensemble generation.", "OK");
                     return;
                 }
+
+                ExecutionStatus = $"Processing {SelectedNode.Name}...";
+                ExecutionProgress = 25;
 
                 Debug.WriteLine($"📊 [ExecuteGenerateAsync] Model node has {SelectedNode.EnsembleInputCount} input connections");
                 Debug.WriteLine($"📊 [ExecuteGenerateAsync] Selected ensemble method: {SelectedNode.SelectedEnsembleMethod}");
@@ -1622,10 +1800,14 @@ namespace CSimple.ViewModels
 
                 if (connectedInputNodes.Count == 0)
                 {
+                    ExecutionStatus = "Error: No connected inputs";
                     Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteGenerateAsync] No connected input nodes found");
                     await ShowAlert?.Invoke("Error", "No connected input nodes found for this model.", "OK");
                     return;
                 }
+
+                ExecutionStatus = "Collecting inputs...";
+                ExecutionProgress = 50;
 
                 // Collect step content from connected nodes
                 var stepContents = new List<string>();
@@ -1662,10 +1844,14 @@ namespace CSimple.ViewModels
 
                 if (stepContents.Count == 0)
                 {
+                    ExecutionStatus = "Error: No valid content";
                     Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteGenerateAsync] No valid step content found from connected nodes");
                     await ShowAlert?.Invoke("Error", "No valid content found from connected input nodes.", "OK");
                     return;
                 }
+
+                ExecutionStatus = "Finding model...";
+                ExecutionProgress = 75;
 
                 // Combine step contents using ensemble method
                 string combinedInput = CombineStepContents(stepContents, SelectedNode.SelectedEnsembleMethod);
@@ -1675,12 +1861,16 @@ namespace CSimple.ViewModels
                 var correspondingModel = FindCorrespondingModel(_netPageViewModel, SelectedNode);
                 if (correspondingModel == null)
                 {
+                    ExecutionStatus = "Error: Model not found";
                     Debug.WriteLine($"❌ [ExecuteGenerateAsync] No corresponding model found for node: {SelectedNode.Name}");
                     await ShowAlert?.Invoke("Error", $"No corresponding model found for '{SelectedNode.Name}'. Please ensure the model is loaded in the Net page.", "OK");
                     return;
                 }
 
                 Debug.WriteLine($"✅ [ExecuteGenerateAsync] Found corresponding model: {correspondingModel.Name} (HF ID: {correspondingModel.HuggingFaceModelId})");
+
+                ExecutionStatus = $"Executing {SelectedNode.Name}...";
+                ExecutionProgress = 90;
 
                 // Execute the model using NetPageViewModel's infrastructure
                 string result = await ExecuteModelWithInput(correspondingModel, combinedInput);
@@ -1702,6 +1892,12 @@ namespace CSimple.ViewModels
                 SelectedNode.SetStepOutput(currentStep, resultContentType, result);
                 Debug.WriteLine($"💾 [ExecuteGenerateAsync] Stored output in model node '{SelectedNode.Name}' at step {currentStep}");
 
+                // Update final status
+                ExecutionStatus = $"Completed: {SelectedNode.Name}";
+                ModelsExecutedCount = 1;
+                ExecutionProgress = 100;
+                ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] {SelectedNode.Name} generated content successfully");
+
                 // Note: Pipeline saving is deferred to reduce I/O operations
                 // It will be saved when appropriate (e.g., on action completion or manual save)
 
@@ -1712,9 +1908,26 @@ namespace CSimple.ViewModels
             }
             catch (Exception ex)
             {
+                ExecutionStatus = $"Error: {ex.Message}";
+                ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] ERROR: {ex.Message}");
                 Debug.WriteLine($"❌ [ExecuteGenerateAsync] Error during generation: {ex.Message}");
                 Debug.WriteLine($"❌ [ExecuteGenerateAsync] Stack trace: {ex.StackTrace}");
                 await ShowAlert?.Invoke("Error", $"Failed to generate content: {ex.Message}", "OK");
+            }
+            finally
+            {
+                IsExecutingModels = false;
+                // Don't reset progress immediately for single model execution
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(2000); // Show final progress for 2 seconds
+                    if (!IsExecutingModels) // Only reset if not executing again
+                    {
+                        ExecutionProgress = 0;
+                        ModelsExecutedCount = 0;
+                        CurrentExecutingModel = "";
+                    }
+                });
             }
         }
 
