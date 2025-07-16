@@ -109,7 +109,7 @@ namespace CSimple.Services
                                     }
                                     else
                                     {
-                                        Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] No image file found for action item: {actionDescription}");
+                                        // Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] No image file found for action item: {actionDescription}");
                                         nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
                                         added = true;
                                     }

@@ -108,7 +108,7 @@ namespace CSimple.Services
                 foreach (var nodeVM in nodes.Where(n => n.Type == NodeType.Input))
                 {
                     nodeVM.ActionSteps.Clear();
-                    Debug.WriteLine($"[ActionStepNavigationService.LoadSelectedAction] Cleared ActionSteps for Input Node: {nodeVM.Name}");
+                    // Debug.WriteLine($"[ActionStepNavigationService.LoadSelectedAction] Cleared ActionSteps for Input Node: {nodeVM.Name}");
                 }
 
                 // Use the ActionReviewService to load the action data

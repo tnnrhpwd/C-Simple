@@ -125,6 +125,20 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
                 SetupAppActions();
                 SetupTrayIcon();
             }
+
+            // Start NetPage preload in the background immediately after construction
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(1000); // Small delay to let the UI finish initializing
+                    await PreloadNetPageAsync();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Background NetPage preload error: {ex.Message}");
+                }
+            });
         }
         catch (Exception ex)
         {
@@ -206,6 +220,9 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
         base.OnAppearing();
         await Initialize();
 
+        // Preload NetPage models and initialize for faster navigation
+        await PreloadNetPageAsync();
+
         // Refresh dashboard stats on appearing
         RefreshDashboard();
 
@@ -248,6 +265,83 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
         OnPropertyChanged(nameof(SuccessRate));
         OnPropertyChanged(nameof(AverageAIAccuracy));
         OnPropertyChanged(nameof(SystemHealthColor));
+    }
+
+    private async Task PreloadNetPageAsync()
+    {
+        try
+        {
+            Debug.WriteLine("HomePage: Starting NetPage preload...");
+
+            // Update UI to show we're starting initialization
+            Dispatcher.Dispatch(() =>
+            {
+                AIStatusDetail = "Initializing AI models...";
+            });
+
+            // Get the NetPageViewModel from the app
+            var app = Application.Current as App;
+            var netPageViewModel = app?.NetPageViewModel;
+
+            if (netPageViewModel != null)
+            {
+                // Check if models are already loaded to avoid redundant work
+                if (netPageViewModel.AvailableModels?.Count > 0)
+                {
+                    Debug.WriteLine($"HomePage: NetPage already initialized with {netPageViewModel.AvailableModels.Count} models");
+
+                    Dispatcher.Dispatch(() =>
+                    {
+                        ActiveModelsCount = netPageViewModel.ActiveModels?.Count ?? 0;
+                        AIStatusDetail = $"AI models ready ({netPageViewModel.AvailableModels.Count} available)";
+                        OnPropertyChanged(nameof(ActiveModelsCount));
+                    });
+                    return;
+                }
+
+                // Update status to show we're loading
+                Dispatcher.Dispatch(() =>
+                {
+                    AIStatusDetail = "Loading neural network models...";
+                });
+
+                // Load the NetPage data
+                await netPageViewModel.LoadDataAsync();
+
+                // Update UI on main thread
+                Dispatcher.Dispatch(() =>
+                {
+                    // Update the active models count from the actual loaded models
+                    ActiveModelsCount = netPageViewModel.ActiveModels?.Count ?? 0;
+
+                    Debug.WriteLine($"HomePage: NetPage preload completed. Loaded {netPageViewModel.AvailableModels?.Count ?? 0} models, {ActiveModelsCount} active.");
+
+                    // Update status to show completion
+                    AIStatusDetail = netPageViewModel.AvailableModels?.Count > 0
+                        ? $"AI models ready ({netPageViewModel.AvailableModels.Count} available)"
+                        : "AI models initialized";
+
+                    // Update properties that depend on the loaded models
+                    OnPropertyChanged(nameof(ActiveModelsCount));
+                });
+            }
+            else
+            {
+                Debug.WriteLine("HomePage: NetPageViewModel not found in app instance");
+                Dispatcher.Dispatch(() =>
+                {
+                    AIStatusDetail = "AI initialization failed - NetPage not available";
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"HomePage: Error preloading NetPage: {ex.Message}");
+            Dispatcher.Dispatch(() =>
+            {
+                AIStatusDetail = "AI initialization completed with warnings";
+            });
+        }
     }
 
     private async void ShowSharedGoalsPopup()
