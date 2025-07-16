@@ -180,6 +180,13 @@ namespace CSimple.ViewModels
             set => SetProperty(ref _currentExecutingModel, value);
         }
 
+        private string _currentExecutingModelType = "";
+        public string CurrentExecutingModelType
+        {
+            get => _currentExecutingModelType;
+            set => SetProperty(ref _currentExecutingModelType, value);
+        }
+
         private List<string> _executionResults = new List<string>();
         public ObservableCollection<string> ExecutionResults { get; } = new ObservableCollection<string>();
 
@@ -462,11 +469,32 @@ namespace CSimple.ViewModels
             var netPageVM = ((App)Application.Current).NetPageViewModel;
             Debug.WriteLine($"InitializeAsync: Checking NetPageViewModel, HasModels: {netPageVM?.AvailableModels?.Count > 0}");
 
-            if (netPageVM != null && (netPageVM.AvailableModels == null || netPageVM.AvailableModels.Count == 0))
+            if (netPageVM != null)
             {
-                Debug.WriteLine("InitializeAsync: NetPageViewModel has no models yet, loading them first");
-                await netPageVM.LoadDataAsync();
-                Debug.WriteLine($"InitializeAsync: After LoadDataAsync, NetPageViewModel has {netPageVM.AvailableModels?.Count ?? 0} models");
+                // Always call LoadDataAsync to ensure persistent models are loaded
+                // This handles cases where OrientPage initializes before HomePage has loaded the models
+                if (netPageVM.AvailableModels == null || netPageVM.AvailableModels.Count == 0)
+                {
+                    Debug.WriteLine("InitializeAsync: NetPageViewModel has no models yet, loading them first");
+                    await netPageVM.LoadDataAsync();
+                    Debug.WriteLine($"InitializeAsync: After LoadDataAsync, NetPageViewModel has {netPageVM.AvailableModels?.Count ?? 0} models");
+                }
+                else
+                {
+                    Debug.WriteLine("InitializeAsync: NetPageViewModel already has models, but ensuring persistent models are fully loaded");
+                    // Even if models exist, ensure the persistent models loading process has completed
+                    // This might be necessary if models were added in memory but persistent loading didn't complete
+                    try
+                    {
+                        // Call LoadDataAsync to ensure the full initialization chain has run
+                        await netPageVM.LoadDataAsync();
+                        Debug.WriteLine($"InitializeAsync: After ensuring LoadDataAsync, NetPageViewModel has {netPageVM.AvailableModels?.Count ?? 0} models");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"InitializeAsync: Error during NetPageViewModel LoadDataAsync: {ex.Message}");
+                    }
+                }
             }
 
             await LoadAvailablePipelinesAsync();
@@ -496,6 +524,17 @@ namespace CSimple.ViewModels
             await UpdateNodeClassificationsAsync();
             Debug.WriteLine("InitializeAsync: Explicitly called UpdateNodeClassificationsAsync");
 
+            // Verify that NetPageViewModel has models for pipeline execution
+            var netPageVMVerify = ((App)Application.Current).NetPageViewModel;
+            if (netPageVMVerify?.AvailableModels?.Count > 0)
+            {
+                Debug.WriteLine($"InitializeAsync: Verified NetPageViewModel has {netPageVMVerify.AvailableModels.Count} models ready for pipeline execution");
+            }
+            else
+            {
+                Debug.WriteLine("InitializeAsync: WARNING - NetPageViewModel has no models for pipeline execution!");
+            }
+
             // Load available actions for review
             await LoadAvailableActions();
 
@@ -510,8 +549,37 @@ namespace CSimple.ViewModels
                 Debug.WriteLine("Loading available HuggingFace models...");
                 AvailableModels.Clear();
 
-                // Load models from FileService like NetPageViewModel does
+                // Get the NetPageViewModel and ensure it has loaded its models
+                var netPageVM = ((App)Application.Current).NetPageViewModel;
+                if (netPageVM != null)
+                {
+                    // Ensure NetPageViewModel has loaded its models for execution
+                    if (netPageVM.AvailableModels == null || netPageVM.AvailableModels.Count == 0)
+                    {
+                        Debug.WriteLine("LoadAvailableModelsAsync: NetPageViewModel has no models, forcing load for execution");
+                        await netPageVM.LoadDataAsync();
+                        Debug.WriteLine($"LoadAvailableModelsAsync: After LoadDataAsync, NetPageViewModel has {netPageVM.AvailableModels?.Count ?? 0} models");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"LoadAvailableModelsAsync: NetPageViewModel already has {netPageVM.AvailableModels.Count} models loaded");
+                    }
+                }
+
+                // First, try to load models from FileService like NetPageViewModel does
                 var persistedModels = await _fileService.LoadHuggingFaceModelsAsync();
+
+                // Also check if NetPageViewModel has already loaded models that we can use
+                if (netPageVM?.AvailableModels != null && netPageVM.AvailableModels.Count > 0)
+                {
+                    Debug.WriteLine($"Found {netPageVM.AvailableModels.Count} models in NetPageViewModel");
+                    // If we got fewer models from FileService, prefer the NetPageViewModel's models
+                    if (persistedModels == null || persistedModels.Count < netPageVM.AvailableModels.Count)
+                    {
+                        Debug.WriteLine("Using NetPageViewModel's models as they are more complete");
+                        persistedModels = netPageVM.AvailableModels.ToList();
+                    }
+                }
 
                 if (persistedModels != null && persistedModels.Count > 0)
                 {
@@ -552,6 +620,16 @@ namespace CSimple.ViewModels
                 {
                     Debug.WriteLine("No persisted models found. Adding default examples.");
                     AddDefaultModelExamples();
+                }
+
+                // Verify NetPageViewModel still has the models needed for execution
+                if (netPageVM?.AvailableModels?.Count > 0)
+                {
+                    Debug.WriteLine($"LoadAvailableModelsAsync: Confirmed NetPageViewModel has {netPageVM.AvailableModels.Count} execution-ready models");
+                }
+                else
+                {
+                    Debug.WriteLine("LoadAvailableModelsAsync: WARNING - NetPageViewModel has no execution-ready models!");
                 }
             }
             catch (Exception ex)
@@ -1105,8 +1183,9 @@ namespace CSimple.ViewModels
             ModelsExecutedCount = 0;
             TotalModelsToExecute = 0;
             CurrentExecutingModel = "";
+            CurrentExecutingModelType = "";
             ExecutionResults.Clear();
-            ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] System initialized");
+            AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] System initialized");
         }
 
         /// <summary>
@@ -1121,13 +1200,27 @@ namespace CSimple.ViewModels
                 if (modelCount > 0)
                 {
                     ExecutionStatus = $"Pipeline loaded: {modelCount} models ready";
-                    ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] Pipeline loaded with {modelCount} models");
+                    AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] Pipeline loaded with {modelCount} models");
                 }
                 else
                 {
                     ExecutionStatus = "No models in pipeline";
-                    ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] Empty pipeline loaded");
+                    AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] Empty pipeline loaded");
                 }
+            }
+        }
+
+        /// <summary>
+        /// Add execution result and maintain only the most recent 6 entries
+        /// </summary>
+        private void AddExecutionResult(string message)
+        {
+            ExecutionResults.Add(message);
+
+            // Keep only the most recent 6 results
+            while (ExecutionResults.Count > 6)
+            {
+                ExecutionResults.RemoveAt(0);
             }
         }
 
@@ -1618,6 +1711,31 @@ namespace CSimple.ViewModels
 
             try
             {
+                // CRITICAL: Ensure NetPageViewModel has models loaded for execution
+                var netPageVM = ((App)Application.Current).NetPageViewModel;
+                if (netPageVM?.AvailableModels == null || netPageVM.AvailableModels.Count == 0)
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚠️ [ExecuteRunAllModelsAsync] NetPageViewModel has no models, forcing load...");
+                    ExecutionStatus = "Loading models for execution...";
+
+                    if (netPageVM != null)
+                    {
+                        await netPageVM.LoadDataAsync();
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [ExecuteRunAllModelsAsync] After LoadDataAsync, NetPageViewModel has {netPageVM.AvailableModels?.Count ?? 0} models");
+                    }
+
+                    if (netPageVM?.AvailableModels == null || netPageVM.AvailableModels.Count == 0)
+                    {
+                        ExecutionStatus = "Failed to load models";
+                        await ShowAlert?.Invoke("Error", "Could not load models for execution. Please navigate to the Models page first.", "OK");
+                        return;
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [ExecuteRunAllModelsAsync] NetPageViewModel has {netPageVM.AvailableModels.Count} models ready");
+                }
+
                 // Set initial execution status
                 IsExecutingModels = true;
                 ExecutionStatus = "Preparing execution...";
@@ -1697,10 +1815,10 @@ namespace CSimple.ViewModels
                 ExecutionProgress = 100;
 
                 // Add execution results
-                ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] Executed {successCount} models successfully");
+                AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] Executed {successCount} models successfully");
                 if (skippedCount > 0)
                 {
-                    ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] Skipped {skippedCount} models");
+                    AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] Skipped {skippedCount} models");
                 }
 
                 // Streamlined logging for better performance
@@ -1734,7 +1852,7 @@ namespace CSimple.ViewModels
             {
                 totalStopwatch.Stop();
                 ExecutionStatus = $"Error: {ex.Message}";
-                ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] ERROR: {ex.Message}");
+                AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] ERROR: {ex.Message}");
                 Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteRunAllModelsAsync] Critical error after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
                 await ShowAlert?.Invoke("Error", $"Failed to run all models: {ex.Message}", "OK");
             }
@@ -1751,6 +1869,7 @@ namespace CSimple.ViewModels
                         ExecutionProgress = 0;
                         ModelsExecutedCount = 0;
                         CurrentExecutingModel = "";
+                        CurrentExecutingModelType = "";
                     }
                 });
             }
@@ -1765,6 +1884,7 @@ namespace CSimple.ViewModels
                 IsExecutingModels = true;
                 ExecutionStatus = "Preparing generation...";
                 CurrentExecutingModel = SelectedNode?.Name ?? "Unknown";
+                CurrentExecutingModelType = SelectedNode?.DataType ?? "unknown";
                 TotalModelsToExecute = 1;
                 ModelsExecutedCount = 0;
                 ExecutionProgress = 0;
@@ -1896,7 +2016,7 @@ namespace CSimple.ViewModels
                 ExecutionStatus = $"Completed: {SelectedNode.Name}";
                 ModelsExecutedCount = 1;
                 ExecutionProgress = 100;
-                ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] {SelectedNode.Name} generated content successfully");
+                AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] {SelectedNode.Name} generated content successfully");
 
                 // Note: Pipeline saving is deferred to reduce I/O operations
                 // It will be saved when appropriate (e.g., on action completion or manual save)
@@ -1909,7 +2029,7 @@ namespace CSimple.ViewModels
             catch (Exception ex)
             {
                 ExecutionStatus = $"Error: {ex.Message}";
-                ExecutionResults.Add($"[{DateTime.Now:HH:mm:ss}] ERROR: {ex.Message}");
+                AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] ERROR: {ex.Message}");
                 Debug.WriteLine($"❌ [ExecuteGenerateAsync] Error during generation: {ex.Message}");
                 Debug.WriteLine($"❌ [ExecuteGenerateAsync] Stack trace: {ex.StackTrace}");
                 await ShowAlert?.Invoke("Error", $"Failed to generate content: {ex.Message}", "OK");
@@ -1926,6 +2046,7 @@ namespace CSimple.ViewModels
                         ExecutionProgress = 0;
                         ModelsExecutedCount = 0;
                         CurrentExecutingModel = "";
+                        CurrentExecutingModelType = "";
                     }
                 });
             }
