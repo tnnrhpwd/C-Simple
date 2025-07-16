@@ -44,6 +44,21 @@ namespace CSimple.Services
             int currentActionStep,
             Func<string, string, string, Task> showAlert = null)
         {
+            return await ExecuteAllModelsAsync(nodes, connections, currentActionStep, showAlert, null, null, null);
+        }
+
+        /// <summary>
+        /// Executes all model nodes in the pipeline with ultra-optimized performance and group tracking
+        /// </summary>
+        public async Task<(int successCount, int skippedCount)> ExecuteAllModelsAsync(
+            ObservableCollection<NodeViewModel> nodes,
+            ObservableCollection<ConnectionViewModel> connections,
+            int currentActionStep,
+            Func<string, string, string, Task> showAlert = null,
+            Action<int> onGroupsInitialized = null,
+            Action<int, int> onGroupStarted = null,
+            Action<int> onGroupCompleted = null)
+        {
             var totalStopwatch = Stopwatch.StartNew();
 
             try
@@ -103,8 +118,12 @@ namespace CSimple.Services
                 // Fast execution grouping with aggressive parallelization
                 var executionGroups = BuildHyperOptimizedExecutionGroups(availableModelNodes, connections);
 
+                // Notify about groups initialization
+                onGroupsInitialized?.Invoke(executionGroups.Count);
+
                 int successCount = 0;
                 int skippedCount = 0;
+                int currentGroupNumber = 1;
 
                 // Ultra-optimized execution with aggressive parallelism and pre-computation
                 var maxConcurrency = Math.Max(Environment.ProcessorCount * 2, availableModelNodes.Count);
@@ -112,6 +131,9 @@ namespace CSimple.Services
 
                 foreach (var group in executionGroups)
                 {
+                    // Notify group started
+                    onGroupStarted?.Invoke(currentGroupNumber, group.Count);
+
                     // Pre-filter and batch executable models with single-pass validation
                     var executableBatch = new List<(NodeViewModel node, NeuralNetworkModel model)>(group.Count);
                     foreach (var modelNode in group)
@@ -155,6 +177,10 @@ namespace CSimple.Services
                     {
                         UpdateCacheAfterExecution(executableBatch.Take(batchSuccessCount).Select(x => x.node).ToList(), currentActionStep);
                     }
+
+                    // Notify group completed
+                    onGroupCompleted?.Invoke(currentGroupNumber);
+                    currentGroupNumber++;
                 }
 
                 totalStopwatch.Stop();
@@ -758,6 +784,23 @@ namespace CSimple.Services
             Dictionary<string, string> precomputedInputCache,
             Func<string, string, string, Task> showAlert = null)
         {
+            return await ExecuteAllModelsOptimizedAsync(nodes, connections, currentActionStep, preloadedModelCache, precomputedInputCache, showAlert, null, null, null);
+        }
+
+        /// <summary>
+        /// Executes all model nodes with pre-computed optimizations for maximum performance and group tracking
+        /// </summary>
+        public async Task<(int successCount, int skippedCount)> ExecuteAllModelsOptimizedAsync(
+            ObservableCollection<NodeViewModel> nodes,
+            ObservableCollection<ConnectionViewModel> connections,
+            int currentActionStep,
+            Dictionary<string, NeuralNetworkModel> preloadedModelCache,
+            Dictionary<string, string> precomputedInputCache,
+            Func<string, string, string, Task> showAlert = null,
+            Action<int> onGroupsInitialized = null,
+            Action<int, int> onGroupStarted = null,
+            Action<int> onGroupCompleted = null)
+        {
             var totalStopwatch = Stopwatch.StartNew();
             Debug.WriteLine($"⚡ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Using pre-computed optimizations");
 
@@ -786,8 +829,12 @@ namespace CSimple.Services
                 // Use existing optimized execution grouping
                 var executionGroups = BuildHyperOptimizedExecutionGroups(availableModelNodes, connections);
 
+                // Notify about groups initialization
+                onGroupsInitialized?.Invoke(executionGroups.Count);
+
                 int successCount = 0;
                 int skippedCount = 0;
+                int currentGroupNumber = 1;
 
                 // Ultra-fast execution with both pre-computed and dynamic inputs
                 var maxConcurrency = Math.Max(Environment.ProcessorCount * 2, availableModelNodes.Count);
@@ -795,6 +842,9 @@ namespace CSimple.Services
 
                 foreach (var group in executionGroups)
                 {
+                    // Notify group started
+                    onGroupStarted?.Invoke(currentGroupNumber, group.Count);
+
                     // Create execution tasks for all models in the group
                     var executionTasks = new List<Task<bool>>();
 
@@ -888,6 +938,10 @@ namespace CSimple.Services
                         successCount += results.Count(r => r);
                         skippedCount += results.Count(r => !r);
                     }
+
+                    // Notify group completed
+                    onGroupCompleted?.Invoke(currentGroupNumber);
+                    currentGroupNumber++;
                 }
 
                 totalStopwatch.Stop();

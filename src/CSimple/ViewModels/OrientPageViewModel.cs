@@ -213,10 +213,55 @@ namespace CSimple.ViewModels
             }
         }
 
-        private List<string> _executionResults = new List<string>();
-        public ObservableCollection<string> ExecutionResults { get; } = new ObservableCollection<string>();
+        // Execution group tracking properties
+        private bool _isExecutingInGroups;
+        public bool IsExecutingInGroups
+        {
+            get => _isExecutingInGroups;
+            set => SetProperty(ref _isExecutingInGroups, value);
+        }
 
-        // Add these properties and fields for Action Review functionality
+        private int _currentExecutionGroup;
+        public int CurrentExecutionGroup
+        {
+            get => _currentExecutionGroup;
+            set => SetProperty(ref _currentExecutionGroup, value);
+        }
+
+        private int _totalExecutionGroups;
+        public int TotalExecutionGroups
+        {
+            get => _totalExecutionGroups;
+            set => SetProperty(ref _totalExecutionGroups, value);
+        }
+
+        private DateTime _groupExecutionStartTime;
+        private double _groupExecutionDurationSeconds;
+        public double GroupExecutionDurationSeconds
+        {
+            get => _groupExecutionDurationSeconds;
+            set => SetProperty(ref _groupExecutionDurationSeconds, value);
+        }
+
+        public string GroupExecutionDurationDisplay
+        {
+            get
+            {
+                if (_groupExecutionDurationSeconds <= 0)
+                    return "0.0s";
+
+                var timeSpan = TimeSpan.FromSeconds(_groupExecutionDurationSeconds);
+                if (timeSpan.TotalMinutes >= 1)
+                    return $"{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+                else
+                    return $"{timeSpan.TotalSeconds:F1}s";
+            }
+        }
+
+        public ObservableCollection<ExecutionGroupInfo> ExecutionGroups { get; } = new ObservableCollection<ExecutionGroupInfo>();
+
+        private List<string> _executionResults = new List<string>();
+        public ObservableCollection<string> ExecutionResults { get; } = new ObservableCollection<string>();        // Add these properties and fields for Action Review functionality
         private ObservableCollection<string> _availableActionNames;
         public ObservableCollection<string> AvailableActionNames
         {
@@ -515,10 +560,100 @@ namespace CSimple.ViewModels
         private void OnExecutionTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
             ExecutionDurationSeconds = (DateTime.Now - _executionStartTime).TotalSeconds;
+
+            // Update group execution duration if executing in groups
+            if (IsExecutingInGroups && CurrentExecutionGroup > 0)
+            {
+                GroupExecutionDurationSeconds = (DateTime.Now - _groupExecutionStartTime).TotalSeconds;
+
+                // Update the current group's duration in the collection
+                var currentGroup = ExecutionGroups.FirstOrDefault(g => g.IsCurrentlyExecuting);
+                if (currentGroup != null)
+                {
+                    currentGroup.ExecutionDurationSeconds = GroupExecutionDurationSeconds;
+                }
+            }
+
             Microsoft.Maui.Controls.Application.Current?.Dispatcher.Dispatch(() =>
             {
                 OnPropertyChanged(nameof(ExecutionDurationDisplay));
+                OnPropertyChanged(nameof(GroupExecutionDurationDisplay));
             });
+        }
+
+        /// <summary>
+        /// Initialize execution groups for tracking
+        /// </summary>
+        private void InitializeExecutionGroups(int groupCount)
+        {
+            ExecutionGroups.Clear();
+            for (int i = 1; i <= groupCount; i++)
+            {
+                ExecutionGroups.Add(new ExecutionGroupInfo
+                {
+                    GroupNumber = i,
+                    ModelCount = 0, // Will be updated when groups are actually processed
+                    ExecutionDurationSeconds = 0,
+                    IsCurrentlyExecuting = false,
+                    IsCompleted = false
+                });
+            }
+
+            TotalExecutionGroups = groupCount;
+            IsExecutingInGroups = groupCount > 1;
+            CurrentExecutionGroup = 0;
+        }
+
+        /// <summary>
+        /// Start execution for a specific group
+        /// </summary>
+        private void StartGroupExecution(int groupNumber, int modelCount)
+        {
+            // Complete previous group if any
+            if (CurrentExecutionGroup > 0)
+            {
+                CompleteGroupExecution(CurrentExecutionGroup);
+            }
+
+            CurrentExecutionGroup = groupNumber;
+            _groupExecutionStartTime = DateTime.Now;
+            GroupExecutionDurationSeconds = 0;
+
+            // Update the group info
+            var group = ExecutionGroups.FirstOrDefault(g => g.GroupNumber == groupNumber);
+            if (group != null)
+            {
+                group.ModelCount = modelCount;
+                group.IsCurrentlyExecuting = true;
+                group.IsCompleted = false;
+                group.ExecutionDurationSeconds = 0;
+            }
+        }
+
+        /// <summary>
+        /// Complete execution for a specific group
+        /// </summary>
+        private void CompleteGroupExecution(int groupNumber)
+        {
+            var group = ExecutionGroups.FirstOrDefault(g => g.GroupNumber == groupNumber);
+            if (group != null)
+            {
+                group.IsCurrentlyExecuting = false;
+                group.IsCompleted = true;
+                // Keep the final duration that was set during execution
+            }
+        }
+
+        /// <summary>
+        /// Reset group execution tracking
+        /// </summary>
+        private void ResetGroupExecution()
+        {
+            IsExecutingInGroups = false;
+            CurrentExecutionGroup = 0;
+            TotalExecutionGroups = 0;
+            GroupExecutionDurationSeconds = 0;
+            ExecutionGroups.Clear();
         }
 
         // --- Event Handlers ---
@@ -1910,7 +2045,10 @@ namespace CSimple.ViewModels
                     CurrentActionStep,
                     _preloadedModelCache,
                     _precomputedCombinedInputs,
-                    ShowAlert
+                    ShowAlert,
+                    onGroupsInitialized: (groupCount) => InitializeExecutionGroups(groupCount),
+                    onGroupStarted: (groupNumber, modelCount) => StartGroupExecution(groupNumber, modelCount),
+                    onGroupCompleted: (groupNumber) => CompleteGroupExecution(groupNumber)
                 );
                 executionStopwatch.Stop();
 
@@ -1973,6 +2111,12 @@ namespace CSimple.ViewModels
                 // Stop execution timer
                 StopExecutionTimer();
 
+                // Complete any remaining group execution
+                if (CurrentExecutionGroup > 0)
+                {
+                    CompleteGroupExecution(CurrentExecutionGroup);
+                }
+
                 // Don't reset ExecutionProgress immediately so user can see final result
                 // Reset it after a short delay
                 _ = Task.Run(async () =>
@@ -1984,6 +2128,9 @@ namespace CSimple.ViewModels
                         ModelsExecutedCount = 0;
                         CurrentExecutingModel = "";
                         CurrentExecutingModelType = "";
+
+                        // Reset group execution after delay
+                        ResetGroupExecution();
                     }
                 });
             }

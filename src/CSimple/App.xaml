@@ -18,6 +18,8 @@
             <converters:BoolToStringConverter x:Key="BoolToStringConverter"
                                               x:Name="BoolToStringConverterResource" />
             <converters:IsNotNullOrEmptyConverter x:Key="IsNotNullOrEmptyConverter" />
+            <converters:BoolToFontAttributesConverter x:Key="BoolToFontAttributesConverter" />
+            <converters:BoolToExecutingColorConverter x:Key="BoolToExecutingColorConverter" />
             <!-- Add this -->
             <!-- Color Resources -->
             <ResourceDictionary.MergedDictionaries>

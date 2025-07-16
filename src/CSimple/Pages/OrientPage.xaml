@@ -26,16 +26,16 @@
             <!-- Define common picker styles -->
             <Setter Property="BackgroundColor"
                     Value="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource CardBackgroundLight}, 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource CardBackgroundDark}}" />
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource CardBackgroundLight}, 
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource CardBackgroundDark}}" />
             <Setter Property="TextColor"
                     Value="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextPrimaryLight}, 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextPrimaryDark}}" />
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextPrimaryLight}, 
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextPrimaryDark}}" />
             <Setter Property="TitleColor"
                     Value="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextSecondaryLight}, 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextSecondaryDark}}" />
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextSecondaryLight}, 
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextSecondaryDark}}" />
             <Setter Property="HeightRequest"
                     Value="55" />
             <Setter Property="FontSize"
@@ -68,8 +68,8 @@
                     Value="30" />
             <Setter Property="TextColor"
                     Value="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextOnPrimary}, 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextOnPrimary}}" />
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextOnPrimary}, 
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextOnPrimary}}" />
         </Style>
         <Style x:Key="ToolbarLabelStyle"
                TargetType="Label">
@@ -81,8 +81,8 @@
                     Value="5,0" />
             <Setter Property="TextColor"
                     Value="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextPrimaryLight}, 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextPrimaryDark}}" />
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Light={StaticResource TextPrimaryLight}, 
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                        Dark={StaticResource TextPrimaryDark}}" />
         </Style>
     </ContentPage.Resources>
     <Grid RowDefinitions="Auto, *">
@@ -90,8 +90,8 @@
         <Border Grid.Row="0"
                 StrokeThickness="0"
                 BackgroundColor="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                    Light={StaticResource SurfaceBackgroundLight},
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                    Dark={StaticResource SurfaceBackgroundDark}}"
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                    Light={StaticResource SurfaceBackgroundLight},
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                    Dark={StaticResource SurfaceBackgroundDark}}"
                 Padding="5,5"
                 Margin="5,5,5,0"
                 VerticalOptions="Start"
@@ -127,8 +127,8 @@
                         ToolTipProperties.Text="Delete Selected Pipeline" />
                 <!-- Separator -->
                 <BoxView BackgroundColor="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Light={StaticResource BorderColor},
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Dark={StaticResource NeutralDark}}"
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Light={StaticResource BorderColor},
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Dark={StaticResource NeutralDark}}"
                          WidthRequest="1"
                          HeightRequest="25"
                          Margin="10,0"
@@ -156,8 +156,8 @@
                         ToolTipProperties.Text="Delete Selected Node" />
                 <!-- Separator -->
                 <BoxView BackgroundColor="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Light={StaticResource BorderColor},
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Dark={StaticResource NeutralDark}}"
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Light={StaticResource BorderColor},
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                             Dark={StaticResource NeutralDark}}"
                          WidthRequest="1"
                          HeightRequest="25"
                          Margin="10,0"
@@ -208,8 +208,8 @@
                       EndInteraction="OnCanvasEndInteraction"
                       CancelInteraction="OnCanvasCancelInteraction"
                       BackgroundColor="{AppThemeBinding 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                          Light={StaticResource BackgroundLight}, 
-&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                          Dark={StaticResource BackgroundDark}}" />
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                          Light={StaticResource BackgroundLight}, 
+&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;        &#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;&#xA;                          Dark={StaticResource BackgroundDark}}" />
         <!-- Selected Node Info Panel (Overlay in Row 1) -->
         <Border Grid.Row="1"
                 Stroke="{AppThemeBinding Light={StaticResource BorderColor}, Dark={StaticResource NeutralDark}}"
@@ -391,6 +391,48 @@
                            HorizontalOptions="End"
                            TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                 </Grid>
+                <!-- Execution Groups (When executing in groups) -->
+                <StackLayout IsVisible="{Binding IsExecutingInGroups}">
+                    <Label Text="Execution Groups:"
+                           FontSize="10"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                    <ScrollView HeightRequest="60"
+                                VerticalOptions="Fill">
+                        <CollectionView ItemsSource="{Binding ExecutionGroups}"
+                                        BackgroundColor="Transparent">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Vertical"
+                                                   ItemSpacing="2" />
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="models:ExecutionGroupInfo">
+                                    <Grid ColumnDefinitions="Auto, *, Auto">
+                                        <Label Grid.Column="0"
+                                               Text="{Binding GroupDisplayName}"
+                                               FontSize="9"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                                               VerticalOptions="Center" />
+                                        <Label Grid.Column="1"
+                                               Text="{Binding ExecutionDurationDisplay}"
+                                               FontSize="9"
+                                               FontAttributes="{Binding IsCurrentlyExecuting, Converter={StaticResource BoolToFontAttributesConverter}}"
+                                               TextColor="{Binding IsCurrentlyExecuting, Converter={StaticResource BoolToExecutingColorConverter}}"
+                                               HorizontalOptions="End"
+                                               VerticalOptions="Center" />
+                                        <Label Grid.Column="2"
+                                               Text="✓"
+                                               FontSize="9"
+                                               TextColor="Green"
+                                               IsVisible="{Binding IsCompleted}"
+                                               HorizontalOptions="End"
+                                               VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </ScrollView>
+                </StackLayout>
                 <!-- Recent Results (Always Visible, Scrollable) -->
                 <StackLayout>
                     <Label Text="Recent Results:"
