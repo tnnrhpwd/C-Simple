@@ -282,7 +282,7 @@ namespace CSimple.ViewModels
             // Initialize pipeline execution service with dependency injection
             _pipelineExecutionService = new PipelineExecutionService(
                 _ensembleModelService,
-                (node) => FindCorrespondingModel(_netPageViewModel, node)
+                (node) => FindCorrespondingModel(((App)Application.Current)?.NetPageViewModel, node)
             );
 
             // Subscribe to audio playback events
@@ -941,7 +941,15 @@ namespace CSimple.ViewModels
         // New helper method for finding corresponding model with better matching logic
         private NeuralNetworkModel FindCorrespondingModel(NetPageViewModel netPageVM, NodeViewModel node)
         {
-            return _nodeManagementService.FindCorrespondingModel(netPageVM.AvailableModels, node);
+            // Always use the Application's NetPageViewModel to ensure we get the latest loaded models
+            var currentNetPageVM = ((App)Application.Current)?.NetPageViewModel;
+            if (currentNetPageVM?.AvailableModels != null && currentNetPageVM.AvailableModels.Count > 0)
+            {
+                return _nodeManagementService.FindCorrespondingModel(currentNetPageVM.AvailableModels, node);
+            }
+
+            // Fallback to the provided parameter if the Application instance isn't available
+            return _nodeManagementService.FindCorrespondingModel(netPageVM?.AvailableModels, node);
         }
 
         // --- Pipeline Execution Logic ---
@@ -1755,6 +1763,32 @@ namespace CSimple.ViewModels
                 }
 
                 ExecutionStatus = $"Executing {TotalModelsToExecute} models...";
+
+                // Verify that model lookup will work correctly
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [ExecuteRunAllModelsAsync] Verifying model lookup for {TotalModelsToExecute} model nodes...");
+                var testNetPageVM = ((App)Application.Current)?.NetPageViewModel;
+                int foundModels = 0;
+                foreach (var modelNode in modelNodes)
+                {
+                    var testModel = FindCorrespondingModel(testNetPageVM, modelNode);
+                    if (testModel != null)
+                    {
+                        foundModels++;
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [ExecuteRunAllModelsAsync] Found model for node '{modelNode.Name}': {testModel.Name}");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteRunAllModelsAsync] No model found for node '{modelNode.Name}' (Id: {modelNode.Id})");
+                    }
+                }
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📊 [ExecuteRunAllModelsAsync] Model lookup verification: {foundModels}/{TotalModelsToExecute} models found");
+
+                if (foundModels == 0)
+                {
+                    ExecutionStatus = "No executable models found";
+                    await ShowAlert?.Invoke("Model Lookup Error", $"Could not find executable models for any of the {TotalModelsToExecute} model nodes in the pipeline. Please ensure models are properly loaded in the Models page.", "OK");
+                    return;
+                }
 
                 // Step 1: Check if proactive preparation is ready (fast path)
                 bool preparationReady = await IsProactivePreparationReadyAsync(maxWaitMs: 1500);
