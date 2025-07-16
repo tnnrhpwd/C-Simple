@@ -187,6 +187,32 @@ namespace CSimple.ViewModels
             set => SetProperty(ref _currentExecutingModelType, value);
         }
 
+        // Execution timing properties
+        private DateTime _executionStartTime;
+        private System.Timers.Timer _executionTimer;
+        private double _executionDurationSeconds;
+
+        public double ExecutionDurationSeconds
+        {
+            get => _executionDurationSeconds;
+            set => SetProperty(ref _executionDurationSeconds, value);
+        }
+
+        public string ExecutionDurationDisplay
+        {
+            get
+            {
+                if (_executionDurationSeconds <= 0)
+                    return "No cycle time";
+
+                var timeSpan = TimeSpan.FromSeconds(_executionDurationSeconds);
+                if (timeSpan.TotalMinutes >= 1)
+                    return $"{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+                else
+                    return $"{timeSpan.TotalSeconds:F1}s";
+            }
+        }
+
         private List<string> _executionResults = new List<string>();
         public ObservableCollection<string> ExecutionResults { get; } = new ObservableCollection<string>();
 
@@ -362,6 +388,9 @@ namespace CSimple.ViewModels
             // Load available pipelines on initialization
             _ = LoadAvailablePipelinesAsync();
 
+            // Initialize execution timer
+            InitializeExecutionTimer();
+
             // Start background warmup immediately to avoid delays later
             StartBackgroundWarmup();
         }
@@ -446,6 +475,50 @@ namespace CSimple.ViewModels
 
             stopwatch.Stop();
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔥 [BackgroundWarmup] Completed in {stopwatch.ElapsedMilliseconds}ms");
+        }
+
+        // --- Execution Timer Methods ---
+        /// <summary>
+        /// Initialize the execution timer for tracking model execution duration
+        /// </summary>
+        private void InitializeExecutionTimer()
+        {
+            _executionTimer = new System.Timers.Timer(100); // Update every 100ms for smooth display
+            _executionTimer.Elapsed += OnExecutionTimerElapsed;
+            _executionTimer.AutoReset = true;
+            ExecutionDurationSeconds = 0;
+        }
+
+        /// <summary>
+        /// Start the execution timer
+        /// </summary>
+        private void StartExecutionTimer()
+        {
+            _executionStartTime = DateTime.Now;
+            ExecutionDurationSeconds = 0;
+            _executionTimer?.Start();
+            OnPropertyChanged(nameof(ExecutionDurationDisplay));
+        }
+
+        /// <summary>
+        /// Stop the execution timer
+        /// </summary>
+        private void StopExecutionTimer()
+        {
+            _executionTimer?.Stop();
+            OnPropertyChanged(nameof(ExecutionDurationDisplay));
+        }
+
+        /// <summary>
+        /// Timer elapsed event handler to update execution duration
+        /// </summary>
+        private void OnExecutionTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            ExecutionDurationSeconds = (DateTime.Now - _executionStartTime).TotalSeconds;
+            Microsoft.Maui.Controls.Application.Current?.Dispatcher.Dispatch(() =>
+            {
+                OnPropertyChanged(nameof(ExecutionDurationDisplay));
+            });
         }
 
         // --- Event Handlers ---
@@ -1751,6 +1824,9 @@ namespace CSimple.ViewModels
                 ExecutionProgress = 0;
                 ExecutionResults.Clear();
 
+                // Start execution timer
+                StartExecutionTimer();
+
                 // Count total models to execute
                 var modelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
                 TotalModelsToExecute = modelNodes.Count;
@@ -1893,6 +1969,10 @@ namespace CSimple.ViewModels
             finally
             {
                 IsExecutingModels = false;
+
+                // Stop execution timer
+                StopExecutionTimer();
+
                 // Don't reset ExecutionProgress immediately so user can see final result
                 // Reset it after a short delay
                 _ = Task.Run(async () =>
@@ -1923,6 +2003,9 @@ namespace CSimple.ViewModels
                 ModelsExecutedCount = 0;
                 ExecutionProgress = 0;
                 ExecutionResults.Clear();
+
+                // Start execution timer
+                StartExecutionTimer();
 
                 Debug.WriteLine($"🚀 [OrientPageViewModel.ExecuteGenerateAsync] Starting generation for node: {SelectedNode?.Name}");
 
@@ -2071,6 +2154,10 @@ namespace CSimple.ViewModels
             finally
             {
                 IsExecutingModels = false;
+
+                // Stop execution timer
+                StopExecutionTimer();
+
                 // Don't reset progress immediately for single model execution
                 _ = Task.Run(async () =>
                 {
@@ -2109,6 +2196,18 @@ namespace CSimple.ViewModels
         // IDisposable implementation
         public void Dispose()
         {
+            // Clean up execution timer
+            try
+            {
+                _executionTimer?.Stop();
+                _executionTimer?.Dispose();
+                _executionTimer = null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ [Dispose] Error cleaning up execution timer: {ex.Message}");
+            }
+
             // Clean up proactive preparation resources
             try
             {
