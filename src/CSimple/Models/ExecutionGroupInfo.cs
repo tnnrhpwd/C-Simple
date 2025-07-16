@@ -53,6 +53,11 @@ namespace CSimple.Models
         {
             get
             {
+                // Don't show duration if the group hasn't started executing yet
+                if (!_isCurrentlyExecuting && !_isCompleted)
+                    return "";
+
+                // Show duration once execution starts or after completion
                 if (_executionDurationSeconds <= 0)
                     return "0.0s";
 
@@ -68,14 +73,26 @@ namespace CSimple.Models
         public bool IsCurrentlyExecuting
         {
             get => _isCurrentlyExecuting;
-            set => SetProperty(ref _isCurrentlyExecuting, value);
+            set
+            {
+                if (SetProperty(ref _isCurrentlyExecuting, value))
+                {
+                    OnPropertyChanged(nameof(ExecutionDurationDisplay));
+                }
+            }
         }
 
         private bool _isCompleted;
         public bool IsCompleted
         {
             get => _isCompleted;
-            set => SetProperty(ref _isCompleted, value);
+            set
+            {
+                if (SetProperty(ref _isCompleted, value))
+                {
+                    OnPropertyChanged(nameof(ExecutionDurationDisplay));
+                }
+            }
         }
 
         public string GroupDisplayName => $"Group {GroupNumber} ({ModelCount} models)";

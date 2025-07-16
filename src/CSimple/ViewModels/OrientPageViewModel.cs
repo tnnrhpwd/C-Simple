@@ -638,9 +638,16 @@ namespace CSimple.ViewModels
             var group = ExecutionGroups.FirstOrDefault(g => g.GroupNumber == groupNumber);
             if (group != null)
             {
+                // Capture the final duration before changing execution state
+                if (group.IsCurrentlyExecuting && _groupExecutionStartTime != default)
+                {
+                    var finalDuration = (DateTime.Now - _groupExecutionStartTime).TotalSeconds;
+                    group.ExecutionDurationSeconds = finalDuration;
+                }
+
                 group.IsCurrentlyExecuting = false;
                 group.IsCompleted = true;
-                // Keep the final duration that was set during execution
+                // The final duration is now preserved in ExecutionDurationSeconds
             }
         }
 
@@ -2129,8 +2136,12 @@ namespace CSimple.ViewModels
                         CurrentExecutingModel = "";
                         CurrentExecutingModelType = "";
 
-                        // Reset group execution after delay
-                        ResetGroupExecution();
+                        // Don't reset group execution - preserve the durations for viewing
+                        // Only reset the execution tracking state, but keep the groups and their durations
+                        IsExecutingInGroups = false;
+                        CurrentExecutionGroup = 0;
+                        GroupExecutionDurationSeconds = 0;
+                        // Leave ExecutionGroups intact so users can see the final durations
                     }
                 });
             }
