@@ -104,11 +104,11 @@ namespace CSimple.Services
                 // Reset current state
                 await setCurrentActionStep(0); // Set to 0, so first StepForward goes to step 1 (index 0)
 
-                // Clear ActionSteps for all input nodes
-                foreach (var nodeVM in nodes.Where(n => n.Type == NodeType.Input))
+                // Clear ActionSteps for all input and model nodes to ensure fresh data
+                foreach (var nodeVM in nodes.Where(n => n.Type == NodeType.Input || n.Type == NodeType.Model))
                 {
                     nodeVM.ActionSteps.Clear();
-                    // Debug.WriteLine($"[ActionStepNavigationService.LoadSelectedAction] Cleared ActionSteps for Input Node: {nodeVM.Name}");
+                    Debug.WriteLine($"[ActionStepNavigationService.LoadSelectedAction] Cleared ActionSteps for {nodeVM.Type} Node: {nodeVM.Name}");
                 }
 
                 // Use the ActionReviewService to load the action data

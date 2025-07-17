@@ -272,7 +272,18 @@ namespace CSimple.ViewModels
 
             // Adjust step to be 0-indexed for list access
             var stepData = ActionSteps[step - 1];
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Accessing ActionSteps[{step - 1}]. Step Data: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value}'");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Accessing ActionSteps[{step - 1}]. Step Data: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value?.Substring(0, Math.Min(200, stepData.Value?.Length ?? 0))}...'");
+            
+            // Add debugging to show all ActionSteps for comparison - but only for the first few times to avoid spam
+            if (step <= 3) // Only log this for first few steps to avoid spam
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] DEBUG: All ActionSteps for node '{Name}':");
+                for (int i = 0; i < Math.Min(5, ActionSteps.Count); i++) // Only show first 5 steps
+                {
+                    var debugStep = ActionSteps[i];
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]   ActionSteps[{i}]: Type='{debugStep.Type}', Value='{debugStep.Value?.Substring(0, Math.Min(100, debugStep.Value?.Length ?? 0))}...'");
+                }
+            }
 
             // Ensure the stepData.Type matches the node's DataType for relevance
             // This check might be redundant if ActionSteps was already populated with matching types.

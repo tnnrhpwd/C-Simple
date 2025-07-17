@@ -78,56 +78,25 @@ namespace CSimple.Services
                         Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] ActionGroup has {actionGroupFiles.Count} associated files.");
 
                         // Populate ActionSteps for input nodes
+                        // Each ActionStep should represent content for one specific action step (action item)
+                        // The index in ActionSteps should match the step number (0-based)
                         foreach (var nodeVM in nodes.Where(n => n.Type == NodeType.Input))
                         {
                             nodeVM.ActionSteps.Clear();
                             Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Populating ActionSteps for Input Node: {nodeVM.Name} (Node DataType: {nodeVM.DataType})");
 
-                            foreach (var actionItem in actionReviewData.ActionItems)
+                            // Create one ActionStep entry for each action item (step)
+                            for (int stepIndex = 0; stepIndex < actionReviewData.ActionItems.Count; stepIndex++)
                             {
+                                var actionItem = actionReviewData.ActionItems[stepIndex];
                                 string actionDescription = actionItem.ToString();
-                                bool added = false;
-
-                                if (nodeVM.Name == "Keyboard Text (Input)" && (actionItem.EventType == 256 || actionItem.EventType == 257))
-                                {
-                                    nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                    added = true;
-                                }
-                                else if (nodeVM.Name == "Mouse Text (Input)" && (actionItem.EventType == 512 || actionItem.EventType == 0x0200))
-                                {
-                                    nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                    added = true;
-                                }
-                                else if (nodeVM.DataType == "image")
-                                {
-                                    var imageFile = actionGroupFiles.FirstOrDefault(f => actionDescription.ToLower().Contains(f.Filename.ToLower()));
-
-                                    if (imageFile != null)
-                                    {
-                                        nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: imageFile.Data));
-                                        added = true;
-                                    }
-                                    else
-                                    {
-                                        // Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] No image file found for action item: {actionDescription}");
-                                        nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                        added = true;
-                                    }
-                                }
-                                else
-                                {
-                                    var matchingFile = actionGroupFiles.FirstOrDefault(f => actionDescription.ToLower().Contains(f.Filename.ToLower()));
-                                    if (matchingFile != null)
-                                    {
-                                        nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: matchingFile.Filename));
-                                        added = true;
-                                    }
-                                }
-
-                                if (!added)
-                                {
-                                    nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: actionDescription));
-                                }
+                                
+                                // Determine step-specific content for this node based on its type and the action item
+                                string stepContent = GetStepSpecificContent(nodeVM, actionItem, actionDescription, actionGroupFiles);
+                                
+                                // Add the step content for this specific step
+                                nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: stepContent));
+                                Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Added ActionStep[{stepIndex}] for {nodeVM.Name}: {stepContent?.Substring(0, Math.Min(50, stepContent?.Length ?? 0))}...");
                             }
                         }
                     }
@@ -227,33 +196,60 @@ namespace CSimple.Services
                 stepContentData.Content = contentValue ?? "No data available for this step.";
                 stepContentData.ContentType = contentType ?? "text";
 
-                // Handle specific content types
-                if (stepContentData.ContentType == "image")
+                Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Retrieved from GetStepContent - Type: {contentType}, Value: {contentValue?.Substring(0, Math.Min(100, contentValue?.Length ?? 0))}...");
+
+                // For image and audio nodes, if we have step-specific content, use it directly
+                // Only fall back to file searching if the step content is empty or looks like a description
+                if (selectedNode.DataType?.ToLower() == "image")
                 {
-                    if (currentActionStep >= 0 && currentActionStep < currentActionItems.Count)
+                    // If contentValue looks like a file path or base64 data, use it directly
+                    if (!string.IsNullOrEmpty(contentValue) && 
+                        (contentValue.Contains("\\") || contentValue.Contains("/") || contentValue.StartsWith("data:") || contentValue.Length > 200))
                     {
+                        // This looks like actual image data or file path, use it directly
+                        stepContentData.Content = contentValue;
+                        stepContentData.ContentType = "image";
+                        Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using step-specific image content directly");
+                    }
+                    else if (currentActionStep >= 0 && currentActionStep < currentActionItems.Count)
+                    {
+                        // Fall back to timestamp-based file search only if step content doesn't look like image data
                         string imageFileName = selectedNode.FindClosestImageFile(contentValue, contentType);
                         if (!string.IsNullOrEmpty(imageFileName))
                         {
                             stepContentData.Content = imageFileName;
+                            stepContentData.ContentType = "image";
+                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using timestamp-based image file: {imageFileName}");
                         }
                         else
                         {
-                            // stepContentData.Content = "No image file available for this step.";
                             stepContentData.ContentType = "text";
+                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No image file found, falling back to text");
                         }
                     }
                 }
 
                 if (selectedNode.DataType?.ToLower() == "audio" && !string.IsNullOrEmpty(selectedReviewActionName))
                 {
-                    if (currentActionStep >= 0 && currentActionStep < currentActionItems.Count)
+                    // If contentValue looks like a file path, use it directly
+                    if (!string.IsNullOrEmpty(contentValue) && 
+                        (contentValue.Contains("\\") || contentValue.Contains("/")) && 
+                        (contentValue.EndsWith(".wav") || contentValue.EndsWith(".mp3") || contentValue.EndsWith(".aac")))
                     {
+                        // This looks like an audio file path, use it directly
+                        stepContentData.Content = contentValue;
+                        stepContentData.ContentType = "audio";
+                        Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using step-specific audio content directly: {contentValue}");
+                    }
+                    else if (currentActionStep >= 0 && currentActionStep < currentActionItems.Count)
+                    {
+                        // Fall back to generic audio segment only if step content doesn't look like audio file
                         string audioSegmentPath = selectedNode.GetAudioSegment(DateTime.MinValue, DateTime.MinValue);
                         if (!string.IsNullOrEmpty(audioSegmentPath))
                         {
                             stepContentData.Content = audioSegmentPath;
                             stepContentData.ContentType = "audio";
+                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using generic audio segment: {audioSegmentPath}");
                         }
                         else
                         {
@@ -299,6 +295,65 @@ namespace CSimple.Services
                         return "text"; // Crude check for text content
                     return "unknown";
             }
+        }
+
+        /// <summary>
+        /// Gets step-specific content for a node based on the action item and node type
+        /// </summary>
+        private string GetStepSpecificContent(NodeViewModel nodeVM, ActionItem actionItem, string actionDescription, List<ActionFile> actionGroupFiles)
+        {
+            // For keyboard input nodes, only include keyboard-related events
+            if (nodeVM.Name == "Keyboard Text (Input)" && (actionItem.EventType == 256 || actionItem.EventType == 257))
+            {
+                return actionDescription;
+            }
+            
+            // For mouse input nodes, only include mouse-related events  
+            if (nodeVM.Name == "Mouse Text (Input)" && (actionItem.EventType == 512 || actionItem.EventType == 0x0200))
+            {
+                return actionDescription;
+            }
+            
+            // For image nodes, try to find associated image files
+            if (nodeVM.DataType == "image")
+            {
+                var imageFile = actionGroupFiles.FirstOrDefault(f => actionDescription.ToLower().Contains(f.Filename.ToLower()));
+                if (imageFile != null)
+                {
+                    return imageFile.Data; // Return the actual image data
+                }
+                else
+                {
+                    // If no specific image file found for this action, return the action description
+                    // This allows the GetStepContent method to attempt timestamp-based image matching
+                    return actionDescription;
+                }
+            }
+            
+            // For audio and other file-based nodes, try to find matching files
+            if (nodeVM.DataType == "audio" || nodeVM.DataType == "file")
+            {
+                var matchingFile = actionGroupFiles.FirstOrDefault(f => actionDescription.ToLower().Contains(f.Filename.ToLower()));
+                if (matchingFile != null)
+                {
+                    return matchingFile.Filename;
+                }
+            }
+            
+            // For nodes that don't match specific event types, return empty content
+            // This prevents them from showing irrelevant action descriptions
+            if (nodeVM.Name == "Keyboard Text (Input)" && !(actionItem.EventType == 256 || actionItem.EventType == 257))
+            {
+                return ""; // Empty content for non-keyboard events on keyboard nodes
+            }
+            
+            if (nodeVM.Name == "Mouse Text (Input)" && !(actionItem.EventType == 512 || actionItem.EventType == 0x0200))
+            {
+                return ""; // Empty content for non-mouse events on mouse nodes  
+            }
+            
+            // Default: return action description for other cases
+            return actionDescription;
         }
     }
 

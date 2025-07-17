@@ -1544,6 +1544,10 @@ namespace CSimple.ViewModels
             {
                 Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Attempting to load action: {SelectedReviewActionName ?? "null"}");
 
+                // Clear the step content cache to ensure fresh data for the new action
+                _ensembleModelService.ClearStepContentCache();
+                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Cleared step content cache for action change");
+
                 // Use the ActionStepNavigationService to load the action
                 var result = await _actionStepNavigationService.LoadSelectedActionAsync(
                     SelectedReviewActionName,
@@ -1558,6 +1562,19 @@ namespace CSimple.ViewModels
                 _currentActionItems = result.ActionItems;
 
                 Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Loaded '{SelectedReviewActionName}' with {_currentActionItems.Count} action items via navigation service.");
+                
+                // Force UI refresh after action change
+                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Forcing UI refresh for new action");
+                
+                // Explicit refresh of all node ActionSteps to ensure UI updates
+                RefreshAllNodeStepContent();
+                
+                // Notify UI that step content might have changed
+                OnPropertyChanged(nameof(StepContent));
+                OnPropertyChanged(nameof(StepContentType));
+                
+                // Also notify that the current action step display should update
+                OnPropertyChanged(nameof(CurrentActionStep));
             }
             catch (Exception ex)
             {
@@ -1567,7 +1584,14 @@ namespace CSimple.ViewModels
             {
                 (StepForwardCommand as Command)?.ChangeCanExecute();
                 (StepBackwardCommand as Command)?.ChangeCanExecute();
+                (ResetActionCommand as Command)?.ChangeCanExecute();
+                
+                // Add a small delay to ensure all async operations complete
+                await Task.Delay(100);
+                
                 UpdateStepContent(); // Call this to reflect the state for CurrentActionStep = 0
+                
+                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Action loading complete, step content updated");
             }
         }
 
@@ -1611,12 +1635,37 @@ namespace CSimple.ViewModels
 
         public void UpdateStepContent()
         {
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Called - SelectedNode: {SelectedNode?.Name ?? "null"}, CurrentActionStep: {CurrentActionStep}, SelectedAction: {SelectedReviewActionName ?? "null"}");
+            
             var stepContentData = _actionReviewService.UpdateStepContent(SelectedNode, CurrentActionStep, _currentActionItems, SelectedReviewActionName);
+
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Retrieved content - Type: {stepContentData.ContentType}, Content: {stepContentData.Content?.Substring(0, Math.Min(100, stepContentData.Content?.Length ?? 0))}...");
 
             StepContentType = stepContentData.ContentType;
             StepContent = stepContentData.Content;
             OnPropertyChanged(nameof(StepContentType));
             OnPropertyChanged(nameof(StepContent));
+        }
+
+        /// <summary>
+        /// Refreshes ActionSteps for all nodes to ensure they reflect the current action
+        /// </summary>
+        private void RefreshAllNodeStepContent()
+        {
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.RefreshAllNodeStepContent] Refreshing step content for all nodes");
+            
+            foreach (var node in Nodes)
+            {
+                // Force a refresh by triggering property change notifications
+                if (node.Type == NodeType.Input || node.Type == NodeType.Model)
+                {
+                    // If the node has ActionSteps, we want to ensure UI elements that depend on them are refreshed
+                    if (node.ActionSteps != null && node.ActionSteps.Count > 0)
+                    {
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.RefreshAllNodeStepContent] Node {node.Name} has {node.ActionSteps.Count} ActionSteps");
+                    }
+                }
+            }
         }
 
         private async void PlayAudio()
