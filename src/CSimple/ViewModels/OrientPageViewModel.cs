@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text; // Added for StringBuilder
+using System.Text.Json; // Added for JsonSerializer
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -292,6 +293,9 @@ namespace CSimple.ViewModels
                     {
                         LoadSelectedAction();
                     }
+
+                    // Update RunAllNodesCommand CanExecute since it depends on having a selected action
+                    (RunAllNodesCommand as Command)?.ChangeCanExecute();
                 }
             }
         }
@@ -329,6 +333,7 @@ namespace CSimple.ViewModels
         public ICommand ResetActionCommand { get; }
         public ICommand GenerateCommand { get; }
         public ICommand RunAllModelsCommand { get; }
+        public ICommand RunAllNodesCommand { get; }
 
 
         // --- UI Interaction Delegates ---
@@ -423,6 +428,19 @@ namespace CSimple.ViewModels
             {
                 bool canExecute = Nodes.Any(n => n.Type == NodeType.Model);
                 Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllModelsCommand.CanExecute] Checking: {canExecute} (Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)})");
+                return canExecute;
+            });
+
+            // Initialize RunAllNodesCommand with debug logging
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔧 [OrientPageViewModel.Constructor] Initializing RunAllNodesCommand");
+            RunAllNodesCommand = new Command(async () =>
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🚀 [RunAllNodesCommand] Button clicked - executing command");
+                await ExecuteRunAllNodesAsync();
+            }, () =>
+            {
+                bool canExecute = Nodes.Any(n => n.Type == NodeType.Model) && !string.IsNullOrEmpty(SelectedReviewActionName);
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllNodesCommand.CanExecute] Checking: {canExecute} (Model nodes: {Nodes.Count(n => n.Type == NodeType.Model)}, Selected action: {SelectedReviewActionName ?? "none"})");
                 return canExecute;
             });
 
@@ -904,6 +922,7 @@ namespace CSimple.ViewModels
             UpdateEnsembleCounts(); // ADDED: Update counts after adding node
             Debug.WriteLine($"🔄 [AddModelNode] Updating RunAllModelsCommand CanExecute - Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)}");
             (RunAllModelsCommand as Command)?.ChangeCanExecute(); // Update Run All Models button state
+            (RunAllNodesCommand as Command)?.ChangeCanExecute(); // Update Run All Nodes button state
             await SaveCurrentPipelineAsync(); // Save after adding
 
             // Update execution status
@@ -920,6 +939,7 @@ namespace CSimple.ViewModels
                 UpdateEnsembleCounts(); // ADDED: Update counts after removing connections
                 Debug.WriteLine($"🗑️ [DeleteSelectedNode] Updating RunAllModelsCommand CanExecute - Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)}");
                 (RunAllModelsCommand as Command)?.ChangeCanExecute(); // Update Run All Models button state
+                (RunAllNodesCommand as Command)?.ChangeCanExecute(); // Update Run All Nodes button state
                 await SaveCurrentPipelineAsync(); // Save after deleting
                 InvalidateCanvas?.Invoke(); // ADDED: Ensure redraw after potential count update
 
@@ -1032,6 +1052,7 @@ namespace CSimple.ViewModels
             Debug.WriteLine($"📂 [LoadPipelineAsync] Pipeline loaded. Total nodes: {Nodes.Count}, Model nodes: {Nodes.Count(n => n.Type == NodeType.Model)}");
             Debug.WriteLine($"📂 [LoadPipelineAsync] Updating RunAllModelsCommand CanExecute after pipeline load");
             (RunAllModelsCommand as Command)?.ChangeCanExecute(); // Update Run All Models button state after loading
+            (RunAllNodesCommand as Command)?.ChangeCanExecute(); // Update Run All Nodes button state after loading
 
             // Update execution status after pipeline is loaded
             UpdateExecutionStatusFromPipeline();
@@ -2145,6 +2166,366 @@ namespace CSimple.ViewModels
                     }
                 });
             }
+        }
+
+        // --- Run All Nodes Command Implementation ---
+        private async Task ExecuteRunAllNodesAsync()
+        {
+            var totalStopwatch = Stopwatch.StartNew();
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🎯 [ExecuteRunAllNodesAsync] Starting execution for all action steps");
+
+            try
+            {
+                // Validate prerequisites
+                if (string.IsNullOrEmpty(SelectedReviewActionName))
+                {
+                    await ShowAlert?.Invoke("No Action Selected", "Please select an action from the Review Action dropdown before running all nodes.", "OK");
+                    return;
+                }
+
+                // Fresh load of the selected action to ensure we have the most current data
+                var result = await _actionStepNavigationService.LoadSelectedActionAsync(
+                    SelectedReviewActionName,
+                    Nodes,
+                    SetCurrentActionStepAsync,
+                    () => { });
+
+                var currentActionItems = result.ActionItems;
+
+                if (currentActionItems == null || currentActionItems.Count == 0)
+                {
+                    await ShowAlert?.Invoke("No Action Steps", "The selected action has no steps to process.", "OK");
+                    return;
+                }
+
+                var modelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
+                if (modelNodes.Count == 0)
+                {
+                    await ShowAlert?.Invoke("No Models", "No model nodes found in the pipeline.", "OK");
+                    return;
+                }
+
+                // Ensure NetPageViewModel has models loaded
+                var netPageVM = ((App)Application.Current).NetPageViewModel;
+                if (netPageVM?.AvailableModels == null || netPageVM.AvailableModels.Count == 0)
+                {
+                    ExecutionStatus = "Loading models for execution...";
+                    if (netPageVM != null)
+                    {
+                        await netPageVM.LoadDataAsync();
+                    }
+                    if (netPageVM?.AvailableModels == null || netPageVM.AvailableModels.Count == 0)
+                    {
+                        await ShowAlert?.Invoke("Error", "Could not load models for execution. Please navigate to the Models page first.", "OK");
+                        return;
+                    }
+                }
+
+                // Set initial execution status
+                IsExecutingModels = true;
+                ExecutionStatus = "Analyzing action steps...";
+                ModelsExecutedCount = 0;
+                ExecutionProgress = 0;
+                ExecutionResults.Clear();
+                StartExecutionTimer();
+
+                int totalSteps = currentActionItems.Count;
+                int totalExecutions = totalSteps * modelNodes.Count;
+                TotalModelsToExecute = totalExecutions;
+
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📊 [ExecuteRunAllNodesAsync] Processing {totalSteps} action steps with {modelNodes.Count} models each (total: {totalExecutions} executions)");
+
+                // Create Analysis directory in resources folder
+                var analysisDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), 
+                    "CSimple", 
+                    "Resources", 
+                    "Analysis"
+                );
+                Directory.CreateDirectory(analysisDir);
+
+                // Create subdirectory for this analysis run
+                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var runDir = Path.Combine(analysisDir, $"{SelectedReviewActionName}_{timestamp}");
+                Directory.CreateDirectory(runDir);
+
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📁 [ExecuteRunAllNodesAsync] Created analysis directory: {runDir}");
+
+                // Store original state
+                var originalSelectedNode = SelectedNode;
+                var originalCurrentActionStep = CurrentActionStep;
+
+                int successfulExecutions = 0;
+                int skippedExecutions = 0;
+
+                // Get execution groups for all models (this will be used for all steps)
+                var executionGroups = _pipelineExecutionService.GetType()
+                    .GetMethod("BuildHyperOptimizedExecutionGroups", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    ?.Invoke(_pipelineExecutionService, new object[] { modelNodes, Connections }) as List<List<NodeViewModel>>;
+
+                if (executionGroups == null)
+                {
+                    // Fallback: create a single group with all models
+                    executionGroups = new List<List<NodeViewModel>> { modelNodes };
+                }
+
+                // Initialize execution groups display
+                InitializeExecutionGroups(executionGroups.Count);
+
+                // Execute each group across all action steps
+                for (int groupIndex = 0; groupIndex < executionGroups.Count; groupIndex++)
+                {
+                    var group = executionGroups[groupIndex];
+                    StartGroupExecution(groupIndex + 1, group.Count * totalSteps);
+
+                    ExecutionStatus = $"Executing Group {groupIndex + 1}/{executionGroups.Count} across all {totalSteps} steps...";
+
+                    // Execute this group for ALL action steps at once
+                    var groupTasks = new List<Task>();
+
+                    foreach (var step in Enumerable.Range(0, totalSteps))
+                    {
+                        foreach (var modelNode in group)
+                        {
+                            groupTasks.Add(ExecuteModelForStepAsync(modelNode, step, runDir, netPageVM, currentActionItems));
+                        }
+                    }
+
+                    // Wait for all tasks in this group to complete
+                    var groupResults = await Task.WhenAll(groupTasks.Select(async task =>
+                    {
+                        try
+                        {
+                            await task;
+                            return true;
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"❌ [ExecuteRunAllNodesAsync] Group execution error: {ex.Message}");
+                            return false;
+                        }
+                    }));
+
+                    // Count results for this group
+                    var groupSuccessCount = groupResults.Count(r => r);
+                    var groupSkipCount = groupResults.Count(r => !r);
+
+                    successfulExecutions += groupSuccessCount;
+                    skippedExecutions += groupSkipCount;
+
+                    // Update progress
+                    ExecutionProgress = (int)((double)(successfulExecutions + skippedExecutions) / totalExecutions * 100);
+                    ModelsExecutedCount = successfulExecutions;
+
+                    CompleteGroupExecution(groupIndex + 1);
+
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [ExecuteRunAllNodesAsync] Group {groupIndex + 1} completed: {groupSuccessCount} successful, {groupSkipCount} failed");
+                }
+
+                // Restore original state
+                SelectedNode = originalSelectedNode;
+                CurrentActionStep = originalCurrentActionStep;
+
+                // Save summary report
+                await SaveAnalysisSummaryAsync(runDir, successfulExecutions, skippedExecutions, totalSteps, modelNodes.Count, totalStopwatch.Elapsed, currentActionItems);
+
+                totalStopwatch.Stop();
+
+                // Update final status
+                ExecutionStatus = $"Analysis completed: {successfulExecutions} successful, {skippedExecutions} failed";
+                ExecutionProgress = 100;
+
+                // Add execution results
+                AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] Analyzed {totalSteps} action steps with {modelNodes.Count} models");
+                AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] Results saved to: {runDir}");
+                AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] Total executions: {successfulExecutions} successful, {skippedExecutions} failed");
+
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🎉 [ExecuteRunAllNodesAsync] Completed in {totalStopwatch.ElapsedMilliseconds}ms: {successfulExecutions} successful, {skippedExecutions} failed");
+
+                // Show completion message
+                await ShowAlert?.Invoke("Analysis Complete", 
+                    $"Executed all models on {totalSteps} action steps.\n" +
+                    $"Results: {successfulExecutions} successful, {skippedExecutions} failed\n" +
+                    $"Output saved to: Analysis folder", "OK");
+            }
+            catch (Exception ex)
+            {
+                totalStopwatch.Stop();
+                ExecutionStatus = $"Error: {ex.Message}";
+                AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] ERROR: {ex.Message}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteRunAllNodesAsync] Critical error after {totalStopwatch.ElapsedMilliseconds}ms: {ex.Message}");
+                await ShowAlert?.Invoke("Error", $"Failed to run all nodes: {ex.Message}", "OK");
+            }
+            finally
+            {
+                IsExecutingModels = false;
+                StopExecutionTimer();
+
+                // Complete any remaining group execution
+                if (CurrentExecutionGroup > 0)
+                {
+                    CompleteGroupExecution(CurrentExecutionGroup);
+                }
+
+                // Reset progress after delay
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(3000);
+                    if (!IsExecutingModels)
+                    {
+                        ExecutionProgress = 0;
+                        ModelsExecutedCount = 0;
+                        CurrentExecutingModel = "";
+                        CurrentExecutingModelType = "";
+                        IsExecutingInGroups = false;
+                        CurrentExecutionGroup = 0;
+                        GroupExecutionDurationSeconds = 0;
+                    }
+                });
+            }
+        }
+
+        private async Task ExecuteModelForStepAsync(NodeViewModel modelNode, int stepIndex, string runDir, NetPageViewModel netPageVM, List<ActionItem> actionItems)
+        {
+            try
+            {
+                // Find corresponding model
+                var correspondingModel = FindCorrespondingModel(netPageVM, modelNode);
+                if (correspondingModel == null)
+                {
+                    Debug.WriteLine($"❌ [ExecuteModelForStepAsync] No model found for node: {modelNode.Name}");
+                    return;
+                }
+
+                // Set current step for context
+                CurrentActionStep = stepIndex;
+
+                // Update execution status
+                CurrentExecutingModel = modelNode.Name;
+                CurrentExecutingModelType = correspondingModel.Type.ToString() ?? "unknown";
+
+                // Get connected input nodes and prepare input
+                var connectedInputNodes = _ensembleModelService.GetConnectedInputNodes(modelNode, Nodes, Connections);
+                string input = _ensembleModelService.PrepareModelInput(modelNode, connectedInputNodes, stepIndex);
+
+                // Execute the model
+                var result = await _ensembleModelService.ExecuteModelWithInput(correspondingModel, input);
+
+                // Determine content type and store step output
+                var resultContentType = _ensembleModelService.DetermineResultContentType(correspondingModel, result);
+                var currentStep = stepIndex + 1; // Convert to 1-based
+                modelNode.SetStepOutput(currentStep, resultContentType, result);
+
+                // Save individual result to file
+                await SaveStepResultAsync(runDir, modelNode.Name, stepIndex, input, result, resultContentType, actionItems);
+
+                Debug.WriteLine($"✅ [ExecuteModelForStepAsync] Executed {modelNode.Name} for step {stepIndex + 1}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ [ExecuteModelForStepAsync] Error executing {modelNode.Name} for step {stepIndex + 1}: {ex.Message}");
+                
+                // Save error to file
+                await SaveStepErrorAsync(runDir, modelNode.Name, stepIndex, ex.Message);
+                throw;
+            }
+        }
+
+        private async Task SaveStepResultAsync(string runDir, string modelName, int stepIndex, string input, string result, string contentType, List<ActionItem> actionItems)
+        {
+            try
+            {
+                var stepDir = Path.Combine(runDir, $"Step_{stepIndex + 1:D3}");
+                Directory.CreateDirectory(stepDir);
+
+                var modelFileName = SanitizeFileName(modelName);
+                var resultFile = Path.Combine(stepDir, $"{modelFileName}_result.json");
+
+                var resultData = new
+                {
+                    ModelName = modelName,
+                    StepIndex = stepIndex + 1,
+                    Timestamp = DateTime.UtcNow,
+                    Input = input,
+                    Output = result,
+                    ContentType = contentType,
+                    ActionItem = stepIndex < actionItems.Count ? actionItems[stepIndex] : null
+                };
+
+                var json = JsonSerializer.Serialize(resultData, new JsonSerializerOptions { WriteIndented = true });
+                await File.WriteAllTextAsync(resultFile, json);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ [SaveStepResultAsync] Failed to save result for {modelName} step {stepIndex + 1}: {ex.Message}");
+            }
+        }
+
+        private async Task SaveStepErrorAsync(string runDir, string modelName, int stepIndex, string errorMessage)
+        {
+            try
+            {
+                var stepDir = Path.Combine(runDir, $"Step_{stepIndex + 1:D3}");
+                Directory.CreateDirectory(stepDir);
+
+                var modelFileName = SanitizeFileName(modelName);
+                var errorFile = Path.Combine(stepDir, $"{modelFileName}_error.txt");
+
+                var errorData = $"Model: {modelName}\n" +
+                               $"Step: {stepIndex + 1}\n" +
+                               $"Timestamp: {DateTime.UtcNow}\n" +
+                               $"Error: {errorMessage}\n";
+
+                await File.WriteAllTextAsync(errorFile, errorData);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ [SaveStepErrorAsync] Failed to save error for {modelName} step {stepIndex + 1}: {ex.Message}");
+            }
+        }
+
+        private async Task SaveAnalysisSummaryAsync(string runDir, int successfulExecutions, int skippedExecutions, int totalSteps, int modelCount, TimeSpan duration, List<ActionItem> actionItems)
+        {
+            try
+            {
+                var summaryFile = Path.Combine(runDir, "analysis_summary.json");
+
+                var summary = new
+                {
+                    ActionName = SelectedReviewActionName,
+                    Timestamp = DateTime.UtcNow,
+                    TotalSteps = totalSteps,
+                    ModelCount = modelCount,
+                    TotalExecutions = totalSteps * modelCount,
+                    SuccessfulExecutions = successfulExecutions,
+                    SkippedExecutions = skippedExecutions,
+                    Duration = duration.ToString(),
+                    DurationMs = duration.TotalMilliseconds,
+                    Models = Nodes.Where(n => n.Type == NodeType.Model).Select(n => n.Name).ToList(),
+                    ActionSteps = actionItems.Select((item, index) => new
+                    {
+                        StepIndex = index + 1,
+                        EventType = item.EventType,
+                        Description = item.ToString(),
+                        Timestamp = item.Timestamp
+                    }).ToList()
+                };
+
+                var json = JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true });
+                await File.WriteAllTextAsync(summaryFile, json);
+
+                Debug.WriteLine($"💾 [SaveAnalysisSummaryAsync] Summary saved to: {summaryFile}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ [SaveAnalysisSummaryAsync] Failed to save summary: {ex.Message}");
+            }
+        }
+
+        private string SanitizeFileName(string fileName)
+        {
+            var invalidChars = Path.GetInvalidFileNameChars();
+            return string.Join("_", fileName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
         }
 
         // --- Generate Command Implementation ---
