@@ -222,51 +222,34 @@ namespace CSimple.Services
             if (selectedNode.Type == NodeType.Input)
             {
                 int stepForNodeContent = currentActionStep + 1; // Convert to 1-based index
-                var (contentType, contentValue) = selectedNode.GetStepContent(stepForNodeContent);
+
+                // Extract timestamp from current action item for timestamp-based file finding
+                DateTime? actionTimestamp = null;
+                if (currentActionStep >= 0 && currentActionStep < currentActionItems.Count)
+                {
+                    var currentActionItem = currentActionItems[currentActionStep];
+                    if (currentActionItem?.Timestamp != null)
+                    {
+                        // Handle the Timestamp property which is of type object
+                        if (currentActionItem.Timestamp is DateTime dt)
+                        {
+                            actionTimestamp = dt;
+                        }
+                        else if (DateTime.TryParse(currentActionItem.Timestamp.ToString(), out DateTime parsedTimestamp))
+                        {
+                            actionTimestamp = parsedTimestamp;
+                        }
+                    }
+                }
+
+                var (contentType, contentValue) = selectedNode.GetStepContent(stepForNodeContent, actionTimestamp);
 
                 stepContentData.Content = contentValue ?? "No data available for this step.";
                 stepContentData.ContentType = contentType ?? "text";
 
-                // Handle specific content types
-                if (stepContentData.ContentType == "image")
-                {
-                    if (currentActionStep >= 0 && currentActionStep < currentActionItems.Count)
-                    {
-                        string imageFileName = selectedNode.FindClosestImageFile(contentValue, contentType);
-                        if (!string.IsNullOrEmpty(imageFileName))
-                        {
-                            stepContentData.Content = imageFileName;
-                        }
-                        else
-                        {
-                            // stepContentData.Content = "No image file available for this step.";
-                            stepContentData.ContentType = "text";
-                        }
-                    }
-                }
-
-                if (selectedNode.DataType?.ToLower() == "audio" && !string.IsNullOrEmpty(selectedReviewActionName))
-                {
-                    if (currentActionStep >= 0 && currentActionStep < currentActionItems.Count)
-                    {
-                        string audioSegmentPath = selectedNode.GetAudioSegment(DateTime.MinValue, DateTime.MinValue);
-                        if (!string.IsNullOrEmpty(audioSegmentPath))
-                        {
-                            stepContentData.Content = audioSegmentPath;
-                            stepContentData.ContentType = "audio";
-                        }
-                        else
-                        {
-                            stepContentData.Content = "No audio segment available for this step.";
-                            stepContentData.ContentType = "text";
-                        }
-                    }
-                    else
-                    {
-                        stepContentData.Content = "Invalid step for audio content.";
-                        stepContentData.ContentType = "text";
-                    }
-                }
+                // The timestamp-based file finding is now handled inside GetStepContent
+                // No need for additional image or audio processing here since the 
+                // NodeViewModel.GetStepContent method already handles finding the closest files by timestamp
             }
 
             return stepContentData;
