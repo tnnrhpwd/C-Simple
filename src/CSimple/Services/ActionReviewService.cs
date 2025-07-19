@@ -196,60 +196,33 @@ namespace CSimple.Services
                 stepContentData.Content = contentValue ?? "No data available for this step.";
                 stepContentData.ContentType = contentType ?? "text";
 
-                Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Retrieved from GetStepContent - Type: {contentType}, Value: {contentValue?.Substring(0, Math.Min(100, contentValue?.Length ?? 0))}...");
-
-                // For image and audio nodes, if we have step-specific content, use it directly
-                // Only fall back to file searching if the step content is empty or looks like a description
-                if (selectedNode.DataType?.ToLower() == "image")
+                // Handle specific content types
+                if (stepContentData.ContentType == "image")
                 {
-                    // If contentValue looks like a file path or base64 data, use it directly
-                    if (!string.IsNullOrEmpty(contentValue) && 
-                        (contentValue.Contains("\\") || contentValue.Contains("/") || contentValue.StartsWith("data:") || contentValue.Length > 200))
+                    if (currentActionStep >= 0 && currentActionStep < currentActionItems.Count)
                     {
-                        // This looks like actual image data or file path, use it directly
-                        stepContentData.Content = contentValue;
-                        stepContentData.ContentType = "image";
-                        Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using step-specific image content directly");
-                    }
-                    else if (currentActionStep >= 0 && currentActionStep < currentActionItems.Count)
-                    {
-                        // Fall back to timestamp-based file search only if step content doesn't look like image data
                         string imageFileName = selectedNode.FindClosestImageFile(contentValue, contentType);
                         if (!string.IsNullOrEmpty(imageFileName))
                         {
                             stepContentData.Content = imageFileName;
-                            stepContentData.ContentType = "image";
-                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using timestamp-based image file: {imageFileName}");
                         }
                         else
                         {
+                            // stepContentData.Content = "No image file available for this step.";
                             stepContentData.ContentType = "text";
-                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No image file found, falling back to text");
                         }
                     }
                 }
 
                 if (selectedNode.DataType?.ToLower() == "audio" && !string.IsNullOrEmpty(selectedReviewActionName))
                 {
-                    // If contentValue looks like a file path, use it directly
-                    if (!string.IsNullOrEmpty(contentValue) && 
-                        (contentValue.Contains("\\") || contentValue.Contains("/")) && 
-                        (contentValue.EndsWith(".wav") || contentValue.EndsWith(".mp3") || contentValue.EndsWith(".aac")))
+                    if (currentActionStep >= 0 && currentActionStep < currentActionItems.Count)
                     {
-                        // This looks like an audio file path, use it directly
-                        stepContentData.Content = contentValue;
-                        stepContentData.ContentType = "audio";
-                        Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using step-specific audio content directly: {contentValue}");
-                    }
-                    else if (currentActionStep >= 0 && currentActionStep < currentActionItems.Count)
-                    {
-                        // Fall back to generic audio segment only if step content doesn't look like audio file
                         string audioSegmentPath = selectedNode.GetAudioSegment(DateTime.MinValue, DateTime.MinValue);
                         if (!string.IsNullOrEmpty(audioSegmentPath))
                         {
                             stepContentData.Content = audioSegmentPath;
                             stepContentData.ContentType = "audio";
-                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using generic audio segment: {audioSegmentPath}");
                         }
                         else
                         {
