@@ -812,27 +812,45 @@ namespace CSimple.ViewModels
         /// </summary>
         private string GenerateKeyboardTextContent((string Type, string Value) stepData, DateTime? actionItemTimestamp)
         {
-            // Try to extract real ActionItem data from the current step if available
-            if (ActionSteps != null && ActionSteps.Count > 0)
+            // Try to extract real ActionItem data for the current step if available
+            var actionItems = GetActionItemsFromSteps();
+            if (actionItems != null && actionItems.Count > 0)
             {
-                // Look for the actual ActionItem that corresponds to this step
-                var actionItems = GetActionItemsFromSteps();
-                var keyboardActionItem = actionItems?.FirstOrDefault(item =>
-                    item.EventType == 0x0100 || item.EventType == 0x0101); // WM_KEYDOWN or WM_KEYUP
+                // Look for keyboard actions that match the current step timestamp or are relevant to this step
+                var keyboardActionItems = actionItems.Where(item =>
+                    item.EventType == 0x0100 || item.EventType == 0x0101).ToList(); // WM_KEYDOWN or WM_KEYUP
 
-                if (keyboardActionItem != null)
+                if (keyboardActionItems.Count > 0)
                 {
-                    // Format exactly like ActionService expects it
-                    string eventTypeName = keyboardActionItem.EventType == 0x0100 ? "KeyDown" : "KeyUp";
-                    string keyName = GetFriendlyKeyName(keyboardActionItem.KeyCode.ToString());
+                    // If we have a specific timestamp, find the closest keyboard action
+                    ActionItem keyboardActionItem = null;
+                    if (actionItemTimestamp.HasValue)
+                    {
+                        keyboardActionItem = keyboardActionItems
+                            .Where(item => item.Timestamp is DateTime)
+                            .OrderBy(item => Math.Abs(((DateTime)item.Timestamp - actionItemTimestamp.Value).Ticks))
+                            .FirstOrDefault();
+                    }
+                    else
+                    {
+                        // Use the first keyboard action if no timestamp available
+                        keyboardActionItem = keyboardActionItems.FirstOrDefault();
+                    }
 
-                    // Format like ActionService simulation format
-                    return $"EventType: 0x{keyboardActionItem.EventType:X4}, " +
-                           $"Action: {eventTypeName}, " +
-                           $"KeyCode: {keyboardActionItem.KeyCode}, " +
-                           $"Key: {keyName}, " +
-                           $"Duration: {keyboardActionItem.Duration}ms, " +
-                           $"Timestamp: {keyboardActionItem.Timestamp}";
+                    if (keyboardActionItem != null)
+                    {
+                        // Format exactly like ActionService expects it
+                        string eventTypeName = keyboardActionItem.EventType == 0x0100 ? "KeyDown" : "KeyUp";
+                        string keyName = GetFriendlyKeyName(keyboardActionItem.KeyCode.ToString());
+
+                        // Format like ActionService simulation format
+                        return $"EventType: 0x{keyboardActionItem.EventType:X4}, " +
+                               $"Action: {eventTypeName}, " +
+                               $"KeyCode: {keyboardActionItem.KeyCode}, " +
+                               $"Key: {keyName}, " +
+                               $"Duration: {keyboardActionItem.Duration}ms, " +
+                               $"Timestamp: {keyboardActionItem.Timestamp}";
+                    }
                 }
             }
 
@@ -856,8 +874,8 @@ namespace CSimple.ViewModels
                 }
             }
 
-            // Default fallback
-            return $"EventType: Unknown, Action: KeyboardActivity, Timestamp: {actionItemTimestamp?.ToString("HH:mm:ss.fff") ?? "unknown"}";
+            // Return empty string if no keyboard input data is found for this step
+            return string.Empty;
         }
 
         /// <summary>
@@ -865,45 +883,63 @@ namespace CSimple.ViewModels
         /// </summary>
         private string GenerateMouseTextContent((string Type, string Value) stepData, DateTime? actionItemTimestamp)
         {
-            // Try to extract real ActionItem data from the current step if available
-            if (ActionSteps != null && ActionSteps.Count > 0)
+            // Try to extract real ActionItem data for the current step if available
+            var actionItems = GetActionItemsFromSteps();
+            if (actionItems != null && actionItems.Count > 0)
             {
-                // Look for the actual ActionItem that corresponds to this step
-                var actionItems = GetActionItemsFromSteps();
-                var mouseActionItem = actionItems?.FirstOrDefault(item =>
+                // Look for mouse actions that match the current step timestamp or are relevant to this step
+                var mouseActionItems = actionItems.Where(item =>
                     item.EventType == 0x0200 || item.EventType == 512 || // Mouse move
                     item.EventType == 0x0201 || item.EventType == 0x0202 || // Left button
                     item.EventType == 0x0204 || item.EventType == 0x0205 || // Right button
-                    item.EventType == 0x0207 || item.EventType == 0x0208);  // Middle button
+                    item.EventType == 0x0207 || item.EventType == 0x0208).ToList();  // Middle button
 
-                if (mouseActionItem != null)
+                if (mouseActionItems.Count > 0)
                 {
-                    // Format exactly like ActionService expects it
-                    if (mouseActionItem.EventType == 0x0200 || mouseActionItem.EventType == 512)
+                    // If we have a specific timestamp, find the closest mouse action
+                    ActionItem mouseActionItem = null;
+                    if (actionItemTimestamp.HasValue)
                     {
-                        // Mouse movement - format like ActionService
-                        return $"EventType: 0x{mouseActionItem.EventType:X4}, " +
-                               $"Action: MouseMove, " +
-                               $"Coordinates: X={mouseActionItem.Coordinates?.X ?? 0}, Y={mouseActionItem.Coordinates?.Y ?? 0}, " +
-                               $"DeltaX: {mouseActionItem.DeltaX}, " +
-                               $"DeltaY: {mouseActionItem.DeltaY}, " +
-                               $"VelocityX: {mouseActionItem.VelocityX:F2}, " +
-                               $"VelocityY: {mouseActionItem.VelocityY:F2}, " +
-                               $"ButtonStates: L={mouseActionItem.IsLeftButtonDown}, R={mouseActionItem.IsRightButtonDown}, M={mouseActionItem.IsMiddleButtonDown}, " +
-                               $"Timestamp: {mouseActionItem.Timestamp}";
+                        mouseActionItem = mouseActionItems
+                            .Where(item => item.Timestamp is DateTime)
+                            .OrderBy(item => Math.Abs(((DateTime)item.Timestamp - actionItemTimestamp.Value).Ticks))
+                            .FirstOrDefault();
                     }
                     else
                     {
-                        // Mouse button action - format like ActionService
-                        string buttonType = GetMouseButtonType(mouseActionItem.EventType);
-                        string buttonAction = IsMouseButtonDown(mouseActionItem.EventType) ? "Down" : "Up";
+                        // Use the first mouse action if no timestamp available
+                        mouseActionItem = mouseActionItems.FirstOrDefault();
+                    }
 
-                        return $"EventType: 0x{mouseActionItem.EventType:X4}, " +
-                               $"Action: {buttonType}Button{buttonAction}, " +
-                               $"Coordinates: X={mouseActionItem.Coordinates?.X ?? 0}, Y={mouseActionItem.Coordinates?.Y ?? 0}, " +
-                               $"Duration: {mouseActionItem.Duration}ms, " +
-                               $"ButtonStates: L={mouseActionItem.IsLeftButtonDown}, R={mouseActionItem.IsRightButtonDown}, M={mouseActionItem.IsMiddleButtonDown}, " +
-                               $"Timestamp: {mouseActionItem.Timestamp}";
+                    if (mouseActionItem != null)
+                    {
+                        // Format exactly like ActionService expects it
+                        if (mouseActionItem.EventType == 0x0200 || mouseActionItem.EventType == 512)
+                        {
+                            // Mouse movement - format like ActionService
+                            return $"EventType: 0x{mouseActionItem.EventType:X4}, " +
+                                   $"Action: MouseMove, " +
+                                   $"Coordinates: X={mouseActionItem.Coordinates?.X ?? 0}, Y={mouseActionItem.Coordinates?.Y ?? 0}, " +
+                                   $"DeltaX: {mouseActionItem.DeltaX}, " +
+                                   $"DeltaY: {mouseActionItem.DeltaY}, " +
+                                   $"VelocityX: {mouseActionItem.VelocityX:F2}, " +
+                                   $"VelocityY: {mouseActionItem.VelocityY:F2}, " +
+                                   $"ButtonStates: L={mouseActionItem.IsLeftButtonDown}, R={mouseActionItem.IsRightButtonDown}, M={mouseActionItem.IsMiddleButtonDown}, " +
+                                   $"Timestamp: {mouseActionItem.Timestamp}";
+                        }
+                        else
+                        {
+                            // Mouse button action - format like ActionService
+                            string buttonType = GetMouseButtonType(mouseActionItem.EventType);
+                            string buttonAction = IsMouseButtonDown(mouseActionItem.EventType) ? "Down" : "Up";
+
+                            return $"EventType: 0x{mouseActionItem.EventType:X4}, " +
+                                   $"Action: {buttonType}Button{buttonAction}, " +
+                                   $"Coordinates: X={mouseActionItem.Coordinates?.X ?? 0}, Y={mouseActionItem.Coordinates?.Y ?? 0}, " +
+                                   $"Duration: {mouseActionItem.Duration}ms, " +
+                                   $"ButtonStates: L={mouseActionItem.IsLeftButtonDown}, R={mouseActionItem.IsRightButtonDown}, M={mouseActionItem.IsMiddleButtonDown}, " +
+                                   $"Timestamp: {mouseActionItem.Timestamp}";
+                        }
                     }
                 }
             }
@@ -947,8 +983,8 @@ namespace CSimple.ViewModels
                 }
             }
 
-            // Default mouse activity indicator
-            return $"EventType: Unknown, Action: MouseActivity, Timestamp: {actionItemTimestamp?.ToString("HH:mm:ss.fff") ?? "unknown"}";
+            // Return empty string if no mouse input data is found for this step
+            return string.Empty;
         }
 
         /// <summary>
