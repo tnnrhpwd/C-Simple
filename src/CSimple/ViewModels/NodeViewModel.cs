@@ -13,6 +13,9 @@ namespace CSimple.ViewModels
 {
     public class NodeViewModel : INotifyPropertyChanged
     {
+        // Static property to hold current ActionItems for access across nodes
+        public static List<ActionItem> CurrentActionItems { get; set; } = new List<ActionItem>();
+
         private string _id;
         private string _name;
         private NodeType _type;
@@ -805,42 +808,107 @@ namespace CSimple.ViewModels
         }
 
         /// <summary>
-        /// Generates keyboard input text from ActionItem data
+        /// Generates keyboard input text from ActionItem data in the same format as ActionService execution
         /// </summary>
         private string GenerateKeyboardTextContent((string Type, string Value) stepData, DateTime? actionItemTimestamp)
         {
-            // If we have valid ActionItem data with keyboard events, extract the key information
+            // Try to extract real ActionItem data from the current step if available
+            if (ActionSteps != null && ActionSteps.Count > 0)
+            {
+                // Look for the actual ActionItem that corresponds to this step
+                var actionItems = GetActionItemsFromSteps();
+                var keyboardActionItem = actionItems?.FirstOrDefault(item =>
+                    item.EventType == 0x0100 || item.EventType == 0x0101); // WM_KEYDOWN or WM_KEYUP
+
+                if (keyboardActionItem != null)
+                {
+                    // Format exactly like ActionService expects it
+                    string eventTypeName = keyboardActionItem.EventType == 0x0100 ? "KeyDown" : "KeyUp";
+                    string keyName = GetFriendlyKeyName(keyboardActionItem.KeyCode.ToString());
+
+                    // Format like ActionService simulation format
+                    return $"EventType: 0x{keyboardActionItem.EventType:X4}, " +
+                           $"Action: {eventTypeName}, " +
+                           $"KeyCode: {keyboardActionItem.KeyCode}, " +
+                           $"Key: {keyName}, " +
+                           $"Duration: {keyboardActionItem.Duration}ms, " +
+                           $"Timestamp: {keyboardActionItem.Timestamp}";
+                }
+            }
+
+            // Fallback: If we have valid ActionItem data with keyboard events, extract the key information
             if (stepData.Value != null && stepData.Value.Contains("Key "))
             {
                 // Parse existing key information from action description
                 string keyInfo = stepData.Value;
 
-                // Try to make it more user-friendly
                 if (keyInfo.Contains("Key ") && keyInfo.Contains(" Down"))
                 {
                     string keyPart = keyInfo.Replace("Key ", "").Replace(" Down", "");
                     string friendlyKeyName = GetFriendlyKeyName(keyPart);
-                    return $"⌨️ Key Press: {friendlyKeyName}";
+                    return $"EventType: 0x0100, Action: KeyDown, KeyCode: {keyPart}, Key: {friendlyKeyName}";
                 }
                 else if (keyInfo.Contains("Key ") && keyInfo.Contains(" Up"))
                 {
                     string keyPart = keyInfo.Replace("Key ", "").Replace(" Up", "");
                     string friendlyKeyName = GetFriendlyKeyName(keyPart);
-                    return $"⌨️ Key Release: {friendlyKeyName}";
+                    return $"EventType: 0x0101, Action: KeyUp, KeyCode: {keyPart}, Key: {friendlyKeyName}";
                 }
             }
 
-            // If we have a timestamp, we could potentially look up the actual ActionItem data
-            // For now, return a placeholder indicating keyboard activity
-            return $"⌨️ Keyboard Activity at {actionItemTimestamp?.ToString("HH:mm:ss.fff") ?? "unknown time"}";
+            // Default fallback
+            return $"EventType: Unknown, Action: KeyboardActivity, Timestamp: {actionItemTimestamp?.ToString("HH:mm:ss.fff") ?? "unknown"}";
         }
 
         /// <summary>
-        /// Generates mouse movement/action text from ActionItem data
+        /// Generates mouse movement/action text from ActionItem data in the same format as ActionService execution
         /// </summary>
         private string GenerateMouseTextContent((string Type, string Value) stepData, DateTime? actionItemTimestamp)
         {
-            // If we have valid ActionItem data with mouse events, extract the coordinate information
+            // Try to extract real ActionItem data from the current step if available
+            if (ActionSteps != null && ActionSteps.Count > 0)
+            {
+                // Look for the actual ActionItem that corresponds to this step
+                var actionItems = GetActionItemsFromSteps();
+                var mouseActionItem = actionItems?.FirstOrDefault(item =>
+                    item.EventType == 0x0200 || item.EventType == 512 || // Mouse move
+                    item.EventType == 0x0201 || item.EventType == 0x0202 || // Left button
+                    item.EventType == 0x0204 || item.EventType == 0x0205 || // Right button
+                    item.EventType == 0x0207 || item.EventType == 0x0208);  // Middle button
+
+                if (mouseActionItem != null)
+                {
+                    // Format exactly like ActionService expects it
+                    if (mouseActionItem.EventType == 0x0200 || mouseActionItem.EventType == 512)
+                    {
+                        // Mouse movement - format like ActionService
+                        return $"EventType: 0x{mouseActionItem.EventType:X4}, " +
+                               $"Action: MouseMove, " +
+                               $"Coordinates: X={mouseActionItem.Coordinates?.X ?? 0}, Y={mouseActionItem.Coordinates?.Y ?? 0}, " +
+                               $"DeltaX: {mouseActionItem.DeltaX}, " +
+                               $"DeltaY: {mouseActionItem.DeltaY}, " +
+                               $"VelocityX: {mouseActionItem.VelocityX:F2}, " +
+                               $"VelocityY: {mouseActionItem.VelocityY:F2}, " +
+                               $"ButtonStates: L={mouseActionItem.IsLeftButtonDown}, R={mouseActionItem.IsRightButtonDown}, M={mouseActionItem.IsMiddleButtonDown}, " +
+                               $"Timestamp: {mouseActionItem.Timestamp}";
+                    }
+                    else
+                    {
+                        // Mouse button action - format like ActionService
+                        string buttonType = GetMouseButtonType(mouseActionItem.EventType);
+                        string buttonAction = IsMouseButtonDown(mouseActionItem.EventType) ? "Down" : "Up";
+
+                        return $"EventType: 0x{mouseActionItem.EventType:X4}, " +
+                               $"Action: {buttonType}Button{buttonAction}, " +
+                               $"Coordinates: X={mouseActionItem.Coordinates?.X ?? 0}, Y={mouseActionItem.Coordinates?.Y ?? 0}, " +
+                               $"Duration: {mouseActionItem.Duration}ms, " +
+                               $"ButtonStates: L={mouseActionItem.IsLeftButtonDown}, R={mouseActionItem.IsRightButtonDown}, M={mouseActionItem.IsMiddleButtonDown}, " +
+                               $"Timestamp: {mouseActionItem.Timestamp}";
+                    }
+                }
+            }
+
+            // Fallback: If we have valid ActionItem data with mouse events, extract the coordinate information
             if (stepData.Value != null)
             {
                 if (stepData.Value.Contains("Mouse Move"))
@@ -859,7 +927,7 @@ namespace CSimple.ViewModels
                             {
                                 string deltaX = deltaXPart.Replace("DeltaX:", "").Trim();
                                 string deltaY = deltaYPart.Replace("DeltaY:", "").Trim();
-                                return $"🖱️ Mouse Move: Δx={deltaX}, Δy={deltaY}";
+                                return $"EventType: 0x0200, Action: MouseMove, DeltaX: {deltaX}, DeltaY: {deltaY}";
                             }
                         }
                         catch
@@ -867,20 +935,51 @@ namespace CSimple.ViewModels
                             // Fall through to default
                         }
                     }
-                    return "🖱️ Mouse Movement";
+                    return "EventType: 0x0200, Action: MouseMove";
                 }
                 else if (stepData.Value.Contains("Left Click"))
                 {
-                    return "🖱️ Left Mouse Click";
+                    return "EventType: 0x0201, Action: LeftButtonDown";
                 }
                 else if (stepData.Value.Contains("Right Click"))
                 {
-                    return "🖱️ Right Mouse Click";
+                    return "EventType: 0x0204, Action: RightButtonDown";
                 }
             }
 
             // Default mouse activity indicator
-            return $"🖱️ Mouse Activity at {actionItemTimestamp?.ToString("HH:mm:ss.fff") ?? "unknown time"}";
+            return $"EventType: Unknown, Action: MouseActivity, Timestamp: {actionItemTimestamp?.ToString("HH:mm:ss.fff") ?? "unknown"}";
+        }
+
+        /// <summary>
+        /// Helper method to extract ActionItems from steps data (if available)
+        /// </summary>
+        private List<ActionItem> GetActionItemsFromSteps()
+        {
+            // Access current ActionItems through static property
+            return CurrentActionItems ?? new List<ActionItem>();
+        }
+
+        /// <summary>
+        /// Helper method to determine mouse button type from EventType
+        /// </summary>
+        private string GetMouseButtonType(int eventType)
+        {
+            return eventType switch
+            {
+                0x0201 or 0x0202 => "Left",     // WM_LBUTTONDOWN or WM_LBUTTONUP
+                0x0204 or 0x0205 => "Right",    // WM_RBUTTONDOWN or WM_RBUTTONUP
+                0x0207 or 0x0208 => "Middle",   // WM_MBUTTONDOWN or WM_MBUTTONUP
+                _ => "Unknown"
+            };
+        }
+
+        /// <summary>
+        /// Helper method to determine if mouse button event is down
+        /// </summary>
+        private bool IsMouseButtonDown(int eventType)
+        {
+            return eventType == 0x0201 || eventType == 0x0204 || eventType == 0x0207; // Down events
         }
 
         /// <summary>

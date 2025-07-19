@@ -1561,6 +1561,9 @@ namespace CSimple.ViewModels
 
                 _currentActionItems = result.ActionItems;
 
+                // Update static property for NodeViewModel access
+                NodeViewModel.CurrentActionItems = _currentActionItems;
+
                 Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Loaded '{SelectedReviewActionName}' with {_currentActionItems.Count} action items via navigation service.");
 
                 // Force UI refresh after action change
