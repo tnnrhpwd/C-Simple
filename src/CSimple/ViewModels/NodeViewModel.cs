@@ -237,7 +237,12 @@ namespace CSimple.ViewModels
 
         public (string Type, string Value) GetStepContent(int step) // step is 1-based
         {
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Node '{Name}' (Type: {Type}, DataType: {DataType}), Requested Step: {step} (1-based), ActionSteps.Count: {ActionSteps.Count}");
+            return GetStepContent(step, null);
+        }
+
+        public (string Type, string Value) GetStepContent(int step, DateTime? actionItemTimestamp) // step is 1-based
+        {
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Node '{Name}' (Type: {Type}, DataType: {DataType}), Requested Step: {step} (1-based), ActionSteps.Count: {ActionSteps.Count}, ActionItem Timestamp: {actionItemTimestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff") ?? "None"}");
 
             if (ActionSteps == null)
             {
@@ -273,7 +278,7 @@ namespace CSimple.ViewModels
             // Adjust step to be 0-indexed for list access
             var stepData = ActionSteps[step - 1];
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Accessing ActionSteps[{step - 1}]. Step Data: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value?.Substring(0, Math.Min(200, stepData.Value?.Length ?? 0))}...'");
-            
+
             // Add debugging to show all ActionSteps for comparison - but only for the first few times to avoid spam
             if (step <= 3) // Only log this for first few steps to avoid spam
             {
@@ -314,8 +319,8 @@ namespace CSimple.ViewModels
             string imageFileName = null;
             if (DataType?.ToLower() == "image")
             {
-                // Attempt to find the corresponding image file name based on timestamp
-                imageFileName = FindClosestImageFile(stepData.Value, stepData.Type);
+                // FIXED: Use the ActionItem timestamp for precise file correlation
+                imageFileName = FindClosestImageFile(stepData.Value, stepData.Type, actionItemTimestamp);
                 if (!string.IsNullOrEmpty(imageFileName))
                 {
                     Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Found corresponding image file: {imageFileName}");
@@ -331,12 +336,21 @@ namespace CSimple.ViewModels
             // Handle audio nodes similarly to image nodes - get the actual audio file path
             if (DataType?.ToLower() == "audio")
             {
-                // For audio nodes, we need to get the audio segment path, not the action description
-                // Use similar logic to what's in OrientPageViewModel.UpdateStepContent
+                // FIXED: Use the ActionItem timestamp for precise file correlation
                 try
                 {
-                    // Get the audio segment path using the same logic as UpdateStepContent
-                    string audioSegmentPath = GetAudioSegment(DateTime.MinValue, DateTime.MinValue); // Simplified for now
+                    string audioSegmentPath = null;
+                    if (actionItemTimestamp.HasValue)
+                    {
+                        // Use the ActionItem timestamp for precise audio file correlation
+                        audioSegmentPath = FindClosestAudioFile(actionItemTimestamp.Value);
+                    }
+                    else
+                    {
+                        // Fallback to original logic
+                        audioSegmentPath = GetAudioSegment(DateTime.MinValue, DateTime.MinValue); // Simplified for now
+                    }
+
                     if (!string.IsNullOrEmpty(audioSegmentPath))
                     {
                         Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Found corresponding audio file: {audioSegmentPath}");
@@ -360,34 +374,58 @@ namespace CSimple.ViewModels
 
         public string FindClosestImageFile(string actionDescription, string actionType)
         {
-            if (string.IsNullOrEmpty(actionDescription))
+            return FindClosestImageFile(actionDescription, actionType, null);
+        }
+
+        public string FindClosestImageFile(string actionDescription, string actionType, DateTime? targetTimestamp)
+        {
+            if (string.IsNullOrEmpty(actionDescription) && !targetTimestamp.HasValue)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Action description is null or empty.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Action description and target timestamp are both null or empty.");
                 return null;
             }
 
-            // If the action description looks like generated text content (e.g., from a model),
-            // don't try to parse it as a timestamp-based file search
-            if (actionDescription.Contains("Caption:") ||
-                actionDescription.Contains("Generated:") ||
-                actionDescription.Contains("Output:") ||
-                actionDescription.Length > 100 ||
-                (!actionDescription.Contains("_") && !actionDescription.Contains(":")))
+            // If we have a target timestamp, use that for correlation. Otherwise, fall back to description parsing
+            if (!targetTimestamp.HasValue)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Action description appears to be generated content, not a timestamp: {actionDescription.Substring(0, Math.Min(50, actionDescription.Length))}...");
-                return null;
+                // If the action description looks like generated text content (e.g., from a model),
+                // don't try to parse it as a timestamp-based file search
+                if (actionDescription.Contains("Caption:") ||
+                    actionDescription.Contains("Generated:") ||
+                    actionDescription.Contains("Output:") ||
+                    actionDescription.Length > 100 ||
+                    (!actionDescription.Contains("_") && !actionDescription.Contains(":")))
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Action description appears to be generated content, not a timestamp: {actionDescription.Substring(0, Math.Min(50, actionDescription.Length))}...");
+                    return null;
+                }
             }
 
             string directoryPath = "";
             string filePattern = "";
 
-            if (actionType == "image")
+            // FIXED: Determine folder based on the node's name rather than just actionType
+            if (this.Name.Contains("Webcam") && this.Name.Contains("Image"))
             {
+                // Webcam Image node should look in WebcamImages folder
+                directoryPath = @"C:\Users\tanne\Documents\CSimple\Resources\WebcamImages\";
+                filePattern = "WebcamImage_*.jpg";
+            }
+            else if (this.Name.Contains("Screen") && this.Name.Contains("Image"))
+            {
+                // Screen Image node should look in Screenshots folder
+                directoryPath = @"C:\Users\tanne\Documents\CSimple\Resources\Screenshots\";
+                filePattern = "ScreenCapture_*.png";
+            }
+            else if (actionType == "image")
+            {
+                // Fallback to WebcamImages for generic image requests
                 directoryPath = @"C:\Users\tanne\Documents\CSimple\Resources\WebcamImages\";
                 filePattern = "WebcamImage_*.jpg";
             }
             else
             {
+                // Default fallback to Screenshots for non-image types
                 directoryPath = @"C:\Users\tanne\Documents\CSimple\Resources\Screenshots\";
                 filePattern = "ScreenCapture_*.png";
             }
@@ -399,11 +437,12 @@ namespace CSimple.ViewModels
             }
 
             string closestFile = null;
-            DateTime closestFileTime = DateTime.MinValue;
+            TimeSpan closestDifference = TimeSpan.MaxValue;
 
             try
             {
                 string[] files = Directory.GetFiles(directoryPath, filePattern);
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Found {files.Length} files in {directoryPath}. Target timestamp: {targetTimestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff") ?? "None"}");
 
                 foreach (string filePath in files)
                 {
@@ -441,11 +480,26 @@ namespace CSimple.ViewModels
 
                         if (parsed)
                         {
-                            // Check if the file time is more recent than the current closest file
-                            if (fileTime > closestFileTime)
+                            if (targetTimestamp.HasValue)
                             {
-                                closestFileTime = fileTime;
-                                closestFile = filePath;
+                                // FIXED: Find the file with the closest timestamp to the target
+                                TimeSpan difference = TimeSpan.FromTicks(Math.Abs(fileTime.Ticks - targetTimestamp.Value.Ticks));
+                                if (difference < closestDifference)
+                                {
+                                    closestDifference = difference;
+                                    closestFile = filePath;
+                                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] File {fileName} closer: FileTime={fileTime:yyyy-MM-dd HH:mm:ss.fff}, Difference={difference.TotalMilliseconds}ms");
+                                }
+                            }
+                            else
+                            {
+                                // Fallback: use most recent file if no target timestamp
+                                TimeSpan difference = TimeSpan.FromTicks(Math.Abs(fileTime.Ticks - DateTime.Now.Ticks));
+                                if (difference < closestDifference)
+                                {
+                                    closestDifference = difference;
+                                    closestFile = filePath;
+                                }
                             }
                         }
                         else
@@ -467,7 +521,7 @@ namespace CSimple.ViewModels
 
             if (closestFile != null)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Found closest image file: {closestFile}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFile] Found closest image file: {closestFile}, difference: {closestDifference.TotalMilliseconds}ms");
             }
             else
             {
@@ -520,9 +574,30 @@ namespace CSimple.ViewModels
             return segmentPath;
         }
 
-        private string FindClosestAudioFile(DateTime targetTime)
+        public string FindClosestAudioFile(DateTime targetTime)
         {
-            string directoryPath = @"C:\Users\tanne\Documents\CSimple\Resources\PCAudio\";
+            string directoryPath = "";
+            string filePattern = "";
+
+            // FIXED: Determine audio folder based on the node's name
+            if (this.Name.Contains("Webcam") && this.Name.Contains("Audio"))
+            {
+                // Webcam Audio node should look in WebcamAudio folder
+                directoryPath = @"C:\Users\tanne\Documents\CSimple\Resources\WebcamAudio\";
+                filePattern = "WebcamAudio_*.wav";
+            }
+            else if (this.Name.Contains("PC") && this.Name.Contains("Audio"))
+            {
+                // PC Audio node should look in PCAudio folder
+                directoryPath = @"C:\Users\tanne\Documents\CSimple\Resources\PCAudio\";
+                filePattern = "PCAudio_*.wav";
+            }
+            else
+            {
+                // Default fallback to PCAudio for generic audio requests
+                directoryPath = @"C:\Users\tanne\Documents\CSimple\Resources\PCAudio\";
+                filePattern = "PCAudio_*.wav";
+            }
 
             if (!Directory.Exists(directoryPath))
             {
@@ -535,12 +610,32 @@ namespace CSimple.ViewModels
 
             try
             {
-                string[] files = Directory.GetFiles(directoryPath, "PCAudio_*.wav");
+                string[] files = Directory.GetFiles(directoryPath, filePattern);
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Found {files.Length} files in {directoryPath}. Target timestamp: {targetTime:yyyy-MM-dd HH:mm:ss.fff}");
 
                 foreach (string filePath in files)
                 {
                     string fileName = Path.GetFileNameWithoutExtension(filePath);
-                    string timestampPart = fileName.Substring("PCAudio_".Length); // Extract timestamp part
+
+                    // Extract timestamp part based on file pattern
+                    string timestampPart = "";
+                    if (fileName.StartsWith("WebcamAudio_"))
+                    {
+                        timestampPart = fileName.Substring("WebcamAudio_".Length);
+                    }
+                    else if (fileName.StartsWith("PCAudio_"))
+                    {
+                        timestampPart = fileName.Substring("PCAudio_".Length);
+                    }
+                    else
+                    {
+                        // Generic extraction - find last underscore
+                        int lastUnderscore = fileName.LastIndexOf('_');
+                        if (lastUnderscore > 0)
+                        {
+                            timestampPart = fileName.Substring(lastUnderscore + 1);
+                        }
+                    }
 
                     if (DateTime.TryParseExact(timestampPart, "yyyyMMdd_HHmmss", null, System.Globalization.DateTimeStyles.None, out DateTime fileTime))
                     {
