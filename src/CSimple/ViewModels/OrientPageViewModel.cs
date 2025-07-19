@@ -1562,17 +1562,17 @@ namespace CSimple.ViewModels
                 _currentActionItems = result.ActionItems;
 
                 Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Loaded '{SelectedReviewActionName}' with {_currentActionItems.Count} action items via navigation service.");
-                
+
                 // Force UI refresh after action change
                 Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Forcing UI refresh for new action");
-                
+
                 // Explicit refresh of all node ActionSteps to ensure UI updates
                 RefreshAllNodeStepContent();
-                
+
                 // Notify UI that step content might have changed
                 OnPropertyChanged(nameof(StepContent));
                 OnPropertyChanged(nameof(StepContentType));
-                
+
                 // Also notify that the current action step display should update
                 OnPropertyChanged(nameof(CurrentActionStep));
             }
@@ -1585,12 +1585,12 @@ namespace CSimple.ViewModels
                 (StepForwardCommand as Command)?.ChangeCanExecute();
                 (StepBackwardCommand as Command)?.ChangeCanExecute();
                 (ResetActionCommand as Command)?.ChangeCanExecute();
-                
+
                 // Add a small delay to ensure all async operations complete
                 await Task.Delay(100);
-                
+
                 UpdateStepContent(); // Call this to reflect the state for CurrentActionStep = 0
-                
+
                 Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Action loading complete, step content updated");
             }
         }
@@ -1625,6 +1625,20 @@ namespace CSimple.ViewModels
             set => SetProperty(ref _stepContent, value);
         }
 
+        private List<string> _stepContentImages = new List<string>();
+        public List<string> StepContentImages
+        {
+            get => _stepContentImages;
+            set => SetProperty(ref _stepContentImages, value);
+        }
+
+        private bool _hasMultipleImages;
+        public bool HasMultipleImages
+        {
+            get => _hasMultipleImages;
+            set => SetProperty(ref _hasMultipleImages, value);
+        }
+
         public ICommand PlayAudioCommand { get; }
         public ICommand StopAudioCommand { get; }
 
@@ -1636,15 +1650,45 @@ namespace CSimple.ViewModels
         public void UpdateStepContent()
         {
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Called - SelectedNode: {SelectedNode?.Name ?? "null"}, CurrentActionStep: {CurrentActionStep}, SelectedAction: {SelectedReviewActionName ?? "null"}");
-            
+
             var stepContentData = _actionReviewService.UpdateStepContent(SelectedNode, CurrentActionStep, _currentActionItems, SelectedReviewActionName);
 
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Retrieved content - Type: {stepContentData.ContentType}, Content: {stepContentData.Content?.Substring(0, Math.Min(100, stepContentData.Content?.Length ?? 0))}...");
 
             StepContentType = stepContentData.ContentType;
             StepContent = stepContentData.Content;
+
+            // Handle multiple images for screen capture nodes
+            if (stepContentData.ContentType?.ToLower() == "image" && !string.IsNullOrEmpty(stepContentData.Content))
+            {
+                if (stepContentData.Content.Contains(';'))
+                {
+                    // Multiple images - split and store separately
+                    var imagePaths = stepContentData.Content.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                                                            .Select(path => path.Trim())
+                                                            .ToList();
+                    StepContentImages = imagePaths;
+                    HasMultipleImages = true;
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Found {imagePaths.Count} multiple images for multi-monitor display");
+                }
+                else
+                {
+                    // Single image
+                    StepContentImages = new List<string> { stepContentData.Content };
+                    HasMultipleImages = false;
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Found single image");
+                }
+            }
+            else
+            {
+                StepContentImages = new List<string>();
+                HasMultipleImages = false;
+            }
+
             OnPropertyChanged(nameof(StepContentType));
             OnPropertyChanged(nameof(StepContent));
+            OnPropertyChanged(nameof(StepContentImages));
+            OnPropertyChanged(nameof(HasMultipleImages));
         }
 
         /// <summary>
@@ -1653,7 +1697,7 @@ namespace CSimple.ViewModels
         private void RefreshAllNodeStepContent()
         {
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.RefreshAllNodeStepContent] Refreshing step content for all nodes");
-            
+
             foreach (var node in Nodes)
             {
                 // Force a refresh by triggering property change notifications
@@ -2286,9 +2330,9 @@ namespace CSimple.ViewModels
 
                 // Create Analysis directory in resources folder
                 var analysisDir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), 
-                    "CSimple", 
-                    "Resources", 
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "CSimple",
+                    "Resources",
                     "Analysis"
                 );
                 Directory.CreateDirectory(analysisDir);
@@ -2392,7 +2436,7 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🎉 [ExecuteRunAllNodesAsync] Completed in {totalStopwatch.ElapsedMilliseconds}ms: {successfulExecutions} successful, {skippedExecutions} failed");
 
                 // Show completion message
-                await ShowAlert?.Invoke("Analysis Complete", 
+                await ShowAlert?.Invoke("Analysis Complete",
                     $"Executed all models on {totalSteps} action steps.\n" +
                     $"Results: {successfulExecutions} successful, {skippedExecutions} failed\n" +
                     $"Output saved to: Analysis folder", "OK");
@@ -2473,7 +2517,7 @@ namespace CSimple.ViewModels
             catch (Exception ex)
             {
                 Debug.WriteLine($"❌ [ExecuteModelForStepAsync] Error executing {modelNode.Name} for step {stepIndex + 1}: {ex.Message}");
-                
+
                 // Save error to file
                 await SaveStepErrorAsync(runDir, modelNode.Name, stepIndex, ex.Message);
                 throw;
