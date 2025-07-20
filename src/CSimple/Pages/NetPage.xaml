@@ -92,6 +92,228 @@
                         </Frame>
                     </VerticalStackLayout>
                 </Frame>
+                <!-- Intelligent Pipeline Interaction Section -->
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
+                       CornerRadius="{StaticResource CornerRadiusLarge}"
+                       Padding="{StaticResource CardPadding}">
+                    <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
+                        <Label Text="Intelligent Pipeline Interaction"
+                               FontSize="{StaticResource FontSizeSubtitle}"
+                               FontAttributes="Bold" />
+                        <!-- Pipeline Selector and Intelligence Toggle -->
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="{StaticResource SpacingMedium}">
+                            <!-- Pipeline Selector -->
+                            <VerticalStackLayout Grid.Column="0">
+                                <Label Text="Select Pipeline:"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                                <Picker x:Name="PipelineSelector"
+                                        ItemsSource="{Binding AvailablePipelines}"
+                                        SelectedItem="{Binding SelectedPipeline, Mode=TwoWay}"
+                                        Title="Choose a pipeline..."
+                                        FontSize="{StaticResource FontSizeBody}"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
+                                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                            </VerticalStackLayout>
+                            <!-- Intelligence Toggle -->
+                            <VerticalStackLayout Grid.Column="1"
+                                                 VerticalOptions="Center">
+                                <Label Text="Intelligence"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                       HorizontalOptions="Center" />
+                                <Switch x:Name="IntelligenceToggle"
+                                        IsToggled="{Binding IsIntelligenceActive, Mode=TwoWay}"
+                                        OnColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
+                                        ThumbColor="{AppThemeBinding Light={StaticResource TextOnTertiary}, Dark={StaticResource TextOnTertiary}}"
+                                        HorizontalOptions="Center" />
+                            </VerticalStackLayout>
+                            <!-- Status Indicator -->
+                            <VerticalStackLayout Grid.Column="2"
+                                                 VerticalOptions="Center">
+                                <Frame BackgroundColor="{Binding IntelligenceStatusColor}"
+                                       CornerRadius="15"
+                                       Padding="8,4"
+                                       HasShadow="False">
+                                    <Label Text="{Binding IntelligenceStatusText}"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextOnPrimary}, Dark={StaticResource TextOnPrimary}}"
+                                           FontAttributes="Bold" />
+                                </Frame>
+                            </VerticalStackLayout>
+                        </Grid>
+                        <!-- Chat Window Container -->
+                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
+                               CornerRadius="{StaticResource CornerRadiusMedium}"
+                               Padding="0"
+                               HasShadow="False"
+                               BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}">
+                            <Grid RowDefinitions="Auto,*,Auto"
+                                  HeightRequest="300">
+                                <!-- Chat Header -->
+                                <Frame Grid.Row="0"
+                                       BackgroundColor="{AppThemeBinding Light={StaticResource TertiaryLight}, Dark={StaticResource TertiaryDark}}"
+                                       CornerRadius="8,8,0,0"
+                                       Padding="{StaticResource CardContentPadding}"
+                                       HasShadow="False">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Label Grid.Column="0"
+                                               Text="Input Recording &amp; Analysis"
+                                               FontAttributes="Bold"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextOnTertiary}, Dark={StaticResource TextOnTertiary}}" />
+                                        <Label Grid.Column="1"
+                                               Text="{Binding RecordingStatusIcon}"
+                                               FontSize="16"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextOnTertiary}, Dark={StaticResource TextOnTertiary}}" />
+                                    </Grid>
+                                </Frame>
+                                <!-- Chat Messages Display -->
+                                <ScrollView Grid.Row="1"
+                                            x:Name="ChatScrollView"
+                                            Padding="{StaticResource SpacingSmall}">
+                                    <CollectionView x:Name="ChatMessagesView"
+                                                    ItemsSource="{Binding PipelineChatMessages}"
+                                                    BackgroundColor="Transparent">
+                                        <CollectionView.ItemTemplate>
+                                            <DataTemplate x:DataType="models:ChatMessage">
+                                                <Grid Padding="{StaticResource SpacingTiny}"
+                                                      ColumnDefinitions="Auto,*">
+                                                    <!-- Timestamp -->
+                                                    <Label Grid.Column="0"
+                                                           Text="{Binding Timestamp, StringFormat='[{0:HH:mm:ss}]'}"
+                                                           FontSize="{StaticResource FontSizeCaption}"
+                                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                                           VerticalOptions="Start"
+                                                           Margin="0,0,8,0" />
+                                                    <!-- Message Content -->
+                                                    <VerticalStackLayout Grid.Column="1">
+                                                        <Label Text="{Binding DisplayName}"
+                                                               FontSize="{StaticResource FontSizeCaption}"
+                                                               FontAttributes="Bold"
+                                                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                                        <Label Text="{Binding Content}"
+                                                               FontSize="{StaticResource FontSizeSmall}"
+                                                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                                               LineBreakMode="WordWrap" />
+                                                    </VerticalStackLayout>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </CollectionView.ItemTemplate>
+                                    </CollectionView>
+                                </ScrollView>
+                                <!-- Text Input and Send Button -->
+                                <Frame Grid.Row="2"
+                                       BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource BackgroundDark}}"
+                                       CornerRadius="0,0,8,8"
+                                       Padding="{StaticResource SpacingSmall}"
+                                       HasShadow="False"
+                                       BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}">
+                                    <Grid ColumnDefinitions="*,Auto,Auto"
+                                          ColumnSpacing="{StaticResource SpacingSmall}">
+                                        <!-- Text Input -->
+                                        <Entry Grid.Column="0"
+                                               x:Name="GoalTextInput"
+                                               Text="{Binding UserGoalInput, Mode=TwoWay}"
+                                               Placeholder="Enter your goal or question here..."
+                                               FontSize="{StaticResource FontSizeBody}"
+                                               BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                               PlaceholderColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                               ReturnType="Send" />
+                                        <!-- Clear Button -->
+                                        <Button Grid.Column="1"
+                                                x:Name="ClearChatButton"
+                                                Text="🗑️"
+                                                FontSize="16"
+                                                BackgroundColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray600}}"
+                                                TextColor="{AppThemeBinding Light={StaticResource TextOnSecondary}, Dark={StaticResource TextOnSecondary}}"
+                                                CornerRadius="15"
+                                                WidthRequest="30"
+                                                HeightRequest="30"
+                                                Padding="0"
+                                                Command="{Binding ClearPipelineChatCommand}"
+                                                ToolTipProperties.Text="Clear chat history" />
+                                        <!-- Send Button -->
+                                        <Button Grid.Column="2"
+                                                x:Name="SendGoalButton"
+                                                Text="▶️"
+                                                FontSize="16"
+                                                BackgroundColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
+                                                TextColor="{AppThemeBinding Light={StaticResource TextOnTertiary}, Dark={StaticResource TextOnTertiary}}"
+                                                CornerRadius="15"
+                                                WidthRequest="30"
+                                                HeightRequest="30"
+                                                Padding="0"
+                                                Command="{Binding SendGoalCommand}"
+                                                CommandParameter="{Binding Source={x:Reference GoalTextInput}, Path=Text}"
+                                                IsEnabled="{Binding CanSendGoal}" />
+                                    </Grid>
+                                </Frame>
+                            </Grid>
+                        </Frame>
+                        <!-- Pipeline Status and Recording Options -->
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="{StaticResource SpacingMedium}">
+                            <!-- Recording Settings -->
+                            <Frame Grid.Column="0"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
+                                   CornerRadius="{StaticResource CornerRadiusSmall}"
+                                   Padding="{StaticResource CardContentPadding}">
+                                <VerticalStackLayout Spacing="{StaticResource SpacingTiny}">
+                                    <Label Text="Recording Settings"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                                    <Grid ColumnDefinitions="Auto,*"
+                                          RowDefinitions="Auto,Auto"
+                                          RowSpacing="4"
+                                          ColumnSpacing="8">
+                                        <CheckBox Grid.Row="0"
+                                                  Grid.Column="0"
+                                                  IsChecked="{Binding RecordMouseInputs, Mode=TwoWay}"
+                                                  Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                        <Label Grid.Row="0"
+                                               Grid.Column="1"
+                                               Text="Record Mouse Inputs"
+                                               FontSize="{StaticResource FontSizeCaption}"
+                                               VerticalOptions="Center" />
+                                        <CheckBox Grid.Row="1"
+                                                  Grid.Column="0"
+                                                  IsChecked="{Binding RecordKeyboardInputs, Mode=TwoWay}"
+                                                  Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                        <Label Grid.Row="1"
+                                               Grid.Column="1"
+                                               Text="Record Keyboard Inputs"
+                                               FontSize="{StaticResource FontSizeCaption}"
+                                               VerticalOptions="Center" />
+                                    </Grid>
+                                </VerticalStackLayout>
+                            </Frame>
+                            <!-- Pipeline Status -->
+                            <Frame Grid.Column="1"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryExtraLight}, Dark={StaticResource SecondaryDark}}"
+                                   CornerRadius="{StaticResource CornerRadiusSmall}"
+                                   Padding="{StaticResource CardContentPadding}">
+                                <VerticalStackLayout Spacing="{StaticResource SpacingTiny}">
+                                    <Label Text="Pipeline Status"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                                    <Label Text="{Binding SelectedPipelineStatus}"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           TextColor="{Binding PipelineStatusColor}" />
+                                    <Label Text="{Binding ActiveInputNodesCount, StringFormat='Active Input Nodes: {0}'}"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                                    <Label Text="{Binding ConnectedModelsCount, StringFormat='Connected Models: {0}'}"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                                </VerticalStackLayout>
+                            </Frame>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Frame>
                 <!-- COMBINED COMPONENT: Model Management Center -->
                 <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                        CornerRadius="{StaticResource CornerRadiusLarge}"

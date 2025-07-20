@@ -70,11 +70,22 @@ namespace CSimple.ViewModels
         private string _selectedAudioPath = null;
         private string _selectedAudioName = null;
 
+        // Pipeline interaction backing fields
+        private string _selectedPipeline = null;
+        private bool _isIntelligenceActive = false;
+        private string _userGoalInput = string.Empty;
+        private bool _recordMouseInputs = true;
+        private bool _recordKeyboardInputs = true;
+
         // --- Observable Properties ---
         public ObservableCollection<NeuralNetworkModel> AvailableModels { get; } = new();
         public ObservableCollection<NeuralNetworkModel> ActiveModels { get; } = new();
         public ObservableCollection<SpecificGoal> AvailableGoals { get; } = new();
         public ObservableCollection<ChatMessage> ChatMessages { get; } = new();
+
+        // Pipeline interaction collections
+        public ObservableCollection<string> AvailablePipelines { get; } = new();
+        public ObservableCollection<ChatMessage> PipelineChatMessages { get; } = new();
 
         public bool IsGeneralModeActive
         {
@@ -225,6 +236,60 @@ namespace CSimple.ViewModels
             }
         }
 
+        // Pipeline interaction properties
+        public string SelectedPipeline
+        {
+            get => _selectedPipeline;
+            set => SetProperty(ref _selectedPipeline, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(SelectedPipelineStatus));
+                OnPropertyChanged(nameof(PipelineStatusColor));
+                OnPropertyChanged(nameof(CanSendGoal));
+            });
+        }
+
+        public bool IsIntelligenceActive
+        {
+            get => _isIntelligenceActive;
+            set => SetProperty(ref _isIntelligenceActive, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(IntelligenceStatusText));
+                OnPropertyChanged(nameof(IntelligenceStatusColor));
+                OnPropertyChanged(nameof(RecordingStatusIcon));
+            });
+        }
+
+        public string UserGoalInput
+        {
+            get => _userGoalInput;
+            set => SetProperty(ref _userGoalInput, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(CanSendGoal));
+            });
+        }
+
+        public bool RecordMouseInputs
+        {
+            get => _recordMouseInputs;
+            set => SetProperty(ref _recordMouseInputs, value);
+        }
+
+        public bool RecordKeyboardInputs
+        {
+            get => _recordKeyboardInputs;
+            set => SetProperty(ref _recordKeyboardInputs, value);
+        }
+
+        // Pipeline status properties
+        public string IntelligenceStatusText => _isIntelligenceActive ? "ACTIVE" : "INACTIVE";
+        public string IntelligenceStatusColor => _isIntelligenceActive ? "Green" : "Gray";
+        public string RecordingStatusIcon => _isIntelligenceActive ? "🔴" : "⏸️";
+        public string SelectedPipelineStatus => !string.IsNullOrEmpty(_selectedPipeline) ? "Connected" : "No pipeline selected";
+        public string PipelineStatusColor => !string.IsNullOrEmpty(_selectedPipeline) ? "Green" : "Orange";
+        public int ActiveInputNodesCount => 0; // Placeholder
+        public int ConnectedModelsCount => ActiveModelsCount;
+        public bool CanSendGoal => !string.IsNullOrWhiteSpace(_userGoalInput) && !string.IsNullOrEmpty(_selectedPipeline);
+
         // --- Commands ---
         public ICommand ToggleGeneralModeCommand { get; }
         public ICommand ToggleSpecificModeCommand { get; }
@@ -263,6 +328,10 @@ namespace CSimple.ViewModels
         // Command for deleting the reference (removes from UI, not just device)
         public ICommand DeleteModelReferenceCommand { get; }
         public ICommand OpenModelInExplorerCommand { get; }
+
+        // Pipeline interaction commands
+        public ICommand SendGoalCommand { get; }
+        public ICommand ClearPipelineChatCommand { get; }
 
         // Helper: Get download/delete button text for a model
         public string GetDownloadOrDeleteButtonText(string modelId)
@@ -395,6 +464,16 @@ namespace CSimple.ViewModels
             DownloadOrDeleteModelCommand = new Command<NeuralNetworkModel>(async (model) => await DownloadOrDeleteModelAsync(model));
             DeleteModelReferenceCommand = new Command<NeuralNetworkModel>(async (model) => await DeleteModelReferenceAsync(model));
             OpenModelInExplorerCommand = new Command<NeuralNetworkModel>(OpenModelInExplorer);
+
+            // Pipeline interaction commands
+            SendGoalCommand = new Command<string>(async (goal) => await SendGoalAsync(goal));
+            ClearPipelineChatCommand = new Command(ClearPipelineChat);
+
+            // Initialize pipeline placeholder data
+            AvailablePipelines.Add("Image Processing Pipeline");
+            AvailablePipelines.Add("Text Analysis Pipeline");
+            AvailablePipelines.Add("Data Transformation Pipeline");
+            AvailablePipelines.Add("ML Training Pipeline");
 
             // Check cache directory
             EnsureHFModelCacheDirectoryExists();
@@ -2407,6 +2486,45 @@ namespace CSimple.ViewModels
             {
                 HandleError("Error restoring active models", ex);
             }
+        }
+
+        // Pipeline interaction methods
+        private async Task SendGoalAsync(string goal)
+        {
+            if (string.IsNullOrWhiteSpace(goal) || string.IsNullOrEmpty(SelectedPipeline))
+                return;
+
+            try
+            {
+                // Add user message to pipeline chat
+                PipelineChatMessages.Add(new ChatMessage
+                {
+                    Content = goal,
+                    IsFromUser = true,
+                    Timestamp = DateTime.Now
+                });
+
+                // Clear input
+                UserGoalInput = string.Empty;
+
+                // Simulate AI response (placeholder)
+                await Task.Delay(1000);
+                PipelineChatMessages.Add(new ChatMessage
+                {
+                    Content = $"Processing goal '{goal}' with pipeline '{SelectedPipeline}'. Intelligence mode: {(IsIntelligenceActive ? "Active" : "Inactive")}",
+                    IsFromUser = false,
+                    Timestamp = DateTime.Now
+                });
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error sending goal", ex);
+            }
+        }
+
+        private void ClearPipelineChat()
+        {
+            PipelineChatMessages.Clear();
         }
     }
 }
