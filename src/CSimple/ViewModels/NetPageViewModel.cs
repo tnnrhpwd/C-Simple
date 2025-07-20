@@ -34,6 +34,7 @@ namespace CSimple.ViewModels
         private readonly IModelImportService _modelImportService; // Add model import service
         private readonly IChatManagementService _chatManagementService; // Add chat management service
         private readonly IMediaSelectionService _mediaSelectionService; // Add media selection service
+        private readonly PipelineManagementService _pipelineManagementService; // Add pipeline management service
         // Consider injecting navigation and dialog services for better testability
 
         // Debounce mechanism for saving to prevent excessive saves
@@ -76,6 +77,8 @@ namespace CSimple.ViewModels
         private string _userGoalInput = string.Empty;
         private bool _recordMouseInputs = true;
         private bool _recordKeyboardInputs = true;
+        private PipelineData _selectedPipelineData = null; // Store the full pipeline data
+        private DateTime _lastPipelineRefresh = DateTime.MinValue; // Track when pipelines were last loaded
 
         // --- Observable Properties ---
         public ObservableCollection<NeuralNetworkModel> AvailableModels { get; } = new();
@@ -86,6 +89,7 @@ namespace CSimple.ViewModels
         // Pipeline interaction collections
         public ObservableCollection<string> AvailablePipelines { get; } = new();
         public ObservableCollection<ChatMessage> PipelineChatMessages { get; } = new();
+        public ObservableCollection<PipelineData> AvailablePipelineData { get; } = new(); // Store full pipeline data
 
         public bool IsGeneralModeActive
         {
@@ -245,7 +249,17 @@ namespace CSimple.ViewModels
                 OnPropertyChanged(nameof(SelectedPipelineStatus));
                 OnPropertyChanged(nameof(PipelineStatusColor));
                 OnPropertyChanged(nameof(CanSendGoal));
+                OnPropertyChanged(nameof(SelectedPipelineInfo));
+                OnPropertyChanged(nameof(PipelineNodeCount));
+                OnPropertyChanged(nameof(PipelineConnectionCount));
+                UpdateSelectedPipelineData();
             });
+        }
+
+        public PipelineData SelectedPipelineData
+        {
+            get => _selectedPipelineData;
+            private set => SetProperty(ref _selectedPipelineData, value);
         }
 
         public bool IsIntelligenceActive
@@ -286,6 +300,24 @@ namespace CSimple.ViewModels
         public string RecordingStatusIcon => _isIntelligenceActive ? "🔴" : "⏸️";
         public string SelectedPipelineStatus => !string.IsNullOrEmpty(_selectedPipeline) ? "Connected" : "No pipeline selected";
         public string PipelineStatusColor => !string.IsNullOrEmpty(_selectedPipeline) ? "Green" : "Orange";
+
+        // Enhanced pipeline information properties
+        public string SelectedPipelineInfo
+        {
+            get
+            {
+                if (_selectedPipelineData == null)
+                    return "No pipeline selected";
+
+                return $"Created: {_selectedPipelineData.LastModified:MM/dd/yyyy HH:mm}";
+            }
+        }
+
+        public int PipelineNodeCount => _selectedPipelineData?.Nodes?.Count ?? 0;
+        public int PipelineConnectionCount => _selectedPipelineData?.Connections?.Count ?? 0;
+        public int PipelineCount => AvailablePipelineData.Count;
+        public int AvailablePipelinesCount => AvailablePipelineData.Count;
+        public int RunningProcesses => 0; // Placeholder for running processes count
         public int ActiveInputNodesCount => 0; // Placeholder
         public int ConnectedModelsCount => ActiveModelsCount;
         public bool CanSendGoal => !string.IsNullOrWhiteSpace(_userGoalInput) && !string.IsNullOrEmpty(_selectedPipeline);
@@ -332,6 +364,8 @@ namespace CSimple.ViewModels
         // Pipeline interaction commands
         public ICommand SendGoalCommand { get; }
         public ICommand ClearPipelineChatCommand { get; }
+        public ICommand RefreshPipelinesCommand { get; }
+        public ICommand CreateNewPipelineCommand { get; }
 
         // Helper: Get download/delete button text for a model
         public string GetDownloadOrDeleteButtonText(string modelId)
@@ -344,7 +378,7 @@ namespace CSimple.ViewModels
         // Note: ModelCommunicationService handles model communication logic (extracted for maintainability)
         // Note: ModelExecutionService handles model execution with enhanced error handling (extracted for maintainability)
         // Note: ModelImportExportService handles model import/export and file operations (extracted for maintainability)
-        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService)
+        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, PipelineManagementService pipelineManagementService = null)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -359,6 +393,7 @@ namespace CSimple.ViewModels
             _modelImportService = modelImportService;
             _chatManagementService = chatManagementService;
             _mediaSelectionService = mediaSelectionService;
+            _pipelineManagementService = pipelineManagementService; // Optional dependency
 
             // Configure the media selection service UI delegates
             _mediaSelectionService.ShowAlert = ShowAlert;
@@ -468,12 +503,15 @@ namespace CSimple.ViewModels
             // Pipeline interaction commands
             SendGoalCommand = new Command<string>(async (goal) => await SendGoalAsync(goal));
             ClearPipelineChatCommand = new Command(ClearPipelineChat);
+            RefreshPipelinesCommand = new Command(async () => await RefreshPipelinesAsync());
+            CreateNewPipelineCommand = new Command(async () => await CreateNewPipelineAsync());
 
-            // Initialize pipeline placeholder data
-            AvailablePipelines.Add("Image Processing Pipeline");
-            AvailablePipelines.Add("Text Analysis Pipeline");
-            AvailablePipelines.Add("Data Transformation Pipeline");
-            AvailablePipelines.Add("ML Training Pipeline");
+            // Load actual pipelines from OrientPage instead of placeholder data
+            // This will be called in LoadDataAsync when the page appears
+
+            // Initialize empty collections for now - they'll be populated when page loads
+            AvailablePipelines.Clear();
+            AvailablePipelineData.Clear();
 
             // Check cache directory
             EnsureHFModelCacheDirectoryExists();
@@ -761,6 +799,9 @@ namespace CSimple.ViewModels
             }
 
             await LoadPersistedModelsAsync();
+
+            // Load available pipelines from OrientPage
+            await RefreshPipelinesAsync();
 
             // Refresh downloaded models list to sync UI with actual disk state
             RefreshDownloadedModelsList();
@@ -2525,6 +2566,137 @@ namespace CSimple.ViewModels
         private void ClearPipelineChat()
         {
             PipelineChatMessages.Clear();
+        }
+
+        // Enhanced Pipeline Management Methods
+        public async Task RefreshPipelinesAsync()
+        {
+            try
+            {
+                CurrentModelStatus = "Loading available pipelines...";
+                IsLoading = true;
+
+                // Clear existing collections
+                AvailablePipelines.Clear();
+                AvailablePipelineData.Clear();
+
+                // Load pipelines from FileService (they are already sorted by LastModified)
+                var pipelines = await _fileService.ListPipelinesAsync();
+
+                if (pipelines != null && pipelines.Any())
+                {
+                    // Add to collections
+                    foreach (var pipeline in pipelines)
+                    {
+                        AvailablePipelineData.Add(pipeline);
+                        AvailablePipelines.Add(pipeline.Name);
+                    }
+
+                    // Auto-select the most recently created pipeline (first in the sorted list)
+                    var mostRecentPipeline = pipelines.First();
+                    SelectedPipeline = mostRecentPipeline.Name;
+
+                    AddPipelineChatMessage($"📋 Loaded {pipelines.Count} pipeline(s). Auto-selected most recent: '{mostRecentPipeline.Name}'", false);
+                    Debug.WriteLine($"NetPage: Loaded {pipelines.Count} pipelines, auto-selected: {mostRecentPipeline.Name}");
+                }
+                else
+                {
+                    // No pipelines found - suggest creating one
+                    AddPipelineChatMessage("📋 No pipelines found. Create a pipeline in OrientPage to get started with intelligent interaction.", false);
+                    Debug.WriteLine("NetPage: No pipelines found");
+                }
+
+                _lastPipelineRefresh = DateTime.Now;
+                OnPropertyChanged(nameof(AvailablePipelinesCount));
+                OnPropertyChanged(nameof(PipelineCount));
+                CurrentModelStatus = $"Loaded {pipelines?.Count ?? 0} pipeline(s)";
+            }
+            catch (Exception ex)
+            {
+                var errorMsg = $"Error loading pipelines: {ex.Message}";
+                AddPipelineChatMessage($"❌ {errorMsg}", false);
+                Debug.WriteLine($"NetPage: {errorMsg}");
+                CurrentModelStatus = "Error loading pipelines";
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        private void UpdateSelectedPipelineData()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(SelectedPipeline))
+                {
+                    SelectedPipelineData = null;
+                    return;
+                }
+
+                // Find the corresponding pipeline data
+                var pipelineData = AvailablePipelineData.FirstOrDefault(p => p.Name == SelectedPipeline);
+                SelectedPipelineData = pipelineData;
+
+                if (pipelineData != null)
+                {
+                    AddPipelineChatMessage($"🔗 Connected to pipeline: '{pipelineData.Name}' ({pipelineData.Nodes?.Count ?? 0} nodes, {pipelineData.Connections?.Count ?? 0} connections)", false);
+                    Debug.WriteLine($"NetPage: Selected pipeline '{pipelineData.Name}' - {pipelineData.Nodes?.Count} nodes, {pipelineData.Connections?.Count} connections");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error updating selected pipeline data: {ex.Message}");
+            }
+        }
+
+        public async Task CreateNewPipelineAsync()
+        {
+            try
+            {
+                // Navigate to OrientPage to create a new pipeline
+                await NavigateTo("///orient");
+                AddPipelineChatMessage("🚀 Navigating to OrientPage to create a new pipeline...", false);
+            }
+            catch (Exception ex)
+            {
+                var errorMsg = $"Error navigating to OrientPage: {ex.Message}";
+                AddPipelineChatMessage($"❌ {errorMsg}", false);
+                Debug.WriteLine($"NetPage: {errorMsg}");
+            }
+        }
+
+        private void AddPipelineChatMessage(string content, bool isFromUser)
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                PipelineChatMessages.Add(new ChatMessage
+                {
+                    Content = content,
+                    IsFromUser = isFromUser,
+                    Timestamp = DateTime.Now
+                });
+
+                // Auto-scroll to bottom
+                ScrollToBottom?.Invoke();
+            });
+        }
+
+        // Method to check if pipelines need refreshing (called from other parts of the app)
+        public bool ShouldRefreshPipelines()
+        {
+            // Refresh if it's been more than 30 seconds since last refresh
+            return (DateTime.Now - _lastPipelineRefresh).TotalSeconds > 30;
+        }
+
+        // Method to get pipeline details for display
+        public string GetPipelineDetails(string pipelineName)
+        {
+            var pipeline = AvailablePipelineData.FirstOrDefault(p => p.Name == pipelineName);
+            if (pipeline == null)
+                return "Pipeline not found";
+
+            return $"Nodes: {pipeline.Nodes?.Count ?? 0}, Connections: {pipeline.Connections?.Count ?? 0}, Modified: {pipeline.LastModified:MM/dd/yyyy HH:mm}";
         }
     }
 }

@@ -115,6 +115,12 @@
                                         FontSize="{StaticResource FontSizeBody}"
                                         BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
                                         TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                                <!-- Enhanced Pipeline Information -->
+                                <Label Text="{Binding SelectedPipelineInfo}"
+                                       FontSize="{StaticResource FontSizeCaption}"
+                                       TextColor="{StaticResource TextSecondary}"
+                                       IsVisible="{Binding SelectedPipeline, Converter={StaticResource NullToBoolConverter}}"
+                                       Margin="0,4,0,0" />
                             </VerticalStackLayout>
                             <!-- Intelligence Toggle -->
                             <VerticalStackLayout Grid.Column="1"
@@ -142,6 +148,32 @@
                                            FontAttributes="Bold" />
                                 </Frame>
                             </VerticalStackLayout>
+                        </Grid>
+                        <!-- Pipeline Management Controls -->
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="{StaticResource SpacingSmall}"
+                              Margin="0,8,0,0">
+                            <Label Grid.Column="0"
+                                   Text="{Binding AvailablePipelinesCount, StringFormat='Available Pipelines: {0}'}"
+                                   FontSize="{StaticResource FontSizeCaption}"
+                                   TextColor="{StaticResource TextSecondary}"
+                                   VerticalOptions="Center" />
+                            <Button Grid.Column="1"
+                                    Text="Refresh"
+                                    Command="{Binding RefreshPipelinesCommand}"
+                                    FontSize="{StaticResource FontSizeCaption}"
+                                    BackgroundColor="{StaticResource Primary}"
+                                    TextColor="{StaticResource TextOnPrimary}"
+                                    Padding="12,4"
+                                    CornerRadius="12" />
+                            <Button Grid.Column="2"
+                                    Text="Create New"
+                                    Command="{Binding CreateNewPipelineCommand}"
+                                    FontSize="{StaticResource FontSizeCaption}"
+                                    BackgroundColor="{StaticResource Success}"
+                                    TextColor="{StaticResource TextOnPrimary}"
+                                    Padding="12,4"
+                                    CornerRadius="12" />
                         </Grid>
                         <!-- Pipeline Chat Section -->
                         <Label Text="Pipeline Chat"
@@ -305,6 +337,86 @@
                                     <Label Text="{Binding ConnectedModelsCount, StringFormat='Connected Models: {0}'}"
                                            FontSize="{StaticResource FontSizeCaption}"
                                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                                </VerticalStackLayout>
+                            </Frame>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Frame>
+                <!-- Pipeline Status Dashboard -->
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
+                       CornerRadius="{StaticResource CornerRadiusLarge}"
+                       Padding="{StaticResource CardPadding}">
+                    <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
+                        <Label Text="Pipeline Dashboard"
+                               FontSize="{StaticResource FontSizeLarge}"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}" />
+                        <!-- Status Cards Grid -->
+                        <Grid ColumnDefinitions="*,*,*,*"
+                              ColumnSpacing="{StaticResource SpacingSmall}">
+                            <Frame Grid.Column="0"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}"
+                                   Padding="{StaticResource CardContentPadding}"
+                                   Margin="{StaticResource SpacingTiny}"
+                                   CornerRadius="{StaticResource CornerRadiusSmall}">
+                                <VerticalStackLayout>
+                                    <Label Text="Total Pipelines"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="{Binding PipelineCount}"
+                                           FontSize="{StaticResource FontSizeTitle}"
+                                           HorizontalOptions="Center"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}" />
+                                </VerticalStackLayout>
+                            </Frame>
+                            <Frame Grid.Column="1"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryLight}, Dark={StaticResource SecondaryDark}}"
+                                   Padding="{StaticResource CardContentPadding}"
+                                   Margin="{StaticResource SpacingTiny}"
+                                   CornerRadius="{StaticResource CornerRadiusSmall}">
+                                <VerticalStackLayout>
+                                    <Label Text="Pipeline Nodes"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="{Binding PipelineNodeCount}"
+                                           FontSize="{StaticResource FontSizeTitle}"
+                                           HorizontalOptions="Center"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryLight}}" />
+                                </VerticalStackLayout>
+                            </Frame>
+                            <Frame Grid.Column="2"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource ErrorLight}, Dark={StaticResource ErrorDark}}"
+                                   Padding="{StaticResource CardContentPadding}"
+                                   Margin="{StaticResource SpacingTiny}"
+                                   CornerRadius="{StaticResource CornerRadiusSmall}">
+                                <VerticalStackLayout>
+                                    <Label Text="Running Tasks"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="{Binding RunningProcesses}"
+                                           FontSize="{StaticResource FontSizeTitle}"
+                                           HorizontalOptions="Center"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorLight}}" />
+                                </VerticalStackLayout>
+                            </Frame>
+                            <Frame Grid.Column="3"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource TertiaryLight}, Dark={StaticResource TertiaryDark}}"
+                                   Padding="{StaticResource CardContentPadding}"
+                                   Margin="{StaticResource SpacingTiny}"
+                                   CornerRadius="{StaticResource CornerRadiusSmall}">
+                                <VerticalStackLayout>
+                                    <Label Text="Active Models"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="{Binding ActiveModels.Count}"
+                                           FontSize="{StaticResource FontSizeTitle}"
+                                           HorizontalOptions="Center"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource TertiaryDark}, Dark={StaticResource Tertiary}}" />
                                 </VerticalStackLayout>
                             </Frame>
                         </Grid>
