@@ -17,6 +17,7 @@
         <converters:ModelInputTypeDisplayConverter x:Key="ModelInputTypeDisplayConverter" />
         <converters:EnumToDisplayStringConverter x:Key="EnumToDisplayStringConverter" />
         <converters:EnumToIndexConverter x:Key="EnumToIndexConverter" />
+        <converters:SafeImageSourceConverter x:Key="SafeImageSourceConverter" />
     </ContentPage.Resources>
     <ContentPage.Content>
         <ScrollView>
@@ -607,9 +608,14 @@
                                FontAttributes="Bold"
                                FontSize="{StaticResource FontSizeSmall}"
                                Margin="{StaticResource MarginTopSmall}" />
-                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="{StaticResource SpacingSmall}" RowSpacing="{StaticResource SpacingSmall}">
+                        <Grid ColumnDefinitions="*,*"
+                              RowDefinitions="Auto,Auto"
+                              ColumnSpacing="{StaticResource SpacingSmall}"
+                              RowSpacing="{StaticResource SpacingSmall}">
                             <!-- First row: Quick upload buttons -->
-                            <HorizontalStackLayout Grid.Column="0" Grid.ColumnSpan="2" Spacing="{StaticResource SpacingSmall}">
+                            <HorizontalStackLayout Grid.Column="0"
+                                                   Grid.ColumnSpan="2"
+                                                   Spacing="{StaticResource SpacingSmall}">
                                 <Button Text="Upload File"
                                         Command="{Binding SelectFileCommand}"
                                         BackgroundColor="{StaticResource Primary}"
@@ -639,7 +645,8 @@
                                         IsVisible="{Binding HasSelectedMedia}" />
                             </HorizontalStackLayout>
                             <!-- Second row: Drag and drop area -->
-                            <Frame Grid.Row="1" Grid.ColumnSpan="2"
+                            <Frame Grid.Row="1"
+                                   Grid.ColumnSpan="2"
                                    BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
                                    BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}"
                                    Padding="{StaticResource CardContentPadding}"
@@ -681,7 +688,7 @@
                                 <Grid IsVisible="{Binding HasSelectedImage}"
                                       ColumnDefinitions="Auto,*,Auto">
                                     <Image Grid.Column="0"
-                                           Source="{Binding SelectedImagePath}"
+                                           Source="{Binding SelectedImagePath, Converter={StaticResource SafeImageSourceConverter}}"
                                            WidthRequest="60"
                                            HeightRequest="60"
                                            Aspect="AspectFit" />

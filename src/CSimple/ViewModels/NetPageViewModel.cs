@@ -1679,19 +1679,8 @@ namespace CSimple.ViewModels
 
         private void SubscribeToInputNotifications()
         {
-            // Logic moved from NetPage.xaml.cs (Simulated activity)
-            var timer = new System.Threading.Timer(_ =>
-            {
-                if (ActiveModels.Count > 0 && IsGeneralModeActive)
-                {
-                    MainThread.BeginInvokeOnMainThread(() =>
-                    {
-                        IsModelCommunicating = true;
-                        var messages = new[] { "Detected pattern, suggesting action...", "Analyzing input...", "Processing..." }; LastModelOutput = messages[new Random().Next(messages.Length)];
-                        Task.Delay(3000).ContinueWith(__ => MainThread.BeginInvokeOnMainThread(() => IsModelCommunicating = false));
-                    });
-                }
-            }, null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
+            // Simulation timer disabled - no automatic activity updates
+            // Remove the 15-second timer that was simulating model communication
         }
 
         private void StartModelMonitoring(NeuralNetworkModel model) => Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] VM: Starting monitoring for {model.Name}");

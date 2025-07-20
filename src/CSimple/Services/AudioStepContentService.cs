@@ -154,7 +154,7 @@ namespace CSimple.Services
                 }
             }
 
-            Debug.WriteLine($"[CanPlayStepContent] Result: {result}, Reason: {reason}, StepContent: '{stepContent}', StepContentType: '{stepContentType}'");
+            // Debug.WriteLine($"[CanPlayStepContent] Result: {result}, Reason: {reason}, StepContent: '{stepContent}', StepContentType: '{stepContentType}'");
             return result;
         }
 

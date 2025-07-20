@@ -1634,7 +1634,10 @@ namespace CSimple.ViewModels
             get => _stepContentImages;
             set
             {
-                if (SetProperty(ref _stepContentImages, value))
+                // Validate and filter the incoming image paths to prevent crashes
+                var validatedPaths = ValidateImagePaths(value);
+
+                if (SetProperty(ref _stepContentImages, validatedPaths))
                 {
                     // Update computed properties when the collection changes
                     OnPropertyChanged(nameof(FirstImage));
@@ -1643,6 +1646,42 @@ namespace CSimple.ViewModels
                     OnPropertyChanged(nameof(HasSecondImage));
                 }
             }
+        }
+
+        /// <summary>
+        /// Validates a list of image paths and returns only those that exist and are accessible
+        /// </summary>
+        private List<string> ValidateImagePaths(List<string> imagePaths)
+        {
+            if (imagePaths == null || imagePaths.Count == 0)
+            {
+                return new List<string>();
+            }
+
+            var validPaths = new List<string>();
+            foreach (var path in imagePaths)
+            {
+                if (!string.IsNullOrEmpty(path))
+                {
+                    try
+                    {
+                        if (File.Exists(path))
+                        {
+                            validPaths.Add(path);
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.ValidateImagePaths] Filtering out non-existent image: {path}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.ValidateImagePaths] Error validating image path '{path}': {ex.Message}");
+                    }
+                }
+            }
+
+            return validPaths;
         }
 
         private bool _hasMultipleImages;
@@ -1940,13 +1979,32 @@ namespace CSimple.ViewModels
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📄 [PrecomputeExecutionOptimizations] Pre-computing step content...");
             int stepIndex = CurrentActionStep + 1; // Convert to 1-based
 
+            // Get the ActionItem timestamp for precise file correlation
+            DateTime? actionItemTimestamp = null;
+            if (_currentActionItems != null && CurrentActionStep >= 0 && CurrentActionStep < _currentActionItems.Count)
+            {
+                var currentActionItem = _currentActionItems[CurrentActionStep];
+                if (currentActionItem?.Timestamp != null)
+                {
+                    if (currentActionItem.Timestamp is DateTime directTimestamp)
+                    {
+                        actionItemTimestamp = directTimestamp;
+                    }
+                    else if (DateTime.TryParse(currentActionItem.Timestamp.ToString(), out DateTime parsedTimestamp))
+                    {
+                        actionItemTimestamp = parsedTimestamp;
+                    }
+                }
+            }
+
             var stepContentTasks = _cachedInputNodes.Select(async inputNode =>
             {
                 try
                 {
                     await Task.Run(() =>
                     {
-                        var (contentType, content) = inputNode.GetStepContent(stepIndex);
+                        // FIXED: Pass ActionItem timestamp for audio/image file correlation
+                        var (contentType, content) = inputNode.GetStepContent(stepIndex, actionItemTimestamp);
                         if (!string.IsNullOrEmpty(content))
                         {
                             lock (_precomputedStepContentCache)
@@ -2587,9 +2645,27 @@ namespace CSimple.ViewModels
                 CurrentExecutingModel = modelNode.Name;
                 CurrentExecutingModelType = correspondingModel.Type.ToString() ?? "unknown";
 
-                // Get connected input nodes and prepare input
+                // Get ActionItem timestamp for this step
+                DateTime? actionItemTimestamp = null;
+                if (actionItems != null && stepIndex >= 0 && stepIndex < actionItems.Count)
+                {
+                    var currentActionItem = actionItems[stepIndex];
+                    if (currentActionItem?.Timestamp != null)
+                    {
+                        if (currentActionItem.Timestamp is DateTime directTimestamp)
+                        {
+                            actionItemTimestamp = directTimestamp;
+                        }
+                        else if (DateTime.TryParse(currentActionItem.Timestamp.ToString(), out DateTime parsedTimestamp))
+                        {
+                            actionItemTimestamp = parsedTimestamp;
+                        }
+                    }
+                }
+
+                // Get connected input nodes and prepare input with timestamp
                 var connectedInputNodes = _ensembleModelService.GetConnectedInputNodes(modelNode, Nodes, Connections);
-                string input = _ensembleModelService.PrepareModelInput(modelNode, connectedInputNodes, stepIndex);
+                string input = _ensembleModelService.PrepareModelInput(modelNode, connectedInputNodes, stepIndex, actionItemTimestamp);
 
                 // Execute the model
                 var result = await _ensembleModelService.ExecuteModelWithInput(correspondingModel, input);
@@ -2972,7 +3048,7 @@ namespace CSimple.ViewModels
         private bool CanStopAudio()
         {
             bool result = _audioStepContentService?.IsPlaying == true;
-            Debug.WriteLine($"[CanStopAudio] Result: {result}, IsPlaying: {_audioStepContentService?.IsPlaying}");
+            // Debug.WriteLine($"[CanStopAudio] Result: {result}, IsPlaying: {_audioStepContentService?.IsPlaying}");
             return result;
         }
 

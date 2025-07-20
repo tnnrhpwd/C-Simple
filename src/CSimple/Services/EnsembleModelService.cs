@@ -39,7 +39,7 @@ namespace CSimple.Services
         /// </summary>
         public List<NodeViewModel> GetConnectedInputNodes(NodeViewModel modelNode, ObservableCollection<NodeViewModel> nodes, ObservableCollection<ConnectionViewModel> connections)
         {
-            Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Finding inputs for model node: {modelNode.Name}");
+            // Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Finding inputs for model node: {modelNode.Name}");
 
             var connectedNodes = new List<NodeViewModel>();
 
@@ -55,18 +55,18 @@ namespace CSimple.Services
 
             // Find all connections that target this model node
             var incomingConnections = connections.Where(c => c.TargetNodeId == modelNode.Id).ToList();
-            Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Found {incomingConnections.Count} incoming connections");
+            // Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Found {incomingConnections.Count} incoming connections");
 
             foreach (var connection in incomingConnections)
             {
                 if (_nodeCache.TryGetValue(connection.SourceNodeId, out var sourceNode))
                 {
-                    Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Connected node: {sourceNode.Name} (Type: {sourceNode.Type}, DataType: {sourceNode.DataType})");
+                    // Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Connected node: {sourceNode.Name} (Type: {sourceNode.Type}, DataType: {sourceNode.DataType})");
                     connectedNodes.Add(sourceNode);
                 }
                 else
                 {
-                    Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Warning: Source node with ID {connection.SourceNodeId} not found");
+                    // Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Warning: Source node with ID {connection.SourceNodeId} not found");
                 }
             }
 
@@ -221,7 +221,7 @@ namespace CSimple.Services
         /// <summary>
         /// Prepares input for model execution from connected nodes
         /// </summary>
-        public string PrepareModelInput(NodeViewModel modelNode, List<NodeViewModel> connectedInputNodes, int currentActionStep)
+        public string PrepareModelInput(NodeViewModel modelNode, List<NodeViewModel> connectedInputNodes, int currentActionStep, DateTime? actionItemTimestamp = null)
         {
             if (connectedInputNodes.Count == 0)
             {
@@ -237,10 +237,11 @@ namespace CSimple.Services
                     int stepForNodeContent = currentActionStep + 1;
 
                     // Use cache key to avoid repeated GetStepContent calls
-                    string cacheKey = $"{inputNode.Id}_{stepForNodeContent}";
+                    string cacheKey = $"{inputNode.Id}_{stepForNodeContent}_{actionItemTimestamp?.Ticks ?? 0}";
                     if (!_stepContentCache.TryGetValue(cacheKey, out string cachedContent))
                     {
-                        var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
+                        // FIXED: Pass ActionItem timestamp for audio/image file correlation
+                        var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent, actionItemTimestamp);
                         if (!string.IsNullOrEmpty(contentValue))
                         {
                             cachedContent = contentType?.ToLowerInvariant() == "image" || contentType?.ToLowerInvariant() == "audio"
@@ -267,10 +268,11 @@ namespace CSimple.Services
                 var inputNode = connectedInputNodes.First();
                 int stepForNodeContent = currentActionStep + 1;
 
-                string cacheKey = $"{inputNode.Id}_{stepForNodeContent}";
+                string cacheKey = $"{inputNode.Id}_{stepForNodeContent}_{actionItemTimestamp?.Ticks ?? 0}";
                 if (!_stepContentCache.TryGetValue(cacheKey, out string cachedContent))
                 {
-                    var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
+                    // FIXED: Pass ActionItem timestamp for audio/image file correlation
+                    var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent, actionItemTimestamp);
                     cachedContent = contentValue ?? "";
                     _stepContentCache[cacheKey] = cachedContent;
                 }

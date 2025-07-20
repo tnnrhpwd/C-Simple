@@ -245,51 +245,51 @@ namespace CSimple.ViewModels
 
         public (string Type, string Value) GetStepContent(int step, DateTime? actionItemTimestamp) // step is 1-based
         {
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Node '{Name}' (Type: {Type}, DataType: {DataType}), Requested Step: {step} (1-based), ActionSteps.Count: {ActionSteps.Count}, ActionItem Timestamp: {actionItemTimestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff") ?? "None"}");
+            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Node '{Name}' (Type: {Type}, DataType: {DataType}), Requested Step: {step} (1-based), ActionSteps.Count: {ActionSteps.Count}, ActionItem Timestamp: {actionItemTimestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff") ?? "None"}");
 
             if (ActionSteps == null)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] ActionSteps list is null. Returning null content.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] ActionSteps list is null. Returning null content.");
                 return (null, null);
             }
 
             // Allow both Input and Model nodes to have step content
             if (Type != NodeType.Input && Type != NodeType.Model)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Condition not met: Node is not of Input or Model type (Type: {Type}). Returning null content.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Condition not met: Node is not of Input or Model type (Type: {Type}). Returning null content.");
                 return (null, null);
             }
 
             if (step <= 0)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Condition not met: Requested step {step} (1-based) is not a positive integer. Returning null content.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Condition not met: Requested step {step} (1-based) is not a positive integer. Returning null content.");
                 return (null, null);
             }
 
             if (ActionSteps.Count == 0)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] ActionSteps is empty. Cannot retrieve content for step {step}. Returning null content.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] ActionSteps is empty. Cannot retrieve content for step {step}. Returning null content.");
                 return (null, null);
             }
 
             if (step > ActionSteps.Count)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Condition not met: Requested step {step} (1-based) is out of bounds for this node's ActionSteps (Count: {ActionSteps.Count}). Returning null content.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Condition not met: Requested step {step} (1-based) is out of bounds for this node's ActionSteps (Count: {ActionSteps.Count}). Returning null content.");
                 return (null, null);
             }
 
             // Adjust step to be 0-indexed for list access
             var stepData = ActionSteps[step - 1];
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Accessing ActionSteps[{step - 1}]. Step Data: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value?.Substring(0, Math.Min(200, stepData.Value?.Length ?? 0))}...'");
+            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Accessing ActionSteps[{step - 1}]. Step Data: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value?.Substring(0, Math.Min(200, stepData.Value?.Length ?? 0))}...'");
 
             // Add debugging to show all ActionSteps for comparison - but only for the first few times to avoid spam
             if (step <= 3) // Only log this for first few steps to avoid spam
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] DEBUG: All ActionSteps for node '{Name}':");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] DEBUG: All ActionSteps for node '{Name}':");
                 for (int i = 0; i < Math.Min(5, ActionSteps.Count); i++) // Only show first 5 steps
                 {
                     var debugStep = ActionSteps[i];
-                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]   ActionSteps[{i}]: Type='{debugStep.Type}', Value='{debugStep.Value?.Substring(0, Math.Min(100, debugStep.Value?.Length ?? 0))}...'");
+                    // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]   ActionSteps[{i}]: Type='{debugStep.Type}', Value='{debugStep.Value?.Substring(0, Math.Min(100, debugStep.Value?.Length ?? 0))}...'");
                 }
             }
 
@@ -297,7 +297,7 @@ namespace CSimple.ViewModels
             // This check might be redundant if ActionSteps was already populated with matching types.
             if (!string.Equals(stepData.Type, this.DataType, StringComparison.OrdinalIgnoreCase))
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Warning: Step data type '{stepData.Type}' from ActionSteps[{step - 1}] does not match node's DataType '{this.DataType}'. Returning content as is.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Warning: Step data type '{stepData.Type}' from ActionSteps[{step - 1}] does not match node's DataType '{this.DataType}'. Returning content as is.");
             }
 
             // For Model nodes, if we have stored output (generated content), return it directly
@@ -305,7 +305,7 @@ namespace CSimple.ViewModels
             // This prevents issues where generated text like "Image Caption: ..." gets parsed as timestamp data
             if (Type == NodeType.Model && !string.IsNullOrEmpty(stepData.Value))
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Model node has stored output, returning directly: Type='{stepData.Type}', Value length={stepData.Value.Length}");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Model node has stored output, returning directly: Type='{stepData.Type}', Value length={stepData.Value.Length}");
                 return (stepData.Type, stepData.Value);
             }
 
@@ -326,26 +326,26 @@ namespace CSimple.ViewModels
                 var imageFiles = FindClosestImageFiles(stepData.Value, stepData.Type, actionItemTimestamp);
                 if (imageFiles?.Count > 0)
                 {
-                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Found {imageFiles.Count} corresponding image files");
+                    // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Found {imageFiles.Count} corresponding image files");
 
                     if (imageFiles.Count == 1)
                     {
                         // Single image - return as before for backward compatibility
                         imageFileName = imageFiles[0];
-                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Returning single image file: {imageFileName}");
+                        // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Returning single image file: {imageFileName}");
                         return (stepData.Type, imageFileName);
                     }
                     else
                     {
                         // Multiple images (multi-monitor) - return as semicolon-separated list
                         string multiImagePaths = string.Join(";", imageFiles);
-                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Returning multiple image files: {multiImagePaths}");
+                        // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Returning multiple image files: {multiImagePaths}");
                         return (stepData.Type, multiImagePaths);
                     }
                 }
                 else
                 {
-                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] No corresponding image files found.");
+                    // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] No corresponding image files found.");
                 }
             }
 
@@ -369,18 +369,18 @@ namespace CSimple.ViewModels
 
                     if (!string.IsNullOrEmpty(audioSegmentPath))
                     {
-                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Found corresponding audio file: {audioSegmentPath}");
-                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Returning audio file path for model input: {audioSegmentPath}");
+                        // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Found corresponding audio file: {audioSegmentPath}");
+                        // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Returning audio file path for model input: {audioSegmentPath}");
                         return (stepData.Type, audioSegmentPath); // Return the actual audio file path for model execution
                     }
                     else
                     {
-                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] No corresponding audio file found.");
+                        // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] No corresponding audio file found.");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Error getting audio segment: {ex.Message}");
+                    // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Error getting audio segment: {ex.Message}");
                 }
             }
 
@@ -390,12 +390,12 @@ namespace CSimple.ViewModels
                 string textContent = GetTextContent(stepData, actionItemTimestamp);
                 if (!string.IsNullOrEmpty(textContent))
                 {
-                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Generated text content: {textContent}");
+                    // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Generated text content: {textContent}");
                     return (stepData.Type, textContent);
                 }
             }
 
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Returning for UI: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value}'");
+            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Returning for UI: Type='{stepData.Type}', Supposed File/Content Value='{stepData.Value}'");
             return (stepData.Type, stepData.Value);
         }
 

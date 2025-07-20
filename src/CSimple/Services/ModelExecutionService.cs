@@ -131,25 +131,15 @@ namespace CSimple.Services
                 process.BeginErrorReadLine();
                 process.BeginOutputReadLine();
 
-                // Ultra-aggressive timeout optimization for speed
-                var cpuFriendlyModels = new[] { "gpt2", "distilgpt2", "microsoft/DialoGPT" };
-                bool isCpuFriendly = cpuFriendlyModels.Any(cpu => modelId.Contains(cpu, StringComparison.OrdinalIgnoreCase));
-
-                // Much shorter timeouts for faster overall execution
-                int baseTimeoutMs = isCpuFriendly ? 15000 : 25000; // 15-25 seconds for even faster execution
-                int timeoutMs = baseTimeoutMs;
-
-                using var cts = new CancellationTokenSource(timeoutMs);
-
+                // No timeout - let models run to completion
                 try
                 {
-                    await process.WaitForExitAsync(cts.Token);
+                    await process.WaitForExitAsync();
                 }
-                catch (OperationCanceledException)
+                catch (Exception ex)
                 {
                     process.Kill();
-                    throw new TimeoutException($"Model execution timed out after {timeoutMs / 1000} seconds. " +
-                        (isCpuFriendly ? "Try a shorter input message." : "Consider using a smaller model."));
+                    throw new Exception($"Model execution failed: {ex.Message}");
                 }
 
                 // Minimal wait for output completion
