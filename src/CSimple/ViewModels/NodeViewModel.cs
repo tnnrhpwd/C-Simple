@@ -417,7 +417,7 @@ namespace CSimple.ViewModels
         {
             if (string.IsNullOrEmpty(actionDescription) && !targetTimestamp.HasValue)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Action description and target timestamp are both null or empty.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Action description and target timestamp are both null or empty.");
                 return new List<string>();
             }
 
@@ -432,7 +432,7 @@ namespace CSimple.ViewModels
                     actionDescription.Length > 100 ||
                     (!actionDescription.Contains("_") && !actionDescription.Contains(":")))
                 {
-                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Action description appears to be generated content, not a timestamp: {actionDescription.Substring(0, Math.Min(50, actionDescription.Length))}...");
+                    // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Action description appears to be generated content, not a timestamp: {actionDescription.Substring(0, Math.Min(50, actionDescription.Length))}...");
                     return new List<string>();
                 }
             }
@@ -468,7 +468,7 @@ namespace CSimple.ViewModels
 
             if (!Directory.Exists(directoryPath))
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Directory does not exist: {directoryPath}");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Directory does not exist: {directoryPath}");
                 return new List<string>();
             }
 
@@ -479,12 +479,12 @@ namespace CSimple.ViewModels
             try
             {
                 string[] files = Directory.GetFiles(directoryPath, filePattern);
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Found {files.Length} files in {directoryPath}. Target timestamp: {targetTimestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff") ?? "None"}");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Found {files.Length} files in {directoryPath}. Target timestamp: {targetTimestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff") ?? "None"}");
 
                 foreach (string filePath in files)
                 {
                     string fileName = Path.GetFileNameWithoutExtension(filePath);
-                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Processing file: {fileName}");
+                    // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Processing file: {fileName}");
 
                     // Handle screenshot file format: ScreenCapture_20250719_122427_898_.DISPLAY1
                     DateTime fileTime = DateTime.MinValue;
@@ -556,7 +556,7 @@ namespace CSimple.ViewModels
 
                     if (parsed)
                     {
-                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Parsed file timestamp: {fileTime:yyyy-MM-dd HH:mm:ss.fff} (Local Time)");
+                        // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Parsed file timestamp: {fileTime:yyyy-MM-dd HH:mm:ss.fff} (Local Time)");
 
                         if (targetTimestamp.HasValue)
                         {
@@ -565,7 +565,7 @@ namespace CSimple.ViewModels
                                 ? targetTimestamp.Value.ToLocalTime()
                                 : targetTimestamp.Value;
 
-                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Target timestamp: {targetTimestamp.Value:yyyy-MM-dd HH:mm:ss.fff} UTC -> {localTargetTime:yyyy-MM-dd HH:mm:ss.fff} Local");
+                            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Target timestamp: {targetTimestamp.Value:yyyy-MM-dd HH:mm:ss.fff} UTC -> {localTargetTime:yyyy-MM-dd HH:mm:ss.fff} Local");
 
                             // Find the file with the closest timestamp to the target
                             TimeSpan difference = TimeSpan.FromTicks(Math.Abs(fileTime.Ticks - localTargetTime.Ticks));
@@ -577,13 +577,13 @@ namespace CSimple.ViewModels
                                 closestDateTime = fileTime;
                                 closestFiles.Clear();
                                 closestFiles.Add(filePath);
-                                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] New closest timestamp {fileName}: FileTime={fileTime:yyyy-MM-dd HH:mm:ss.fff}, LocalTargetTime={localTargetTime:yyyy-MM-dd HH:mm:ss.fff}, Difference={difference.TotalMilliseconds}ms");
+                                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] New closest timestamp {fileName}: FileTime={fileTime:yyyy-MM-dd HH:mm:ss.fff}, LocalTargetTime={localTargetTime:yyyy-MM-dd HH:mm:ss.fff}, Difference={difference.TotalMilliseconds}ms");
                             }
                             else if (difference == closestDifference && fileTime == closestDateTime)
                             {
                                 // Same timestamp - add to collection (multi-monitor case)
                                 closestFiles.Add(filePath);
-                                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Same timestamp {fileName}: Adding to collection (multi-monitor)");
+                                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Same timestamp {fileName}: Adding to collection (multi-monitor)");
                             }
                         }
                         else
@@ -605,13 +605,13 @@ namespace CSimple.ViewModels
                     }
                     else
                     {
-                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Could not parse timestamp from file: {fileName}");
+                        // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Could not parse timestamp from file: {fileName}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Error finding closest image files: {ex.Message}");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Error finding closest image files: {ex.Message}");
                 return new List<string>();
             }
 
@@ -619,15 +619,15 @@ namespace CSimple.ViewModels
             {
                 // Sort the files by display number for consistent ordering
                 closestFiles = closestFiles.OrderBy(f => f).ToList();
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Found {closestFiles.Count} closest image files with difference: {closestDifference.TotalMilliseconds}ms");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Found {closestFiles.Count} closest image files with difference: {closestDifference.TotalMilliseconds}ms");
                 foreach (var file in closestFiles)
                 {
-                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles]   - {Path.GetFileName(file)}");
+                    // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles]   - {Path.GetFileName(file)}");
                 }
             }
             else
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] No suitable image files found.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] No suitable image files found.");
             }
 
             return closestFiles;
@@ -644,13 +644,13 @@ namespace CSimple.ViewModels
         {
             if (string.IsNullOrEmpty(AudioFilePath))
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] Audio file path is not set. Attempting to find closest audio file by timestamp.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] Audio file path is not set. Attempting to find closest audio file by timestamp.");
                 // Implement logic to find the audio file with the closest timestamp
                 string audioFilePath = FindClosestAudioFile(startTime);
 
                 if (string.IsNullOrEmpty(audioFilePath))
                 {
-                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] No audio file found with a timestamp close to the action review timestamp.");
+                    // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] No audio file found with a timestamp close to the action review timestamp.");
                     return null;
                 }
 
@@ -661,13 +661,13 @@ namespace CSimple.ViewModels
 
             if (Type != NodeType.Input || DataType?.ToLower() != "audio")
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] Node is not an audio input node.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] Node is not an audio input node.");
                 return null;
             }
 
             if (startTime == DateTime.MinValue || endTime == DateTime.MinValue)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] Invalid start or end time.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] Invalid start or end time.");
                 return null;
             }
 
@@ -703,7 +703,7 @@ namespace CSimple.ViewModels
 
             if (!Directory.Exists(directoryPath))
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Directory does not exist: {directoryPath}");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Directory does not exist: {directoryPath}");
                 return null;
             }
 
@@ -712,7 +712,7 @@ namespace CSimple.ViewModels
                 ? targetTime.ToLocalTime()
                 : targetTime;
 
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Target timestamp: {targetTime:yyyy-MM-dd HH:mm:ss.fff} -> {localTargetTime:yyyy-MM-dd HH:mm:ss.fff} Local");
+            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Target timestamp: {targetTime:yyyy-MM-dd HH:mm:ss.fff} -> {localTargetTime:yyyy-MM-dd HH:mm:ss.fff} Local");
 
             string closestFile = null;
             TimeSpan closestDifference = TimeSpan.MaxValue;
@@ -720,7 +720,7 @@ namespace CSimple.ViewModels
             try
             {
                 string[] files = Directory.GetFiles(directoryPath, filePattern);
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Found {files.Length} files in {directoryPath}.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Found {files.Length} files in {directoryPath}.");
 
                 foreach (string filePath in files)
                 {
@@ -755,24 +755,24 @@ namespace CSimple.ViewModels
                         {
                             closestDifference = difference;
                             closestFile = filePath;
-                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] File {fileName} closer: FileTime={fileTime:yyyy-MM-dd HH:mm:ss.fff}, LocalTargetTime={localTargetTime:yyyy-MM-dd HH:mm:ss.fff}, Difference={difference.TotalMilliseconds}ms");
+                            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] File {fileName} closer: FileTime={fileTime:yyyy-MM-dd HH:mm:ss.fff}, LocalTargetTime={localTargetTime:yyyy-MM-dd HH:mm:ss.fff}, Difference={difference.TotalMilliseconds}ms");
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Error finding closest audio file: {ex.Message}");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Error finding closest audio file: {ex.Message}");
                 return null;
             }
 
             if (closestFile != null)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Found closest audio file: {closestFile}, difference: {closestDifference.TotalMilliseconds}ms");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Found closest audio file: {closestFile}, difference: {closestDifference.TotalMilliseconds}ms");
             }
             else
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] No suitable audio file found.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] No suitable audio file found.");
             }
 
             return closestFile;
@@ -802,7 +802,7 @@ namespace CSimple.ViewModels
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetTextContent] Error generating text content: {ex.Message}");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetTextContent] Error generating text content: {ex.Message}");
                 return stepData.Value;
             }
         }
@@ -822,18 +822,24 @@ namespace CSimple.ViewModels
 
                 if (keyboardActionItems.Count > 0)
                 {
-                    // If we have a specific timestamp, find the closest keyboard action
+                    // If we have a specific timestamp, find the closest keyboard action within a reasonable time window
                     ActionItem keyboardActionItem = null;
                     if (actionItemTimestamp.HasValue)
                     {
+                        // Find keyboard actions within a 500ms window of the action timestamp
+                        var timeWindow = TimeSpan.FromMilliseconds(500);
                         keyboardActionItem = keyboardActionItems
                             .Where(item => item.Timestamp is DateTime)
+                            .Where(item => Math.Abs(((DateTime)item.Timestamp - actionItemTimestamp.Value).TotalMilliseconds) <= timeWindow.TotalMilliseconds)
                             .OrderBy(item => Math.Abs(((DateTime)item.Timestamp - actionItemTimestamp.Value).Ticks))
                             .FirstOrDefault();
                     }
-                    else
+
+                    // If no timestamp-based match, try to get a step-specific keyboard action
+                    if (keyboardActionItem == null && ActionSteps != null && ActionSteps.Count > 0)
                     {
-                        // Use the first keyboard action if no timestamp available
+                        // For now, use the first keyboard action as a fallback
+                        // TODO: Implement proper step correlation when step indexing is available
                         keyboardActionItem = keyboardActionItems.FirstOrDefault();
                     }
 
@@ -849,7 +855,7 @@ namespace CSimple.ViewModels
                                $"KeyCode: {keyboardActionItem.KeyCode}, " +
                                $"Key: {keyName}, " +
                                $"Duration: {keyboardActionItem.Duration}ms, " +
-                               $"Timestamp: {keyboardActionItem.Timestamp}";
+                               $"Timestamp: {keyboardActionItem.Timestamp:yyyy-MM-dd HH:mm:ss.fff}";
                     }
                 }
             }
@@ -896,18 +902,24 @@ namespace CSimple.ViewModels
 
                 if (mouseActionItems.Count > 0)
                 {
-                    // If we have a specific timestamp, find the closest mouse action
+                    // If we have a specific timestamp, find the closest mouse action within a reasonable time window
                     ActionItem mouseActionItem = null;
                     if (actionItemTimestamp.HasValue)
                     {
+                        // Find mouse actions within a 500ms window of the action timestamp
+                        var timeWindow = TimeSpan.FromMilliseconds(500);
                         mouseActionItem = mouseActionItems
                             .Where(item => item.Timestamp is DateTime)
+                            .Where(item => Math.Abs(((DateTime)item.Timestamp - actionItemTimestamp.Value).TotalMilliseconds) <= timeWindow.TotalMilliseconds)
                             .OrderBy(item => Math.Abs(((DateTime)item.Timestamp - actionItemTimestamp.Value).Ticks))
                             .FirstOrDefault();
                     }
-                    else
+
+                    // If no timestamp-based match, try to get a step-specific mouse action
+                    if (mouseActionItem == null && ActionSteps != null && ActionSteps.Count > 0)
                     {
-                        // Use the first mouse action if no timestamp available
+                        // For now, use the first mouse action as a fallback
+                        // TODO: Implement proper step correlation when step indexing is available
                         mouseActionItem = mouseActionItems.FirstOrDefault();
                     }
 
@@ -925,7 +937,7 @@ namespace CSimple.ViewModels
                                    $"VelocityX: {mouseActionItem.VelocityX:F2}, " +
                                    $"VelocityY: {mouseActionItem.VelocityY:F2}, " +
                                    $"ButtonStates: L={mouseActionItem.IsLeftButtonDown}, R={mouseActionItem.IsRightButtonDown}, M={mouseActionItem.IsMiddleButtonDown}, " +
-                                   $"Timestamp: {mouseActionItem.Timestamp}";
+                                   $"Timestamp: {mouseActionItem.Timestamp:yyyy-MM-dd HH:mm:ss.fff}";
                         }
                         else
                         {
@@ -938,7 +950,7 @@ namespace CSimple.ViewModels
                                    $"Coordinates: X={mouseActionItem.Coordinates?.X ?? 0}, Y={mouseActionItem.Coordinates?.Y ?? 0}, " +
                                    $"Duration: {mouseActionItem.Duration}ms, " +
                                    $"ButtonStates: L={mouseActionItem.IsLeftButtonDown}, R={mouseActionItem.IsRightButtonDown}, M={mouseActionItem.IsMiddleButtonDown}, " +
-                                   $"Timestamp: {mouseActionItem.Timestamp}";
+                                   $"Timestamp: {mouseActionItem.Timestamp:yyyy-MM-dd HH:mm:ss.fff}";
                         }
                     }
                 }
@@ -1071,7 +1083,7 @@ namespace CSimple.ViewModels
             string segmentFileName = $"Segment_{startTime.Ticks}_{endTime.Ticks}.wav";
             string segmentPath = Path.Combine(Path.GetDirectoryName(fullPath), segmentFileName);
 
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SimulateAudioSegmentExtraction] Simulated audio segment extraction from {fullPath} to {segmentPath} (Start: {startTime}, End: {endTime})");
+            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SimulateAudioSegmentExtraction] Simulated audio segment extraction from {fullPath} to {segmentPath} (Start: {startTime}, End: {endTime})");
             return segmentPath;
         }
 
@@ -1083,7 +1095,7 @@ namespace CSimple.ViewModels
         /// <param name="outputValue">The generated output content</param>
         public void SetStepOutput(int step, string outputType, string outputValue)
         {
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SetStepOutput] Setting output for node '{Name}' at step {step}: Type='{outputType}', Value length={outputValue?.Length ?? 0}");
+            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SetStepOutput] Setting output for node '{Name}' at step {step}: Type='{outputType}', Value length={outputValue?.Length ?? 0}");
 
             if (ActionSteps == null)
             {
@@ -1099,7 +1111,7 @@ namespace CSimple.ViewModels
             // Set the output at the specified step (convert to 0-based index)
             ActionSteps[step - 1] = (outputType, outputValue);
 
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SetStepOutput] Successfully stored output for step {step}. ActionSteps.Count is now {ActionSteps.Count}");
+            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SetStepOutput] Successfully stored output for step {step}. ActionSteps.Count is now {ActionSteps.Count}");
         }
 
         /// <summary>

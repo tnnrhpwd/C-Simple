@@ -134,15 +134,15 @@ namespace CSimple.Pages
             if (_viewModel == null) return;
 
             // Debug log for step content visibility
-            Debug.WriteLine($"[Draw] CurrentActionStep: {_viewModel.CurrentActionStep}");
-            Debug.WriteLine($"[Draw] StepContent: '{_viewModel.StepContent}'");
+            // Debug.WriteLine($"[Draw] CurrentActionStep: {_viewModel.CurrentActionStep}");
+            // Debug.WriteLine($"[Draw] StepContent: '{_viewModel.StepContent}'");
             if (_viewModel.SelectedNode != null)
             {
                 Debug.WriteLine($"[Draw] SelectedNode: {_viewModel.SelectedNode.Name}, DataType: {_viewModel.SelectedNode.DataType}");
             }
             else
             {
-                Debug.WriteLine("[Draw] SelectedNode: null");
+                // Debug.WriteLine("[Draw] SelectedNode: null");
             }
 
             // Use theme-aware background from XAML binding

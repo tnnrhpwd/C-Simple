@@ -1632,7 +1632,17 @@ namespace CSimple.ViewModels
         public List<string> StepContentImages
         {
             get => _stepContentImages;
-            set => SetProperty(ref _stepContentImages, value);
+            set
+            {
+                if (SetProperty(ref _stepContentImages, value))
+                {
+                    // Update computed properties when the collection changes
+                    OnPropertyChanged(nameof(FirstImage));
+                    OnPropertyChanged(nameof(SecondImage));
+                    OnPropertyChanged(nameof(HasFirstImage));
+                    OnPropertyChanged(nameof(HasSecondImage));
+                }
+            }
         }
 
         private bool _hasMultipleImages;
@@ -1641,6 +1651,12 @@ namespace CSimple.ViewModels
             get => _hasMultipleImages;
             set => SetProperty(ref _hasMultipleImages, value);
         }
+
+        // Safe access properties for individual images
+        public string FirstImage => StepContentImages?.Count > 0 ? StepContentImages[0] : null;
+        public string SecondImage => StepContentImages?.Count > 1 ? StepContentImages[1] : null;
+        public bool HasFirstImage => !string.IsNullOrEmpty(FirstImage);
+        public bool HasSecondImage => !string.IsNullOrEmpty(SecondImage);
 
         public ICommand PlayAudioCommand { get; }
         public ICommand StopAudioCommand { get; }
@@ -1654,44 +1670,115 @@ namespace CSimple.ViewModels
         {
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Called - SelectedNode: {SelectedNode?.Name ?? "null"}, CurrentActionStep: {CurrentActionStep}, SelectedAction: {SelectedReviewActionName ?? "null"}");
 
-            var stepContentData = _actionReviewService.UpdateStepContent(SelectedNode, CurrentActionStep, _currentActionItems, SelectedReviewActionName);
-
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Retrieved content - Type: {stepContentData.ContentType}, Content: {stepContentData.Content?.Substring(0, Math.Min(100, stepContentData.Content?.Length ?? 0))}...");
-
-            StepContentType = stepContentData.ContentType;
-            StepContent = stepContentData.Content;
-
-            // Handle multiple images for screen capture nodes
-            if (stepContentData.ContentType?.ToLower() == "image" && !string.IsNullOrEmpty(stepContentData.Content))
+            try
             {
-                if (stepContentData.Content.Contains(';'))
+                var stepContentData = _actionReviewService.UpdateStepContent(SelectedNode, CurrentActionStep, _currentActionItems, SelectedReviewActionName);
+
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Retrieved content - Type: {stepContentData.ContentType}, Content: {stepContentData.Content?.Substring(0, Math.Min(100, stepContentData.Content?.Length ?? 0))}...");
+
+                StepContentType = stepContentData.ContentType;
+                StepContent = stepContentData.Content;
+
+                // Handle multiple images for screen capture nodes with enhanced error checking
+                if (stepContentData.ContentType?.ToLower() == "image" && !string.IsNullOrEmpty(stepContentData.Content))
                 {
-                    // Multiple images - split and store separately
-                    var imagePaths = stepContentData.Content.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                                                            .Select(path => path.Trim())
-                                                            .ToList();
-                    StepContentImages = imagePaths;
-                    HasMultipleImages = true;
-                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Found {imagePaths.Count} multiple images for multi-monitor display");
+                    try
+                    {
+                        if (stepContentData.Content.Contains(';'))
+                        {
+                            // Multiple images - split and store separately with validation
+                            var imagePaths = stepContentData.Content.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                                                                    .Select(path => path.Trim())
+                                                                    .Where(path => !string.IsNullOrEmpty(path))
+                                                                    .ToList();
+
+                            // Validate each image path and log missing files
+                            var validImagePaths = new List<string>();
+                            foreach (var imagePath in imagePaths)
+                            {
+                                if (File.Exists(imagePath))
+                                {
+                                    validImagePaths.Add(imagePath);
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Warning: Image file not found: {imagePath}");
+                                }
+                            }
+
+                            if (validImagePaths.Count > 0)
+                            {
+                                StepContentImages = validImagePaths;
+                                HasMultipleImages = validImagePaths.Count > 1;
+                                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Found {validImagePaths.Count} valid image(s) out of {imagePaths.Count} total paths");
+                            }
+                            else
+                            {
+                                // No valid images found after filtering
+                                StepContentImages = new List<string>();
+                                HasMultipleImages = false;
+                                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] No valid images found after filtering {imagePaths.Count} paths");
+                            }
+                        }
+                        else
+                        {
+                            // Single image - validate it exists
+                            if (File.Exists(stepContentData.Content))
+                            {
+                                StepContentImages = new List<string> { stepContentData.Content };
+                                HasMultipleImages = false;
+                                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Found single valid image: {stepContentData.Content}");
+                            }
+                            else
+                            {
+                                // Image file doesn't exist
+                                StepContentImages = new List<string>();
+                                HasMultipleImages = false;
+                                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Single image file not found: {stepContentData.Content}");
+                            }
+                        }
+                    }
+                    catch (Exception imageEx)
+                    {
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Error processing images: {imageEx.Message}");
+                        StepContentImages = new List<string>();
+                        HasMultipleImages = false;
+                    }
                 }
                 else
                 {
-                    // Single image
-                    StepContentImages = new List<string> { stepContentData.Content };
+                    StepContentImages = new List<string>();
                     HasMultipleImages = false;
-                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Found single image");
                 }
+
+                OnPropertyChanged(nameof(StepContentType));
+                OnPropertyChanged(nameof(StepContent));
+                OnPropertyChanged(nameof(StepContentImages));
+                OnPropertyChanged(nameof(HasMultipleImages));
+                OnPropertyChanged(nameof(FirstImage));
+                OnPropertyChanged(nameof(SecondImage));
+                OnPropertyChanged(nameof(HasFirstImage));
+                OnPropertyChanged(nameof(HasSecondImage));
             }
-            else
+            catch (Exception ex)
             {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Error: {ex.Message}");
+
+                // Set safe defaults on error
+                StepContentType = null;
+                StepContent = null;
                 StepContentImages = new List<string>();
                 HasMultipleImages = false;
-            }
 
-            OnPropertyChanged(nameof(StepContentType));
-            OnPropertyChanged(nameof(StepContent));
-            OnPropertyChanged(nameof(StepContentImages));
-            OnPropertyChanged(nameof(HasMultipleImages));
+                OnPropertyChanged(nameof(StepContentType));
+                OnPropertyChanged(nameof(StepContent));
+                OnPropertyChanged(nameof(StepContentImages));
+                OnPropertyChanged(nameof(HasMultipleImages));
+                OnPropertyChanged(nameof(FirstImage));
+                OnPropertyChanged(nameof(SecondImage));
+                OnPropertyChanged(nameof(HasFirstImage));
+                OnPropertyChanged(nameof(HasSecondImage));
+            }
         }
 
         /// <summary>

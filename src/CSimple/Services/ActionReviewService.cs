@@ -59,7 +59,7 @@ namespace CSimple.Services
         {
             try
             {
-                Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Attempting to load action: {selectedActionName ?? "null"}");
+                // Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Attempting to load action: {selectedActionName ?? "null"}");
 
                 var actionReviewData = new ActionReviewData();
 
@@ -72,15 +72,15 @@ namespace CSimple.Services
                     if (selectedDataItem?.Data?.ActionGroupObject != null)
                     {
                         actionReviewData.ActionItems = selectedDataItem.Data.ActionGroupObject.ActionArray ?? new List<ActionItem>();
-                        Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Loaded '{selectedActionName}' with {actionReviewData.ActionItems.Count} global action items.");
+                        // Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Loaded '{selectedActionName}' with {actionReviewData.ActionItems.Count} global action items.");
 
                         var actionGroupFiles = selectedDataItem.Data.ActionGroupObject.Files;
-                        Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] ActionGroup has {actionGroupFiles.Count} associated files.");
+                        // Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] ActionGroup has {actionGroupFiles.Count} associated files.");
 
                         // Log all available files for debugging
                         if (actionGroupFiles.Count > 0)
                         {
-                            Debug.WriteLine("[ActionReviewService.LoadSelectedActionAsync] Available files in action group:");
+                            // Debug.WriteLine("[ActionReviewService.LoadSelectedActionAsync] Available files in action group:");
                             foreach (var file in actionGroupFiles)
                             {
                                 Debug.WriteLine($"  File: {file.Filename}");
@@ -93,7 +93,7 @@ namespace CSimple.Services
                         foreach (var nodeVM in nodes.Where(n => n.Type == NodeType.Input))
                         {
                             nodeVM.ActionSteps.Clear();
-                            Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] === Populating ActionSteps for Input Node: {nodeVM.Name} (Node DataType: {nodeVM.DataType}) ===");
+                            // Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] === Populating ActionSteps for Input Node: {nodeVM.Name} (Node DataType: {nodeVM.DataType}) ===");
 
                             // Create one ActionStep entry for each action item (step)
                             for (int stepIndex = 0; stepIndex < actionReviewData.ActionItems.Count; stepIndex++)
@@ -101,34 +101,34 @@ namespace CSimple.Services
                                 var actionItem = actionReviewData.ActionItems[stepIndex];
                                 string actionDescription = actionItem.ToString();
 
-                                Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Processing step {stepIndex}: EventType={actionItem.EventType}, Description={actionDescription?.Substring(0, Math.Min(100, actionDescription?.Length ?? 0))}...");
+                                // Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Processing step {stepIndex}: EventType={actionItem.EventType}, Description={actionDescription?.Substring(0, Math.Min(100, actionDescription?.Length ?? 0))}...");
 
                                 // Determine step-specific content for this node based on its type and the action item
                                 string stepContent = GetStepSpecificContent(nodeVM, actionItem, actionDescription, actionGroupFiles);
 
                                 // Add the step content for this specific step
                                 nodeVM.ActionSteps.Add((Type: nodeVM.DataType, Value: stepContent));
-                                Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Added ActionStep[{stepIndex}] for {nodeVM.Name}: Type={nodeVM.DataType}, Content={stepContent?.Substring(0, Math.Min(50, stepContent?.Length ?? 0))}...");
+                                // Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Added ActionStep[{stepIndex}] for {nodeVM.Name}: Type={nodeVM.DataType}, Content={stepContent?.Substring(0, Math.Min(50, stepContent?.Length ?? 0))}...");
                             }
 
-                            Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Completed ActionSteps population for {nodeVM.Name}. Total steps: {nodeVM.ActionSteps.Count}");
+                            // Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Completed ActionSteps population for {nodeVM.Name}. Total steps: {nodeVM.ActionSteps.Count}");
                         }
                     }
                     else
                     {
-                        Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Action '{selectedActionName}' not found or has no ActionGroupObject.");
+                        // Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Action '{selectedActionName}' not found or has no ActionGroupObject.");
                     }
                 }
                 else
                 {
-                    Debug.WriteLine("[ActionReviewService.LoadSelectedActionAsync] ActionService is null or selectedActionName is empty.");
+                    // Debug.WriteLine("[ActionReviewService.LoadSelectedActionAsync] ActionService is null or selectedActionName is empty.");
                 }
 
                 return actionReviewData;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Error: {ex.Message}\nStackTrace: {ex.StackTrace}");
+                // Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Error: {ex.Message}\nStackTrace: {ex.StackTrace}");
                 return new ActionReviewData();
             }
         }
@@ -137,7 +137,7 @@ namespace CSimple.Services
         {
             try
             {
-                Debug.WriteLine($"[ActionReviewService.LoadActionStepDataAsync] Called for CurrentActionStep (0-indexed): {currentActionStep}");
+                // Debug.WriteLine($"[ActionReviewService.LoadActionStepDataAsync] Called for CurrentActionStep (0-indexed): {currentActionStep}");
                 if (currentActionItems == null || !currentActionItems.Any())
                 {
                     Debug.WriteLine("[ActionReviewService.LoadActionStepDataAsync] No global action items loaded (currentActionItems is null or empty).");
@@ -146,12 +146,12 @@ namespace CSimple.Services
 
                 if (currentActionStep < 0 || currentActionStep >= currentActionItems.Count)
                 {
-                    Debug.WriteLine($"[ActionReviewService.LoadActionStepDataAsync] CurrentActionStep {currentActionStep} is out of bounds for currentActionItems (Count: {currentActionItems.Count}).");
+                    // Debug.WriteLine($"[ActionReviewService.LoadActionStepDataAsync] CurrentActionStep {currentActionStep} is out of bounds for currentActionItems (Count: {currentActionItems.Count}).");
                     return Task.CompletedTask;
                 }
 
                 var globalActionItem = currentActionItems[currentActionStep];
-                Debug.WriteLine($"[ActionReviewService.LoadActionStepDataAsync] Global ActionItem at index {currentActionStep}: {globalActionItem?.ToString() ?? "null"}");
+                // Debug.WriteLine($"[ActionReviewService.LoadActionStepDataAsync] Global ActionItem at index {currentActionStep}: {globalActionItem?.ToString() ?? "null"}");
 
                 return Task.CompletedTask;
             }
@@ -164,12 +164,12 @@ namespace CSimple.Services
 
         public StepContentData UpdateStepContent(NodeViewModel selectedNode, int currentActionStep, List<ActionItem> currentActionItems, string selectedReviewActionName)
         {
-            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] === DEBUGGING SESSION START ===");
-            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Selected Action: {selectedReviewActionName}");
-            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Current Step: {currentActionStep} (0-based)");
-            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Selected Node: {selectedNode?.Name} (Type: {selectedNode?.Type}, DataType: {selectedNode?.DataType})");
-            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] ActionItems Count: {currentActionItems?.Count ?? 0}");
-            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Node ActionSteps Count: {selectedNode?.ActionSteps?.Count ?? 0}");
+            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] === DEBUGGING SESSION START ===");
+            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Selected Action: {selectedReviewActionName}");
+            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Current Step: {currentActionStep} (0-based)");
+            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Selected Node: {selectedNode?.Name} (Type: {selectedNode?.Type}, DataType: {selectedNode?.DataType})");
+            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] ActionItems Count: {currentActionItems?.Count ?? 0}");
+            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Node ActionSteps Count: {selectedNode?.ActionSteps?.Count ?? 0}");
 
             var stepContentData = new StepContentData();
 
@@ -177,7 +177,7 @@ namespace CSimple.Services
             {
                 stepContentData.Content = "No action selected for review.";
                 stepContentData.ContentType = "text";
-                Debug.WriteLine("[ActionReviewService.UpdateStepContent] No action selected, returning default message.");
+                // Debug.WriteLine("[ActionReviewService.UpdateStepContent] No action selected, returning default message.");
                 return stepContentData;
             }
 
@@ -185,7 +185,7 @@ namespace CSimple.Services
             {
                 stepContentData.Content = "No node selected. Please select a node to view its step content.";
                 stepContentData.ContentType = "text";
-                Debug.WriteLine("[ActionReviewService.UpdateStepContent] No node selected, returning default message.");
+                // Debug.WriteLine("[ActionReviewService.UpdateStepContent] No node selected, returning default message.");
                 return stepContentData;
             }
 
@@ -193,13 +193,13 @@ namespace CSimple.Services
             if (selectedNode.Type == NodeType.Model)
             {
                 int stepForNodeContent = currentActionStep + 1; // Convert to 1-based index
-                Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Model node: Looking for stored output at step {stepForNodeContent} (1-based)");
+                // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Model node: Looking for stored output at step {stepForNodeContent} (1-based)");
                 var (storedOutputType, storedOutputValue) = selectedNode.GetStepOutput(stepForNodeContent);
                 if (!string.IsNullOrEmpty(storedOutputValue))
                 {
                     stepContentData.Content = storedOutputValue;
                     stepContentData.ContentType = storedOutputType;
-                    Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Found stored model output: {storedOutputValue?.Substring(0, Math.Min(100, storedOutputValue?.Length ?? 0))}...");
+                    // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Found stored model output: {storedOutputValue?.Substring(0, Math.Min(100, storedOutputValue?.Length ?? 0))}...");
                     return stepContentData;
                 }
                 else
@@ -215,7 +215,7 @@ namespace CSimple.Services
             if (selectedNode.Type == NodeType.Input)
             {
                 int stepForNodeContent = currentActionStep + 1; // Convert to 1-based index
-                Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Input node: Getting step content at step {stepForNodeContent} (1-based)");
+                // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Input node: Getting step content at step {stepForNodeContent} (1-based)");
 
                 // FIXED: Get the ActionItem timestamp for precise file correlation
                 DateTime? actionItemTimestamp = null;
@@ -232,14 +232,14 @@ namespace CSimple.Services
                         {
                             actionItemTimestamp = parsedTimestamp;
                         }
-                        Debug.WriteLine($"[ActionReviewService.UpdateStepContent] ActionItem timestamp: {actionItemTimestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff") ?? "Failed to parse"}");
+                        // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] ActionItem timestamp: {actionItemTimestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff") ?? "Failed to parse"}");
                     }
-                    Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Current ActionItem[{currentActionStep}]: {currentActionItem?.ToString()?.Substring(0, Math.Min(100, currentActionItem?.ToString()?.Length ?? 0))}...");
+                    // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Current ActionItem[{currentActionStep}]: {currentActionItem?.ToString()?.Substring(0, Math.Min(100, currentActionItem?.ToString()?.Length ?? 0))}...");
                 }
 
                 // Get the raw step content from the node with ActionItem timestamp
                 var (contentType, contentValue) = selectedNode.GetStepContent(stepForNodeContent, actionItemTimestamp);
-                Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Raw step content - Type: {contentType}, Value: {contentValue?.Substring(0, Math.Min(100, contentValue?.Length ?? 0))}...");
+                // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Raw step content - Type: {contentType}, Value: {contentValue?.Substring(0, Math.Min(100, contentValue?.Length ?? 0))}...");
 
                 stepContentData.Content = contentValue ?? "No data available for this step.";
                 stepContentData.ContentType = contentType ?? "text";
@@ -247,11 +247,11 @@ namespace CSimple.Services
                 // For debugging: show which ActionStep is being accessed
                 if (selectedNode.ActionSteps != null && selectedNode.ActionSteps.Count > 0)
                 {
-                    Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Node ActionSteps debugging:");
+                    // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Node ActionSteps debugging:");
                     for (int i = 0; i < Math.Min(5, selectedNode.ActionSteps.Count); i++)
                     {
                         var debugStep = selectedNode.ActionSteps[i];
-                        Debug.WriteLine($"  ActionSteps[{i}]: Type='{debugStep.Type}', Value='{debugStep.Value?.Substring(0, Math.Min(50, debugStep.Value?.Length ?? 0))}...'");
+                        // Debug.WriteLine($"  ActionSteps[{i}]: Type='{debugStep.Type}', Value='{debugStep.Value?.Substring(0, Math.Min(50, debugStep.Value?.Length ?? 0))}...'");
                     }
                 }
 
@@ -259,7 +259,7 @@ namespace CSimple.Services
                 // Only fall back to file searching if the step content is empty or looks like a description
                 if (selectedNode.DataType?.ToLower() == "image")
                 {
-                    Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Processing image node...");
+                    // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Processing image node...");
                     // If contentValue looks like a file path or base64 data, use it directly
                     if (!string.IsNullOrEmpty(contentValue) &&
                         (contentValue.Contains("\\") || contentValue.Contains("/") || contentValue.StartsWith("data:") || contentValue.Length > 200))
@@ -267,47 +267,47 @@ namespace CSimple.Services
                         // This looks like actual image data or file path, use it directly
                         stepContentData.Content = contentValue;
                         stepContentData.ContentType = "image";
-                        Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using step-specific image content directly");
+                        // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using step-specific image content directly");
                     }
                     else if (actionItemTimestamp.HasValue)
                     {
                         // FIXED: Use the ActionItem timestamp for precise file correlation
-                        Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using ActionItem timestamp for image search: {actionItemTimestamp.Value:yyyy-MM-dd HH:mm:ss.fff}");
+                        // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using ActionItem timestamp for image search: {actionItemTimestamp.Value:yyyy-MM-dd HH:mm:ss.fff}");
                         string imageFileName = selectedNode.FindClosestImageFile(contentValue, contentType, actionItemTimestamp);
                         if (!string.IsNullOrEmpty(imageFileName))
                         {
                             stepContentData.Content = imageFileName;
                             stepContentData.ContentType = "image";
-                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using timestamp-based image file: {imageFileName}");
+                            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using timestamp-based image file: {imageFileName}");
                         }
                         else
                         {
                             stepContentData.ContentType = "text";
-                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No image file found, falling back to text");
+                            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No image file found, falling back to text");
                         }
                     }
                     else
                     {
                         // Fall back to original logic if no timestamp
-                        Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No ActionItem timestamp available, falling back to description-based search: {contentValue}");
+                        // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No ActionItem timestamp available, falling back to description-based search: {contentValue}");
                         string imageFileName = selectedNode.FindClosestImageFile(contentValue, contentType);
                         if (!string.IsNullOrEmpty(imageFileName))
                         {
                             stepContentData.Content = imageFileName;
                             stepContentData.ContentType = "image";
-                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using description-based image file: {imageFileName}");
+                            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using description-based image file: {imageFileName}");
                         }
                         else
                         {
                             stepContentData.ContentType = "text";
-                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No image file found, falling back to text");
+                            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No image file found, falling back to text");
                         }
                     }
                 }
 
                 if (selectedNode.DataType?.ToLower() == "audio" && !string.IsNullOrEmpty(selectedReviewActionName))
                 {
-                    Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Processing audio node...");
+                    // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Processing audio node...");
                     // If contentValue looks like a file path, use it directly
                     if (!string.IsNullOrEmpty(contentValue) &&
                         (contentValue.Contains("\\") || contentValue.Contains("/")) &&
@@ -316,49 +316,49 @@ namespace CSimple.Services
                         // This looks like an audio file path, use it directly
                         stepContentData.Content = contentValue;
                         stepContentData.ContentType = "audio";
-                        Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using step-specific audio content directly: {contentValue}");
+                        // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using step-specific audio content directly: {contentValue}");
                     }
                     else if (actionItemTimestamp.HasValue)
                     {
                         // FIXED: Use the ActionItem timestamp for precise audio file correlation
-                        Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using ActionItem timestamp for audio search: {actionItemTimestamp.Value:yyyy-MM-dd HH:mm:ss.fff}");
+                        // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using ActionItem timestamp for audio search: {actionItemTimestamp.Value:yyyy-MM-dd HH:mm:ss.fff}");
                         string audioFilePath = selectedNode.FindClosestAudioFile(actionItemTimestamp.Value);
                         if (!string.IsNullOrEmpty(audioFilePath))
                         {
                             stepContentData.Content = audioFilePath;
                             stepContentData.ContentType = "audio";
-                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using timestamp-based audio file: {audioFilePath}");
+                            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using timestamp-based audio file: {audioFilePath}");
                         }
                         else
                         {
                             stepContentData.Content = "No audio file found for this step.";
                             stepContentData.ContentType = "text";
-                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No audio file found");
+                            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No audio file found");
                         }
                     }
                     else
                     {
                         // Fall back to generic audio segment if no timestamp
-                        Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No ActionItem timestamp available, falling back to generic audio segment");
+                        // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No ActionItem timestamp available, falling back to generic audio segment");
                         string audioSegmentPath = selectedNode.GetAudioSegment(DateTime.MinValue, DateTime.MinValue);
                         if (!string.IsNullOrEmpty(audioSegmentPath))
                         {
                             stepContentData.Content = audioSegmentPath;
                             stepContentData.ContentType = "audio";
-                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using generic audio segment: {audioSegmentPath}");
+                            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Using generic audio segment: {audioSegmentPath}");
                         }
                         else
                         {
                             stepContentData.Content = "No audio segment available for this step.";
                             stepContentData.ContentType = "text";
-                            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No audio segment found");
+                            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No audio segment found");
                         }
                     }
                 }
             }
 
-            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Final result - Type: {stepContentData.ContentType}, Content: {stepContentData.Content?.Substring(0, Math.Min(100, stepContentData.Content?.Length ?? 0))}...");
-            Debug.WriteLine($"[ActionReviewService.UpdateStepContent] === DEBUGGING SESSION END ===");
+            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] Final result - Type: {stepContentData.ContentType}, Content: {stepContentData.Content?.Substring(0, Math.Min(100, stepContentData.Content?.Length ?? 0))}...");
+            // Debug.WriteLine($"[ActionReviewService.UpdateStepContent] === DEBUGGING SESSION END ===");
             return stepContentData;
         }
 
@@ -396,32 +396,32 @@ namespace CSimple.Services
         /// </summary>
         private string GetStepSpecificContent(NodeViewModel nodeVM, ActionItem actionItem, string actionDescription, List<ActionFile> actionGroupFiles)
         {
-            Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Node: {nodeVM.Name} (DataType: {nodeVM.DataType}), EventType: {actionItem.EventType}, Description: {actionDescription?.Substring(0, Math.Min(100, actionDescription?.Length ?? 0))}...");
+            // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Node: {nodeVM.Name} (DataType: {nodeVM.DataType}), EventType: {actionItem.EventType}, Description: {actionDescription?.Substring(0, Math.Min(100, actionDescription?.Length ?? 0))}...");
 
             // For keyboard input nodes, only include keyboard-related events
             if (nodeVM.Name == "Keyboard Text (Input)" && (actionItem.EventType == 256 || actionItem.EventType == 257))
             {
-                Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Keyboard event matched for {nodeVM.Name}");
+                // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Keyboard event matched for {nodeVM.Name}");
                 return actionDescription;
             }
 
             // For mouse input nodes, only include mouse-related events  
             if (nodeVM.Name == "Mouse Text (Input)" && (actionItem.EventType == 512 || actionItem.EventType == 0x0200))
             {
-                Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Mouse event matched for {nodeVM.Name}");
+                // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Mouse event matched for {nodeVM.Name}");
                 return actionDescription;
             }
 
             // For image nodes, try multiple approaches to find content
             if (nodeVM.DataType == "image")
             {
-                Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Processing image node...");
+                // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Processing image node...");
 
                 // First, try to find associated image files by filename
                 var imageFile = actionGroupFiles.FirstOrDefault(f => actionDescription.ToLower().Contains(f.Filename.ToLower()));
                 if (imageFile != null)
                 {
-                    Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Found matching image file: {imageFile.Filename}");
+                    // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Found matching image file: {imageFile.Filename}");
                     return imageFile.Data; // Return the actual image data
                 }
 
@@ -435,11 +435,11 @@ namespace CSimple.Services
 
                 if (imageFileByExtension != null)
                 {
-                    Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Found image file by extension: {imageFileByExtension.Filename}");
+                    // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Found image file by extension: {imageFileByExtension.Filename}");
                     return imageFileByExtension.Data;
                 }
 
-                Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] No specific image file found, returning action description for timestamp matching");
+                // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] No specific image file found, returning action description for timestamp matching");
                 // If no specific image file found for this action, return the action description
                 // This allows the GetStepContent method to attempt timestamp-based image matching
                 return actionDescription;
@@ -448,13 +448,13 @@ namespace CSimple.Services
             // For audio and other file-based nodes, try to find matching files
             if (nodeVM.DataType == "audio" || nodeVM.DataType == "file")
             {
-                Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Processing audio/file node...");
+                // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Processing audio/file node...");
 
                 // First, try exact filename match
                 var matchingFile = actionGroupFiles.FirstOrDefault(f => actionDescription.ToLower().Contains(f.Filename.ToLower()));
                 if (matchingFile != null)
                 {
-                    Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Found matching audio file: {matchingFile.Filename}");
+                    // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Found matching audio file: {matchingFile.Filename}");
                     return matchingFile.Filename;
                 }
 
@@ -468,11 +468,11 @@ namespace CSimple.Services
 
                 if (audioFile != null)
                 {
-                    Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Found audio file by extension: {audioFile.Filename}");
+                    // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Found audio file by extension: {audioFile.Filename}");
                     return audioFile.Filename;
                 }
 
-                Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] No specific audio file found, returning action description");
+                // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] No specific audio file found, returning action description");
                 return actionDescription;
             }
 
@@ -480,18 +480,18 @@ namespace CSimple.Services
             // This prevents them from showing irrelevant action descriptions
             if (nodeVM.Name == "Keyboard Text (Input)" && !(actionItem.EventType == 256 || actionItem.EventType == 257))
             {
-                Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Non-keyboard event on keyboard node, returning empty");
+                // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Non-keyboard event on keyboard node, returning empty");
                 return ""; // Empty content for non-keyboard events on keyboard nodes
             }
 
             if (nodeVM.Name == "Mouse Text (Input)" && !(actionItem.EventType == 512 || actionItem.EventType == 0x0200))
             {
-                Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Non-mouse event on mouse node, returning empty");
+                // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Non-mouse event on mouse node, returning empty");
                 return ""; // Empty content for non-mouse events on mouse nodes  
             }
 
             // Default: return action description for other cases
-            Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Default case, returning action description");
+            // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Default case, returning action description");
             return actionDescription;
         }
     }
