@@ -2,7 +2,9 @@ using CSimple.Models;
 using CSimple.Services;
 using CSimple.Services.AppModeService;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Storage;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -35,6 +37,9 @@ namespace CSimple.ViewModels
         private readonly IChatManagementService _chatManagementService; // Add chat management service
         private readonly IMediaSelectionService _mediaSelectionService; // Add media selection service
         private readonly PipelineManagementService _pipelineManagementService; // Add pipeline management service
+        private readonly InputCaptureService _inputCaptureService; // Add input capture service for intelligence recording
+        private readonly MouseTrackingService _mouseTrackingService; // Add mouse tracking service
+        private readonly AudioCaptureService _audioCaptureService; // Add audio capture service
         // Consider injecting navigation and dialog services for better testability
 
         // Debounce mechanism for saving to prevent excessive saves
@@ -79,6 +84,7 @@ namespace CSimple.ViewModels
         private bool _recordKeyboardInputs = true;
         private PipelineData _selectedPipelineData = null; // Store the full pipeline data
         private DateTime _lastPipelineRefresh = DateTime.MinValue; // Track when pipelines were last loaded
+        private DateTime _lastMouseEventTime = DateTime.MinValue; // Track mouse event throttling for intelligence
 
         // --- Observable Properties ---
         public ObservableCollection<NeuralNetworkModel> AvailableModels { get; } = new();
@@ -270,6 +276,16 @@ namespace CSimple.ViewModels
                 OnPropertyChanged(nameof(IntelligenceStatusText));
                 OnPropertyChanged(nameof(IntelligenceStatusColor));
                 OnPropertyChanged(nameof(RecordingStatusIcon));
+
+                // Start or stop intelligence recording
+                if (value)
+                {
+                    StartIntelligenceRecording();
+                }
+                else
+                {
+                    StopIntelligenceRecording();
+                }
             });
         }
 
@@ -366,6 +382,7 @@ namespace CSimple.ViewModels
         public ICommand ClearPipelineChatCommand { get; }
         public ICommand RefreshPipelinesCommand { get; }
         public ICommand CreateNewPipelineCommand { get; }
+        public ICommand ToggleIntelligenceCommand { get; } // Add toggle intelligence command
 
         // Helper: Get download/delete button text for a model
         public string GetDownloadOrDeleteButtonText(string modelId)
@@ -378,7 +395,7 @@ namespace CSimple.ViewModels
         // Note: ModelCommunicationService handles model communication logic (extracted for maintainability)
         // Note: ModelExecutionService handles model execution with enhanced error handling (extracted for maintainability)
         // Note: ModelImportExportService handles model import/export and file operations (extracted for maintainability)
-        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, PipelineManagementService pipelineManagementService = null)
+        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, PipelineManagementService pipelineManagementService = null, InputCaptureService inputCaptureService = null, MouseTrackingService mouseTrackingService = null, AudioCaptureService audioCaptureService = null)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -394,6 +411,9 @@ namespace CSimple.ViewModels
             _chatManagementService = chatManagementService;
             _mediaSelectionService = mediaSelectionService;
             _pipelineManagementService = pipelineManagementService; // Optional dependency
+            _inputCaptureService = inputCaptureService; // Optional dependency for intelligence recording
+            _mouseTrackingService = mouseTrackingService; // Optional dependency for mouse tracking
+            _audioCaptureService = audioCaptureService; // Optional dependency for audio capture
 
             // Configure the media selection service UI delegates
             _mediaSelectionService.ShowAlert = ShowAlert;
@@ -417,6 +437,9 @@ namespace CSimple.ViewModels
             _modelImportExportService.StatusUpdated += status => CurrentModelStatus = status;
             _modelImportExportService.LoadingChanged += isLoading => IsLoading = isLoading;
             _modelImportExportService.ErrorOccurred += (message, ex) => HandleError(message, ex);
+
+            // Subscribe to input capture services for intelligence recording
+            SetupIntelligenceInputCapture();
 
             _pythonBootstrapper.ProgressChanged += (s, progress) =>
             {
@@ -505,6 +528,7 @@ namespace CSimple.ViewModels
             ClearPipelineChatCommand = new Command(ClearPipelineChat);
             RefreshPipelinesCommand = new Command(async () => await RefreshPipelinesAsync());
             CreateNewPipelineCommand = new Command(async () => await CreateNewPipelineAsync());
+            ToggleIntelligenceCommand = new Command(() => IsIntelligenceActive = !IsIntelligenceActive);
 
             // Load actual pipelines from OrientPage instead of placeholder data
             // This will be called in LoadDataAsync when the page appears
@@ -2697,6 +2721,333 @@ namespace CSimple.ViewModels
                 return "Pipeline not found";
 
             return $"Nodes: {pipeline.Nodes?.Count ?? 0}, Connections: {pipeline.Connections?.Count ?? 0}, Modified: {pipeline.LastModified:MM/dd/yyyy HH:mm}";
+        }
+
+        // --- Intelligence Recording Methods ---
+
+        private void SetupIntelligenceInputCapture()
+        {
+            try
+            {
+                // Setup input capture service event handlers if available
+                if (_inputCaptureService != null)
+                {
+                    _inputCaptureService.InputCaptured += OnInputCaptured;
+                    Debug.WriteLine("Intelligence: InputCaptureService events subscribed");
+                }
+
+                // Setup mouse tracking service event handlers if available
+                if (_mouseTrackingService != null)
+                {
+                    _mouseTrackingService.MouseMoved += OnMouseMoved;
+                    _mouseTrackingService.TouchInputReceived += OnTouchInputReceived;
+                    Debug.WriteLine("Intelligence: MouseTrackingService events subscribed");
+                }
+
+                // Setup audio capture service event handlers if available
+                if (_audioCaptureService != null)
+                {
+                    _audioCaptureService.FileCaptured += OnAudioFileCaptured;
+                    _audioCaptureService.PCLevelChanged += OnPCLevelChanged;
+                    _audioCaptureService.WebcamLevelChanged += OnWebcamLevelChanged;
+                    Debug.WriteLine("Intelligence: AudioCaptureService events subscribed");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error setting up intelligence input capture: {ex.Message}");
+            }
+        }
+
+        private void StartIntelligenceRecording()
+        {
+            try
+            {
+                AddPipelineChatMessage("🎯 Intelligence recording STARTED - Monitoring inputs...", false);
+                Debug.WriteLine("Intelligence: Starting input recording");
+
+                // Start input capture service if available
+                if (_inputCaptureService != null && RecordKeyboardInputs)
+                {
+                    _inputCaptureService.StartCapturing();
+                    Debug.WriteLine("Intelligence: Started keyboard/input capture");
+                }
+
+                // Start mouse tracking if available
+                if (_mouseTrackingService != null && RecordMouseInputs)
+                {
+                    // Mouse tracking needs a window handle - we'll use IntPtr.Zero for global tracking
+                    _mouseTrackingService.StartTracking(IntPtr.Zero);
+                    Debug.WriteLine("Intelligence: Started mouse tracking");
+                }
+
+                // Start audio capture if available
+                if (_audioCaptureService != null)
+                {
+                    // Start PC audio recording without saving to file (for intelligence monitoring)
+                    _audioCaptureService.StartPCAudioRecording(saveRecording: false);
+                    Debug.WriteLine("Intelligence: Started audio capture");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error starting intelligence recording: {ex.Message}");
+                AddPipelineChatMessage($"❌ Error starting intelligence recording: {ex.Message}", false);
+            }
+        }
+
+        private void StopIntelligenceRecording()
+        {
+            try
+            {
+                AddPipelineChatMessage("⏸️ Intelligence recording STOPPED", false);
+                Debug.WriteLine("Intelligence: Stopping input recording");
+
+                // Stop input capture service if available
+                if (_inputCaptureService != null)
+                {
+                    _inputCaptureService.StopCapturing();
+                    Debug.WriteLine("Intelligence: Stopped keyboard/input capture");
+                }
+
+                // Stop mouse tracking if available
+                if (_mouseTrackingService != null)
+                {
+                    _mouseTrackingService.StopTracking();
+                    Debug.WriteLine("Intelligence: Stopped mouse tracking");
+                }
+
+                // Stop audio capture if available
+                if (_audioCaptureService != null)
+                {
+                    _audioCaptureService.StopPCAudioRecording();
+                    Debug.WriteLine("Intelligence: Stopped audio capture");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error stopping intelligence recording: {ex.Message}");
+                AddPipelineChatMessage($"❌ Error stopping intelligence recording: {ex.Message}", false);
+            }
+        }
+
+        // Event handler for captured inputs
+        private void OnInputCaptured(string inputData)
+        {
+            try
+            {
+                if (!IsIntelligenceActive)
+                    return;
+
+                // Parse the input data and format it for display in pipeline chat
+                if (!string.IsNullOrEmpty(inputData))
+                {
+                    // Format the input for pipeline chat display
+                    var formattedInput = FormatInputForPipelineChat(inputData);
+                    if (!string.IsNullOrEmpty(formattedInput))
+                    {
+                        AddPipelineChatMessage(formattedInput, false);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error processing captured input: {ex.Message}");
+            }
+        }
+
+        // Event handler for mouse movement
+        private void OnMouseMoved(Point position)
+        {
+            try
+            {
+                if (!IsIntelligenceActive || !RecordMouseInputs)
+                    return;
+
+                // Throttle mouse movement messages to avoid spam
+                var now = DateTime.Now;
+                if ((now - _lastMouseEventTime).TotalMilliseconds > 100) // Throttle to 10 FPS
+                {
+                    AddPipelineChatMessage($"🖱️ Mouse moved to ({position.X:F0}, {position.Y:F0})", false);
+                    _lastMouseEventTime = now;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error processing mouse movement: {ex.Message}");
+            }
+        }
+
+        // Event handler for touch input
+        private void OnTouchInputReceived(object touchEvent)
+        {
+            try
+            {
+                if (!IsIntelligenceActive)
+                    return;
+
+                AddPipelineChatMessage("👆 Touch input detected", false);
+                Debug.WriteLine("Intelligence: Touch input received");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error processing touch input: {ex.Message}");
+            }
+        }
+
+        // Event handler for audio file capture
+        private void OnAudioFileCaptured(string filePath)
+        {
+            try
+            {
+                if (!IsIntelligenceActive)
+                    return;
+
+                var fileName = Path.GetFileName(filePath);
+                AddPipelineChatMessage($"🎤 Audio captured: {fileName}", false);
+                Debug.WriteLine($"Intelligence: Audio file captured - {filePath}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error processing audio file capture: {ex.Message}");
+            }
+        }
+
+        // Event handler for PC audio level changes
+        private void OnPCLevelChanged(float level)
+        {
+            try
+            {
+                if (!IsIntelligenceActive)
+                    return;
+
+                // Only log significant audio level changes to avoid spam
+                if (level > 0.1f) // Only log when audio level is above 10%
+                {
+                    AddPipelineChatMessage($"🔊 PC Audio level: {level:P0}", false);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error processing PC audio level: {ex.Message}");
+            }
+        }
+
+        // Event handler for webcam audio level changes
+        private void OnWebcamLevelChanged(float level)
+        {
+            try
+            {
+                if (!IsIntelligenceActive)
+                    return;
+
+                // Only log significant audio level changes to avoid spam
+                if (level > 0.1f) // Only log when audio level is above 10%
+                {
+                    AddPipelineChatMessage($"🎥 Webcam Audio level: {level:P0}", false);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error processing webcam audio level: {ex.Message}");
+            }
+        }
+
+        // Format input data for display in pipeline chat
+        private string FormatInputForPipelineChat(string inputData)
+        {
+            try
+            {
+                // Try to parse as JSON first (many input services use JSON format)
+                if (inputData.StartsWith("{") && inputData.EndsWith("}"))
+                {
+                    try
+                    {
+                        var inputObj = JsonConvert.DeserializeObject<dynamic>(inputData);
+
+                        // Check for different input types
+                        if (inputObj.Type != null)
+                        {
+                            string type = inputObj.Type.ToString();
+                            switch (type.ToLower())
+                            {
+                                case "keypress":
+                                case "keydown":
+                                case "keyup":
+                                    return $"⌨️ Key: {inputObj.Key} ({type})";
+
+                                case "mousemove":
+                                    return $"🖱️ Mouse: ({inputObj.X}, {inputObj.Y})";
+
+                                case "mouseclick":
+                                case "mousedown":
+                                case "mouseup":
+                                    return $"🖱️ Click: {inputObj.Button} at ({inputObj.X}, {inputObj.Y})";
+
+                                case "scroll":
+                                    return $"🖱️ Scroll: {inputObj.Direction} at ({inputObj.X}, {inputObj.Y})";
+
+                                case "audio":
+                                    return $"🎤 Audio captured: {inputObj.Duration}ms";
+
+                                case "image":
+                                case "screenshot":
+                                    return $"📸 Image captured: {inputObj.Width}x{inputObj.Height}";
+
+                                default:
+                                    return $"📝 Input: {type} - {inputData}";
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // If JSON parsing fails, treat as plain text
+                    }
+                }
+
+                // For non-JSON input data, format as plain text
+                return $"📝 Input: {inputData}";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error formatting input for pipeline chat: {ex.Message}");
+                return $"📝 Input: {inputData}";
+            }
+        }
+
+        // Method to handle image capture (called when intelligence is active)
+        public void CaptureCurrentImage()
+        {
+            try
+            {
+                if (!IsIntelligenceActive)
+                    return;
+
+                // This would typically capture a screenshot or current image
+                AddPipelineChatMessage("📸 Image captured and processed", false);
+                Debug.WriteLine("Intelligence: Image captured");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error capturing image: {ex.Message}");
+            }
+        }
+
+        // Method to handle audio capture events
+        public void OnAudioCaptured(byte[] audioData, int duration)
+        {
+            try
+            {
+                if (!IsIntelligenceActive)
+                    return;
+
+                AddPipelineChatMessage($"🎤 Audio captured: {duration}ms, {audioData?.Length ?? 0} bytes", false);
+                Debug.WriteLine($"Intelligence: Audio captured - {duration}ms, {audioData?.Length ?? 0} bytes");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error processing captured audio: {ex.Message}");
+            }
         }
     }
 }
