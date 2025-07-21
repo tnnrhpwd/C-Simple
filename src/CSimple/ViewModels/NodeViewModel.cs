@@ -28,6 +28,7 @@ namespace CSimple.ViewModels
         private string _classification; // Added for text model classification
         private string _modelPath; // Added for model path storage
         private string _originalName; // Added to store name before classification suffix
+        private string _saveFilePath; // Added for file node save path
 
         public string Id { get; }
         public string Name { get; set; } // Allow setting name if needed
@@ -42,6 +43,12 @@ namespace CSimple.ViewModels
         {
             get => _originalName;
             set => SetProperty(ref _originalName, value);
+        }
+
+        public string SaveFilePath // Added Property for file node routing
+        {
+            get => _saveFilePath;
+            set => SetProperty(ref _saveFilePath, value);
         }
 
         public PointF Position
@@ -82,6 +89,10 @@ namespace CSimple.ViewModels
         // --- Ensemble Properties --- 
         public bool IsModel => Type == NodeType.Model;
 
+        // --- File Node Properties ---
+        public bool IsFileNode => Type == NodeType.File;
+        public string SaveFileDisplayPath => string.IsNullOrEmpty(SaveFilePath) ? "No save file" : Path.GetFileName(SaveFilePath);
+
         public ObservableCollection<string> AvailableEnsembleMethods
         {
             get => _availableEnsembleMethods;
@@ -114,8 +125,8 @@ namespace CSimple.ViewModels
         // --- End Text Model Classification ---
 
 
-        // Modified Constructor to accept ID as string and handle OriginalName
-        public NodeViewModel(string id, string name, NodeType type, PointF position, string dataType = "unknown", string originalModelId = null, string modelPath = null, string classification = null, string originalName = null)
+        // Modified Constructor to accept ID as string and handle OriginalName and SaveFilePath
+        public NodeViewModel(string id, string name, NodeType type, PointF position, string dataType = "unknown", string originalModelId = null, string modelPath = null, string classification = null, string originalName = null, string saveFilePath = null)
         {
             Id = id ?? Guid.NewGuid().ToString(); // Use provided ID or generate new
             Type = type;
@@ -126,6 +137,7 @@ namespace CSimple.ViewModels
             ModelPath = modelPath; // Store model path
             _classification = classification; // Store initial classification without triggering update yet
             _originalName = originalName ?? name; // Store original name or use initial name
+            _saveFilePath = saveFilePath; // Store save file path for file nodes
             Name = name; // Set initial name (might be updated immediately if classification exists)
 
             // Update name based on initial classification if provided

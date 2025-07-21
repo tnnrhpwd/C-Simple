@@ -299,8 +299,8 @@ namespace CSimple.Pages
                 RectF textRect = new RectF(nodeRect.X + padding, nodeRect.Y + padding, nodeRect.Width - 2 * padding, nodeRect.Height - 2 * padding);
                 canvas.DrawString(node.Name, textRect, HorizontalAlignment.Center, VerticalAlignment.Center, TextFlow.OverflowBounds); // Use OverflowBounds
 
-                // Draw Connection Handle (+) for Input and Model nodes
-                if (node.Type == NodeType.Input || node.Type == NodeType.Model)
+                // Draw Connection Handle (+) for Input, Model, and File nodes
+                if (node.Type == NodeType.Input || node.Type == NodeType.Model || node.Type == NodeType.File)
                 {
                     RectF handleRect = GetConnectionHandleRect(node);
                     canvas.FillColor = handleColor;
@@ -387,6 +387,14 @@ namespace CSimple.Pages
             if (node.Type == NodeType.Output)
             {
                 return outputNodeColor;
+            }
+
+            // 2. Handle File Nodes with a distinct color
+            if (node.Type == NodeType.File)
+            {
+                // Use a purple/lavender color for file nodes
+                Color fileNodeColor = isDarkTheme ? Color.FromArgb("#3A2F4A") : Color.FromArgb("#F0E6FF");
+                return fileNodeColor;
             }
 
             // 2. Prioritize explicit DataType property if specific and recognized
@@ -558,7 +566,7 @@ namespace CSimple.Pages
             // 1. Check if a connection handle was tapped FIRST
             foreach (var node in _viewModel.Nodes)
             {
-                if (node.Type == NodeType.Input || node.Type == NodeType.Model)
+                if (node.Type == NodeType.Input || node.Type == NodeType.Model || node.Type == NodeType.File)
                 {
                     RectF handleRect = GetConnectionHandleRect(node);
                     handleRect.Inflate(2, 2); // Add tolerance

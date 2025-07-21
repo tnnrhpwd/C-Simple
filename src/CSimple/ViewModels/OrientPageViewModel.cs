@@ -1,6 +1,7 @@
 using CSimple.Models;
 using CSimple.Services;
 using Microsoft.Maui.Graphics;
+using Microsoft.Maui.Storage;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -58,6 +59,7 @@ namespace CSimple.ViewModels
 
                     // Update command can execute states
                     (GenerateCommand as Command)?.ChangeCanExecute();
+                    (SelectSaveFileCommand as Command)?.ChangeCanExecute();
                 }
             }
         }
@@ -335,6 +337,7 @@ namespace CSimple.ViewModels
         public ICommand RunAllModelsCommand { get; }
         public ICommand RunAllNodesCommand { get; }
         public ICommand SleepMemoryCompressionCommand { get; }
+        public ICommand SelectSaveFileCommand { get; }
 
 
         // --- UI Interaction Delegates ---
@@ -447,6 +450,9 @@ namespace CSimple.ViewModels
 
             // Initialize SleepMemoryCompressionCommand
             SleepMemoryCompressionCommand = new Command(async () => await ExecuteSleepMemoryCompressionAsync(), () => true);
+
+            // Initialize SelectSaveFileCommand
+            SelectSaveFileCommand = new Command(async () => await ExecuteSelectSaveFileAsync(), () => SelectedNode?.IsFileNode == true);
 
             // Initialize Audio commands
             PlayAudioCommand = new Command(() => PlayAudio(), CanPlayAudio);
@@ -890,7 +896,7 @@ namespace CSimple.ViewModels
             AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "webcam_audio", ModelId = "Webcam Audio (Input)" });
             AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "keyboard_text", ModelId = "Keyboard Text (Input)" });
             AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "mouse_text", ModelId = "Mouse Text (Input)" });
-            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "memory_node", ModelId = "Memory (Node)" });
+            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "memory_node", ModelId = "Memory (File)" });
         }
 
         // Helper method to add default examples as a fallback
@@ -2781,6 +2787,9 @@ namespace CSimple.ViewModels
                 var currentStep = stepIndex + 1; // Convert to 1-based
                 modelNode.SetStepOutput(currentStep, resultContentType, result);
 
+                // Route output to connected file nodes
+                await RouteOutputToConnectedFileNodesAsync(modelNode, resultContentType, result, currentStep);
+
                 // Save individual result to file
                 await SaveStepResultAsync(runDir, modelNode.Name, stepIndex, input, result, resultContentType, actionItems);
 
@@ -3033,6 +3042,9 @@ namespace CSimple.ViewModels
                 SelectedNode.SetStepOutput(currentStep, resultContentType, result);
                 Debug.WriteLine($"💾 [ExecuteGenerateAsync] Stored output in model node '{SelectedNode.Name}' at step {currentStep}");
 
+                // Route output to connected file nodes
+                await RouteOutputToConnectedFileNodesAsync(SelectedNode, resultContentType, result, currentStep);
+
                 // Update final status
                 ExecutionStatus = $"Completed: {SelectedNode.Name}";
                 ModelsExecutedCount = 1;
@@ -3097,7 +3109,107 @@ namespace CSimple.ViewModels
             return _ensembleModelService.DetermineResultContentType(model, result);
         }
 
-        // IDisposable implementation
+        // --- File Selection Command Implementation ---
+        private async Task ExecuteSelectSaveFileAsync()
+        {
+            try
+            {
+                if (SelectedNode == null || !SelectedNode.IsFileNode)
+                {
+                    await ShowAlert?.Invoke("Error", "Please select a file node first.", "OK");
+                    return;
+                }
+
+                Debug.WriteLine($"🗂️ [ExecuteSelectSaveFileAsync] Opening file picker for node: {SelectedNode.Name}");
+
+                // Use the MAUI FilePicker to select a file for saving
+                var fileResult = await FilePicker.PickAsync(new PickOptions
+                {
+                    PickerTitle = "Select save file for text output",
+                    FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                    {
+                        { DevicePlatform.WinUI, new[] { ".txt", ".md", ".log" } },
+                        { DevicePlatform.Android, new[] { "text/*" } },
+                        { DevicePlatform.iOS, new[] { "public.text" } },
+                        { DevicePlatform.macOS, new[] { "txt", "md", "log" } }
+                    })
+                });
+
+                if (fileResult != null)
+                {
+                    // Update the selected node's save file path
+                    SelectedNode.SaveFilePath = fileResult.FullPath;
+
+                    Debug.WriteLine($"✅ [ExecuteSelectSaveFileAsync] File selected: {fileResult.FullPath}");
+
+                    // Persist the pipeline to save the file selection
+                    await SaveCurrentPipelineAsync();
+
+                    Debug.WriteLine($"💾 [ExecuteSelectSaveFileAsync] Pipeline saved with updated file path");
+                }
+                else
+                {
+                    Debug.WriteLine($"❌ [ExecuteSelectSaveFileAsync] File selection cancelled");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ [ExecuteSelectSaveFileAsync] Error selecting file: {ex.Message}");
+                await ShowAlert?.Invoke("Error", $"Failed to select file: {ex.Message}", "OK");
+            }
+        }
+
+        // --- Output Routing Implementation ---
+        private async Task RouteOutputToConnectedFileNodesAsync(NodeViewModel sourceNode, string contentType, string content, int stepIndex)
+        {
+            try
+            {
+                // Only route text outputs from text model nodes
+                if (contentType?.ToLowerInvariant() != "text" || sourceNode.Type != NodeType.Model)
+                {
+                    return;
+                }
+
+                // Find all file nodes connected as outputs from this model node
+                var connectedFileNodes = Connections
+                    .Where(c => c.SourceNodeId == sourceNode.Id)
+                    .Select(c => Nodes.FirstOrDefault(n => n.Id == c.TargetNodeId))
+                    .Where(n => n != null && n.IsFileNode && !string.IsNullOrEmpty(n.SaveFilePath))
+                    .ToList();
+
+                if (connectedFileNodes.Count == 0)
+                {
+                    Debug.WriteLine($"📄 [RouteOutputToConnectedFileNodes] No connected file nodes with save paths found for {sourceNode.Name}");
+                    return;
+                }
+
+                Debug.WriteLine($"📄 [RouteOutputToConnectedFileNodes] Routing output from {sourceNode.Name} to {connectedFileNodes.Count} file nodes");
+
+                foreach (var fileNode in connectedFileNodes)
+                {
+                    try
+                    {
+                        // Prepare the output text with metadata
+                        var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                        var outputText = $"\n--- Output from {sourceNode.Name} (Step {stepIndex}) at {timestamp} ---\n{content}\n";
+
+                        // Append to the file
+                        await File.AppendAllTextAsync(fileNode.SaveFilePath, outputText);
+
+                        Debug.WriteLine($"✅ [RouteOutputToConnectedFileNodes] Appended output to file: {fileNode.SaveFilePath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"⚠️ [RouteOutputToConnectedFileNodes] Error writing to file {fileNode.SaveFilePath}: {ex.Message}");
+                        // Continue with other file nodes even if one fails
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ [RouteOutputToConnectedFileNodes] Error in output routing: {ex.Message}");
+            }
+        }        // IDisposable implementation
         public void Dispose()
         {
             // Clean up execution timer

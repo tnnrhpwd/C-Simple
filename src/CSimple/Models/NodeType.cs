@@ -11,6 +11,7 @@ namespace CSimple.Models
         Processor,
         Junction,
         Splitter,
-        Merger
+        Merger,
+        File
     }
 }

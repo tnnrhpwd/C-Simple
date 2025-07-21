@@ -33,6 +33,7 @@ namespace CSimple.Models
         public string DataType { get; set; } // Add this if not already present
         public string Classification { get; set; } // ADDED: Store classification
         public string OriginalName { get; set; } // ADDED: Store original name without classification
+        public string SaveFilePath { get; set; } // ADDED: Store save file path for file nodes
         public List<(string Type, string Value)> ActionSteps { get; set; } = new List<(string, string)>(); // ADDED: Store generated outputs
 
         // Parameterless constructor for deserialization
@@ -52,6 +53,7 @@ namespace CSimple.Models
             DataType = vm.DataType;
             Classification = vm.Classification;
             OriginalName = vm.OriginalName; // Assign OriginalName
+            SaveFilePath = vm.SaveFilePath; // Assign SaveFilePath for file nodes
             ActionSteps = vm.ActionSteps?.ToList() ?? new List<(string, string)>(); // Copy ActionSteps
         }
 
@@ -68,12 +70,13 @@ namespace CSimple.Models
                 null, // OriginalModelId - assuming not stored here, pass null or retrieve if needed
                 this.ModelPath, // Pass ModelPath
                 this.Classification, // Pass Classification
-                this.OriginalName // Pass OriginalName
+                this.OriginalName, // Pass OriginalName
+                this.SaveFilePath // Pass SaveFilePath for file nodes
             )
             {
                 // Set properties not handled by constructor (Size is handled by constructor default)
                 Size = new SizeF(this.SizeWidth, this.SizeHeight),
-                // ModelPath, DataType, Classification, OriginalName are now handled by constructor
+                // ModelPath, DataType, Classification, OriginalName, SaveFilePath are now handled by constructor
                 ActionSteps = this.ActionSteps?.ToList() ?? new List<(string, string)>() // Restore ActionSteps
             };
             return vm;

@@ -21,20 +21,27 @@ namespace CSimple.Services
 
         public async Task AddModelNodeAsync(ObservableCollection<NodeViewModel> nodes, string modelId, string modelName, NodeType modelType, PointF position)
         {
+            // Determine if this is a file node to pass appropriate saveFilePath
+            string saveFilePath = modelType == NodeType.File ? null : null; // File nodes start with no file selected
+
             var newNode = new NodeViewModel(
                 Guid.NewGuid().ToString(),
                 modelName,
                 modelType,
                 position,
-                DetermineDataTypeFromName(modelName) // Set DataType based on name
+                DetermineDataTypeFromName(modelName), // Set DataType based on name
+                modelId, // originalModelId
+                modelId, // modelPath
+                null, // classification
+                null, // originalName
+                saveFilePath // saveFilePath for file nodes
             )
             {
-                Size = new SizeF(180, 60),
-                ModelPath = modelId
+                Size = new SizeF(180, 60)
             };
 
             nodes.Add(newNode);
-            Debug.WriteLine($"Added node: {newNode.Name} at position {position.X},{position.Y}");
+            Debug.WriteLine($"Added node: {newNode.Name} (Type: {modelType}) at position {position.X},{position.Y}");
             // await SaveCurrentPipelineAsync(); // Ensure this is called from the ViewModel
         }
 
@@ -135,9 +142,9 @@ namespace CSimple.Services
             if (lowerName.Contains("output") || lowerName.Contains("display") || lowerName.Contains("speaker"))
                 return NodeType.Output;
 
-            // Memory node detection
-            if (lowerName.Contains("memory"))
-                return NodeType.Processor;
+            // Memory node detection - now classified as File type
+            if (lowerName.Contains("memory") || lowerName.Contains("file"))
+                return NodeType.File;
 
             return NodeType.Model; // Default to Model
         }
