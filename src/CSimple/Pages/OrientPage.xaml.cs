@@ -24,6 +24,11 @@ namespace CSimple.Pages
         private bool _isDrawingConnection = false;
         private PointF _connectionEndPoint;
 
+        // Panning functionality for map-style navigation
+        private bool _isPanning = false;
+        private PointF _panStartPoint;
+        private PointF _cameraOffset = new PointF(0, 0); // Camera offset for panning
+
         // Define handle size
         private const float HandleSize = 14f;
         private const float HandleOffset = 5f; // Offset below the node
@@ -132,6 +137,10 @@ namespace CSimple.Pages
         public void Draw(ICanvas canvas, RectF dirtyRect)
         {
             if (_viewModel == null) return;
+
+            // Apply camera offset for panning
+            canvas.SaveState();
+            canvas.Translate(_cameraOffset.X, _cameraOffset.Y);
 
             // Debug log for step content visibility
             // Debug.WriteLine($"[Draw] CurrentActionStep: {_viewModel.CurrentActionStep}");
@@ -313,6 +322,9 @@ namespace CSimple.Pages
 
             // 4. Draw Legend
             DrawLegend(canvas, dirtyRect, legendBackgroundColor, legendTextColor);
+
+            // Restore canvas state after applying camera offset
+            canvas.RestoreState();
         }
 
         // Helper to draw a simplified arrowhead (triangle)
@@ -537,6 +549,9 @@ namespace CSimple.Pages
         void OnCanvasStartInteraction(object sender, TouchEventArgs e)
         {
             PointF touchPoint = e.Touches[0];
+            // Transform touch point to account for camera offset
+            PointF worldTouchPoint = new PointF(touchPoint.X - _cameraOffset.X, touchPoint.Y - _cameraOffset.Y);
+
             NodeViewModel nodeUnderHandle = null;
             bool handleTapped = false;
 
@@ -548,7 +563,7 @@ namespace CSimple.Pages
                     RectF handleRect = GetConnectionHandleRect(node);
                     handleRect.Inflate(2, 2); // Add tolerance
 
-                    if (handleRect.Contains(touchPoint))
+                    if (handleRect.Contains(worldTouchPoint))
                     {
                         nodeUnderHandle = node;
                         handleTapped = true;
@@ -562,8 +577,9 @@ namespace CSimple.Pages
                 // Start connection drawing from the handle
                 _viewModel.StartConnection(nodeUnderHandle);
                 _isDrawingConnection = true;
-                _connectionEndPoint = touchPoint; // Initial end point
+                _connectionEndPoint = worldTouchPoint; // Initial end point
                 _draggedNode = null; // Don't drag if starting connection
+                _isPanning = false; // Don't pan if starting connection
                 _viewModel.SelectedNode = nodeUnderHandle; // Select the node whose handle was tapped
                 Debug.WriteLine($"Started connection from handle of {nodeUnderHandle.Name}");
                 if (_viewModel.SelectedNode != null)
@@ -575,15 +591,16 @@ namespace CSimple.Pages
             else
             {
                 // 2. If no handle tapped, check if a node body was tapped
-                var tappedNode = _viewModel.GetNodeAtPoint(touchPoint); // This should only check node body now
+                var tappedNode = _viewModel.GetNodeAtPoint(worldTouchPoint); // This should only check node body now
 
                 if (tappedNode != null)
                 {
                     // Select/Drag the node
                     _viewModel.SelectedNode = tappedNode;
                     _draggedNode = tappedNode;
-                    _dragStartPoint = touchPoint;
+                    _dragStartPoint = touchPoint; // Use screen coordinates for dragging
                     _isDrawingConnection = false; // Ensure connection drawing is off
+                    _isPanning = false; // Don't pan if dragging node
                     Debug.WriteLine($"Selected/Dragging node {tappedNode.Name}");
                     if (_viewModel.SelectedNode != null)
                     {
@@ -592,13 +609,17 @@ namespace CSimple.Pages
                 }
                 else
                 {
-                    // 3. Tapped empty space
+                    // 3. Tapped empty space - start panning
                     _viewModel.SelectedNode = null;
-                    Debug.WriteLine($"[OnCanvasStartInteraction] SelectedNode set to null (empty space tap)");
+                    Debug.WriteLine($"[OnCanvasStartInteraction] SelectedNode set to null (empty space tap) - starting pan");
                     _draggedNode = null;
                     _viewModel.CancelConnection();
                     _isDrawingConnection = false;
-                    Debug.WriteLine("Tapped empty space.");
+
+                    // Start panning
+                    _isPanning = true;
+                    _panStartPoint = touchPoint; // Use screen coordinates for panning
+                    Debug.WriteLine("Started panning mode.");
                 }
             }
 
@@ -627,15 +648,30 @@ namespace CSimple.Pages
             }
             else if (_isDrawingConnection)
             {
-                _connectionEndPoint = currentPoint;
+                // Transform touch point to world coordinates for connection drawing
+                PointF worldCurrentPoint = new PointF(currentPoint.X - _cameraOffset.X, currentPoint.Y - _cameraOffset.Y);
+                _connectionEndPoint = worldCurrentPoint;
                 // _viewModel.UpdatePotentialConnection(currentPoint); // Keep if VM uses it
                 NodeCanvas.Invalidate(); // Redraw temporary line
+            }
+            else if (_isPanning)
+            {
+                // Calculate pan delta and update camera offset
+                float deltaX = currentPoint.X - _panStartPoint.X;
+                float deltaY = currentPoint.Y - _panStartPoint.Y;
+
+                _cameraOffset = new PointF(_cameraOffset.X + deltaX, _cameraOffset.Y + deltaY);
+                _panStartPoint = currentPoint; // Update start point for next delta
+
+                NodeCanvas.Invalidate(); // Request redraw with new camera position
+                Debug.WriteLine($"Panning: offset now ({_cameraOffset.X}, {_cameraOffset.Y})");
             }
         }
 
         async void OnCanvasEndInteraction(object sender, TouchEventArgs e) // Made async
         {
             PointF endPoint = e.Touches[0]; // Use the first touch point
+            PointF worldEndPoint = new PointF(endPoint.X - _cameraOffset.X, endPoint.Y - _cameraOffset.Y); // Transform to world coordinates
             Debug.WriteLine($"EndInteraction at {endPoint}. IsDrawingConnection: {_isDrawingConnection}");
 
             if (_isDrawingConnection)
@@ -645,7 +681,7 @@ namespace CSimple.Pages
                 float tolerance = 20f; // Increased tolerance significantly for testing
 
                 // Manually check for target node instead of relying solely on ViewModel method
-                Debug.WriteLine($"--- Checking nodes at EndPoint {endPoint} with tolerance {tolerance} ---");
+                Debug.WriteLine($"--- Checking nodes at WorldEndPoint {worldEndPoint} with tolerance {tolerance} ---");
                 foreach (var node in _viewModel.Nodes)
                 {
                     // Create a slightly larger rectangle for hit testing
@@ -654,9 +690,9 @@ namespace CSimple.Pages
 
                     Debug.WriteLine($"Checking Node: {node.Name}, Bounds (Inflated): {nodeBounds}");
 
-                    if (nodeBounds.Contains(endPoint))
+                    if (nodeBounds.Contains(worldEndPoint))
                     {
-                        Debug.WriteLine($"   -> EndPoint {endPoint} IS within bounds of {node.Name}.");
+                        Debug.WriteLine($"   -> WorldEndPoint {worldEndPoint} IS within bounds of {node.Name}.");
                         // Ensure we are not connecting a node to itself (unless allowed by VM logic)
                         if (_viewModel._temporaryConnectionState is NodeViewModel sourceNode && sourceNode.Id != node.Id)
                         {
@@ -703,8 +739,15 @@ namespace CSimple.Pages
                 // No need to call FinalizeNodeMove here anymore.
                 await _viewModel.FinalizeNodeMove(); // Re-enabled this call
             }
+            else if (_isPanning)
+            {
+                Debug.WriteLine("Ended panning mode.");
+                // Panning is complete, no additional action needed
+            }
 
+            // Reset all interaction states
             _draggedNode = null; // Stop dragging regardless of connection state
+            _isPanning = false; // Stop panning
             // Invalidation should happen automatically due to CollectionChanged,
             // but an explicit call ensures redraw after state changes.
             NodeCanvas.Invalidate();
@@ -716,6 +759,7 @@ namespace CSimple.Pages
             Debug.WriteLine("CancelInteraction triggered.");
             // Handle cancellation (e.g., touch moved off screen)
             _draggedNode = null;
+            _isPanning = false; // Stop panning
             if (_isDrawingConnection)
             {
                 Debug.WriteLine("Cancelling connection drawing due to CancelInteraction.");
