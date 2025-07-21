@@ -92,28 +92,6 @@
                                           VerticalOptions="Center" />
                             </Grid>
                      </Frame>
-                     <!-- Voice Assistant Button -->
-                     <Button ImageSource="{Binding VoiceAssistantIcon}"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
-                                   BorderColor="Transparent"
-                                   CornerRadius="22"
-                                   HeightRequest="44"
-                                   WidthRequest="44"
-                                   HorizontalOptions="Center"
-                                   Command="{Binding VoiceAssistantCommand}">
-                            <Button.Shadow>
-                                   <Shadow Brush="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                                 Offset="0,2"
-                                                 Radius="4"
-                                                 Opacity="0.3" />
-                            </Button.Shadow>
-                     </Button>
-                     <Label Text="Voice"
-                               FontSize="10"
-                               FontAttributes="Bold"
-                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
-                               HorizontalOptions="Center" />
-                     
                      <!-- Online Mode Toggle -->
                      <Frame Padding="10,8"
                                CornerRadius="15"
