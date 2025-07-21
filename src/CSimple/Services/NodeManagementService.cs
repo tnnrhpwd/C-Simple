@@ -135,6 +135,10 @@ namespace CSimple.Services
             if (lowerName.Contains("output") || lowerName.Contains("display") || lowerName.Contains("speaker"))
                 return NodeType.Output;
 
+            // Memory node detection
+            if (lowerName.Contains("memory"))
+                return NodeType.Processor;
+
             return NodeType.Model; // Default to Model
         }
 
@@ -151,6 +155,10 @@ namespace CSimple.Services
         public string DetermineDataTypeFromName(string nodeName)
         {
             string lowerName = nodeName.ToLowerInvariant();
+
+            // Memory nodes (typically handle mixed data types)
+            if (lowerName.Contains("memory"))
+                return "text"; // Default to text for memory nodes, can be changed via UI
 
             // Text models
             if (lowerName.Contains("text") ||
