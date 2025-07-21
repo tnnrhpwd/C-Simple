@@ -27,57 +27,19 @@
                        FontSize="{StaticResource FontSizeTitle}"
                        FontAttributes="Bold"
                        HorizontalOptions="Center" />
-                <!-- Mode Toggle Panel -->
-                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                <!-- Intelligent Pipeline Interaction Section -->
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
                        CornerRadius="{StaticResource CornerRadiusLarge}"
                        Padding="{StaticResource CardPadding}">
                     <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
-                        <Label Text="AI Model Operation Modes"
+                        <Label Text="Intelligent Pipeline Interaction"
                                FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold" />
-                        <Grid ColumnDefinitions="*,*"
-                              ColumnSpacing="{StaticResource SpacingMedium}">
-                            <Frame Grid.Column="0"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
-                                   Padding="{StaticResource CardPadding}"
-                                   CornerRadius="{StaticResource CornerRadiusMedium}">
-                                <VerticalStackLayout>
-                                    <Label Text="General Assistant Mode"
-                                           FontAttributes="Bold"
-                                           HorizontalOptions="Center" />
-                                    <Label Text="Watches all inputs and responds based on learned patterns"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           HorizontalOptions="Center"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
-                                    <Switch IsToggled="{Binding IsGeneralModeActive, Mode=TwoWay}"
-                                            OnColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                            HorizontalOptions="Center"
-                                            Toggled="OnGeneralModeToggled" />
-                                </VerticalStackLayout>
-                            </Frame>
-                            <Frame Grid.Column="1"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryExtraLight}, Dark={StaticResource SecondaryDark}}"
-                                   Padding="{StaticResource CardPadding}"
-                                   CornerRadius="{StaticResource CornerRadiusMedium}">
-                                <VerticalStackLayout>
-                                    <Label Text="Specific Goal Mode"
-                                           FontAttributes="Bold"
-                                           HorizontalOptions="Center" />
-                                    <Label Text="Execute predefined models for specific tasks"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           HorizontalOptions="Center"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
-                                    <Switch IsToggled="{Binding IsSpecificModeActive, Mode=TwoWay}"
-                                            OnColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
-                                            HorizontalOptions="Center"
-                                            Toggled="OnSpecificModeToggled" />
-                                </VerticalStackLayout>
-                            </Frame>
-                        </Grid>
-                        <!-- Status Display -->
+                        <!-- Status Display Section -->
                         <Frame BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
                                CornerRadius="{StaticResource CornerRadiusSmall}"
-                               Padding="{StaticResource CardContentPadding}">
+                               Padding="{StaticResource CardContentPadding}"
+                               Margin="0,0,0,16">
                             <VerticalStackLayout>
                                 <Label Text="System Status"
                                        FontSize="{StaticResource FontSizeSmall}"
@@ -90,16 +52,6 @@
                                        TextColor="{Binding ActiveModelsCount, Converter={StaticResource IntToColorConverter}, ConverterParameter=0|{StaticResource Error}|{StaticResource Success}}" />
                             </VerticalStackLayout>
                         </Frame>
-                    </VerticalStackLayout>
-                </Frame>
-                <!-- Intelligent Pipeline Interaction Section -->
-                <Frame BorderColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
-                       CornerRadius="{StaticResource CornerRadiusLarge}"
-                       Padding="{StaticResource CardPadding}">
-                    <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
-                        <Label Text="Intelligent Pipeline Interaction"
-                               FontSize="{StaticResource FontSizeSubtitle}"
-                               FontAttributes="Bold" />
                         <!-- Pipeline Selector and Intelligence Toggle -->
                         <Grid ColumnDefinitions="*,Auto,Auto"
                               ColumnSpacing="{StaticResource SpacingMedium}">
@@ -148,32 +100,6 @@
                                            FontAttributes="Bold" />
                                 </Frame>
                             </VerticalStackLayout>
-                        </Grid>
-                        <!-- Pipeline Management Controls -->
-                        <Grid ColumnDefinitions="*,Auto,Auto"
-                              ColumnSpacing="{StaticResource SpacingSmall}"
-                              Margin="0,8,0,0">
-                            <Label Grid.Column="0"
-                                   Text="{Binding AvailablePipelinesCount, StringFormat='Available Pipelines: {0}'}"
-                                   FontSize="{StaticResource FontSizeCaption}"
-                                   TextColor="{StaticResource TextSecondary}"
-                                   VerticalOptions="Center" />
-                            <Button Grid.Column="1"
-                                    Text="Refresh"
-                                    Command="{Binding RefreshPipelinesCommand}"
-                                    FontSize="{StaticResource FontSizeCaption}"
-                                    BackgroundColor="{StaticResource Primary}"
-                                    TextColor="{StaticResource TextOnPrimary}"
-                                    Padding="12,4"
-                                    CornerRadius="12" />
-                            <Button Grid.Column="2"
-                                    Text="Create New"
-                                    Command="{Binding CreateNewPipelineCommand}"
-                                    FontSize="{StaticResource FontSizeCaption}"
-                                    BackgroundColor="{StaticResource Success}"
-                                    TextColor="{StaticResource TextOnPrimary}"
-                                    Padding="12,4"
-                                    CornerRadius="12" />
                         </Grid>
                         <!-- Pipeline Chat Section -->
                         <Label Text="Pipeline Chat"
