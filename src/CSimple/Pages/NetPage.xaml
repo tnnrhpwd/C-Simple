@@ -210,6 +210,141 @@
                                     TextColor="{StaticResource TextOnPrimary}"
                                     FontSize="{StaticResource FontSizeSmall}" />
                         </Grid>
+                        <!-- Media Input Options -->
+                        <Label Text="Media Input (Optional)"
+                               FontAttributes="Bold"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               Margin="{StaticResource MarginTopSmall}" />
+                        <Grid ColumnDefinitions="*,*"
+                              RowDefinitions="Auto,Auto"
+                              ColumnSpacing="{StaticResource SpacingSmall}"
+                              RowSpacing="{StaticResource SpacingSmall}">
+                            <!-- First row: Quick upload buttons -->
+                            <HorizontalStackLayout Grid.Column="0"
+                                                   Grid.ColumnSpan="2"
+                                                   Spacing="{StaticResource SpacingSmall}">
+                                <Button Text="Upload File"
+                                        Command="{Binding SelectFileCommand}"
+                                        BackgroundColor="{StaticResource Primary}"
+                                        TextColor="{StaticResource TextOnPrimary}"
+                                        FontSize="{StaticResource FontSizeSmall}"
+                                        WidthRequest="120" />
+                                <Button Text="📷 Image"
+                                        Command="{Binding SelectImageCommand}"
+                                        BackgroundColor="{StaticResource Secondary}"
+                                        TextColor="{StaticResource TextOnSecondary}"
+                                        FontSize="{StaticResource FontSizeSmall}"
+                                        WidthRequest="80"
+                                        IsVisible="{Binding SupportsImageInput}" />
+                                <Button Text="🎤 Audio"
+                                        Command="{Binding SelectAudioCommand}"
+                                        BackgroundColor="{StaticResource Tertiary}"
+                                        TextColor="{StaticResource TextOnPrimary}"
+                                        FontSize="{StaticResource FontSizeSmall}"
+                                        WidthRequest="80"
+                                        IsVisible="{Binding SupportsAudioInput}" />
+                                <Button Text="🗑️ Clear"
+                                        Command="{Binding ClearMediaCommand}"
+                                        BackgroundColor="{StaticResource Error}"
+                                        TextColor="{StaticResource TextOnPrimary}"
+                                        FontSize="{StaticResource FontSizeSmall}"
+                                        WidthRequest="70"
+                                        IsVisible="{Binding HasSelectedMedia}" />
+                            </HorizontalStackLayout>
+                            <!-- Second row: Drag and drop area -->
+                            <Frame Grid.Row="1"
+                                   Grid.ColumnSpan="2"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
+                                   BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}"
+                                   Padding="{StaticResource CardContentPadding}"
+                                   CornerRadius="{StaticResource CornerRadiusSmall}"
+                                   HeightRequest="60"
+                                   x:Name="DropZoneFrame">
+                                <Grid>
+                                    <Label Text="📁 Drag and drop files here, or use the upload button above"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           TextColor="{StaticResource TextSecondary}"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           IsVisible="{Binding HasSelectedMedia, Converter={StaticResource InverseBoolConverter}}" />
+                                    <Label Text="🎯 Files ready for upload - click Send to proceed"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           TextColor="{StaticResource Primary}"
+                                           FontAttributes="Bold"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           IsVisible="{Binding HasSelectedMedia}" />
+                                    <!-- Gesture recognizer for tap-to-upload -->
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding SelectFileCommand}" />
+                                    </Grid.GestureRecognizers>
+                                </Grid>
+                            </Frame>
+                        </Grid>
+                        <!-- Selected Media Display -->
+                        <Frame IsVisible="{Binding HasSelectedMedia}"
+                               BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
+                               CornerRadius="{StaticResource CornerRadiusSmall}"
+                               Padding="{StaticResource CardContentPadding}"
+                               Margin="{StaticResource MarginTopSmall}">
+                            <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                                <Label Text="Selected Media:"
+                                       FontAttributes="Bold"
+                                       FontSize="{StaticResource FontSizeSmall}" />
+                                <!-- Selected Image -->
+                                <Grid IsVisible="{Binding HasSelectedImage}"
+                                      ColumnDefinitions="Auto,*,Auto">
+                                    <Image Grid.Column="0"
+                                           Source="{Binding SelectedImagePath, Converter={StaticResource SafeImageSourceConverter}}"
+                                           WidthRequest="60"
+                                           HeightRequest="60"
+                                           Aspect="AspectFit" />
+                                    <VerticalStackLayout Grid.Column="1"
+                                                         VerticalOptions="Center"
+                                                         Margin="{StaticResource MarginLeftMedium}">
+                                        <Label Text="📷 Image attached"
+                                               FontSize="{StaticResource FontSizeSmall}" />
+                                        <Label Text="{Binding SelectedImageName}"
+                                               FontSize="{StaticResource FontSizeCaption}"
+                                               TextColor="{StaticResource TextSecondary}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                                <!-- Selected Audio -->
+                                <Grid IsVisible="{Binding HasSelectedAudio}"
+                                      ColumnDefinitions="Auto,*">
+                                    <Label Grid.Column="0"
+                                           Text="🎤"
+                                           FontSize="32"
+                                           VerticalOptions="Center" />
+                                    <VerticalStackLayout Grid.Column="1"
+                                                         VerticalOptions="Center"
+                                                         Margin="{StaticResource MarginLeftMedium}">
+                                        <Label Text="Audio file attached"
+                                               FontSize="{StaticResource FontSizeSmall}" />
+                                        <Label Text="{Binding SelectedAudioName}"
+                                               FontSize="{StaticResource FontSizeCaption}"
+                                               TextColor="{StaticResource TextSecondary}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </VerticalStackLayout>
+                        </Frame>
+                        <!-- Warning if no models active -->
+                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
+                               IsVisible="{Binding ActiveModelsCount, Converter={StaticResource IntToBoolConverter}, ConverterParameter=0}"
+                               Padding="{StaticResource CardContentPadding}"
+                               CornerRadius="{StaticResource CornerRadiusSmall}"
+                               BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
+                            <VerticalStackLayout>
+                                <Label Text="💡 Activate a model to start chatting"
+                                       FontAttributes="Bold"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                       HorizontalOptions="Center" />
+                                <Label Text="Choose a model from the Model Management section above"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       HorizontalOptions="Center" />
+                            </VerticalStackLayout>
+                        </Frame>
                         <!-- Pipeline Status and Recording Options -->
                         <Grid ColumnDefinitions="*,*"
                               ColumnSpacing="{StaticResource SpacingMedium}">
@@ -267,86 +402,6 @@
                                     <Label Text="{Binding ConnectedModelsCount, StringFormat='Connected Models: {0}'}"
                                            FontSize="{StaticResource FontSizeCaption}"
                                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
-                                </VerticalStackLayout>
-                            </Frame>
-                        </Grid>
-                    </VerticalStackLayout>
-                </Frame>
-                <!-- Pipeline Status Dashboard -->
-                <Frame BorderColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
-                       CornerRadius="{StaticResource CornerRadiusLarge}"
-                       Padding="{StaticResource CardPadding}">
-                    <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
-                        <Label Text="Pipeline Dashboard"
-                               FontSize="{StaticResource FontSizeLarge}"
-                               FontAttributes="Bold"
-                               HorizontalOptions="Center"
-                               TextColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}" />
-                        <!-- Status Cards Grid -->
-                        <Grid ColumnDefinitions="*,*,*,*"
-                              ColumnSpacing="{StaticResource SpacingSmall}">
-                            <Frame Grid.Column="0"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}"
-                                   Padding="{StaticResource CardContentPadding}"
-                                   Margin="{StaticResource SpacingTiny}"
-                                   CornerRadius="{StaticResource CornerRadiusSmall}">
-                                <VerticalStackLayout>
-                                    <Label Text="Total Pipelines"
-                                           FontSize="{StaticResource FontSizeCaption}"
-                                           HorizontalOptions="Center" />
-                                    <Label Text="{Binding PipelineCount}"
-                                           FontSize="{StaticResource FontSizeTitle}"
-                                           HorizontalOptions="Center"
-                                           FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}" />
-                                </VerticalStackLayout>
-                            </Frame>
-                            <Frame Grid.Column="1"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryLight}, Dark={StaticResource SecondaryDark}}"
-                                   Padding="{StaticResource CardContentPadding}"
-                                   Margin="{StaticResource SpacingTiny}"
-                                   CornerRadius="{StaticResource CornerRadiusSmall}">
-                                <VerticalStackLayout>
-                                    <Label Text="Pipeline Nodes"
-                                           FontSize="{StaticResource FontSizeCaption}"
-                                           HorizontalOptions="Center" />
-                                    <Label Text="{Binding PipelineNodeCount}"
-                                           FontSize="{StaticResource FontSizeTitle}"
-                                           HorizontalOptions="Center"
-                                           FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryLight}}" />
-                                </VerticalStackLayout>
-                            </Frame>
-                            <Frame Grid.Column="2"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource ErrorLight}, Dark={StaticResource ErrorDark}}"
-                                   Padding="{StaticResource CardContentPadding}"
-                                   Margin="{StaticResource SpacingTiny}"
-                                   CornerRadius="{StaticResource CornerRadiusSmall}">
-                                <VerticalStackLayout>
-                                    <Label Text="Running Tasks"
-                                           FontSize="{StaticResource FontSizeCaption}"
-                                           HorizontalOptions="Center" />
-                                    <Label Text="{Binding RunningProcesses}"
-                                           FontSize="{StaticResource FontSizeTitle}"
-                                           HorizontalOptions="Center"
-                                           FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorLight}}" />
-                                </VerticalStackLayout>
-                            </Frame>
-                            <Frame Grid.Column="3"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource TertiaryLight}, Dark={StaticResource TertiaryDark}}"
-                                   Padding="{StaticResource CardContentPadding}"
-                                   Margin="{StaticResource SpacingTiny}"
-                                   CornerRadius="{StaticResource CornerRadiusSmall}">
-                                <VerticalStackLayout>
-                                    <Label Text="Active Models"
-                                           FontSize="{StaticResource FontSizeCaption}"
-                                           HorizontalOptions="Center" />
-                                    <Label Text="{Binding ActiveModels.Count}"
-                                           FontSize="{StaticResource FontSizeTitle}"
-                                           HorizontalOptions="Center"
-                                           FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource TertiaryDark}, Dark={StaticResource Tertiary}}" />
                                 </VerticalStackLayout>
                             </Frame>
                         </Grid>
@@ -640,364 +695,6 @@
                                 BackgroundColor="{StaticResource Success}"
                                 TextColor="{StaticResource TextOnPrimary}"
                                 Margin="{StaticResource MarginTopSmall}" />
-                    </VerticalStackLayout>
-                </Frame>
-                <!-- AI Assistant Chat -->
-                <Frame BorderColor="{StaticResource Primary}"
-                       CornerRadius="{StaticResource CornerRadiusLarge}"
-                       Padding="{StaticResource CardPadding}">
-                    <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                        <!-- Chat History Section -->
-                        <Label Text="Chat History"
-                               FontAttributes="Bold" />
-                        <Frame BackgroundColor="{StaticResource BackgroundSecondary}"
-                               CornerRadius="{StaticResource CornerRadiusSmall}"
-                               Padding="{StaticResource CardContentPadding}"
-                               HeightRequest="300">
-                            <CollectionView ItemsSource="{Binding ChatMessages}"
-                                            SelectionMode="None"
-                                            x:Name="ChatCollectionView">
-                                <CollectionView.ItemTemplate>
-                                    <DataTemplate x:DataType="models:ChatMessage">
-                                        <Grid Padding="{StaticResource SpacingSmall}"
-                                              Margin="{StaticResource MarginBottomTiny}">
-                                            <!-- User Message (Right-aligned) -->
-                                            <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource BoolConverter}}"
-                                                   BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                                   Padding="{StaticResource CardContentPadding}"
-                                                   CornerRadius="8"
-                                                   Margin="50,0,0,0"
-                                                   HorizontalOptions="End">
-                                                <VerticalStackLayout>
-                                                    <Label Text="You"
-                                                           FontSize="{StaticResource FontSizeCaption}"
-                                                           FontAttributes="Bold"
-                                                           TextColor="{StaticResource TextOnPrimary}"
-                                                           HorizontalOptions="End" />
-                                                    <!-- Display either the label or the editor based on IsEditing -->
-                                                    <ContentView>
-                                                        <ContentView.Triggers>
-                                                            <DataTrigger TargetType="ContentView"
-                                                                         Binding="{Binding IsEditing}"
-                                                                         Value="False">
-                                                                <Setter Property="Content">
-                                                                    <Setter.Value>
-                                                                        <Label Text="{Binding Content}"
-                                                                               TextColor="{StaticResource TextOnPrimary}"
-                                                                               LineBreakMode="WordWrap" />
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                            </DataTrigger>
-                                                            <DataTrigger TargetType="ContentView"
-                                                                         Binding="{Binding IsEditing}"
-                                                                         Value="True">
-                                                                <Setter Property="Content">
-                                                                    <Setter.Value>
-                                                                        <Entry Text="{Binding Content}"
-                                                                               TextColor="{StaticResource TextOnPrimary}"
-                                                                               HorizontalOptions="FillAndExpand" />
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                            </DataTrigger>
-                                                        </ContentView.Triggers>
-                                                    </ContentView>
-                                                    <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
-                                                           FontSize="{StaticResource FontSizeCaption}"
-                                                           TextColor="{StaticResource TextOnPrimary}"
-                                                           Opacity="0.7"
-                                                           HorizontalOptions="End" />
-                                                    <!-- Edit and Save Buttons -->
-                                                    <HorizontalStackLayout HorizontalOptions="End"
-                                                                           IsVisible="{Binding IsEditing, Converter={StaticResource InverseBoolConverter}}">
-                                                        <Button Text="Edit"
-                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditMessageCommand}"
-                                                                CommandParameter="{Binding .}"
-                                                                BackgroundColor="{StaticResource Secondary}"
-                                                                TextColor="{StaticResource TextOnPrimary}"
-                                                                FontSize="{StaticResource FontSizeSmall}" />
-                                                    </HorizontalStackLayout>
-                                                    <HorizontalStackLayout HorizontalOptions="End"
-                                                                           IsVisible="{Binding IsEditing}">
-                                                        <Button Text="Save"
-                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SaveMessageCommand}"
-                                                                CommandParameter="{Binding .}"
-                                                                BackgroundColor="{StaticResource Success}"
-                                                                TextColor="{StaticResource TextOnPrimary}"
-                                                                FontSize="{StaticResource FontSizeSmall}" />
-                                                    </HorizontalStackLayout>
-                                                </VerticalStackLayout>
-                                            </Frame>
-                                            <!-- AI Response (Left-aligned) -->
-                                            <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource InverseBoolConverter}}"
-                                                   BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
-                                                   Padding="{StaticResource CardContentPadding}"
-                                                   CornerRadius="8"
-                                                   Margin="0,0,50,0"
-                                                   HorizontalOptions="Start"
-                                                   BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
-                                                <VerticalStackLayout>
-                                                    <Label Text="{Binding ModelDisplayNameWithSourcePrefixed}"
-                                                           FontSize="{StaticResource FontSizeCaption}"
-                                                           FontAttributes="Bold"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                                           HorizontalOptions="Start" />
-                                                    <!-- Display either the label or the editor based on IsEditing -->
-                                                    <ContentView>
-                                                        <ContentView.Triggers>
-                                                            <DataTrigger TargetType="ContentView"
-                                                                         Binding="{Binding IsEditing}"
-                                                                         Value="False">
-                                                                <Setter Property="Content">
-                                                                    <Setter.Value>
-                                                                        <Label Text="{Binding Content}"
-                                                                               TextColor="{StaticResource TextPrimary}"
-                                                                               LineBreakMode="WordWrap" />
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                            </DataTrigger>
-                                                            <DataTrigger TargetType="ContentView"
-                                                                         Binding="{Binding IsEditing}"
-                                                                         Value="True">
-                                                                <Setter Property="Content">
-                                                                    <Setter.Value>
-                                                                        <Entry Text="{Binding Content}"
-                                                                               TextColor="{StaticResource TextPrimary}"
-                                                                               HorizontalOptions="FillAndExpand" />
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                            </DataTrigger>
-                                                        </ContentView.Triggers>
-                                                    </ContentView>
-                                                    <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
-                                                           FontSize="{StaticResource FontSizeCaption}"
-                                                           TextColor="{StaticResource TextSecondary}"
-                                                           Opacity="0.7"
-                                                           HorizontalOptions="Start" />
-                                                    <Label Text="{Binding LLMSource, StringFormat='Source: {0}'}"
-                                                           FontSize="{StaticResource FontSizeCaption}"
-                                                           TextColor="{StaticResource TextSecondary}"
-                                                           Opacity="0.7"
-                                                           HorizontalOptions="Start"
-                                                           IsVisible="{Binding LLMSource, Converter={StaticResource NullToBoolConverter}}" />
-                                                    <!-- Edit and Save Buttons -->
-                                                    <HorizontalStackLayout HorizontalOptions="End"
-                                                                           IsVisible="{Binding IsEditing, Converter={StaticResource InverseBoolConverter}}">
-                                                        <Button Text="Edit"
-                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditMessageCommand}"
-                                                                CommandParameter="{Binding .}"
-                                                                BackgroundColor="{StaticResource Secondary}"
-                                                                TextColor="{StaticResource TextOnPrimary}"
-                                                                FontSize="{StaticResource FontSizeSmall}" />
-                                                    </HorizontalStackLayout>
-                                                    <HorizontalStackLayout HorizontalOptions="End"
-                                                                           IsVisible="{Binding IsEditing}">
-                                                        <Button Text="Save"
-                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SaveMessageCommand}"
-                                                                CommandParameter="{Binding .}"
-                                                                BackgroundColor="{StaticResource Success}"
-                                                                TextColor="{StaticResource TextOnPrimary}"
-                                                                FontSize="{StaticResource FontSizeSmall}" />
-                                                    </HorizontalStackLayout>
-                                                </VerticalStackLayout>
-                                            </Frame>
-                                        </Grid>
-                                    </DataTemplate>
-                                </CollectionView.ItemTemplate>
-                                <CollectionView.EmptyView>
-                                    <VerticalStackLayout HorizontalOptions="Center"
-                                                         VerticalOptions="Center"
-                                                         Spacing="{StaticResource SpacingSmall}">
-                                        <Label Text="💬"
-                                               FontSize="48"
-                                               HorizontalOptions="Center" />
-                                        <Label Text="Start a conversation with your AI assistant"
-                                               TextColor="{StaticResource TextSecondary}"
-                                               HorizontalOptions="Center"
-                                               FontSize="{StaticResource FontSizeSmall}" />
-                                    </VerticalStackLayout>
-                                </CollectionView.EmptyView>
-                            </CollectionView>
-                        </Frame>
-                        <!-- Typing Indicator -->
-                        <Frame IsVisible="{Binding IsAiTyping}"
-                               BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
-                               Padding="{StaticResource CardContentPadding}"
-                               CornerRadius="8"
-                               Margin="0,0,50,0"
-                               HorizontalOptions="Start"
-                               BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
-                            <StackLayout Orientation="Horizontal"
-                                         Spacing="{StaticResource SpacingTiny}">
-                                <Label Text="AI Assistant is typing"
-                                       TextColor="{StaticResource TextSecondary}"
-                                       FontSize="{StaticResource FontSizeSmall}"
-                                       VerticalOptions="Center" />
-                                <ActivityIndicator IsRunning="True"
-                                                   WidthRequest="16"
-                                                   HeightRequest="16"
-                                                   Color="{StaticResource Primary}" />
-                            </StackLayout>
-                        </Frame>
-                        <!-- Input Section -->
-                        <Label Text="Input"
-                               FontAttributes="Bold" />
-                        <!-- Text Input -->
-                        <Grid ColumnDefinitions="*,Auto,Auto"
-                              ColumnSpacing="{StaticResource SpacingSmall}">
-                            <Entry Grid.Column="0"
-                                   Placeholder="Type your message here..."
-                                   Text="{Binding CurrentMessage, Mode=TwoWay}"
-                                   x:Name="MessageInput"
-                                   ReturnType="Send"
-                                   ReturnCommand="{Binding SendMessageCommand}" />
-                            <Button Grid.Column="1"
-                                    Text="Send"
-                                    Command="{Binding SendMessageCommand}"
-                                    BackgroundColor="{StaticResource Primary}"
-                                    TextColor="{StaticResource TextOnPrimary}"
-                                    IsEnabled="{Binding CanSendMessage}" />
-                            <Button Grid.Column="2"
-                                    Text="Clear"
-                                    Command="{Binding ClearChatCommand}"
-                                    BackgroundColor="{StaticResource Error}"
-                                    TextColor="{StaticResource TextOnPrimary}"
-                                    FontSize="{StaticResource FontSizeSmall}" />
-                        </Grid>
-                        <!-- Media Input Options -->
-                        <Label Text="Media Input (Optional)"
-                               FontAttributes="Bold"
-                               FontSize="{StaticResource FontSizeSmall}"
-                               Margin="{StaticResource MarginTopSmall}" />
-                        <Grid ColumnDefinitions="*,*"
-                              RowDefinitions="Auto,Auto"
-                              ColumnSpacing="{StaticResource SpacingSmall}"
-                              RowSpacing="{StaticResource SpacingSmall}">
-                            <!-- First row: Quick upload buttons -->
-                            <HorizontalStackLayout Grid.Column="0"
-                                                   Grid.ColumnSpan="2"
-                                                   Spacing="{StaticResource SpacingSmall}">
-                                <Button Text="Upload File"
-                                        Command="{Binding SelectFileCommand}"
-                                        BackgroundColor="{StaticResource Primary}"
-                                        TextColor="{StaticResource TextOnPrimary}"
-                                        FontSize="{StaticResource FontSizeSmall}"
-                                        WidthRequest="120" />
-                                <Button Text="📷 Image"
-                                        Command="{Binding SelectImageCommand}"
-                                        BackgroundColor="{StaticResource Secondary}"
-                                        TextColor="{StaticResource TextOnSecondary}"
-                                        FontSize="{StaticResource FontSizeSmall}"
-                                        WidthRequest="80"
-                                        IsVisible="{Binding SupportsImageInput}" />
-                                <Button Text="🎤 Audio"
-                                        Command="{Binding SelectAudioCommand}"
-                                        BackgroundColor="{StaticResource Tertiary}"
-                                        TextColor="{StaticResource TextOnPrimary}"
-                                        FontSize="{StaticResource FontSizeSmall}"
-                                        WidthRequest="80"
-                                        IsVisible="{Binding SupportsAudioInput}" />
-                                <Button Text="🗑️ Clear"
-                                        Command="{Binding ClearMediaCommand}"
-                                        BackgroundColor="{StaticResource Error}"
-                                        TextColor="{StaticResource TextOnPrimary}"
-                                        FontSize="{StaticResource FontSizeSmall}"
-                                        WidthRequest="70"
-                                        IsVisible="{Binding HasSelectedMedia}" />
-                            </HorizontalStackLayout>
-                            <!-- Second row: Drag and drop area -->
-                            <Frame Grid.Row="1"
-                                   Grid.ColumnSpan="2"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
-                                   BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}"
-                                   Padding="{StaticResource CardContentPadding}"
-                                   CornerRadius="{StaticResource CornerRadiusSmall}"
-                                   HeightRequest="60"
-                                   x:Name="DropZoneFrame">
-                                <Grid>
-                                    <Label Text="📁 Drag and drop files here, or use the upload button above"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           TextColor="{StaticResource TextSecondary}"
-                                           HorizontalOptions="Center"
-                                           VerticalOptions="Center"
-                                           IsVisible="{Binding HasSelectedMedia, Converter={StaticResource InverseBoolConverter}}" />
-                                    <Label Text="🎯 Files ready for upload - click Send to proceed"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           TextColor="{StaticResource Primary}"
-                                           FontAttributes="Bold"
-                                           HorizontalOptions="Center"
-                                           VerticalOptions="Center"
-                                           IsVisible="{Binding HasSelectedMedia}" />
-                                    <!-- Gesture recognizer for tap-to-upload -->
-                                    <Grid.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding SelectFileCommand}" />
-                                    </Grid.GestureRecognizers>
-                                </Grid>
-                            </Frame>
-                        </Grid>
-                        <!-- Selected Media Display -->
-                        <Frame IsVisible="{Binding HasSelectedMedia}"
-                               BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
-                               CornerRadius="{StaticResource CornerRadiusSmall}"
-                               Padding="{StaticResource CardContentPadding}"
-                               Margin="{StaticResource MarginTopSmall}">
-                            <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                                <Label Text="Selected Media:"
-                                       FontAttributes="Bold"
-                                       FontSize="{StaticResource FontSizeSmall}" />
-                                <!-- Selected Image -->
-                                <Grid IsVisible="{Binding HasSelectedImage}"
-                                      ColumnDefinitions="Auto,*,Auto">
-                                    <Image Grid.Column="0"
-                                           Source="{Binding SelectedImagePath, Converter={StaticResource SafeImageSourceConverter}}"
-                                           WidthRequest="60"
-                                           HeightRequest="60"
-                                           Aspect="AspectFit" />
-                                    <VerticalStackLayout Grid.Column="1"
-                                                         VerticalOptions="Center"
-                                                         Margin="{StaticResource MarginLeftMedium}">
-                                        <Label Text="📷 Image attached"
-                                               FontSize="{StaticResource FontSizeSmall}" />
-                                        <Label Text="{Binding SelectedImageName}"
-                                               FontSize="{StaticResource FontSizeCaption}"
-                                               TextColor="{StaticResource TextSecondary}" />
-                                    </VerticalStackLayout>
-                                </Grid>
-                                <!-- Selected Audio -->
-                                <Grid IsVisible="{Binding HasSelectedAudio}"
-                                      ColumnDefinitions="Auto,*">
-                                    <Label Grid.Column="0"
-                                           Text="🎤"
-                                           FontSize="32"
-                                           VerticalOptions="Center" />
-                                    <VerticalStackLayout Grid.Column="1"
-                                                         VerticalOptions="Center"
-                                                         Margin="{StaticResource MarginLeftMedium}">
-                                        <Label Text="Audio file attached"
-                                               FontSize="{StaticResource FontSizeSmall}" />
-                                        <Label Text="{Binding SelectedAudioName}"
-                                               FontSize="{StaticResource FontSizeCaption}"
-                                               TextColor="{StaticResource TextSecondary}" />
-                                    </VerticalStackLayout>
-                                </Grid>
-                            </VerticalStackLayout>
-                        </Frame>
-                        <!-- Warning if no models active -->
-                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
-                               IsVisible="{Binding ActiveModelsCount, Converter={StaticResource IntToBoolConverter}, ConverterParameter=0}"
-                               Padding="{StaticResource CardContentPadding}"
-                               CornerRadius="{StaticResource CornerRadiusSmall}"
-                               BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
-                            <VerticalStackLayout>
-                                <Label Text="💡 Activate a model to start chatting"
-                                       FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
-                                       HorizontalOptions="Center" />
-                                <Label Text="Choose a model from the Model Management section above"
-                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
-                                       FontSize="{StaticResource FontSizeSmall}"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Frame>
                     </VerticalStackLayout>
                 </Frame>
                 <!-- Safety & Security -->
