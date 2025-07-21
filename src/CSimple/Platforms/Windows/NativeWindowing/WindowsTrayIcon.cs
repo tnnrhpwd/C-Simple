@@ -17,6 +17,10 @@ namespace Hardcodet.Wpf.TaskbarNotification.Interop
         public Action LeftClick { get; set; }
         public Action RightClick { get; set; }
 
+        /// <summary>
+        /// Gets the message window handle for use with Win32 API calls like context menus.
+        /// </summary>
+        public IntPtr MessageWindowHandle => messageSink.MessageWindowHandle;
 
         public bool IsTaskbarIconCreated { get; private set; }
 
@@ -49,12 +53,16 @@ namespace Hardcodet.Wpf.TaskbarNotification.Interop
 
         private void MessageSink_MouseEventReceived(MouseEvent obj)
         {
+            // Debug.WriteLine($"WindowsTrayIcon: Received mouse event: {obj}");
+
             if (obj == MouseEvent.IconLeftMouseUp)
             {
+                Debug.WriteLine("WindowsTrayIcon: Triggering LeftClick");
                 LeftClick?.Invoke();
             }
             else if (obj == MouseEvent.IconRightMouseUp)
             {
+                Debug.WriteLine("WindowsTrayIcon: Triggering RightClick");
                 RightClick?.Invoke();
             }
         }

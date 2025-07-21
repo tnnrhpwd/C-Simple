@@ -29,6 +29,11 @@ public class TrayService : NSObject, ITrayService
     NSObject statusBarImage;
 
     public Action ClickHandler { get; set; }
+    public Action StartListenHandler { get; set; }
+    public Action StopListenHandler { get; set; }
+    public Action ShowSettingsHandler { get; set; }
+    public Action QuitApplicationHandler { get; set; }
+    public Func<bool> IsListeningCallback { get; set; }
 
     public void Initialize()
     {
@@ -48,6 +53,9 @@ public class TrayService : NSObject, ITrayService
         // Handle click
         void_objc_msgSend_IntPtr(statusBarButton.Handle, Selector.GetHandle("setTarget:"), this.Handle);
         void_objc_msgSend_IntPtr(statusBarButton.Handle, Selector.GetHandle("setAction:"), new Selector("handleButtonClick:").Handle);
+
+        // Note: macOS context menu implementation would require additional NSMenu setup
+        // For now, just basic click support is implemented
     }
 
     [Export("handleButtonClick:")]
@@ -59,5 +67,30 @@ public class TrayService : NSObject, ITrayService
         void_objc_msgSend_bool(sharedApp.Handle, Selector.GetHandle("activateIgnoringOtherApps:"), true);
 
         ClickHandler?.Invoke();
+    }
+
+    // Progress notification methods - basic implementation for macOS
+    public void ShowProgress(string title, string message, double progress)
+    {
+        // Basic implementation - could be enhanced with native macOS notifications
+        System.Diagnostics.Debug.WriteLine($"macOS TrayService: {title} - {message} ({progress:P0})");
+    }
+
+    public void UpdateProgress(double progress, string message = null)
+    {
+        // Basic implementation
+        System.Diagnostics.Debug.WriteLine($"macOS TrayService: Progress {progress:P0} - {message}");
+    }
+
+    public void HideProgress()
+    {
+        // Basic implementation
+        System.Diagnostics.Debug.WriteLine("macOS TrayService: Hide progress");
+    }
+
+    public void ShowCompletionNotification(string title, string message)
+    {
+        // Basic implementation
+        System.Diagnostics.Debug.WriteLine($"macOS TrayService: {title} - {message}");
     }
 }

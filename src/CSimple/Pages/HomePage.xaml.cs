@@ -416,6 +416,99 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
                 Debug.WriteLine("Tray icon clicked - bringing window to front");
                 WindowExtensions.BringToFront();
             };
+
+            // Set up context menu handlers
+            trayService.StartListenHandler = () =>
+            {
+                Debug.WriteLine("Start Listen requested from tray menu");
+                try
+                {
+                    var app = Application.Current as App;
+                    var netPageViewModel = app?.NetPageViewModel;
+                    if (netPageViewModel != null)
+                    {
+                        netPageViewModel.IsIntelligenceActive = true;
+                        Debug.WriteLine("Intelligence recording started from tray menu");
+                    }
+                    else
+                    {
+                        Debug.WriteLine("NetPageViewModel not available for starting intelligence");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error starting intelligence from tray: {ex.Message}");
+                }
+            };
+
+            trayService.StopListenHandler = () =>
+            {
+                Debug.WriteLine("Stop Listen requested from tray menu");
+                try
+                {
+                    var app = Application.Current as App;
+                    var netPageViewModel = app?.NetPageViewModel;
+                    if (netPageViewModel != null)
+                    {
+                        netPageViewModel.IsIntelligenceActive = false;
+                        Debug.WriteLine("Intelligence recording stopped from tray menu");
+                    }
+                    else
+                    {
+                        Debug.WriteLine("NetPageViewModel not available for stopping intelligence");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error stopping intelligence from tray: {ex.Message}");
+                }
+            };
+
+            trayService.ShowSettingsHandler = () =>
+            {
+                Debug.WriteLine("Settings requested from tray menu");
+                try
+                {
+                    // Bring window to front and navigate to settings if available
+                    WindowExtensions.BringToFront();
+                    // Note: Add navigation to settings page when implemented
+                    Debug.WriteLine("Settings navigation not yet implemented - bringing app to front");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error showing settings from tray: {ex.Message}");
+                }
+            };
+
+            trayService.QuitApplicationHandler = () =>
+            {
+                Debug.WriteLine("Quit requested from tray menu");
+                try
+                {
+                    Application.Current?.Quit();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error quitting application from tray: {ex.Message}");
+                }
+            };
+
+            trayService.IsListeningCallback = () =>
+            {
+                try
+                {
+                    var app = Application.Current as App;
+                    var netPageViewModel = app?.NetPageViewModel;
+                    return netPageViewModel?.IsIntelligenceActive ?? false;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error checking intelligence status for tray: {ex.Message}");
+                    return false;
+                }
+            };
+
+            Debug.WriteLine("Tray context menu handlers configured");
         }
     }
     private async void OnGetStartedClicked(object sender, EventArgs e)

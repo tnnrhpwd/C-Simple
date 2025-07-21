@@ -182,77 +182,81 @@
                                CornerRadius="{StaticResource CornerRadiusSmall}"
                                Padding="{StaticResource CardContentPadding}"
                                HeightRequest="300">
-                            <CollectionView ItemsSource="{Binding PipelineChatMessages}"
-                                            SelectionMode="None"
-                                            x:Name="PipelineChatCollectionView">
-                                <CollectionView.ItemTemplate>
-                                    <DataTemplate x:DataType="models:ChatMessage">
-                                        <Grid Padding="{StaticResource SpacingSmall}"
-                                              Margin="{StaticResource MarginBottomTiny}">
-                                            <!-- User Message (Right-aligned) -->
-                                            <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource BoolConverter}}"
-                                                   BackgroundColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
-                                                   Padding="{StaticResource CardContentPadding}"
-                                                   CornerRadius="8"
-                                                   Margin="50,0,0,0"
-                                                   HorizontalOptions="End">
-                                                <VerticalStackLayout>
-                                                    <Label Text="You"
-                                                           FontSize="{StaticResource FontSizeCaption}"
-                                                           FontAttributes="Bold"
-                                                           TextColor="{StaticResource TextOnTertiary}"
-                                                           HorizontalOptions="End" />
-                                                    <Label Text="{Binding Content}"
-                                                           TextColor="{StaticResource TextOnTertiary}"
-                                                           LineBreakMode="WordWrap" />
-                                                    <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
-                                                           FontSize="{StaticResource FontSizeCaption}"
-                                                           TextColor="{StaticResource TextOnTertiary}"
-                                                           Opacity="0.7"
-                                                           HorizontalOptions="End" />
-                                                </VerticalStackLayout>
-                                            </Frame>
-                                            <!-- AI Response (Left-aligned) -->
-                                            <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource InverseBoolConverter}}"
-                                                   BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
-                                                   Padding="{StaticResource CardContentPadding}"
-                                                   CornerRadius="8"
-                                                   Margin="0,0,50,0"
-                                                   HorizontalOptions="Start"
-                                                   BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
-                                                <VerticalStackLayout>
-                                                    <Label Text="Pipeline Assistant"
-                                                           FontSize="{StaticResource FontSizeCaption}"
-                                                           FontAttributes="Bold"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
-                                                           HorizontalOptions="Start" />
-                                                    <Label Text="{Binding Content}"
-                                                           TextColor="{StaticResource TextPrimary}"
-                                                           LineBreakMode="WordWrap" />
-                                                    <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
-                                                           FontSize="{StaticResource FontSizeCaption}"
-                                                           TextColor="{StaticResource TextSecondary}"
-                                                           Opacity="0.7"
-                                                           HorizontalOptions="Start" />
-                                                </VerticalStackLayout>
-                                            </Frame>
-                                        </Grid>
-                                    </DataTemplate>
-                                </CollectionView.ItemTemplate>
-                                <CollectionView.EmptyView>
-                                    <VerticalStackLayout HorizontalOptions="Center"
-                                                         VerticalOptions="Center"
-                                                         Spacing="{StaticResource SpacingSmall}">
-                                        <Label Text="🔧"
-                                               FontSize="48"
-                                               HorizontalOptions="Center" />
-                                        <Label Text="Select a pipeline and start chatting"
-                                               TextColor="{StaticResource TextSecondary}"
-                                               HorizontalOptions="Center"
-                                               FontSize="{StaticResource FontSizeSmall}" />
-                                    </VerticalStackLayout>
-                                </CollectionView.EmptyView>
-                            </CollectionView>
+                            <ScrollView x:Name="PipelineChatScrollView"
+                                        VerticalScrollBarVisibility="Always"
+                                        HorizontalScrollBarVisibility="Never">
+                                <CollectionView ItemsSource="{Binding PipelineChatMessages}"
+                                                SelectionMode="None"
+                                                x:Name="PipelineChatCollectionView">
+                                    <CollectionView.ItemTemplate>
+                                        <DataTemplate x:DataType="models:ChatMessage">
+                                            <Grid Padding="{StaticResource SpacingSmall}"
+                                                  Margin="{StaticResource MarginBottomTiny}">
+                                                <!-- User Message (Right-aligned) -->
+                                                <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource BoolConverter}}"
+                                                       BackgroundColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
+                                                       Padding="{StaticResource CardContentPadding}"
+                                                       CornerRadius="8"
+                                                       Margin="50,0,0,0"
+                                                       HorizontalOptions="End">
+                                                    <VerticalStackLayout>
+                                                        <Label Text="You"
+                                                               FontSize="{StaticResource FontSizeCaption}"
+                                                               FontAttributes="Bold"
+                                                               TextColor="{StaticResource TextOnTertiary}"
+                                                               HorizontalOptions="End" />
+                                                        <Label Text="{Binding Content}"
+                                                               TextColor="{StaticResource TextOnTertiary}"
+                                                               LineBreakMode="WordWrap" />
+                                                        <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
+                                                               FontSize="{StaticResource FontSizeCaption}"
+                                                               TextColor="{StaticResource TextOnTertiary}"
+                                                               Opacity="0.7"
+                                                               HorizontalOptions="End" />
+                                                    </VerticalStackLayout>
+                                                </Frame>
+                                                <!-- AI Response (Left-aligned) -->
+                                                <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource InverseBoolConverter}}"
+                                                       BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
+                                                       Padding="{StaticResource CardContentPadding}"
+                                                       CornerRadius="8"
+                                                       Margin="0,0,50,0"
+                                                       HorizontalOptions="Start"
+                                                       BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
+                                                    <VerticalStackLayout>
+                                                        <Label Text="Pipeline Assistant"
+                                                               FontSize="{StaticResource FontSizeCaption}"
+                                                               FontAttributes="Bold"
+                                                               TextColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
+                                                               HorizontalOptions="Start" />
+                                                        <Label Text="{Binding Content}"
+                                                               TextColor="{StaticResource TextPrimary}"
+                                                               LineBreakMode="WordWrap" />
+                                                        <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
+                                                               FontSize="{StaticResource FontSizeCaption}"
+                                                               TextColor="{StaticResource TextSecondary}"
+                                                               Opacity="0.7"
+                                                               HorizontalOptions="Start" />
+                                                    </VerticalStackLayout>
+                                                </Frame>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </CollectionView.ItemTemplate>
+                                    <CollectionView.EmptyView>
+                                        <VerticalStackLayout HorizontalOptions="Center"
+                                                             VerticalOptions="Center"
+                                                             Spacing="{StaticResource SpacingSmall}">
+                                            <Label Text="🔧"
+                                                   FontSize="48"
+                                                   HorizontalOptions="Center" />
+                                            <Label Text="Select a pipeline and start chatting"
+                                                   TextColor="{StaticResource TextSecondary}"
+                                                   HorizontalOptions="Center"
+                                                   FontSize="{StaticResource FontSizeSmall}" />
+                                        </VerticalStackLayout>
+                                    </CollectionView.EmptyView>
+                                </CollectionView>
+                            </ScrollView>
                         </Frame>
                         <!-- Input Section -->
                         <Label Text="Input"

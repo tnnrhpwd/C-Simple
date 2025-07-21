@@ -46,6 +46,7 @@ namespace CSimple.Pages
             {
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
+                    // Handle regular chat scroll
                     if (FindByName("ChatCollectionView") is CollectionView collectionView &&
                         _viewModel.ChatMessages.Count > 0)
                     {
@@ -54,6 +55,12 @@ namespace CSimple.Pages
                         {
                             collectionView.ScrollTo(lastItem, animate: true);
                         }
+                    }
+
+                    // Handle pipeline chat scroll
+                    if (FindByName("PipelineChatScrollView") is ScrollView pipelineScrollView)
+                    {
+                        pipelineScrollView.ScrollToAsync(0, double.MaxValue, true);
                     }
                 });
             };
