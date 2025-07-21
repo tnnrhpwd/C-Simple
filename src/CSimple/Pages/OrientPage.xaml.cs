@@ -221,27 +221,54 @@ namespace CSimple.Pages
             {
                 var sourceNode = _viewModel.Nodes.FirstOrDefault(n => n.Id == connection.SourceNodeId);
                 var targetNode = _viewModel.Nodes.FirstOrDefault(n => n.Id == connection.TargetNodeId);
+                // Prevent drawing connection if either node is null or if source is a File node (like Memory)
+                if (sourceNode == null || targetNode == null) continue;
+                // if (sourceNode.Type == NodeType.File)
+                // {
+                //     Debug.WriteLine($"[Draw] Skipping connection from File node: {sourceNode.Name}");
+                //     continue;
+                // }
 
-                if (sourceNode != null && targetNode != null)
+                // Use node centers for connection points
+                var start = new PointF(sourceNode.Position.X + sourceNode.Size.Width / 2,
+                                      sourceNode.Position.Y + sourceNode.Size.Height / 2);
+                var end = new PointF(targetNode.Position.X + targetNode.Size.Width / 2,
+                                    targetNode.Position.Y + targetNode.Size.Height / 2);
+
+                // Gradient color: start black, end white
+                Color startColor = Colors.Black;
+                Color endColor = Colors.White;
+
+                int segments = 24; // More segments = smoother gradient
+                for (int i = 0; i < segments; i++)
                 {
-                    // Debug.WriteLine($"Drawing connection from {sourceNode.Name} to {targetNode.Name}");
-                    bool isHighlighted = _viewModel.SelectedNode != null &&
-                                         (_viewModel.SelectedNode.Id == sourceNode.Id || _viewModel.SelectedNode.Id == targetNode.Id);
-
-                    Color lineColor = isHighlighted ? highlightedConnectionColor : connectionColor;
-                    canvas.StrokeColor = lineColor;
-                    canvas.FillColor = lineColor; // For arrowhead fill
-
-                    PointF start = GetConnectionPoint(sourceNode, targetNode.Position);
-                    PointF end = GetConnectionPoint(targetNode, sourceNode.Position);
-
-                    // Draw line
-                    canvas.DrawLine(start, end);
-
-                    // Draw Simplified Arrowhead
-                    DrawArrowhead(canvas, start, end);
+                    float t0 = (float)i / segments;
+                    float t1 = (float)(i + 1) / segments;
+                    var p0 = new PointF(
+                        start.X + (end.X - start.X) * t0,
+                        start.Y + (end.Y - start.Y) * t0);
+                    var p1 = new PointF(
+                        start.X + (end.X - start.X) * t1,
+                        start.Y + (end.Y - start.Y) * t1);
+                    Color segColor = InterpolateColor(startColor, endColor, t0);
+                    canvas.StrokeColor = segColor;
+                    canvas.DrawLine(p0, p1);
                 }
-                // else { Debug.WriteLine($"Connection skipped: Source or Target node not found (SourceId: {connection.SourceNodeId}, TargetId: {connection.TargetNodeId})"); }
+
+                // Draw arrowhead at the end
+                canvas.StrokeColor = endColor;
+                canvas.FillColor = endColor;
+                DrawArrowhead(canvas, start, end);
+            }
+
+            // Helper for color interpolation
+            Color InterpolateColor(Color c1, Color c2, float t)
+            {
+                return new Color(
+                    c1.Red + (c2.Red - c1.Red) * t,
+                    c1.Green + (c2.Green - c1.Green) * t,
+                    c1.Blue + (c2.Blue - c1.Blue) * t,
+                    c1.Alpha + (c2.Alpha - c1.Alpha) * t);
             }
             // Debug.WriteLine($"--- Finished Drawing Connections ---");
 
@@ -566,23 +593,25 @@ namespace CSimple.Pages
             // 1. Check if a connection handle was tapped FIRST
             foreach (var node in _viewModel.Nodes)
             {
-                if (node.Type == NodeType.Input || node.Type == NodeType.Model || node.Type == NodeType.File)
-                {
-                    RectF handleRect = GetConnectionHandleRect(node);
-                    handleRect.Inflate(2, 2); // Add tolerance
+                RectF handleRect = GetConnectionHandleRect(node);
+                handleRect.Inflate(2, 2); // Add tolerance
 
-                    if (handleRect.Contains(worldTouchPoint))
-                    {
-                        nodeUnderHandle = node;
-                        handleTapped = true;
-                        break; // Found the tapped handle
-                    }
+                if (handleRect.Contains(worldTouchPoint))
+                {
+                    nodeUnderHandle = node;
+                    handleTapped = true;
+                    break; // Found the tapped handle
                 }
             }
 
             if (handleTapped)
             {
                 // Start connection drawing from the handle
+                if (nodeUnderHandle == null)
+                {
+                    Debug.WriteLine("Cannot start connection from null node.");
+                    return;
+                }
                 _viewModel.StartConnection(nodeUnderHandle);
                 _isDrawingConnection = true;
                 _connectionEndPoint = worldTouchPoint; // Initial end point
