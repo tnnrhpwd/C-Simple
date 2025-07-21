@@ -4,6 +4,7 @@ using System.Windows.Input;
 using Microsoft.Maui.Graphics;
 using CSimple.Services;
 using System.ComponentModel;
+using Microsoft.Maui.Storage;
 
 namespace CSimple.Pages;
 
@@ -52,9 +53,31 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
     public string VoiceAssistantIcon => IsVoiceAssistantActive ? "mic_active.png" : "mic_inactive.png";
 
     // New properties to showcase AI capabilities
-    public bool IsAIEnabled { get; set; } = true;
-    public string ActiveAIStatus { get; set; } = "AI Assistant Active";
-    public string AIStatusDetail { get; set; } = "Monitoring inputs and providing assistance";
+    private bool _isAIEnabled = false; // Default to false
+    public bool IsAIEnabled
+    {
+        get => _isAIEnabled;
+        set
+        {
+            if (_isAIEnabled != value)
+            {
+                _isAIEnabled = value;
+                OnPropertyChanged(nameof(IsAIEnabled));
+
+                // Save state to persistent storage
+                Task.Run(async () => await SaveAIEnabledStateAsync(value));
+
+                // Synchronize with NetPageViewModel's IsIntelligenceActive
+                SynchronizeIntelligenceState(value);
+
+                // Update UI status
+                ActiveAIStatus = value ? "AI Assistant Active" : "AI Assistant Inactive";
+                OnPropertyChanged(nameof(ActiveAIStatus));
+            }
+        }
+    }
+    public string ActiveAIStatus { get; set; } = "AI Assistant Inactive";
+    public string AIStatusDetail { get; set; } = "AI Assistant ready to start";
     public int ActiveModelsCount { get; set; } = 2;
     public int TodayActionsCount { get; set; } = 15;
     public double SuccessRate { get; set; } = 0.92;
@@ -218,6 +241,20 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+
+        // Load saved AI enabled state first, before other initialization
+        var savedIsAIEnabled = await LoadAIEnabledStateAsync();
+        _isAIEnabled = savedIsAIEnabled; // Set backing field directly to avoid triggering save
+        OnPropertyChanged(nameof(IsAIEnabled));
+
+        // Update initial status based on loaded state
+        ActiveAIStatus = _isAIEnabled ? "AI Assistant Active" : "AI Assistant Inactive";
+        AIStatusDetail = _isAIEnabled ? "Monitoring inputs and providing assistance" : "AI Assistant ready to start";
+        OnPropertyChanged(nameof(ActiveAIStatus));
+        OnPropertyChanged(nameof(AIStatusDetail));
+
+        Debug.WriteLine($"HomePage: Loaded AI enabled state: {_isAIEnabled}");
+
         await Initialize();
 
         // Preload NetPage models and initialize for faster navigation
@@ -226,8 +263,9 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
         // Refresh dashboard stats on appearing
         RefreshDashboard();
 
-        // Watch for AI toggle changes
-        OnPropertyChanged(nameof(IsAIEnabled));
+        // Synchronize the NetPageViewModel after loading and set up bidirectional sync
+        SynchronizeIntelligenceState(_isAIEnabled);
+        SetupNetPageViewModelSync();
     }
 
     // Watch for AI toggle changes
@@ -241,10 +279,6 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
             if (_voiceAssistantService != null)
             {
                 _voiceAssistantService.ToggleEnabled(IsAIEnabled);
-
-                // Update UI
-                ActiveAIStatus = IsAIEnabled ? "AI Assistant Active" : "AI Assistant Inactive";
-                OnPropertyChanged(nameof(ActiveAIStatus));
             }
         }
     }
@@ -420,47 +454,37 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
             // Set up context menu handlers
             trayService.StartListenHandler = () =>
             {
-                Debug.WriteLine("Start Listen requested from tray menu");
+                Debug.WriteLine("Simply start requested from tray menu");
                 try
                 {
-                    var app = Application.Current as App;
-                    var netPageViewModel = app?.NetPageViewModel;
-                    if (netPageViewModel != null)
+                    // Use the unified IsAIEnabled property instead of directly setting NetPageViewModel
+                    MainThread.BeginInvokeOnMainThread(() =>
                     {
-                        netPageViewModel.IsIntelligenceActive = true;
-                        Debug.WriteLine("Intelligence recording started from tray menu");
-                    }
-                    else
-                    {
-                        Debug.WriteLine("NetPageViewModel not available for starting intelligence");
-                    }
+                        IsAIEnabled = true;
+                        Debug.WriteLine("Simply assistant started from tray menu");
+                    });
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error starting intelligence from tray: {ex.Message}");
+                    Debug.WriteLine($"Error starting Simply assistant from tray: {ex.Message}");
                 }
             };
 
             trayService.StopListenHandler = () =>
             {
-                Debug.WriteLine("Stop Listen requested from tray menu");
+                Debug.WriteLine("Simply stop requested from tray menu");
                 try
                 {
-                    var app = Application.Current as App;
-                    var netPageViewModel = app?.NetPageViewModel;
-                    if (netPageViewModel != null)
+                    // Use the unified IsAIEnabled property instead of directly setting NetPageViewModel
+                    MainThread.BeginInvokeOnMainThread(() =>
                     {
-                        netPageViewModel.IsIntelligenceActive = false;
-                        Debug.WriteLine("Intelligence recording stopped from tray menu");
-                    }
-                    else
-                    {
-                        Debug.WriteLine("NetPageViewModel not available for stopping intelligence");
-                    }
+                        IsAIEnabled = false;
+                        Debug.WriteLine("Simply assistant stopped from tray menu");
+                    });
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error stopping intelligence from tray: {ex.Message}");
+                    Debug.WriteLine($"Error stopping Simply assistant from tray: {ex.Message}");
                 }
             };
 
@@ -469,10 +493,23 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
                 Debug.WriteLine("Settings requested from tray menu");
                 try
                 {
-                    // Bring window to front and navigate to settings if available
+                    // Bring window to front and navigate to settings page
                     WindowExtensions.BringToFront();
-                    // Note: Add navigation to settings page when implemented
-                    Debug.WriteLine("Settings navigation not yet implemented - bringing app to front");
+
+                    // Navigate to settings page
+                    MainThread.BeginInvokeOnMainThread(async () =>
+                    {
+                        try
+                        {
+                            Debug.WriteLine("Navigating to settings page from tray menu");
+                            await Shell.Current.GoToAsync("///settings");
+                            Debug.WriteLine("Successfully navigated to settings page");
+                        }
+                        catch (Exception navEx)
+                        {
+                            Debug.WriteLine($"Error navigating to settings page: {navEx.Message}");
+                        }
+                    });
                 }
                 catch (Exception ex)
                 {
@@ -497,9 +534,8 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
             {
                 try
                 {
-                    var app = Application.Current as App;
-                    var netPageViewModel = app?.NetPageViewModel;
-                    return netPageViewModel?.IsIntelligenceActive ?? false;
+                    // Use the unified IsAIEnabled property instead of checking NetPageViewModel directly
+                    return IsAIEnabled;
                 }
                 catch (Exception ex)
                 {
@@ -511,6 +547,113 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
             Debug.WriteLine("Tray context menu handlers configured");
         }
     }
+
+    // Methods for AI state management and persistence
+    private async Task SaveAIEnabledStateAsync(bool isEnabled)
+    {
+        try
+        {
+            await SecureStorage.SetAsync("IsAIEnabled", isEnabled.ToString());
+            Debug.WriteLine($"AI enabled state saved: {isEnabled}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error saving AI enabled state: {ex.Message}");
+        }
+    }
+
+    private async Task<bool> LoadAIEnabledStateAsync()
+    {
+        try
+        {
+            var savedState = await SecureStorage.GetAsync("IsAIEnabled");
+            if (savedState != null && bool.TryParse(savedState, out bool isEnabled))
+            {
+                Debug.WriteLine($"AI enabled state loaded: {isEnabled}");
+                return isEnabled;
+            }
+            else
+            {
+                Debug.WriteLine("No saved AI enabled state found, defaulting to false");
+                return false; // Default to false as requested
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error loading AI enabled state: {ex.Message}");
+            return false; // Default to false on error
+        }
+    }
+
+    private void SynchronizeIntelligenceState(bool isEnabled)
+    {
+        try
+        {
+            var app = Application.Current as App;
+            var netPageViewModel = app?.NetPageViewModel;
+            if (netPageViewModel != null)
+            {
+                // Synchronize NetPageViewModel's IsIntelligenceActive with IsAIEnabled
+                netPageViewModel.IsIntelligenceActive = isEnabled;
+                Debug.WriteLine($"Synchronized NetPageViewModel.IsIntelligenceActive to: {isEnabled}");
+            }
+            else
+            {
+                Debug.WriteLine("NetPageViewModel not available for state synchronization");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error synchronizing intelligence state: {ex.Message}");
+        }
+    }
+
+    private void SetupNetPageViewModelSync()
+    {
+        try
+        {
+            var app = Application.Current as App;
+            var netPageViewModel = app?.NetPageViewModel;
+            if (netPageViewModel != null)
+            {
+                // Subscribe to NetPageViewModel property changes to sync back to IsAIEnabled
+                netPageViewModel.PropertyChanged += (sender, e) =>
+                {
+                    if (e.PropertyName == nameof(netPageViewModel.IsIntelligenceActive))
+                    {
+                        // Sync back to IsAIEnabled if NetPageViewModel changes from other sources
+                        if (netPageViewModel.IsIntelligenceActive != _isAIEnabled)
+                        {
+                            MainThread.BeginInvokeOnMainThread(() =>
+                            {
+                                _isAIEnabled = netPageViewModel.IsIntelligenceActive;
+                                OnPropertyChanged(nameof(IsAIEnabled));
+
+                                // Update UI status
+                                ActiveAIStatus = _isAIEnabled ? "AI Assistant Active" : "AI Assistant Inactive";
+                                OnPropertyChanged(nameof(ActiveAIStatus));
+
+                                // Save the new state
+                                Task.Run(async () => await SaveAIEnabledStateAsync(_isAIEnabled));
+
+                                Debug.WriteLine($"Reverse-synchronized IsAIEnabled to: {_isAIEnabled}");
+                            });
+                        }
+                    }
+                };
+                Debug.WriteLine("NetPageViewModel synchronization established");
+            }
+            else
+            {
+                Debug.WriteLine("NetPageViewModel not available for reverse synchronization setup");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error setting up NetPageViewModel sync: {ex.Message}");
+        }
+    }
+
     private async void OnGetStartedClicked(object sender, EventArgs e)
     {
         try

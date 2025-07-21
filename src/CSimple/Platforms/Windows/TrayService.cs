@@ -123,13 +123,13 @@ public class TrayService : ITrayService
             // Add menu items in the requested order
             if (isListening)
             {
-                AppendMenu(hMenu, MF_STRING, ID_STOP_LISTEN, "Stop Listen");
-                Debug.WriteLine("Added 'Stop Listen' menu item");
+                AppendMenu(hMenu, MF_STRING, ID_STOP_LISTEN, "Simply stop");
+                Debug.WriteLine("Added 'Simply stop' menu item");
             }
             else
             {
-                AppendMenu(hMenu, MF_STRING, ID_START_LISTEN, "Start Listen");
-                Debug.WriteLine("Added 'Start Listen' menu item");
+                AppendMenu(hMenu, MF_STRING, ID_START_LISTEN, "Simply start");
+                Debug.WriteLine("Added 'Simply start' menu item");
             }
 
             AppendMenu(hMenu, MF_SEPARATOR, 0, null);
@@ -166,11 +166,11 @@ public class TrayService : ITrayService
             switch (selectedItem)
             {
                 case ID_START_LISTEN:
-                    Debug.WriteLine("Start Listen selected from tray menu");
+                    Debug.WriteLine("Simply start selected from tray menu");
                     StartListenHandler?.Invoke();
                     break;
                 case ID_STOP_LISTEN:
-                    Debug.WriteLine("Stop Listen selected from tray menu");
+                    Debug.WriteLine("Simply stop selected from tray menu");
                     StopListenHandler?.Invoke();
                     break;
                 case ID_SETTINGS:

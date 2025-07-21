@@ -71,55 +71,71 @@
                 </VerticalStackLayout>
                 <VerticalStackLayout Grid.Column="2"
                                      Spacing="2">
-                    <Grid RowDefinitions="Auto,Auto,Auto"
-                          ColumnDefinitions="Auto,Auto">
-                        <!-- AI Assistant Toggle -->
-                        <Switch Grid.Row="0"
-                                Grid.Column="0"
-                                IsToggled="{Binding IsAIEnabled}"
-                                OnColor="{StaticResource Primary}"
-                                ThumbColor="{AppThemeBinding Light=White, Dark=White}"
-                                VerticalOptions="Center" />
-                        <Label Grid.Row="1"
-                               Grid.Column="0"
-                               Text="AI Assistant"
+              <VerticalStackLayout Spacing="8">
+                     <!-- AI Assistant Toggle -->
+                     <Frame Padding="10,8"
+                               CornerRadius="15"
+                               BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
+                               HasShadow="False"
+                               Margin="0,8,0,0">
+                            <Grid ColumnDefinitions="Auto,*"
+                                     ColumnSpacing="8">
+                                          <Switch IsToggled="{Binding IsAIEnabled}"
+                                                 OnColor="{StaticResource Primary}"
+                                                 ThumbColor="White"
+                                                 Scale="0.8" />
+                                   <Label Grid.Column="1"
+                                          Text="Simply start"
+                                          FontSize="12"
+                                          FontAttributes="Bold"
+                                          TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                          VerticalOptions="Center" />
+                            </Grid>
+                     </Frame>
+                     <!-- Voice Assistant Button -->
+                     <Button ImageSource="{Binding VoiceAssistantIcon}"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
+                                   BorderColor="Transparent"
+                                   CornerRadius="22"
+                                   HeightRequest="44"
+                                   WidthRequest="44"
+                                   HorizontalOptions="Center"
+                                   Command="{Binding VoiceAssistantCommand}">
+                            <Button.Shadow>
+                                   <Shadow Brush="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                 Offset="0,2"
+                                                 Radius="4"
+                                                 Opacity="0.3" />
+                            </Button.Shadow>
+                     </Button>
+                     <Label Text="Voice"
                                FontSize="10"
+                               FontAttributes="Bold"
                                TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
                                HorizontalOptions="Center" />
-                        <!-- Voice Assistant Button -->
-                        <Button Grid.Row="0"
-                                Grid.Column="1"
-                                ImageSource="{Binding VoiceAssistantIcon}"
-                                BackgroundColor="Transparent"
-                                BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                BorderWidth="1"
-                                CornerRadius="20"
-                                HeightRequest="40"
-                                VerticalOptions="Center" />
-                        <Label Grid.Row="1"
-                               Grid.Column="1"
-                               Text="Voice"
-                               FontSize="10"
-                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
-                               HorizontalOptions="Center" />
-                        <!-- Online Mode Toggle (Re-added) -->
-                        <Switch Grid.Row="2"
-                                Grid.Column="0"
-                                Grid.ColumnSpan="2"
-                                IsToggled="{Binding IsOnlineMode}"
-                                OnColor="{StaticResource Accent}"
-                                ThumbColor="{AppThemeBinding Light=White, Dark=White}"
-                                VerticalOptions="Center"
-                                HorizontalOptions="Center"
-                                Margin="0,10,0,0" />
-                        <Label Grid.Row="3"
-                               Grid.Column="0"
-                               Grid.ColumnSpan="2"
-                               Text="{Binding AppModeLabel}"
-                               FontSize="10"
-                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
-                               HorizontalOptions="Center" />
-                    </Grid>
+                     
+                     <!-- Online Mode Toggle -->
+                     <Frame Padding="10,8"
+                               CornerRadius="15"
+                               BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
+                               HasShadow="False"
+                               Margin="0,8,0,0">
+                            <Grid ColumnDefinitions="Auto,*"
+                                     ColumnSpacing="8">
+                                   <Switch Grid.Column="0"
+                                                 IsToggled="{Binding IsOnlineMode}"
+                                                 OnColor="{StaticResource Accent}"
+                                                 ThumbColor="White"
+                                                 Scale="0.7" />
+                                   <Label Grid.Column="1"
+                                             Text="{Binding AppModeLabel}"
+                                             FontSize="11"
+                                             FontAttributes="Bold"
+                                             TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                             VerticalOptions="Center" />
+                            </Grid>
+                     </Frame>
+              </VerticalStackLayout>
                 </VerticalStackLayout>
             </Grid>
         </Frame>
