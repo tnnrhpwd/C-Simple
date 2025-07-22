@@ -1058,9 +1058,12 @@ namespace CSimple.Services
                 // Combine step contents using ensemble method
                 string combinedInput = _ensembleModelService.CombineStepContents(stepContents, modelNode.SelectedEnsembleMethod);
 
+                // Append classification text if present
+                combinedInput = AppendClassificationText(combinedInput, modelNode);
+
                 Debug.WriteLine($"🤖 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Executing {modelNode.Name} with dynamic input ({combinedInput?.Length ?? 0} chars)");
 
-                // Execute the model with dynamically computed input
+                // Execute the model with dynamically computed input (now with classification text)
                 string result = await _ensembleModelService.ExecuteModelWithInput(model, combinedInput);
 
                 if (!string.IsNullOrEmpty(result))
@@ -1107,6 +1110,31 @@ namespace CSimple.Services
                     _preparedInputCache.Remove(dependentId);
                 }
             }
+        }
+
+        /// <summary>
+        /// Appends classification-specific text to the input if the model node has a classification
+        /// </summary>
+        private string AppendClassificationText(string originalInput, NodeViewModel modelNode)
+        {
+            if (string.IsNullOrEmpty(modelNode.Classification) || modelNode.Classification == "")
+            {
+                return originalInput;
+            }
+
+            string classificationText = modelNode.CurrentClassificationText;
+            
+            if (string.IsNullOrEmpty(classificationText))
+            {
+                return originalInput;
+            }
+
+            // Append classification text with appropriate formatting
+            string appendedInput = $"{originalInput}\n\n[{modelNode.Classification}]: {classificationText}";
+            
+            Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [AppendClassificationText] Appended {modelNode.Classification} text to input for node '{modelNode.Name}': '{classificationText}'");
+            
+            return appendedInput;
         }
 
     }

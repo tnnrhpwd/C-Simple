@@ -37,24 +37,26 @@ namespace CSimple.Services
         /// <summary>
         /// Gets all input nodes connected to the specified model node
         /// </summary>
-        public List<NodeViewModel> GetConnectedInputNodes(NodeViewModel modelNode, ObservableCollection<NodeViewModel> nodes, ObservableCollection<ConnectionViewModel> connections)
+        public List<NodeViewModel> GetConnectedInputNodes(NodeViewModel modelNode, IEnumerable<NodeViewModel> nodes, IEnumerable<ConnectionViewModel> connections)
         {
             // Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Finding inputs for model node: {modelNode.Name}");
 
             var connectedNodes = new List<NodeViewModel>();
+            var nodesList = nodes.ToList(); // Convert to list for efficient access
+            var connectionsList = connections.ToList(); // Convert to list for efficient access
 
             // Build node cache if empty or if new nodes were added
-            if (_nodeCache.Count != nodes.Count)
+            if (_nodeCache.Count != nodesList.Count)
             {
                 _nodeCache.Clear();
-                foreach (var node in nodes)
+                foreach (var node in nodesList)
                 {
                     _nodeCache[node.Id] = node;
                 }
             }
 
             // Find all connections that target this model node
-            var incomingConnections = connections.Where(c => c.TargetNodeId == modelNode.Id).ToList();
+            var incomingConnections = connectionsList.Where(c => c.TargetNodeId == modelNode.Id).ToList();
             // Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Found {incomingConnections.Count} incoming connections");
 
             foreach (var connection in incomingConnections)
@@ -287,7 +289,7 @@ namespace CSimple.Services
         /// Executes a single model node with optimized performance
         /// </summary>
         public async Task ExecuteSingleModelNodeAsync(NodeViewModel modelNode, NeuralNetworkModel correspondingModel,
-            ObservableCollection<NodeViewModel> nodes, ObservableCollection<ConnectionViewModel> connections, int currentActionStep)
+            IEnumerable<NodeViewModel> nodes, IEnumerable<ConnectionViewModel> connections, int currentActionStep)
         {
             var totalStopwatch = Stopwatch.StartNew();
             try

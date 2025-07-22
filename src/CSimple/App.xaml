@@ -20,6 +20,7 @@
             <converters:IsNotNullOrEmptyConverter x:Key="IsNotNullOrEmptyConverter" />
             <converters:BoolToFontAttributesConverter x:Key="BoolToFontAttributesConverter" />
             <converters:BoolToExecutingColorConverter x:Key="BoolToExecutingColorConverter" />
+            <converters:EqualToConverter x:Key="EqualToConverter" />
             <!-- Add this -->
             <!-- Color Resources -->
             <ResourceDictionary.MergedDictionaries>

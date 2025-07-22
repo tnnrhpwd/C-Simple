@@ -32,6 +32,9 @@ namespace CSimple.Models
         public string ModelPath { get; set; } // Include relevant properties
         public string DataType { get; set; } // Add this if not already present
         public string Classification { get; set; } // ADDED: Store classification
+        public string GoalText { get; set; } // ADDED: Store goal text
+        public string PlanText { get; set; } // ADDED: Store plan text  
+        public string ActionText { get; set; } // ADDED: Store action text
         public string OriginalName { get; set; } // ADDED: Store original name without classification
         public string SaveFilePath { get; set; } // ADDED: Store save file path for file nodes
         public List<(string Type, string Value)> ActionSteps { get; set; } = new List<(string, string)>(); // ADDED: Store generated outputs
@@ -52,6 +55,9 @@ namespace CSimple.Models
             ModelPath = vm.ModelPath; // Assign ModelPath
             DataType = vm.DataType;
             Classification = vm.Classification;
+            GoalText = vm.GoalText; // Assign goal text
+            PlanText = vm.PlanText; // Assign plan text
+            ActionText = vm.ActionText; // Assign action text
             OriginalName = vm.OriginalName; // Assign OriginalName
             SaveFilePath = vm.SaveFilePath; // Assign SaveFilePath for file nodes
             ActionSteps = vm.ActionSteps?.ToList() ?? new List<(string, string)>(); // Copy ActionSteps
@@ -71,7 +77,10 @@ namespace CSimple.Models
                 this.ModelPath, // Pass ModelPath
                 this.Classification, // Pass Classification
                 this.OriginalName, // Pass OriginalName
-                this.SaveFilePath // Pass SaveFilePath for file nodes
+                this.SaveFilePath, // Pass SaveFilePath for file nodes
+                this.GoalText, // Pass GoalText
+                this.PlanText, // Pass PlanText
+                this.ActionText // Pass ActionText
             )
             {
                 // Set properties not handled by constructor (Size is handled by constructor default)

@@ -26,6 +26,9 @@ namespace CSimple.ViewModels
         private string _selectedEnsembleMethod;
         private ObservableCollection<string> _availableEnsembleMethods = new ObservableCollection<string>();
         private string _classification; // Added for text model classification
+        private string _goalText = ""; // Added for Goal classification text
+        private string _planText = ""; // Added for Plan classification text  
+        private string _actionText = ""; // Added for Action classification text
         private string _modelPath; // Added for model path storage
         private string _originalName; // Added to store name before classification suffix
         private string _saveFilePath; // Added for file node save path
@@ -122,11 +125,45 @@ namespace CSimple.ViewModels
                 }
             }
         }
+
+        // Classification-specific text properties
+        public string GoalText
+        {
+            get => _goalText;
+            set => SetProperty(ref _goalText, value);
+        }
+
+        public string PlanText
+        {
+            get => _planText;
+            set => SetProperty(ref _planText, value);
+        }
+
+        public string ActionText
+        {
+            get => _actionText;
+            set => SetProperty(ref _actionText, value);
+        }
+
+        // Helper property to get the current classification text
+        public string CurrentClassificationText
+        {
+            get
+            {
+                return Classification switch
+                {
+                    "Goal" => GoalText,
+                    "Plan" => PlanText,
+                    "Action" => ActionText,
+                    _ => ""
+                };
+            }
+        }
         // --- End Text Model Classification ---
 
 
         // Modified Constructor to accept ID as string and handle OriginalName and SaveFilePath
-        public NodeViewModel(string id, string name, NodeType type, PointF position, string dataType = "unknown", string originalModelId = null, string modelPath = null, string classification = null, string originalName = null, string saveFilePath = null)
+        public NodeViewModel(string id, string name, NodeType type, PointF position, string dataType = "unknown", string originalModelId = null, string modelPath = null, string classification = null, string originalName = null, string saveFilePath = null, string goalText = "", string planText = "", string actionText = "")
         {
             Id = id ?? Guid.NewGuid().ToString(); // Use provided ID or generate new
             Type = type;
@@ -138,6 +175,9 @@ namespace CSimple.ViewModels
             _classification = classification; // Store initial classification without triggering update yet
             _originalName = originalName ?? name; // Store original name or use initial name
             _saveFilePath = saveFilePath; // Store save file path for file nodes
+            _goalText = goalText ?? ""; // Initialize goal text
+            _planText = planText ?? ""; // Initialize plan text
+            _actionText = actionText ?? ""; // Initialize action text
             Name = name; // Set initial name (might be updated immediately if classification exists)
 
             // Update name based on initial classification if provided

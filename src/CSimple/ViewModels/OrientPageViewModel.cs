@@ -1,5 +1,6 @@
 using CSimple.Models;
 using CSimple.Services;
+using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Storage;
 using System;
@@ -454,8 +455,8 @@ namespace CSimple.ViewModels
                 await ExecuteRunAllModelsAsync();
             }, () =>
             {
-                bool canExecute = Nodes.Any(n => n.Type == NodeType.Model);
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllModelsCommand.CanExecute] Checking: {canExecute} (Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)})");
+                bool canExecute = HasModelNodes();
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllModelsCommand.CanExecute] Checking: {canExecute} (Model nodes count: {GetModelNodesCount()})");
                 return canExecute;
             });
 
@@ -467,8 +468,8 @@ namespace CSimple.ViewModels
                 await ExecuteRunAllNodesAsync();
             }, () =>
             {
-                bool canExecute = Nodes.Any(n => n.Type == NodeType.Model) && !string.IsNullOrEmpty(SelectedReviewActionName);
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllNodesCommand.CanExecute] Checking: {canExecute} (Model nodes: {Nodes.Count(n => n.Type == NodeType.Model)}, Selected action: {SelectedReviewActionName ?? "none"})");
+                bool canExecute = HasModelNodes() && !string.IsNullOrEmpty(SelectedReviewActionName);
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllNodesCommand.CanExecute] Checking: {canExecute} (Model nodes: {GetModelNodesCount()}, Selected action: {SelectedReviewActionName ?? "none"})");
                 return canExecute;
             });
 
@@ -1042,10 +1043,14 @@ namespace CSimple.ViewModels
                     return;
                 }
 
-                // Check if connection already exists
-                bool exists = Connections.Any(c =>
-                    (c.SourceNodeId == _temporaryConnectionState.Id && c.TargetNodeId == targetNode.Id) ||
-                    (c.SourceNodeId == targetNode.Id && c.TargetNodeId == _temporaryConnectionState.Id));
+                // Check if connection already exists - thread-safe check
+                bool exists;
+                lock (_connectionsLock)
+                {
+                    exists = Connections.Any(c =>
+                        (c.SourceNodeId == _temporaryConnectionState.Id && c.TargetNodeId == targetNode.Id) ||
+                        (c.SourceNodeId == targetNode.Id && c.TargetNodeId == _temporaryConnectionState.Id));
+                }
 
                 if (!exists)
                 {
@@ -1260,10 +1265,19 @@ namespace CSimple.ViewModels
 
         private void ClearCanvas()
         {
-            Nodes.Clear();
-            Connections.Clear();
+            lock (_nodesLock)
+            {
+                Nodes.Clear();
+            }
+            lock (_connectionsLock)
+            {
+                Connections.Clear();
+            }
             SelectedNode = null;
             _temporaryConnectionState = null;
+            
+            // Invalidate caches since collections changed
+            InvalidatePipelineStateCache();
         }
 
         private NodeType InferNodeTypeFromName(string name)
@@ -1314,7 +1328,7 @@ namespace CSimple.ViewModels
         {
             Debug.WriteLine($"Executing pipeline '{CurrentPipelineName}' with prompt override: '{promptOverride}'");
 
-            if (!Nodes.Any() || !Connections.Any())
+            if (!HasAnyNodes() || !HasAnyConnections())
             {
                 return "Error: Pipeline is empty or has no connections.";
             }
@@ -1360,7 +1374,8 @@ namespace CSimple.ViewModels
 
             // Find the final combiner/text model (connected FROM interpreters)
             NodeViewModel finalModel = null;
-            foreach (var potentialFinalNode in Nodes.Where(n => n.Type == NodeType.Model && n.DataType == "text")) // Assume final is text
+            var textModelNodes = GetTextModelNodes();
+            foreach (var potentialFinalNode in textModelNodes)
             {
                 var incomingConnections = Connections
                     .Where(c => c.TargetNodeId == potentialFinalNode.Id)
@@ -1385,8 +1400,22 @@ namespace CSimple.ViewModels
 
             if (finalModel == null)
             {
-                // Fallback: Find *any* model connected from an interpreter if no text model found
-                finalModel = Nodes.FirstOrDefault(n => n.Type == NodeType.Model && Connections.Any(c => c.TargetNodeId == n.Id && interpreterNodes.Any(interp => interp.Id == c.SourceNodeId)));
+                // Fallback: Find *any* model connected from an interpreter if no text model found - thread-safe version
+                List<NodeViewModel> nodesCopy;
+                List<ConnectionViewModel> connectionsCopy;
+
+                lock (_nodesLock)
+                {
+                    nodesCopy = Nodes.ToList();
+                }
+
+                lock (_connectionsLock)
+                {
+                    connectionsCopy = Connections.ToList();
+                }
+
+                finalModel = nodesCopy.FirstOrDefault(n => n.Type == NodeType.Model && 
+                    connectionsCopy.Any(c => c.TargetNodeId == n.Id && interpreterNodes.Any(interp => interp.Id == c.SourceNodeId)));
                 if (finalModel != null)
                 {
                     Debug.WriteLine($"Identified fallback final model (non-text?): '{finalModel.Name}'");
@@ -1963,7 +1992,8 @@ namespace CSimple.ViewModels
         {
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.RefreshAllNodeStepContent] Refreshing step content for all nodes");
 
-            foreach (var node in Nodes)
+            var allNodes = GetAllNodes();
+            foreach (var node in allNodes)
             {
                 // Force a refresh by triggering property change notifications
                 if (node.Type == NodeType.Input || node.Type == NodeType.Model)
@@ -2020,6 +2050,67 @@ namespace CSimple.ViewModels
         private bool _environmentPrewarmed = false;
         private readonly object _warmupLock = new object();
 
+        // Collection access locks for thread safety
+        private readonly object _nodesLock = new object();
+        private readonly object _connectionsLock = new object();
+
+        // Thread-safe helper methods for collection access
+        private bool HasModelNodes()
+        {
+            lock (_nodesLock)
+            {
+                return Nodes.Any(n => n.Type == NodeType.Model);
+            }
+        }
+
+        private int GetModelNodesCount()
+        {
+            lock (_nodesLock)
+            {
+                return Nodes.Count(n => n.Type == NodeType.Model);
+            }
+        }
+
+        private List<NodeViewModel> GetTextModelNodes()
+        {
+            lock (_nodesLock)
+            {
+                return Nodes.Where(n => n.Type == NodeType.Model && n.DataType == "text").ToList();
+            }
+        }
+
+        private List<NodeViewModel> GetAllNodes()
+        {
+            lock (_nodesLock)
+            {
+                return Nodes.ToList();
+            }
+        }
+
+        private List<ConnectionViewModel> GetAllConnections()
+        {
+            lock (_connectionsLock)
+            {
+                return Connections.ToList();
+            }
+        }
+
+        private bool HasAnyNodes()
+        {
+            lock (_nodesLock)
+            {
+                return Nodes.Any();
+            }
+        }
+
+        private bool HasAnyConnections()
+        {
+            lock (_connectionsLock)
+            {
+                return Connections.Any();
+            }
+        }
+
         // --- Proactive preparation for Run All Models optimization ---
         private Task _proactivePreparationTask = null;
         private bool _modelExecutionPrepared = false;
@@ -2029,13 +2120,28 @@ namespace CSimple.ViewModels
         // Cache pipeline state for performance
         private void CachePipelineState()
         {
-            _cachedModelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
-            _cachedInputNodes = Nodes.Where(n => n.Type == NodeType.Input).ToList();
+            // Capture collections safely to avoid concurrent access issues
+            List<NodeViewModel> nodesCopy;
+            List<ConnectionViewModel> connectionsCopy;
+
+            // Lock to ensure thread-safe access to ObservableCollections
+            lock (_nodesLock)
+            {
+                nodesCopy = Nodes.ToList();
+            }
+
+            lock (_connectionsLock)
+            {
+                connectionsCopy = Connections.ToList();
+            }
+
+            _cachedModelNodes = nodesCopy.Where(n => n.Type == NodeType.Model).ToList();
+            _cachedInputNodes = nodesCopy.Where(n => n.Type == NodeType.Input).ToList();
             _cachedConnectionCounts = new Dictionary<string, int>();
 
             foreach (var node in _cachedModelNodes)
             {
-                _cachedConnectionCounts[node.Id] = Connections.Count(c => c.TargetNodeId == node.Id);
+                _cachedConnectionCounts[node.Id] = connectionsCopy.Count(c => c.TargetNodeId == node.Id);
             }
 
             _pipelineStateCacheValid = true;
@@ -2083,7 +2189,15 @@ namespace CSimple.ViewModels
 
             // 1. Pre-load all neural network models to avoid lookup delays (parallel)
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📚 [PrecomputeExecutionOptimizations] Pre-loading model references...");
-            var modelTasks = _cachedModelNodes.Select(async modelNode =>
+            
+            // Create a safe copy of the cached model nodes to prevent concurrent modification
+            List<NodeViewModel> modelNodesCopy;
+            lock (_nodesLock)
+            {
+                modelNodesCopy = _cachedModelNodes?.ToList() ?? new List<NodeViewModel>();
+            }
+            
+            var modelTasks = modelNodesCopy.Select(async modelNode =>
             {
                 try
                 {
@@ -2133,7 +2247,14 @@ namespace CSimple.ViewModels
                 }
             }
 
-            var stepContentTasks = _cachedInputNodes.Select(async inputNode =>
+            // Create a safe copy of the cached input nodes to prevent concurrent modification
+            List<NodeViewModel> inputNodesCopy;
+            lock (_nodesLock)
+            {
+                inputNodesCopy = _cachedInputNodes?.ToList() ?? new List<NodeViewModel>();
+            }
+
+            var stepContentTasks = inputNodesCopy.Select(async inputNode =>
             {
                 try
                 {
@@ -2161,7 +2282,15 @@ namespace CSimple.ViewModels
 
             // 4. Pre-compute input relationships and combined inputs for all models (parallel)
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔗 [PrecomputeExecutionOptimizations] Pre-computing input relationships...");
-            var relationshipTasks = _cachedModelNodes.Select(async modelNode =>
+            
+            // Create a safe copy of the cached model nodes to prevent concurrent modification
+            List<NodeViewModel> relationshipModelNodesCopy;
+            lock (_nodesLock)
+            {
+                relationshipModelNodesCopy = _cachedModelNodes?.ToList() ?? new List<NodeViewModel>();
+            }
+            
+            var relationshipTasks = relationshipModelNodesCopy.Select(async modelNode =>
             {
                 try
                 {
@@ -2878,8 +3007,21 @@ namespace CSimple.ViewModels
                     }
                 }
 
-                // Get connected input nodes and prepare input with timestamp
-                var connectedInputNodes = _ensembleModelService.GetConnectedInputNodes(modelNode, Nodes, Connections);
+                // Get connected input nodes and prepare input with timestamp - thread-safe version
+                List<NodeViewModel> nodesCopy;
+                List<ConnectionViewModel> connectionsCopy;
+
+                lock (_nodesLock)
+                {
+                    nodesCopy = Nodes.ToList();
+                }
+
+                lock (_connectionsLock)
+                {
+                    connectionsCopy = Connections.ToList();
+                }
+
+                var connectedInputNodes = _ensembleModelService.GetConnectedInputNodes(modelNode, nodesCopy, connectionsCopy);
                 string input = _ensembleModelService.PrepareModelInput(modelNode, connectedInputNodes, stepIndex, actionItemTimestamp);
 
                 // Execute the model
@@ -3194,7 +3336,21 @@ namespace CSimple.ViewModels
 
         private List<NodeViewModel> GetConnectedInputNodes(NodeViewModel modelNode)
         {
-            return _ensembleModelService.GetConnectedInputNodes(modelNode, Nodes, Connections);
+            // Get thread-safe copies of the collections
+            List<NodeViewModel> nodesCopy;
+            List<ConnectionViewModel> connectionsCopy;
+
+            lock (_nodesLock)
+            {
+                nodesCopy = Nodes.ToList();
+            }
+
+            lock (_connectionsLock)
+            {
+                connectionsCopy = Connections.ToList();
+            }
+
+            return _ensembleModelService.GetConnectedInputNodes(modelNode, nodesCopy, connectionsCopy);
         }
 
         private string CombineStepContents(List<string> stepContents, string ensembleMethod)
@@ -3475,11 +3631,12 @@ namespace CSimple.ViewModels
         {
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🐛 [DebugRunAllModelsCommand] === DEBUG INFO ===");
             Debug.WriteLine($"🐛 RunAllModelsCommand is null: {RunAllModelsCommand == null}");
-            Debug.WriteLine($"🐛 Total nodes: {Nodes?.Count ?? 0}");
-            if (Nodes != null)
+            var allNodes = GetAllNodes();
+            Debug.WriteLine($"🐛 Total nodes: {allNodes?.Count ?? 0}");
+            if (allNodes != null)
             {
-                Debug.WriteLine($"🐛 Model nodes: {Nodes.Count(n => n.Type == NodeType.Model)}");
-                foreach (var node in Nodes)
+                Debug.WriteLine($"🐛 Model nodes: {GetModelNodesCount()}");
+                foreach (var node in allNodes)
                 {
                     Debug.WriteLine($"🐛 Node: {node.Name} - Type: {node.Type}");
                 }
