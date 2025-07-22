@@ -2774,9 +2774,9 @@ namespace CSimple.ViewModels
                 int successfulExecutions = 0;
                 int skippedExecutions = 0;
 
-                // Get execution groups for all models (this will be used for all steps)
+                // Get execution groups for all models using proper dependency resolution (this will be used for all steps)
                 var executionGroups = _pipelineExecutionService.GetType()
-                    .GetMethod("BuildHyperOptimizedExecutionGroups", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    .GetMethod("BuildOptimizedExecutionGroups", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                     ?.Invoke(_pipelineExecutionService, new object[] { modelNodes, Connections }) as List<List<NodeViewModel>>;
 
                 if (executionGroups == null)

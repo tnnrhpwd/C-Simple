@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -115,8 +116,8 @@ namespace CSimple.Services
                 // Pre-compute input relationships for all models at once - with aggressive caching
                 PrecomputeInputRelationshipsOptimized(availableModelNodes, nodes, connections, currentActionStep, connectionCountCache);
 
-                // Fast execution grouping with aggressive parallelization
-                var executionGroups = BuildHyperOptimizedExecutionGroups(availableModelNodes, connections);
+                // Use proper dependency-based execution grouping for multi-level dependencies
+                var executionGroups = BuildOptimizedExecutionGroups(availableModelNodes, connections);
 
                 // Notify about groups initialization
                 onGroupsInitialized?.Invoke(executionGroups.Count);
@@ -269,6 +270,9 @@ namespace CSimple.Services
             foreach (var kvp in dependencyLevels)
             {
                 var level = kvp.Value;
+                var node = kvp.Key;
+                Debug.WriteLine($"   🔗 [{DateTime.Now:HH:mm:ss.fff}] Model '{node.Name}' assigned to dependency level {level}");
+                
                 if (!levelDict.ContainsKey(level))
                 {
                     levelDict[level] = new List<NodeViewModel>();
@@ -284,6 +288,15 @@ namespace CSimple.Services
             }
 
             Debug.WriteLine($"📊 [{DateTime.Now:HH:mm:ss.fff}] [BuildOptimizedExecutionGroups] Created {levelGroups.Count} execution groups with dependencies");
+            
+            // Enhanced logging to show group composition
+            for (int i = 0; i < levelGroups.Count; i++)
+            {
+                var group = levelGroups[i];
+                var modelNames = string.Join(", ", group.Select(n => n.Name));
+                Debug.WriteLine($"   📋 Group {i + 1}: {group.Count} models - [{modelNames}]");
+            }
+            
             return levelGroups;
         }
 
@@ -826,8 +839,8 @@ namespace CSimple.Services
 
                 Debug.WriteLine($"🚀 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Found {availableModelNodes.Count} pre-loaded models");
 
-                // Use existing optimized execution grouping
-                var executionGroups = BuildHyperOptimizedExecutionGroups(availableModelNodes, connections);
+                // Use proper dependency-based execution grouping for multi-level dependencies
+                var executionGroups = BuildOptimizedExecutionGroups(availableModelNodes, connections);
 
                 // Notify about groups initialization
                 onGroupsInitialized?.Invoke(executionGroups.Count);
@@ -856,7 +869,7 @@ namespace CSimple.Services
                             if (precomputedInputCache.TryGetValue(modelNode.Id, out var precomputedInput))
                             {
                                 executionTasks.Add(ExecuteModelWithPrecomputedInputAsync(
-                                    modelNode, model, precomputedInput, currentActionStep, semaphore));
+                                    modelNode, model, precomputedInput, currentActionStep, semaphore, connections, nodes));
                             }
                             else
                             {
@@ -907,6 +920,10 @@ namespace CSimple.Services
                                             if (!string.IsNullOrEmpty(result))
                                             {
                                                 modelNode.SetStepOutput(currentActionStep + 1, "text", result);
+                                                
+                                                // Propagate output to connected File nodes for memory saving
+                                                await PropagateOutputToConnectedFileNodesAsync(modelNode, result, currentActionStep, connections, nodes);
+                                                
                                                 Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Fallback execution successful for {modelNode.Name}");
                                                 return true;
                                             }
@@ -964,7 +981,9 @@ namespace CSimple.Services
             NeuralNetworkModel model,
             string precomputedInput,
             int currentActionStep,
-            SemaphoreSlim semaphore)
+            SemaphoreSlim semaphore,
+            ObservableCollection<ConnectionViewModel> connections,
+            ObservableCollection<NodeViewModel> nodes)
         {
             await semaphore.WaitAsync().ConfigureAwait(false);
 
@@ -981,6 +1000,9 @@ namespace CSimple.Services
                     string resultContentType = _ensembleModelService.DetermineResultContentType(model, result);
                     int stepIndex = currentActionStep + 1; // Convert to 1-based
                     modelNode.SetStepOutput(stepIndex, resultContentType, result);
+
+                    // Propagate output to connected File nodes for memory saving
+                    await PropagateOutputToConnectedFileNodesAsync(modelNode, result, currentActionStep, connections, nodes);
 
                     Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithPrecomputedInputAsync] {modelNode.Name} completed successfully");
                     return true;
@@ -1072,6 +1094,9 @@ namespace CSimple.Services
                     string resultContentType = _ensembleModelService.DetermineResultContentType(model, result);
                     modelNode.SetStepOutput(stepIndex, resultContentType, result);
 
+                    // Propagate output to connected File nodes for memory saving
+                    await PropagateOutputToConnectedFileNodesAsync(modelNode, result, currentActionStep, connections, nodes);
+
                     Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] {modelNode.Name} completed successfully");
                     return true;
                 }
@@ -1135,6 +1160,120 @@ namespace CSimple.Services
             Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [AppendClassificationText] Appended {modelNode.Classification} text to input for node '{modelNode.Name}': '{classificationText}'");
             
             return appendedInput;
+        }
+
+        /// <summary>
+        /// Propagates model output to connected File nodes for memory saving
+        /// </summary>
+        private async Task PropagateOutputToConnectedFileNodesAsync(
+            NodeViewModel modelNode,
+            string outputContent,
+            int currentActionStep,
+            ObservableCollection<ConnectionViewModel> connections,
+            ObservableCollection<NodeViewModel> nodes)
+        {
+            try
+            {
+                // Find all connections where this model node is the source and target is a File node
+                var fileConnections = connections.Where(c => 
+                    c.SourceNodeId == modelNode.Id && 
+                    nodes.Any(n => n.Id == c.TargetNodeId && n.Type == NodeType.File)).ToList();
+
+                if (fileConnections.Count == 0)
+                {
+                    return; // No File nodes connected
+                }
+
+                Debug.WriteLine($"📄 [{DateTime.Now:HH:mm:ss.fff}] [PropagateOutputToConnectedFileNodes] Found {fileConnections.Count} File node connections for model '{modelNode.Name}'");
+
+                foreach (var connection in fileConnections)
+                {
+                    var fileNode = nodes.FirstOrDefault(n => n.Id == connection.TargetNodeId && n.Type == NodeType.File);
+                    if (fileNode != null)
+                    {
+                        await AppendOutputToFileNodeAsync(fileNode, modelNode, outputContent, currentActionStep);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [PropagateOutputToConnectedFileNodes] Error propagating output from '{modelNode.Name}': {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Appends model output to a File node's memory file
+        /// </summary>
+        private async Task AppendOutputToFileNodeAsync(
+            NodeViewModel fileNode,
+            NodeViewModel sourceModelNode,
+            string outputContent,
+            int currentActionStep)
+        {
+            try
+            {
+                // Determine the file path for the File node
+                string filePath = null;
+                
+                // Try to get the file path from the node's name or properties
+                if (!string.IsNullOrEmpty(fileNode.Name))
+                {
+                    // If the node name contains a file extension, use it as-is
+                    if (Path.HasExtension(fileNode.Name))
+                    {
+                        // Create the full path in the Memory folder
+                        var memoryDir = Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                            "CSimple",
+                            "Resources",
+                            "Memory"
+                        );
+                        Directory.CreateDirectory(memoryDir);
+                        filePath = Path.Combine(memoryDir, fileNode.Name);
+                    }
+                    else
+                    {
+                        // Add .txt extension if no extension provided
+                        var memoryDir = Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                            "CSimple",
+                            "Resources",
+                            "Memory"
+                        );
+                        Directory.CreateDirectory(memoryDir);
+                        filePath = Path.Combine(memoryDir, $"{fileNode.Name}.txt");
+                    }
+                }
+                else
+                {
+                    // Use a default memory file name
+                    var memoryDir = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                        "CSimple",
+                        "Resources",
+                        "Memory"
+                    );
+                    Directory.CreateDirectory(memoryDir);
+                    filePath = Path.Combine(memoryDir, "memory_output.txt");
+                }
+
+                // Create the content to append with timestamp and source info
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                var separator = new string('=', 50);
+                var contentToAppend = $"\n{separator}\n[{timestamp}] Output from Model: {sourceModelNode.Name} (Step {currentActionStep + 1})\n{separator}\n{outputContent}\n";
+
+                // Append to the file
+                await File.AppendAllTextAsync(filePath, contentToAppend);
+
+                Debug.WriteLine($"💾 [{DateTime.Now:HH:mm:ss.fff}] [AppendOutputToFileNode] Successfully appended output from '{sourceModelNode.Name}' to file: {filePath}");
+
+                // Update the File node's step content to point to the updated file
+                fileNode.SetStepOutput(currentActionStep + 1, "text", filePath);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [AppendOutputToFileNode] Error appending to file node '{fileNode.Name}': {ex.Message}");
+            }
         }
 
     }
