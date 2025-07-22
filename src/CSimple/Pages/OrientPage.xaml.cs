@@ -221,7 +221,7 @@ namespace CSimple.Pages
             {
                 var sourceNode = _viewModel.Nodes.FirstOrDefault(n => n.Id == connection.SourceNodeId);
                 var targetNode = _viewModel.Nodes.FirstOrDefault(n => n.Id == connection.TargetNodeId);
-                // Prevent drawing connection if either node is null or if source is a File node (like Memory)
+                // Prevent drawing connection if either node is null
                 if (sourceNode == null || targetNode == null) continue;
                 // if (sourceNode.Type == NodeType.File)
                 // {

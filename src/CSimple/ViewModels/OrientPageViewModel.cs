@@ -60,6 +60,7 @@ namespace CSimple.ViewModels
                     // Update command can execute states
                     (GenerateCommand as Command)?.ChangeCanExecute();
                     (SelectSaveFileCommand as Command)?.ChangeCanExecute();
+                    (CreateNewMemoryFileCommand as Command)?.ChangeCanExecute();
                 }
             }
         }
@@ -115,6 +116,13 @@ namespace CSimple.ViewModels
             private set => SetProperty(ref _currentPipelineName, value); // Private set for internal control
         }
 
+        // Memory File Name Property
+        private string _memoryFileName = "";
+        public string MemoryFileName
+        {
+            get => _memoryFileName;
+            set => SetProperty(ref _memoryFileName, value);
+        }
 
         // Temporary state for drawing connections
         internal NodeViewModel _temporaryConnectionState = null;
@@ -338,6 +346,7 @@ namespace CSimple.ViewModels
         public ICommand RunAllNodesCommand { get; }
         public ICommand SleepMemoryCompressionCommand { get; }
         public ICommand SelectSaveFileCommand { get; }
+        public ICommand CreateNewMemoryFileCommand { get; }
 
 
         // --- UI Interaction Delegates ---
@@ -453,6 +462,9 @@ namespace CSimple.ViewModels
 
             // Initialize SelectSaveFileCommand
             SelectSaveFileCommand = new Command(async () => await ExecuteSelectSaveFileAsync(), () => SelectedNode?.IsFileNode == true);
+
+            // Initialize CreateNewMemoryFileCommand
+            CreateNewMemoryFileCommand = new Command(async () => await ExecuteCreateNewMemoryFileAsync(), () => SelectedNode?.IsFileNode == true);
 
             // Initialize Audio commands
             PlayAudioCommand = new Command(() => PlayAudio(), CanPlayAudio);
@@ -991,7 +1003,7 @@ namespace CSimple.ViewModels
         // --- Connection Logic ---
         public void StartConnection(NodeViewModel sourceNode)
         {
-            if (sourceNode != null && (sourceNode.Type == NodeType.Input || sourceNode.Type == NodeType.Model))
+            if (sourceNode != null && (sourceNode.Type == NodeType.Input || sourceNode.Type == NodeType.Model || sourceNode.Type == NodeType.File))
             {
                 _temporaryConnectionState = sourceNode;
                 Debug.WriteLine($"Starting connection from {sourceNode.Name}");
@@ -3156,6 +3168,103 @@ namespace CSimple.ViewModels
             {
                 Debug.WriteLine($"⚠️ [ExecuteSelectSaveFileAsync] Error selecting file: {ex.Message}");
                 await ShowAlert?.Invoke("Error", $"Failed to select file: {ex.Message}", "OK");
+            }
+        }
+
+        private async Task ExecuteCreateNewMemoryFileAsync()
+        {
+            try
+            {
+                if (SelectedNode == null || !SelectedNode.IsFileNode)
+                {
+                    await ShowAlert?.Invoke("Error", "No file node selected.", "OK");
+                    return;
+                }
+
+                Debug.WriteLine($"🗂️ [ExecuteCreateNewMemoryFileAsync] Creating new memory file for node: {SelectedNode.Name}");
+
+                // Get the user-specific memory files directory path
+                string userName = Environment.UserName;
+                string memoryFilesDir = Path.Combine("C:", "Users", userName, "Documents", "CSimple", "Resources", "MemoryFiles");
+
+                // Ensure the directory exists
+                if (!Directory.Exists(memoryFilesDir))
+                {
+                    Directory.CreateDirectory(memoryFilesDir);
+                    Debug.WriteLine($"📁 [ExecuteCreateNewMemoryFileAsync] Created memory files directory: {memoryFilesDir}");
+                }
+
+                // Get filename from input field
+                string fileName = string.IsNullOrWhiteSpace(MemoryFileName)
+                    ? $"Memory_{SelectedNode.Name}_{DateTime.Now:yyyyMMdd_HHmmss}"
+                    : MemoryFileName.Trim();
+
+                if (string.IsNullOrWhiteSpace(fileName))
+                {
+                    await ShowAlert?.Invoke("Error", "Please enter a name for the memory file.", "OK");
+                    return;
+                }
+
+                // Validate filename - remove invalid characters
+                char[] invalidChars = Path.GetInvalidFileNameChars();
+                foreach (char c in invalidChars)
+                {
+                    fileName = fileName.Replace(c, '_');
+                }
+
+                // Ensure .txt extension
+                if (!fileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+                {
+                    fileName += ".txt";
+                }
+
+                string fullFilePath = Path.Combine(memoryFilesDir, fileName);
+
+                // Check if file already exists
+                if (File.Exists(fullFilePath))
+                {
+                    bool overwrite = await Application.Current.MainPage.DisplayAlert(
+                        "File Exists",
+                        $"A file named '{fileName}' already exists. Do you want to overwrite it?",
+                        "Yes", "No");
+
+                    if (!overwrite)
+                    {
+                        Debug.WriteLine($"❌ [ExecuteCreateNewMemoryFileAsync] File creation cancelled - user chose not to overwrite");
+                        return;
+                    }
+                }
+
+                // Create the file with initial content
+                string initialContent = $"# Memory File for {SelectedNode.Name}\n" +
+                                      $"Created: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n" +
+                                      $"Node Type: {SelectedNode.Type}\n" +
+                                      $"Data Type: {SelectedNode.DataType}\n\n" +
+                                      $"## Memory Contents\n" +
+                                      $"This file will store outputs from the '{SelectedNode.Name}' node.\n\n";
+
+                await File.WriteAllTextAsync(fullFilePath, initialContent);
+
+                // Update the selected node's save file path
+                SelectedNode.SaveFilePath = fullFilePath;
+
+                Debug.WriteLine($"✅ [ExecuteCreateNewMemoryFileAsync] Memory file created: {fullFilePath}");
+
+                // Persist the pipeline to save the file selection
+                await SaveCurrentPipelineAsync();
+
+                Debug.WriteLine($"💾 [ExecuteCreateNewMemoryFileAsync] Pipeline saved with new memory file path");
+
+                // Clear the memory file name input for next use
+                MemoryFileName = "";
+
+                // Show success message
+                await ShowAlert?.Invoke("Success", $"Memory file '{fileName}' created successfully!", "OK");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ [ExecuteCreateNewMemoryFileAsync] Error creating memory file: {ex.Message}");
+                await ShowAlert?.Invoke("Error", $"Failed to create memory file: {ex.Message}", "OK");
             }
         }
 
