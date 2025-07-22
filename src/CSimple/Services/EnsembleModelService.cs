@@ -16,12 +16,15 @@ namespace CSimple.Services
     {
         private readonly NetPageViewModel _netPageViewModel;
         private readonly Dictionary<string, NodeViewModel> _nodeCache = new Dictionary<string, NodeViewModel>();
+        private readonly object _nodeCacheLock = new object(); // Thread safety for node cache
 
         // Cache for step content to avoid repeated expensive GetStepContent calls
         private readonly Dictionary<string, string> _stepContentCache = new Dictionary<string, string>();
+        private readonly object _stepContentCacheLock = new object(); // Thread safety for step content cache
 
         // Model execution optimization: batch similar models together
         private readonly Dictionary<string, List<(NodeViewModel node, string input)>> _batchedExecutions = new Dictionary<string, List<(NodeViewModel, string)>>();
+        private readonly object _batchedExecutionsLock = new object(); // Thread safety for batched executions
 
         public EnsembleModelService(NetPageViewModel netPageViewModel)
         {
@@ -30,8 +33,20 @@ namespace CSimple.Services
 
         public void ClearStepContentCache()
         {
-            _stepContentCache.Clear();
-            _batchedExecutions.Clear();
+            lock (_nodeCacheLock)
+            {
+                _nodeCache.Clear();
+            }
+
+            lock (_stepContentCacheLock)
+            {
+                _stepContentCache.Clear();
+            }
+
+            lock (_batchedExecutionsLock)
+            {
+                _batchedExecutions.Clear();
+            }
         }
 
         /// <summary>
@@ -45,13 +60,16 @@ namespace CSimple.Services
             var nodesList = nodes.ToList(); // Convert to list for efficient access
             var connectionsList = connections.ToList(); // Convert to list for efficient access
 
-            // Build node cache if empty or if new nodes were added
-            if (_nodeCache.Count != nodesList.Count)
+            // Build node cache with thread safety
+            lock (_nodeCacheLock)
             {
-                _nodeCache.Clear();
-                foreach (var node in nodesList)
+                if (_nodeCache.Count != nodesList.Count)
                 {
-                    _nodeCache[node.Id] = node;
+                    _nodeCache.Clear();
+                    foreach (var node in nodesList)
+                    {
+                        _nodeCache[node.Id] = node;
+                    }
                 }
             }
 
@@ -61,14 +79,17 @@ namespace CSimple.Services
 
             foreach (var connection in incomingConnections)
             {
-                if (_nodeCache.TryGetValue(connection.SourceNodeId, out var sourceNode))
+                lock (_nodeCacheLock)
                 {
-                    // Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Connected node: {sourceNode.Name} (Type: {sourceNode.Type}, DataType: {sourceNode.DataType})");
-                    connectedNodes.Add(sourceNode);
-                }
-                else
-                {
-                    // Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Warning: Source node with ID {connection.SourceNodeId} not found");
+                    if (_nodeCache.TryGetValue(connection.SourceNodeId, out var sourceNode))
+                    {
+                        // Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Connected node: {sourceNode.Name} (Type: {sourceNode.Type}, DataType: {sourceNode.DataType})");
+                        connectedNodes.Add(sourceNode);
+                    }
+                    else
+                    {
+                        // Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [GetConnectedInputNodes] Warning: Source node with ID {connection.SourceNodeId} not found");
+                    }
                 }
             }
 
@@ -240,21 +261,26 @@ namespace CSimple.Services
 
                     // Use cache key to avoid repeated GetStepContent calls
                     string cacheKey = $"{inputNode.Id}_{stepForNodeContent}_{actionItemTimestamp?.Ticks ?? 0}";
-                    if (!_stepContentCache.TryGetValue(cacheKey, out string cachedContent))
+                    
+                    string cachedContent;
+                    lock (_stepContentCacheLock)
                     {
-                        // FIXED: Pass ActionItem timestamp for audio/image file correlation
-                        var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent, actionItemTimestamp);
-                        if (!string.IsNullOrEmpty(contentValue))
+                        if (!_stepContentCache.TryGetValue(cacheKey, out cachedContent))
                         {
-                            cachedContent = contentType?.ToLowerInvariant() == "image" || contentType?.ToLowerInvariant() == "audio"
-                                           ? contentValue
-                                           : $"[{inputNode.Name}]: {contentValue}";
+                            // FIXED: Pass ActionItem timestamp for audio/image file correlation
+                            var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent, actionItemTimestamp);
+                            if (!string.IsNullOrEmpty(contentValue))
+                            {
+                                cachedContent = contentType?.ToLowerInvariant() == "image" || contentType?.ToLowerInvariant() == "audio"
+                                               ? contentValue
+                                               : $"[{inputNode.Name}]: {contentValue}";
+                            }
+                            else
+                            {
+                                cachedContent = "";
+                            }
+                            _stepContentCache[cacheKey] = cachedContent;
                         }
-                        else
-                        {
-                            cachedContent = "";
-                        }
-                        _stepContentCache[cacheKey] = cachedContent;
                     }
 
                     if (!string.IsNullOrEmpty(cachedContent))
@@ -271,12 +297,17 @@ namespace CSimple.Services
                 int stepForNodeContent = currentActionStep + 1;
 
                 string cacheKey = $"{inputNode.Id}_{stepForNodeContent}_{actionItemTimestamp?.Ticks ?? 0}";
-                if (!_stepContentCache.TryGetValue(cacheKey, out string cachedContent))
+                
+                string cachedContent;
+                lock (_stepContentCacheLock)
                 {
-                    // FIXED: Pass ActionItem timestamp for audio/image file correlation
-                    var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent, actionItemTimestamp);
-                    cachedContent = contentValue ?? "";
-                    _stepContentCache[cacheKey] = cachedContent;
+                    if (!_stepContentCache.TryGetValue(cacheKey, out cachedContent))
+                    {
+                        // FIXED: Pass ActionItem timestamp for audio/image file correlation
+                        var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent, actionItemTimestamp);
+                        cachedContent = contentValue ?? "";
+                        _stepContentCache[cacheKey] = cachedContent;
+                    }
                 }
 
                 return cachedContent;

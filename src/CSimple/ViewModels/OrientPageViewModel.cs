@@ -2053,6 +2053,7 @@ namespace CSimple.ViewModels
         // Collection access locks for thread safety
         private readonly object _nodesLock = new object();
         private readonly object _connectionsLock = new object();
+        private readonly object _cachedCollectionsLock = new object(); // Dedicated lock for cached collections
 
         // Thread-safe helper methods for collection access
         private bool HasModelNodes()
@@ -2135,16 +2136,20 @@ namespace CSimple.ViewModels
                 connectionsCopy = Connections.ToList();
             }
 
-            _cachedModelNodes = nodesCopy.Where(n => n.Type == NodeType.Model).ToList();
-            _cachedInputNodes = nodesCopy.Where(n => n.Type == NodeType.Input).ToList();
-            _cachedConnectionCounts = new Dictionary<string, int>();
-
-            foreach (var node in _cachedModelNodes)
+            // Thread-safely update cached collections using dedicated lock
+            lock (_cachedCollectionsLock)
             {
-                _cachedConnectionCounts[node.Id] = connectionsCopy.Count(c => c.TargetNodeId == node.Id);
-            }
+                _cachedModelNodes = nodesCopy.Where(n => n.Type == NodeType.Model).ToList();
+                _cachedInputNodes = nodesCopy.Where(n => n.Type == NodeType.Input).ToList();
+                _cachedConnectionCounts = new Dictionary<string, int>();
 
-            _pipelineStateCacheValid = true;
+                foreach (var node in _cachedModelNodes)
+                {
+                    _cachedConnectionCounts[node.Id] = connectionsCopy.Count(c => c.TargetNodeId == node.Id);
+                }
+
+                _pipelineStateCacheValid = true;
+            }
         }
 
         // Invalidate cache when pipeline structure changes
@@ -2192,7 +2197,7 @@ namespace CSimple.ViewModels
             
             // Create a safe copy of the cached model nodes to prevent concurrent modification
             List<NodeViewModel> modelNodesCopy;
-            lock (_nodesLock)
+            lock (_cachedCollectionsLock)
             {
                 modelNodesCopy = _cachedModelNodes?.ToList() ?? new List<NodeViewModel>();
             }
@@ -2249,7 +2254,7 @@ namespace CSimple.ViewModels
 
             // Create a safe copy of the cached input nodes to prevent concurrent modification
             List<NodeViewModel> inputNodesCopy;
-            lock (_nodesLock)
+            lock (_cachedCollectionsLock)
             {
                 inputNodesCopy = _cachedInputNodes?.ToList() ?? new List<NodeViewModel>();
             }
@@ -2285,7 +2290,7 @@ namespace CSimple.ViewModels
             
             // Create a safe copy of the cached model nodes to prevent concurrent modification
             List<NodeViewModel> relationshipModelNodesCopy;
-            lock (_nodesLock)
+            lock (_cachedCollectionsLock)
             {
                 relationshipModelNodesCopy = _cachedModelNodes?.ToList() ?? new List<NodeViewModel>();
             }
@@ -2564,7 +2569,12 @@ namespace CSimple.ViewModels
                     Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🚀 [ExecuteRunAllModelsAsync] Using proactive preparation - skipping expensive setup!");
                 }
 
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📊 [ExecuteRunAllModelsAsync] Processing {_cachedModelNodes?.Count ?? 0} models");
+                int modelNodesCount;
+                lock (_cachedCollectionsLock)
+                {
+                    modelNodesCount = _cachedModelNodes?.Count ?? 0;
+                }
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📊 [ExecuteRunAllModelsAsync] Processing {modelNodesCount} models");
 
                 // Store the original selected node reference only (no copying)
                 var originalSelectedNode = SelectedNode;
@@ -3751,18 +3761,23 @@ namespace CSimple.ViewModels
         /// </summary>
         private async Task PrewarmModelExecutionEnvironmentAsync(CancellationToken cancellationToken)
         {
-            if (!_pipelineStateCacheValid || _cachedModelNodes == null || _cachedModelNodes.Count == 0)
+            List<NodeViewModel> modelNodesCopy;
+            lock (_cachedCollectionsLock)
             {
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⏭️ [PrewarmModelExecution] No models to pre-warm");
-                return;
+                if (!_pipelineStateCacheValid || _cachedModelNodes == null || _cachedModelNodes.Count == 0)
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⏭️ [PrewarmModelExecution] No models to pre-warm");
+                    return;
+                }
+                
+                modelNodesCopy = _cachedModelNodes.ToList();
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔥 [PrewarmModelExecution] Pre-warming environment for {modelNodesCopy.Count} models");
             }
-
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔥 [PrewarmModelExecution] Pre-warming environment for {_cachedModelNodes.Count} models");
 
             try
             {
                 // Pre-load models that will likely be executed
-                var modelsToPreload = _cachedModelNodes
+                var modelsToPreload = modelNodesCopy
                     .Where(node => !string.IsNullOrEmpty(node.OriginalModelId))
                     .Take(3) // Limit to avoid overwhelming the system
                     .ToList();
