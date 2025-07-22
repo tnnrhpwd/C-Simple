@@ -27,7 +27,7 @@ namespace CSimple.Pages
         // Panning functionality for map-style navigation
         private bool _isPanning = false;
         private PointF _panStartPoint;
-        private PointF _cameraOffset = new PointF(0, 0); // Camera offset for panning
+        // Removed _cameraOffset - now using ViewModel properties
 
         // Define handle size
         private const float HandleSize = 14f;
@@ -140,7 +140,10 @@ namespace CSimple.Pages
 
             // Apply camera offset for panning
             canvas.SaveState();
-            canvas.Translate(_cameraOffset.X, _cameraOffset.Y);
+            if (_viewModel != null)
+            {
+                canvas.Translate(_viewModel.CameraOffsetX, _viewModel.CameraOffsetY);
+            }
 
             // Debug log for step content visibility
             // Debug.WriteLine($"[Draw] CurrentActionStep: {_viewModel.CurrentActionStep}");
@@ -585,7 +588,10 @@ namespace CSimple.Pages
         {
             PointF touchPoint = e.Touches[0];
             // Transform touch point to account for camera offset
-            PointF worldTouchPoint = new PointF(touchPoint.X - _cameraOffset.X, touchPoint.Y - _cameraOffset.Y);
+            PointF worldTouchPoint = new PointF(
+                touchPoint.X - (_viewModel?.CameraOffsetX ?? 0), 
+                touchPoint.Y - (_viewModel?.CameraOffsetY ?? 0)
+            );
 
             NodeViewModel nodeUnderHandle = null;
             bool handleTapped = false;
@@ -686,29 +692,35 @@ namespace CSimple.Pages
             else if (_isDrawingConnection)
             {
                 // Transform touch point to world coordinates for connection drawing
-                PointF worldCurrentPoint = new PointF(currentPoint.X - _cameraOffset.X, currentPoint.Y - _cameraOffset.Y);
+                PointF worldCurrentPoint = new PointF(
+                    currentPoint.X - (_viewModel?.CameraOffsetX ?? 0), 
+                    currentPoint.Y - (_viewModel?.CameraOffsetY ?? 0)
+                );
                 _connectionEndPoint = worldCurrentPoint;
                 // _viewModel.UpdatePotentialConnection(currentPoint); // Keep if VM uses it
                 NodeCanvas.Invalidate(); // Redraw temporary line
             }
-            else if (_isPanning)
+            else if (_isPanning && _viewModel != null)
             {
-                // Calculate pan delta and update camera offset
+                // Calculate pan delta and update camera offset in ViewModel
                 float deltaX = currentPoint.X - _panStartPoint.X;
                 float deltaY = currentPoint.Y - _panStartPoint.Y;
 
-                _cameraOffset = new PointF(_cameraOffset.X + deltaX, _cameraOffset.Y + deltaY);
+                _viewModel.UpdateCameraOffset(_viewModel.CameraOffsetX + deltaX, _viewModel.CameraOffsetY + deltaY);
                 _panStartPoint = currentPoint; // Update start point for next delta
 
                 NodeCanvas.Invalidate(); // Request redraw with new camera position
-                Debug.WriteLine($"Panning: offset now ({_cameraOffset.X}, {_cameraOffset.Y})");
+                Debug.WriteLine($"Panning: offset now ({_viewModel.CameraOffsetX}, {_viewModel.CameraOffsetY})");
             }
         }
 
         async void OnCanvasEndInteraction(object sender, TouchEventArgs e) // Made async
         {
             PointF endPoint = e.Touches[0]; // Use the first touch point
-            PointF worldEndPoint = new PointF(endPoint.X - _cameraOffset.X, endPoint.Y - _cameraOffset.Y); // Transform to world coordinates
+            PointF worldEndPoint = new PointF(
+                endPoint.X - (_viewModel?.CameraOffsetX ?? 0), 
+                endPoint.Y - (_viewModel?.CameraOffsetY ?? 0)
+            ); // Transform to world coordinates
             Debug.WriteLine($"EndInteraction at {endPoint}. IsDrawingConnection: {_isDrawingConnection}");
 
             if (_isDrawingConnection)
@@ -776,10 +788,11 @@ namespace CSimple.Pages
                 // No need to call FinalizeNodeMove here anymore.
                 await _viewModel.FinalizeNodeMove(); // Re-enabled this call
             }
-            else if (_isPanning)
+            else if (_isPanning && _viewModel != null)
             {
                 Debug.WriteLine("Ended panning mode.");
-                // Panning is complete, no additional action needed
+                // Save camera offset when panning ends
+                await _viewModel.SaveCameraOffsetAsync();
             }
 
             // Reset all interaction states

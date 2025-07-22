@@ -124,6 +124,21 @@ namespace CSimple.ViewModels
             set => SetProperty(ref _memoryFileName, value);
         }
 
+        // Camera Offset Properties for Pan Persistence
+        private float _cameraOffsetX = 0f;
+        public float CameraOffsetX
+        {
+            get => _cameraOffsetX;
+            set => SetProperty(ref _cameraOffsetX, value);
+        }
+
+        private float _cameraOffsetY = 0f;
+        public float CameraOffsetY
+        {
+            get => _cameraOffsetY;
+            set => SetProperty(ref _cameraOffsetY, value);
+        }
+
         // Temporary state for drawing connections
         internal NodeViewModel _temporaryConnectionState = null;
 
@@ -1077,6 +1092,9 @@ namespace CSimple.ViewModels
             (RunAllModelsCommand as Command)?.ChangeCanExecute(); // Update Run All Models button state after loading
             (RunAllNodesCommand as Command)?.ChangeCanExecute(); // Update Run All Nodes button state after loading
 
+            // Load camera offset for this pipeline
+            await LoadCameraOffsetAsync();
+
             // Update execution status after pipeline is loaded
             UpdateExecutionStatusFromPipeline();
         }
@@ -1085,6 +1103,79 @@ namespace CSimple.ViewModels
         public async Task SaveCurrentPipelineAsync()
         {
             await _pipelineManagementService.SaveCurrentPipelineAsync(CurrentPipelineName, Nodes, Connections);
+        }
+
+        // Save camera offset for pan persistence
+        public async Task SaveCameraOffsetAsync()
+        {
+            try
+            {
+                // Save camera offset to the same directory as pipelines (MyDocuments instead of ApplicationData)
+                string pipelineDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "Pipelines");
+                if (!Directory.Exists(pipelineDir))
+                {
+                    Directory.CreateDirectory(pipelineDir);
+                }
+
+                string offsetFile = Path.Combine(pipelineDir, $"{CurrentPipelineName}_cameraOffset.json");
+                var offsetData = new { X = CameraOffsetX, Y = CameraOffsetY };
+                string json = System.Text.Json.JsonSerializer.Serialize(offsetData);
+                
+                await File.WriteAllTextAsync(offsetFile, json);
+                Debug.WriteLine($"💾 [SaveCameraOffsetAsync] Saved camera offset: ({CameraOffsetX}, {CameraOffsetY}) for pipeline: {CurrentPipelineName} to {offsetFile}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ [SaveCameraOffsetAsync] Error saving camera offset: {ex.Message}");
+            }
+        }
+
+        // Load camera offset for pan persistence  
+        public async Task LoadCameraOffsetAsync()
+        {
+            try
+            {
+                string pipelineDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "Pipelines");
+                string offsetFile = Path.Combine(pipelineDir, $"{CurrentPipelineName}_cameraOffset.json");
+                
+                if (File.Exists(offsetFile))
+                {
+                    string json = await File.ReadAllTextAsync(offsetFile);
+                    var offsetData = System.Text.Json.JsonSerializer.Deserialize<dynamic>(json);
+                    
+                    if (offsetData != null)
+                    {
+                        var element = (System.Text.Json.JsonElement)offsetData;
+                        if (element.TryGetProperty("X", out var xElement) && element.TryGetProperty("Y", out var yElement))
+                        {
+                            CameraOffsetX = xElement.GetSingle();
+                            CameraOffsetY = yElement.GetSingle();
+                            Debug.WriteLine($"� [LoadCameraOffsetAsync] Loaded camera offset: ({CameraOffsetX}, {CameraOffsetY}) for pipeline: {CurrentPipelineName}");
+                        }
+                    }
+                }
+                else
+                {
+                    // Set default values if no saved offset exists
+                    CameraOffsetX = 0f;
+                    CameraOffsetY = 0f;
+                    Debug.WriteLine($"📂 [LoadCameraOffsetAsync] No saved camera offset found for pipeline: {CurrentPipelineName}, using defaults");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ [LoadCameraOffsetAsync] Error loading camera offset: {ex.Message}");
+                // Set default values on error
+                CameraOffsetX = 0f;
+                CameraOffsetY = 0f;
+            }
+        }
+
+        // Update camera offset from OrientPage
+        public void UpdateCameraOffset(float x, float y)
+        {
+            CameraOffsetX = x;
+            CameraOffsetY = y;
         }
 
         private async Task CreateNewPipeline()
