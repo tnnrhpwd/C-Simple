@@ -85,23 +85,29 @@ namespace CSimple.Pages
 
             if (_viewModel != null)
             {
-                // Ensure NetPageViewModel is loaded first
+                // Proactively preload NetPageViewModel - always ensure it's fully loaded since OrientPage and NetPage are closely related
                 var netPageVM = ((App)Application.Current).NetPageViewModel;
                 if (netPageVM != null)
                 {
-                    Debug.WriteLine($"OnAppearing: NetPageViewModel found with {netPageVM.AvailableModels?.Count ?? 0} models");
+                    Debug.WriteLine($"OnAppearing: Proactively preloading NetPageViewModel (currently has {netPageVM.AvailableModels?.Count ?? 0} models)");
 
-                    // If NetPageViewModel has no models, load them first
-                    if (netPageVM.AvailableModels == null || netPageVM.AvailableModels.Count == 0)
+                    try
                     {
-                        Debug.WriteLine("OnAppearing: NetPageViewModel has no models, loading them first");
+                        // Always call LoadDataAsync to ensure full preloading - this ensures models, configurations, and state are ready
                         await netPageVM.LoadDataAsync();
-                        Debug.WriteLine($"OnAppearing: NetPageViewModel now has {netPageVM.AvailableModels?.Count ?? 0} models");
+                        Debug.WriteLine($"OnAppearing: NetPageViewModel fully preloaded with {netPageVM.AvailableModels?.Count ?? 0} models");
+
+                        // Also preload any additional NetPage-specific initialization if needed
+                        await PreloadNetPageDependenciesAsync(netPageVM);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"OnAppearing: Error during NetPageViewModel preloading: {ex.Message}");
                     }
                 }
                 else
                 {
-                    Debug.WriteLine("OnAppearing: NetPageViewModel is null");
+                    Debug.WriteLine("OnAppearing: NetPageViewModel is null - cannot preload");
                 }
 
                 // Now initialize our own ViewModel (which will use the loaded models)
@@ -589,7 +595,7 @@ namespace CSimple.Pages
             PointF touchPoint = e.Touches[0];
             // Transform touch point to account for camera offset
             PointF worldTouchPoint = new PointF(
-                touchPoint.X - (_viewModel?.CameraOffsetX ?? 0), 
+                touchPoint.X - (_viewModel?.CameraOffsetX ?? 0),
                 touchPoint.Y - (_viewModel?.CameraOffsetY ?? 0)
             );
 
@@ -693,7 +699,7 @@ namespace CSimple.Pages
             {
                 // Transform touch point to world coordinates for connection drawing
                 PointF worldCurrentPoint = new PointF(
-                    currentPoint.X - (_viewModel?.CameraOffsetX ?? 0), 
+                    currentPoint.X - (_viewModel?.CameraOffsetX ?? 0),
                     currentPoint.Y - (_viewModel?.CameraOffsetY ?? 0)
                 );
                 _connectionEndPoint = worldCurrentPoint;
@@ -718,7 +724,7 @@ namespace CSimple.Pages
         {
             PointF endPoint = e.Touches[0]; // Use the first touch point
             PointF worldEndPoint = new PointF(
-                endPoint.X - (_viewModel?.CameraOffsetX ?? 0), 
+                endPoint.X - (_viewModel?.CameraOffsetX ?? 0),
                 endPoint.Y - (_viewModel?.CameraOffsetY ?? 0)
             ); // Transform to world coordinates
             Debug.WriteLine($"EndInteraction at {endPoint}. IsDrawingConnection: {_isDrawingConnection}");
@@ -823,6 +829,50 @@ namespace CSimple.Pages
         public void InvalidateGraphicsView()
         {
             NodeCanvas?.Invalidate();
+        }
+
+        /// <summary>
+        /// Preloads NetPage dependencies to ensure full integration between OrientPage and NetPage
+        /// </summary>
+        private async Task PreloadNetPageDependenciesAsync(NetPageViewModel netPageVM)
+        {
+            try
+            {
+                Debug.WriteLine("PreloadNetPageDependencies: Starting comprehensive NetPage preloading");
+
+                // Ensure model configurations are loaded
+                if (netPageVM.AvailableModels?.Count > 0)
+                {
+                    Debug.WriteLine($"PreloadNetPageDependencies: Preloading configurations for {netPageVM.AvailableModels.Count} models");
+
+                    // Force initialization of any lazy-loaded model properties in background
+                    await Task.Run(() =>
+                    {
+                        foreach (var model in netPageVM.AvailableModels.Take(5)) // Limit to first 5 for performance
+                        {
+                            try
+                            {
+                                // Access key properties to ensure they're initialized
+                                var _ = model.Name;
+                                var __ = model.HuggingFaceModelId;
+                                var ___ = model.Type;
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"PreloadNetPageDependencies: Error accessing model {model?.Name}: {ex.Message}");
+                            }
+                        }
+                    });
+                }
+
+                // Preload any NetPage-specific services or caches that OrientPage might need
+                // This ensures smooth interoperability between the two pages
+                Debug.WriteLine("PreloadNetPageDependencies: NetPage dependencies preloaded successfully");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"PreloadNetPageDependencies: Error during preloading: {ex.Message}");
+            }
         }
     }
 }

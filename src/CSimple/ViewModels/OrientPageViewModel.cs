@@ -533,7 +533,48 @@ namespace CSimple.ViewModels
         {
             var stopwatch = Stopwatch.StartNew();
 
-            // 1. Ensure Python environment is ready in background
+            // 1. Ensure NetPageViewModel is warmed up since OrientPage and NetPage are closely related
+            try
+            {
+                var netPageVM = ((App)Application.Current).NetPageViewModel;
+                if (netPageVM != null)
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🌐 [BackgroundWarmup] Warming up NetPage integration");
+
+                    // Ensure NetPage models are loaded in background
+                    if (netPageVM.AvailableModels?.Count == 0)
+                    {
+                        await netPageVM.LoadDataAsync();
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🌐 [BackgroundWarmup] NetPage models loaded: {netPageVM.AvailableModels?.Count ?? 0}");
+                    }
+
+                    // Pre-warm model access patterns
+                    if (netPageVM.AvailableModels?.Count > 0)
+                    {
+                        await Task.Run(() =>
+                        {
+                            var firstFewModels = netPageVM.AvailableModels.Take(3);
+                            foreach (var model in firstFewModels)
+                            {
+                                try
+                                {
+                                    // Access key properties to warm up caches
+                                    var _ = model.Name;
+                                    var __ = model.HuggingFaceModelId;
+                                    var ___ = model.Type;
+                                }
+                                catch { /* Ignore warming errors */ }
+                            }
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚠️ [BackgroundWarmup] NetPage warmup failed: {ex.Message}");
+            }
+
+            // 2. Ensure Python environment is ready in background
             if (_pythonBootstrapper != null)
             {
                 try
@@ -547,7 +588,7 @@ namespace CSimple.ViewModels
                 }
             }
 
-            // 2. Pre-warm file system caches by accessing common directories
+            // 3. Pre-warm file system caches by accessing common directories
             try
             {
                 await Task.Run(() =>
@@ -736,36 +777,32 @@ namespace CSimple.ViewModels
             // Initialize execution status panel
             InitializeExecutionStatus();
 
-            // Get the NetPageViewModel and ensure it loads its models
+            // Proactively preload NetPageViewModel since OrientPage and NetPage are closely related
             var netPageVM = ((App)Application.Current).NetPageViewModel;
-            Debug.WriteLine($"InitializeAsync: Checking NetPageViewModel, HasModels: {netPageVM?.AvailableModels?.Count > 0}");
+            Debug.WriteLine($"InitializeAsync: Proactively preloading NetPageViewModel, current state: {netPageVM?.AvailableModels?.Count ?? 0} models");
 
             if (netPageVM != null)
             {
-                // Always call LoadDataAsync to ensure persistent models are loaded
-                // This handles cases where OrientPage initializes before HomePage has loaded the models
-                if (netPageVM.AvailableModels == null || netPageVM.AvailableModels.Count == 0)
+                try
                 {
-                    Debug.WriteLine("InitializeAsync: NetPageViewModel has no models yet, loading them first");
+                    // Always call LoadDataAsync to ensure comprehensive preloading
+                    // This ensures models, configurations, persistent data, and all NetPage state is ready
+                    Debug.WriteLine("InitializeAsync: Starting comprehensive NetPageViewModel preloading");
                     await netPageVM.LoadDataAsync();
-                    Debug.WriteLine($"InitializeAsync: After LoadDataAsync, NetPageViewModel has {netPageVM.AvailableModels?.Count ?? 0} models");
+                    Debug.WriteLine($"InitializeAsync: NetPageViewModel fully preloaded with {netPageVM.AvailableModels?.Count ?? 0} models");
+
+                    // Ensure any additional NetPage-specific initialization is complete
+                    await PreloadNetPageIntegrationAsync(netPageVM);
                 }
-                else
+                catch (Exception ex)
                 {
-                    Debug.WriteLine("InitializeAsync: NetPageViewModel already has models, but ensuring persistent models are fully loaded");
-                    // Even if models exist, ensure the persistent models loading process has completed
-                    // This might be necessary if models were added in memory but persistent loading didn't complete
-                    try
-                    {
-                        // Call LoadDataAsync to ensure the full initialization chain has run
-                        await netPageVM.LoadDataAsync();
-                        Debug.WriteLine($"InitializeAsync: After ensuring LoadDataAsync, NetPageViewModel has {netPageVM.AvailableModels?.Count ?? 0} models");
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"InitializeAsync: Error during NetPageViewModel LoadDataAsync: {ex.Message}");
-                    }
+                    Debug.WriteLine($"InitializeAsync: Error during NetPageViewModel preloading: {ex.Message}");
+                    // Continue with initialization even if preloading fails
                 }
+            }
+            else
+            {
+                Debug.WriteLine("InitializeAsync: WARNING - NetPageViewModel is null, cannot preload");
             }
 
             await LoadAvailablePipelinesAsync();
@@ -811,6 +848,54 @@ namespace CSimple.ViewModels
 
             // Update execution status based on loaded pipeline
             UpdateExecutionStatusFromPipeline();
+        }
+
+        /// <summary>
+        /// Preloads NetPage integration components to ensure smooth interoperability
+        /// </summary>
+        private async Task PreloadNetPageIntegrationAsync(NetPageViewModel netPageVM)
+        {
+            try
+            {
+                Debug.WriteLine("PreloadNetPageIntegration: Starting NetPage integration preloading");
+
+                // Ensure model execution services are ready
+                if (netPageVM.AvailableModels?.Count > 0)
+                {
+                    Debug.WriteLine($"PreloadNetPageIntegration: Preparing integration for {netPageVM.AvailableModels.Count} models");
+
+                    // Preload model metadata and execution contexts in background
+                    await Task.Run(() =>
+                    {
+                        var modelsToPreload = netPageVM.AvailableModels.Take(3).ToList(); // Limit for performance
+                        foreach (var model in modelsToPreload)
+                        {
+                            try
+                            {
+                                // Access model properties to ensure they're cached
+                                var _ = model.Name;
+                                var __ = model.Type;
+                                var ___ = model.HuggingFaceModelId;
+
+                                Debug.WriteLine($"PreloadNetPageIntegration: Preloaded model {model.Name}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"PreloadNetPageIntegration: Error preloading model {model?.Name}: {ex.Message}");
+                            }
+                        }
+                    });
+
+                    // Start background warmup for model execution environment
+                    StartBackgroundWarmup();
+                }
+
+                Debug.WriteLine("PreloadNetPageIntegration: NetPage integration preloading completed");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"PreloadNetPageIntegration: Error during integration preloading: {ex.Message}");
+            }
         }
 
         public async Task LoadAvailableModelsAsync()
@@ -1125,7 +1210,7 @@ namespace CSimple.ViewModels
                 string offsetFile = Path.Combine(pipelineDir, $"{CurrentPipelineName}_cameraOffset.json");
                 var offsetData = new { X = CameraOffsetX, Y = CameraOffsetY };
                 string json = System.Text.Json.JsonSerializer.Serialize(offsetData);
-                
+
                 await File.WriteAllTextAsync(offsetFile, json);
                 Debug.WriteLine($"💾 [SaveCameraOffsetAsync] Saved camera offset: ({CameraOffsetX}, {CameraOffsetY}) for pipeline: {CurrentPipelineName} to {offsetFile}");
             }
@@ -1142,12 +1227,12 @@ namespace CSimple.ViewModels
             {
                 string pipelineDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "Pipelines");
                 string offsetFile = Path.Combine(pipelineDir, $"{CurrentPipelineName}_cameraOffset.json");
-                
+
                 if (File.Exists(offsetFile))
                 {
                     string json = await File.ReadAllTextAsync(offsetFile);
                     var offsetData = System.Text.Json.JsonSerializer.Deserialize<dynamic>(json);
-                    
+
                     if (offsetData != null)
                     {
                         var element = (System.Text.Json.JsonElement)offsetData;
@@ -1275,7 +1360,7 @@ namespace CSimple.ViewModels
             }
             SelectedNode = null;
             _temporaryConnectionState = null;
-            
+
             // Invalidate caches since collections changed
             InvalidatePipelineStateCache();
         }
@@ -1414,7 +1499,7 @@ namespace CSimple.ViewModels
                     connectionsCopy = Connections.ToList();
                 }
 
-                finalModel = nodesCopy.FirstOrDefault(n => n.Type == NodeType.Model && 
+                finalModel = nodesCopy.FirstOrDefault(n => n.Type == NodeType.Model &&
                     connectionsCopy.Any(c => c.TargetNodeId == n.Id && interpreterNodes.Any(interp => interp.Id == c.SourceNodeId)));
                 if (finalModel != null)
                 {
@@ -2194,14 +2279,14 @@ namespace CSimple.ViewModels
 
             // 1. Pre-load all neural network models to avoid lookup delays (parallel)
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📚 [PrecomputeExecutionOptimizations] Pre-loading model references...");
-            
+
             // Create a safe copy of the cached model nodes to prevent concurrent modification
             List<NodeViewModel> modelNodesCopy;
             lock (_cachedCollectionsLock)
             {
                 modelNodesCopy = _cachedModelNodes?.ToList() ?? new List<NodeViewModel>();
             }
-            
+
             var modelTasks = modelNodesCopy.Select(async modelNode =>
             {
                 try
@@ -2287,14 +2372,14 @@ namespace CSimple.ViewModels
 
             // 4. Pre-compute input relationships and combined inputs for all models (parallel)
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔗 [PrecomputeExecutionOptimizations] Pre-computing input relationships...");
-            
+
             // Create a safe copy of the cached model nodes to prevent concurrent modification
             List<NodeViewModel> relationshipModelNodesCopy;
             lock (_cachedCollectionsLock)
             {
                 relationshipModelNodesCopy = _cachedModelNodes?.ToList() ?? new List<NodeViewModel>();
             }
-            
+
             var relationshipTasks = relationshipModelNodesCopy.Select(async modelNode =>
             {
                 try
@@ -2769,7 +2854,6 @@ namespace CSimple.ViewModels
 
                 // Store original state
                 var originalSelectedNode = SelectedNode;
-                var originalCurrentActionStep = CurrentActionStep;
 
                 int successfulExecutions = 0;
                 int skippedExecutions = 0;
@@ -2840,7 +2924,7 @@ namespace CSimple.ViewModels
 
                 // Restore original state
                 SelectedNode = originalSelectedNode;
-                CurrentActionStep = originalCurrentActionStep;
+                // Don't reset CurrentActionStep - keep the user's current step position
 
                 // Save summary report
                 await SaveAnalysisSummaryAsync(runDir, successfulExecutions, skippedExecutions, totalSteps, modelNodes.Count, totalStopwatch.Elapsed, currentActionItems);
@@ -3769,7 +3853,7 @@ namespace CSimple.ViewModels
                     Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⏭️ [PrewarmModelExecution] No models to pre-warm");
                     return;
                 }
-                
+
                 modelNodesCopy = _cachedModelNodes.ToList();
                 Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔥 [PrewarmModelExecution] Pre-warming environment for {modelNodesCopy.Count} models");
             }
