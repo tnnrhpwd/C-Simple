@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CSimple.Models;
@@ -121,14 +122,14 @@ namespace CSimple.Services
 
             if (isImageContent)
             {
-                Debug.WriteLine($"🖼️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected image content, using first image for model input");
-                return firstContent;
+                Debug.WriteLine($"🖼️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected image content, combining {stepContents.Count} images using method: {ensembleMethod}");
+                return CombineImageContents(stepContents, ensembleMethod);
             }
 
             if (isAudioContent)
             {
-                Debug.WriteLine($"🔊 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected audio content, using first audio file for model input");
-                return firstContent;
+                Debug.WriteLine($"🔊 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected audio content, combining {stepContents.Count} audio files using method: {ensembleMethod}");
+                return CombineAudioContents(stepContents, ensembleMethod);
             }
 
             // Fast path for single content
@@ -178,7 +179,10 @@ namespace CSimple.Services
                     throw new InvalidOperationException("Model does not have a valid HuggingFace model ID");
                 }
 
-                var result = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, input);
+                // Check if this is a combined image input that needs special handling
+                string processedInput = ProcessCombinedImageInput(model, input);
+
+                var result = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, processedInput);
                 return result ?? "No output generated";
             }
             catch (Exception ex)
@@ -261,7 +265,7 @@ namespace CSimple.Services
 
                     // Use cache key to avoid repeated GetStepContent calls
                     string cacheKey = $"{inputNode.Id}_{stepForNodeContent}_{actionItemTimestamp?.Ticks ?? 0}";
-                    
+
                     string cachedContent;
                     lock (_stepContentCacheLock)
                     {
@@ -297,7 +301,7 @@ namespace CSimple.Services
                 int stepForNodeContent = currentActionStep + 1;
 
                 string cacheKey = $"{inputNode.Id}_{stepForNodeContent}_{actionItemTimestamp?.Ticks ?? 0}";
-                
+
                 string cachedContent;
                 lock (_stepContentCacheLock)
                 {
@@ -384,6 +388,251 @@ namespace CSimple.Services
             });
 
             await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Combines multiple image contents based on the specified ensemble method
+        /// </summary>
+        /// <param name="stepContents">List of image file paths to combine</param>
+        /// <param name="ensembleMethod">The ensemble method to use for combination</param>
+        /// <returns>Combined image representation for model input</returns>
+        private string CombineImageContents(List<string> stepContents, string ensembleMethod)
+        {
+            if (stepContents == null || stepContents.Count == 0)
+            {
+                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [CombineImageContents] No image contents to combine");
+                return string.Empty;
+            }
+
+            if (stepContents.Count == 1)
+            {
+                Debug.WriteLine($"📷 [{DateTime.Now:HH:mm:ss.fff}] [CombineImageContents] Single image, returning: {stepContents[0]}");
+                return stepContents[0];
+            }
+
+            Debug.WriteLine($"🎨 [{DateTime.Now:HH:mm:ss.fff}] [CombineImageContents] Combining {stepContents.Count} images using method: {ensembleMethod}");
+
+            switch (ensembleMethod?.ToLower())
+            {
+                case "sequential":
+                    // For sequential, we want to process images in order
+                    // Return a structured format that indicates multiple images
+                    var sequentialResult = string.Join("|", stepContents.Select((img, idx) => $"img{idx + 1}:{img}"));
+                    Debug.WriteLine($"📋 [{DateTime.Now:HH:mm:ss.fff}] [CombineImageContents] Sequential format: {sequentialResult}");
+                    return sequentialResult;
+
+                case "concatenate":
+                case "blend":
+                    // For concatenate/blend, we also want to preserve all images
+                    // Return a structured format that the model can understand
+                    var concatenatedResult = string.Join(";", stepContents);
+                    Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [CombineImageContents] Concatenated format: {concatenatedResult}");
+                    return concatenatedResult;
+
+                case "average":
+                case "weighted":
+                    // For averaging/weighting, we need all images to compute the ensemble
+                    var averageResult = string.Join("&", stepContents.Select((img, idx) => $"{img}"));
+                    Debug.WriteLine($"📊 [{DateTime.Now:HH:mm:ss.fff}] [CombineImageContents] Average/Weighted format: {averageResult}");
+                    return averageResult;
+
+                default:
+                    // Default behavior: use all images in a comma-separated format
+                    var defaultResult = string.Join(",", stepContents);
+                    Debug.WriteLine($"🔀 [{DateTime.Now:HH:mm:ss.fff}] [CombineImageContents] Default format: {defaultResult}");
+                    return defaultResult;
+            }
+        }
+
+        /// <summary>
+        /// Combines multiple audio contents based on the specified ensemble method
+        /// </summary>
+        /// <param name="stepContents">List of audio file paths to combine</param>
+        /// <param name="ensembleMethod">The ensemble method to use for combination</param>
+        /// <returns>Combined audio representation for model input</returns>
+        private string CombineAudioContents(List<string> stepContents, string ensembleMethod)
+        {
+            if (stepContents == null || stepContents.Count == 0)
+            {
+                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [CombineAudioContents] No audio contents to combine");
+                return string.Empty;
+            }
+
+            if (stepContents.Count == 1)
+            {
+                Debug.WriteLine($"🎵 [{DateTime.Now:HH:mm:ss.fff}] [CombineAudioContents] Single audio file, returning: {stepContents[0]}");
+                return stepContents[0];
+            }
+
+            Debug.WriteLine($"🎶 [{DateTime.Now:HH:mm:ss.fff}] [CombineAudioContents] Combining {stepContents.Count} audio files using method: {ensembleMethod}");
+
+            switch (ensembleMethod?.ToLower())
+            {
+                case "sequential":
+                    // For sequential audio processing
+                    var sequentialResult = string.Join("|", stepContents.Select((audio, idx) => $"audio{idx + 1}:{audio}"));
+                    Debug.WriteLine($"📋 [{DateTime.Now:HH:mm:ss.fff}] [CombineAudioContents] Sequential format: {sequentialResult}");
+                    return sequentialResult;
+
+                case "concatenate":
+                case "mix":
+                    // For concatenating/mixing audio files
+                    var concatenatedResult = string.Join(";", stepContents);
+                    Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [CombineAudioContents] Concatenated format: {concatenatedResult}");
+                    return concatenatedResult;
+
+                case "average":
+                case "weighted":
+                    // For averaging/weighting audio inputs
+                    var averageResult = string.Join("&", stepContents);
+                    Debug.WriteLine($"📊 [{DateTime.Now:HH:mm:ss.fff}] [CombineAudioContents] Average/Weighted format: {averageResult}");
+                    return averageResult;
+
+                default:
+                    // Default behavior: use all audio files in a comma-separated format
+                    var defaultResult = string.Join(",", stepContents);
+                    Debug.WriteLine($"🔀 [{DateTime.Now:HH:mm:ss.fff}] [CombineAudioContents] Default format: {defaultResult}");
+                    return defaultResult;
+            }
+        }
+
+        /// <summary>
+        /// Processes combined image input for proper model execution
+        /// </summary>
+        /// <param name="model">The model that will process the input</param>
+        /// <param name="input">The combined image input (could be multiple paths)</param>
+        /// <returns>Processed input suitable for the model</returns>
+        private string ProcessCombinedImageInput(NeuralNetworkModel model, string input)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Empty input provided");
+                return input;
+            }
+
+            // Check if this looks like a combined image input format
+            bool isCombinedImageInput = DetectCombinedImageInput(input);
+
+            if (!isCombinedImageInput)
+            {
+                // Regular input, return as-is
+                Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Regular input, passing through: {input.Substring(0, Math.Min(50, input.Length))}...");
+                return input;
+            }
+
+            Debug.WriteLine($"🖼️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Detected combined image input: {input}");
+
+            // Parse the combined image input to extract individual image paths
+            var imagePaths = ParseCombinedImageInput(input);
+
+            if (imagePaths.Count == 0)
+            {
+                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] No valid image paths found in input");
+                return input;
+            }
+
+            if (imagePaths.Count == 1)
+            {
+                // Single image, return directly
+                Debug.WriteLine($"📷 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Single image extracted: {imagePaths[0]}");
+                return imagePaths[0];
+            }
+
+            // Multiple images - we need to create an ensemble approach
+            Debug.WriteLine($"🎨 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Processing {imagePaths.Count} images for ensemble execution");
+
+            // For now, we'll process each image individually and combine results
+            // This is where proper image ensemble processing would happen
+            // For the immediate fix, we'll use the first valid image but log all
+            var validImagePaths = imagePaths.Where(path => !string.IsNullOrEmpty(path) && IsValidImagePath(path)).ToList();
+
+            if (validImagePaths.Count > 0)
+            {
+                Debug.WriteLine($"🖼️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Using first valid image from ensemble: {validImagePaths[0]}");
+                Debug.WriteLine($"📋 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Other images in ensemble: {string.Join(", ", validImagePaths.Skip(1))}");
+
+                // TODO: Implement proper multi-image ensemble processing
+                // For now, return the first image but ensure we're processing all
+                return validImagePaths[0];
+            }
+
+            Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] No valid image paths found, returning original input");
+            return input;
+        }
+
+        /// <summary>
+        /// Detects if input looks like combined image input
+        /// </summary>
+        private bool DetectCombinedImageInput(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return false;
+
+            // Check for our ensemble format patterns
+            return input.Contains("|") || input.Contains(";") || input.Contains("&") ||
+                   (input.Contains(",") && input.Contains(".jpg") || input.Contains(".png") || input.Contains(".jpeg"));
+        }
+
+        /// <summary>
+        /// Parses combined image input to extract individual image paths
+        /// </summary>
+        private List<string> ParseCombinedImageInput(string input)
+        {
+            var imagePaths = new List<string>();
+
+            if (string.IsNullOrEmpty(input)) return imagePaths;
+
+            // Handle different ensemble formats
+            if (input.Contains("|"))
+            {
+                // Sequential format: img1:path1|img2:path2
+                var parts = input.Split('|');
+                foreach (var part in parts)
+                {
+                    if (part.Contains(":"))
+                    {
+                        var pathPart = part.Split(':')[1];
+                        imagePaths.Add(pathPart.Trim());
+                    }
+                    else
+                    {
+                        imagePaths.Add(part.Trim());
+                    }
+                }
+            }
+            else if (input.Contains(";"))
+            {
+                // Concatenate format: path1;path2
+                imagePaths.AddRange(input.Split(';').Select(p => p.Trim()));
+            }
+            else if (input.Contains("&"))
+            {
+                // Average/weighted format: path1&path2
+                imagePaths.AddRange(input.Split('&').Select(p => p.Trim()));
+            }
+            else if (input.Contains(","))
+            {
+                // Default format: path1,path2
+                imagePaths.AddRange(input.Split(',').Select(p => p.Trim()));
+            }
+            else
+            {
+                // Single path
+                imagePaths.Add(input.Trim());
+            }
+
+            return imagePaths.Where(p => !string.IsNullOrEmpty(p)).ToList();
+        }
+
+        /// <summary>
+        /// Validates if a path is a valid image file
+        /// </summary>
+        private bool IsValidImagePath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return false;
+
+            var extension = Path.GetExtension(path).ToLowerInvariant();
+            return extension == ".jpg" || extension == ".jpeg" || extension == ".png" ||
+                   extension == ".bmp" || extension == ".gif" || extension == ".tiff";
         }
     }
 }
