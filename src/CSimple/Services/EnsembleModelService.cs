@@ -169,7 +169,7 @@ namespace CSimple.Services
         /// <summary>
         /// Executes a model with the provided input using NetPageViewModel (optimized)
         /// </summary>
-        public async Task<string> ExecuteModelWithInput(NeuralNetworkModel model, string input)
+        public async Task<string> ExecuteModelWithInput(NeuralNetworkModel model, string input, List<NodeViewModel> connectedInputNodes = null)
         {
             try
             {
@@ -195,7 +195,20 @@ namespace CSimple.Services
                 if (DetectCombinedImageInput(input) && model.InputType == ModelInputType.Image)
                 {
                     Debug.WriteLine($"🎯 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] Detected multi-image input for image model, processing as ensemble");
-                    processedInput = await ProcessCombinedImageInputAsync(model, input);
+                    processedInput = await ProcessCombinedImageInputAsync(model, input, connectedInputNodes ?? new List<NodeViewModel>());
+
+                    // If it was processed as ensemble, return the result directly
+                    if (processedInput.StartsWith("ENSEMBLE_PROCESSED:"))
+                    {
+                        return processedInput.Substring("ENSEMBLE_PROCESSED:".Length);
+                    }
+                }
+                // Check if this is a multi-audio input that should be processed as ensemble
+                else if (DetectCombinedAudioInput(input) && model.InputType == ModelInputType.Audio)
+                {
+                    Debug.WriteLine($"🎯 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] Detected multi-audio input for audio model, processing as ensemble");
+                    // Pass connected nodes for context descriptions
+                    processedInput = await ProcessCombinedAudioInputAsync(model, input, connectedInputNodes ?? new List<NodeViewModel>());
 
                     // If it was processed as ensemble, return the result directly
                     if (processedInput.StartsWith("ENSEMBLE_PROCESSED:"))
@@ -206,7 +219,18 @@ namespace CSimple.Services
                 else
                 {
                     // Use synchronous processing for backward compatibility
-                    processedInput = ProcessCombinedImageInput(model, input);
+                    if (model.InputType == ModelInputType.Image)
+                    {
+                        processedInput = ProcessCombinedImageInput(model, input);
+                    }
+                    else if (model.InputType == ModelInputType.Audio)
+                    {
+                        processedInput = ProcessCombinedAudioInput(model, input);
+                    }
+                    else
+                    {
+                        processedInput = input;
+                    }
                 }
 
                 var result = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, processedInput);
@@ -361,7 +385,7 @@ namespace CSimple.Services
                 string input = PrepareModelInput(modelNode, connectedInputNodes, currentActionStep);
 
                 // Execute model without excessive logging
-                string result = await ExecuteModelWithInput(correspondingModel, input).ConfigureAwait(false);
+                string result = await ExecuteModelWithInput(correspondingModel, input, connectedInputNodes).ConfigureAwait(false);
 
                 // Fast result storage
                 string resultContentType = DetermineResultContentType(correspondingModel, result);
@@ -524,12 +548,13 @@ namespace CSimple.Services
         }
 
         /// <summary>
-        /// Processes combined image input for proper model execution
+        /// Processes combined image input for proper model execution with contextual descriptions
         /// </summary>
         /// <param name="model">The model that will process the input</param>
         /// <param name="input">The combined image input (could be multiple paths)</param>
+        /// <param name="connectedInputNodes">The input nodes to get context from</param>
         /// <returns>Processed input suitable for the model</returns>
-        private async Task<string> ProcessCombinedImageInputAsync(NeuralNetworkModel model, string input)
+        private async Task<string> ProcessCombinedImageInputAsync(NeuralNetworkModel model, string input, List<NodeViewModel> connectedInputNodes)
         {
             if (string.IsNullOrEmpty(input))
             {
@@ -574,12 +599,16 @@ namespace CSimple.Services
             {
                 Debug.WriteLine($"🖼️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Processing {validImagePaths.Count} valid images individually");
 
-                // Process each image separately and collect results
+                // Process each image separately and collect results with context
                 var imageResults = new List<string>();
                 for (int i = 0; i < validImagePaths.Count; i++)
                 {
                     var imagePath = validImagePaths[i];
-                    Debug.WriteLine($"📸 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Processing image {i + 1}/{validImagePaths.Count}: {Path.GetFileName(imagePath)}");
+
+                    // Get contextual description from connected node
+                    string nodeContext = GetNodeContextDescription(imagePath, connectedInputNodes, "Image");
+
+                    Debug.WriteLine($"📸 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Processing image {i + 1}/{validImagePaths.Count}: {Path.GetFileName(imagePath)} from {nodeContext}");
 
                     try
                     {
@@ -590,20 +619,21 @@ namespace CSimple.Services
                             // Check if the result already contains proper formatting (from Python script)
                             if (individualResult.StartsWith($"Image {i + 1} (") || individualResult.Contains("): "))
                             {
-                                // Python script already formatted it properly, use as-is
-                                imageResults.Add(individualResult);
+                                // Python script already formatted it, but add node context
+                                var formattedResult = individualResult.Replace($"Image {i + 1} (", $"{nodeContext} Image {i + 1} (");
+                                imageResults.Add(formattedResult);
                             }
                             else
                             {
-                                // Add formatting if not already present
-                                imageResults.Add($"Image {i + 1} ({Path.GetFileName(imagePath)}): {individualResult}");
+                                // Add formatting with node context
+                                imageResults.Add($"{nodeContext} Image {i + 1} ({Path.GetFileName(imagePath)}): {individualResult}");
                             }
                         }
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Error processing image {i + 1}: {ex.Message}");
-                        imageResults.Add($"Image {i + 1} ({Path.GetFileName(imagePath)}): Error - {ex.Message}");
+                        imageResults.Add($"{nodeContext} Image {i + 1} ({Path.GetFileName(imagePath)}): Error - {ex.Message}");
                     }
                 }
 
@@ -720,6 +750,313 @@ namespace CSimple.Services
             var extension = Path.GetExtension(path).ToLowerInvariant();
             return extension == ".jpg" || extension == ".jpeg" || extension == ".png" ||
                    extension == ".bmp" || extension == ".gif" || extension == ".tiff";
+        }
+
+        /// <summary>
+        /// Processes combined audio input for proper model execution with contextual descriptions
+        /// </summary>
+        /// <param name="model">The model that will process the input</param>
+        /// <param name="input">The combined audio input (could be multiple paths)</param>
+        /// <param name="connectedInputNodes">The input nodes to get context from</param>
+        /// <returns>Processed input suitable for the model</returns>
+        private async Task<string> ProcessCombinedAudioInputAsync(NeuralNetworkModel model, string input, List<NodeViewModel> connectedInputNodes)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Empty input provided");
+                return input;
+            }
+
+            // Check if this looks like a combined audio input format
+            bool isCombinedAudioInput = DetectCombinedAudioInput(input);
+
+            if (!isCombinedAudioInput)
+            {
+                // Regular input, return as-is
+                Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Regular input, passing through: {input.Substring(0, Math.Min(50, input.Length))}...");
+                return input;
+            }
+
+            Debug.WriteLine($"🎵 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Detected combined audio input: {input}");
+
+            // Parse the combined audio input to extract individual audio paths
+            var audioPaths = ParseCombinedAudioInput(input);
+
+            if (audioPaths.Count == 0)
+            {
+                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] No valid audio paths found in input");
+                return input;
+            }
+
+            if (audioPaths.Count == 1)
+            {
+                // Single audio, return directly
+                Debug.WriteLine($"🎧 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Single audio extracted: {audioPaths[0]}");
+                return audioPaths[0];
+            }
+
+            // Multiple audio files - process each separately with contextual descriptions and combine results
+            Debug.WriteLine($"🎼 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Processing {audioPaths.Count} audio files for ensemble execution");
+
+            var validAudioPaths = audioPaths.Where(path => !string.IsNullOrEmpty(path) && IsValidAudioPath(path)).ToList();
+
+            if (validAudioPaths.Count > 0)
+            {
+                Debug.WriteLine($"🎵 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Processing {validAudioPaths.Count} valid audio files individually");
+
+                // Process each audio separately and collect results with context
+                var audioResults = new List<string>();
+                for (int i = 0; i < validAudioPaths.Count; i++)
+                {
+                    var audioPath = validAudioPaths[i];
+
+                    // Get contextual description from connected node
+                    string nodeContext = GetNodeContextDescription(audioPath, connectedInputNodes, "Audio");
+
+                    Debug.WriteLine($"🎧 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Processing audio {i + 1}/{validAudioPaths.Count}: {Path.GetFileName(audioPath)} from {nodeContext}");
+
+                    try
+                    {
+                        // Execute model on individual audio
+                        var individualResult = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, audioPath);
+                        if (!string.IsNullOrEmpty(individualResult))
+                        {
+                            // Check if the result already contains proper formatting (from Python script)
+                            if (individualResult.StartsWith($"Audio {i + 1} (") || individualResult.Contains("): "))
+                            {
+                                // Python script already formatted it, but add node context
+                                var formattedResult = individualResult.Replace($"Audio {i + 1} (", $"{nodeContext} Audio {i + 1} (");
+                                audioResults.Add(formattedResult);
+                            }
+                            else
+                            {
+                                // Add formatting with node context
+                                audioResults.Add($"{nodeContext} Audio {i + 1} ({Path.GetFileName(audioPath)}): {individualResult}");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Error processing audio {i + 1}: {ex.Message}");
+                        audioResults.Add($"{nodeContext} Audio {i + 1} ({Path.GetFileName(audioPath)}): Error - {ex.Message}");
+                    }
+                }
+
+                if (audioResults.Count > 0)
+                {
+                    // Combine all individual results without extra wrapper text
+                    var combinedResult = string.Join("\n\n", audioResults);
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Successfully processed {audioResults.Count} audio files, combined result length: {combinedResult.Length}");
+
+                    // Return a special marker to indicate this is already processed
+                    return $"ENSEMBLE_PROCESSED:{combinedResult}";
+                }
+            }
+
+            Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] No valid audio paths found, returning original input");
+            return input;
+        }
+
+        /// <summary>
+        /// Synchronous wrapper for backward compatibility (audio)
+        /// </summary>
+        private string ProcessCombinedAudioInput(NeuralNetworkModel model, string input, List<NodeViewModel> connectedInputNodes = null)
+        {
+            // For simple cases, return the input directly to avoid breaking existing functionality
+            if (string.IsNullOrEmpty(input) || !DetectCombinedAudioInput(input))
+            {
+                return input;
+            }
+
+            // For combined audio inputs, we'll fall back to first audio approach for now
+            // The async version above should be used for proper ensemble processing
+            var audioPaths = ParseCombinedAudioInput(input);
+            var validAudioPaths = audioPaths.Where(path => !string.IsNullOrEmpty(path) && IsValidAudioPath(path)).ToList();
+
+            if (validAudioPaths.Count > 0)
+            {
+                Debug.WriteLine($"⚡ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Sync version: using first audio {validAudioPaths[0]} (consider using async ensemble processing)");
+                return validAudioPaths[0];
+            }
+
+            return input;
+        }
+
+        /// <summary>
+        /// Gets contextual description for a node based on its name and type
+        /// </summary>
+        private string GetNodeContextDescription(string filePath, List<NodeViewModel> connectedInputNodes, string mediaType)
+        {
+            if (connectedInputNodes == null || connectedInputNodes.Count == 0)
+            {
+                return $"Unknown {mediaType}";
+            }
+
+            // Try to find the node that corresponds to this file path
+            var matchingNode = connectedInputNodes.FirstOrDefault(node =>
+            {
+                // Try to match based on the file path or node content
+                var nodeContent = node.GetStepContent(1); // Get the latest content
+                return nodeContent.Value?.Contains(Path.GetFileName(filePath)) == true;
+            });
+
+            if (matchingNode != null)
+            {
+                string nodeName = matchingNode.Name ?? "Unknown";
+                string lowerNodeName = nodeName.ToLower();
+
+                // Add descriptive context based on node name with enhanced specificity
+                if (lowerNodeName.Contains("webcam") && lowerNodeName.Contains("audio"))
+                {
+                    return "Webcam Audio";
+                }
+                else if (lowerNodeName.Contains("webcam") && (lowerNodeName.Contains("image") || lowerNodeName.Contains("video")))
+                {
+                    return "Webcam Image";
+                }
+                else if (lowerNodeName.Contains("webcam"))
+                {
+                    return $"Webcam {mediaType}";
+                }
+                else if (lowerNodeName.Contains("pc") && lowerNodeName.Contains("audio"))
+                {
+                    return "PC Audio";
+                }
+                else if (lowerNodeName.Contains("system") && lowerNodeName.Contains("audio"))
+                {
+                    return "System Audio";
+                }
+                else if (lowerNodeName.Contains("desktop") && lowerNodeName.Contains("audio"))
+                {
+                    return "Desktop Audio";
+                }
+                else if (lowerNodeName.Contains("screen") && lowerNodeName.Contains("audio"))
+                {
+                    return "Screen Audio";
+                }
+                else if (lowerNodeName.Contains("screen") || lowerNodeName.Contains("screenshot"))
+                {
+                    return "Screen Image";
+                }
+                else if (lowerNodeName.Contains("microphone") || lowerNodeName.Contains("mic"))
+                {
+                    return "Microphone Audio";
+                }
+                else if (lowerNodeName.Contains("file"))
+                {
+                    return $"File {mediaType}";
+                }
+                else if (lowerNodeName.Contains("audio"))
+                {
+                    return $"{nodeName} Audio";
+                }
+                else if (lowerNodeName.Contains("image") || lowerNodeName.Contains("video") || lowerNodeName.Contains("camera"))
+                {
+                    return $"{nodeName} Image";
+                }
+                else
+                {
+                    return $"{nodeName} {mediaType}";
+                }
+            }
+
+            // Fallback - try to infer from file path if no matching node found
+            string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
+            if (fileName.Contains("webcam"))
+            {
+                return $"Webcam {mediaType}";
+            }
+            else if (fileName.Contains("screen") || fileName.Contains("screenshot"))
+            {
+                return $"Screen {mediaType}";
+            }
+            else if (fileName.Contains("mic") || fileName.Contains("microphone"))
+            {
+                return $"Microphone {mediaType}";
+            }
+            else if (fileName.Contains("pc") || fileName.Contains("system") || fileName.Contains("desktop"))
+            {
+                return $"PC {mediaType}";
+            }
+
+            // Final fallback to generic description
+            return $"Source {mediaType}";
+        }
+
+        /// <summary>
+        /// Detects if input looks like combined audio input
+        /// </summary>
+        private bool DetectCombinedAudioInput(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return false;
+
+            // Check for our ensemble format patterns and audio file extensions
+            return (input.Contains("|") || input.Contains(";") || input.Contains("&") ||
+                   (input.Contains(",") && (input.Contains(".wav") || input.Contains(".mp3") || input.Contains(".m4a") ||
+                   input.Contains(".flac") || input.Contains(".ogg") || input.Contains(".aac"))));
+        }
+
+        /// <summary>
+        /// Parses combined audio input to extract individual audio paths
+        /// </summary>
+        private List<string> ParseCombinedAudioInput(string input)
+        {
+            var audioPaths = new List<string>();
+
+            if (string.IsNullOrEmpty(input)) return audioPaths;
+
+            // Handle different ensemble formats (similar to images but for audio)
+            if (input.Contains("|"))
+            {
+                // Sequential format: audio1:path1|audio2:path2
+                var parts = input.Split('|');
+                foreach (var part in parts)
+                {
+                    if (part.Contains(":"))
+                    {
+                        var pathPart = part.Split(':')[1];
+                        audioPaths.Add(pathPart.Trim());
+                    }
+                    else
+                    {
+                        audioPaths.Add(part.Trim());
+                    }
+                }
+            }
+            else if (input.Contains(";"))
+            {
+                // Concatenate format: path1;path2
+                audioPaths.AddRange(input.Split(';').Select(p => p.Trim()));
+            }
+            else if (input.Contains("&"))
+            {
+                // Average/weighted format: path1&path2
+                audioPaths.AddRange(input.Split('&').Select(p => p.Trim()));
+            }
+            else if (input.Contains(","))
+            {
+                // Default format: path1,path2
+                audioPaths.AddRange(input.Split(',').Select(p => p.Trim()));
+            }
+            else
+            {
+                // Single path
+                audioPaths.Add(input.Trim());
+            }
+
+            return audioPaths.Where(p => !string.IsNullOrEmpty(p)).ToList();
+        }
+
+        /// <summary>
+        /// Validates if a path is a valid audio file
+        /// </summary>
+        private bool IsValidAudioPath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return false;
+
+            var extension = Path.GetExtension(path).ToLowerInvariant();
+            return extension == ".wav" || extension == ".mp3" || extension == ".m4a" ||
+                   extension == ".flac" || extension == ".ogg" || extension == ".aac";
         }
     }
 }

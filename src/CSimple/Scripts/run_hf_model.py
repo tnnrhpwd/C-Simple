@@ -270,65 +270,100 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any], 
 
 
 def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
-    """Run automatic speech recognition on audio files."""
+    """Run automatic speech recognition on audio files (supports multiple files)."""
     try:
         print(f"Processing speech recognition with model: {model_id}", file=sys.stderr)
         print(f"Raw input text received: {input_text}", file=sys.stderr)
         
-        # Extract audio file path from input text
-        audio_file_path = None
+        # Extract audio file paths from input text (support multiple audio files)
+        audio_file_paths = []
         
         # Handle multiple formats:
         # 1. Direct file path
         # 2. "audio file: [path]" format
         # 3. Combined ensemble format like "[Node Name]: C:\path\to\file.wav"
+        # 4. Multiple audio files separated by delimiters (|, ;, &, ,)
         
         if "audio file:" in input_text:
             # Extract the file path after "audio file:"
             parts = input_text.split("audio file:")
             if len(parts) > 1:
-                audio_file_path = parts[1].strip()
-        elif ".wav" in input_text or ".mp3" in input_text or ".m4a" in input_text or ".flac" in input_text:
-            # Look for file paths in ensemble format using pre-compiled patterns for speed
-            for pattern in _audio_patterns:
-                matches = pattern.findall(input_text)
-                if matches:
-                    # Take the first match (for ensemble, we use the first audio file)
-                    if isinstance(matches[0], tuple):
-                        audio_file_path = matches[0][0].strip()
-                    else:
-                        audio_file_path = matches[0].strip()
-                    break
+                audio_file_paths.append(parts[1].strip())
+        elif any(ext in input_text.lower() for ext in ['.wav', '.mp3', '.m4a', '.flac', '.ogg', '.aac']):
+            # Look for file paths in ensemble format
+            import re
+            
+            # Check for ensemble delimiters first
+            if any(delimiter in input_text for delimiter in ['|', ';', '&', ',']):
+                # Parse ensemble format
+                ensemble_patterns = [
+                    r'audio\d+:([^|;,&]+)',  # Sequential format: audio1:path|audio2:path
+                    r'([^|;,&]+\.(wav|mp3|m4a|flac|ogg|aac))',  # Direct paths with delimiters
+                ]
+                
+                for pattern in ensemble_patterns:
+                    matches = re.findall(pattern, input_text, re.IGNORECASE)
+                    if matches:
+                        for match in matches:
+                            if isinstance(match, tuple):
+                                path = match[0].strip()
+                            else:
+                                path = match.strip()
+                            if path and os.path.exists(path):
+                                audio_file_paths.append(path)
+                        break
+            
+            # If no ensemble matches, look for individual file paths using pre-compiled patterns
+            if not audio_file_paths:
+                for pattern in _audio_patterns:
+                    matches = pattern.findall(input_text)
+                    if matches:
+                        for match in matches:
+                            if isinstance(match, tuple):
+                                path = match[0].strip()
+                            else:
+                                path = match.strip()
+                            if path and os.path.exists(path):
+                                audio_file_paths.append(path)
         else:
             # Try treating the entire input as a file path
             potential_path = input_text.strip()
             if os.path.exists(potential_path) and any(potential_path.lower().endswith(ext) for ext in ['.wav', '.mp3', '.m4a', '.flac', '.ogg', '.aac']):
-                audio_file_path = potential_path
+                audio_file_paths.append(potential_path)
         
-        print(f"Extracted audio file path: {audio_file_path}", file=sys.stderr)
+        # Remove duplicates while preserving order
+        audio_file_paths = list(dict.fromkeys(audio_file_paths))
         
-        # If the extracted path doesn't exist, it might be a simulated segment path
-        # Try to find the original audio file in the same directory
-        if not audio_file_path or not os.path.exists(audio_file_path):
-            if audio_file_path and "Segment_" in audio_file_path:
-                print(f"Segment file not found, looking for original audio file in directory", file=sys.stderr)
-                audio_dir = os.path.dirname(audio_file_path)
-                if os.path.exists(audio_dir):
-                    # Look for any .wav, .mp3, etc. files in the directory
-                    for ext in ['.wav', '.mp3', '.m4a', '.flac', '.ogg', '.aac']:
-                        for file in os.listdir(audio_dir):
-                            if file.lower().endswith(ext) and not file.startswith("Segment_"):
-                                fallback_path = os.path.join(audio_dir, file)
-                                print(f"Found fallback audio file: {fallback_path}", file=sys.stderr)
-                                audio_file_path = fallback_path
-                                break
-                        if audio_file_path and os.path.exists(audio_file_path):
-                            break
-            
+        # Fallback logic for each file path
+        processed_audio_paths = []
+        for audio_file_path in audio_file_paths:
+            # If the extracted path doesn't exist, it might be a simulated segment path
+            # Try to find the original audio file in the same directory
             if not audio_file_path or not os.path.exists(audio_file_path):
-                return f"ERROR: No valid audio file path found in input. Input received: {input_text}"
+                if audio_file_path and "Segment_" in audio_file_path:
+                    print(f"Segment file not found, looking for original audio file in directory", file=sys.stderr)
+                    audio_dir = os.path.dirname(audio_file_path)
+                    if os.path.exists(audio_dir):
+                        # Look for any .wav, .mp3, etc. files in the directory
+                        for ext in ['.wav', '.mp3', '.m4a', '.flac', '.ogg', '.aac']:
+                            for file in os.listdir(audio_dir):
+                                if file.lower().endswith(ext) and not file.startswith("Segment_"):
+                                    fallback_path = os.path.join(audio_dir, file)
+                                    print(f"Found fallback audio file: {fallback_path}", file=sys.stderr)
+                                    audio_file_path = fallback_path
+                                    break
+                            if audio_file_path and os.path.exists(audio_file_path):
+                                break
+                
+                if audio_file_path and os.path.exists(audio_file_path):
+                    processed_audio_paths.append(audio_file_path)
+            else:
+                processed_audio_paths.append(audio_file_path)
         
-        print(f"Processing audio file: {audio_file_path}", file=sys.stderr)
+        print(f"Extracted {len(processed_audio_paths)} audio file path(s): {processed_audio_paths}", file=sys.stderr)
+        
+        if not processed_audio_paths:
+            return f"ERROR: No valid audio file paths found in input. Input received: {input_text}"
         
         # Check if required audio processing libraries are available
         try:
@@ -368,33 +403,54 @@ def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any
         
         pipe = pipeline(**pipeline_kwargs)
         
-        print("Loading and processing audio file...", file=sys.stderr)
+        # Process all audio files
+        print(f"Loading and processing {len(processed_audio_paths)} audio file(s)...", file=sys.stderr)
         
-        # Load audio file
-        try:
-            audio_array, sampling_rate = librosa.load(audio_file_path, sr=16000)  # Whisper expects 16kHz
-            print(f"Audio loaded: {len(audio_array)} samples at {sampling_rate}Hz", file=sys.stderr)
-        except Exception as e:
-            return f"ERROR: Failed to load audio file: {e}"
+        transcriptions = []
+        for i, audio_file_path in enumerate(processed_audio_paths):
+            try:
+                print(f"Processing audio {i+1}/{len(processed_audio_paths)}: {os.path.basename(audio_file_path)}", file=sys.stderr)
+                
+                # Load audio file
+                try:
+                    audio_array, sampling_rate = librosa.load(audio_file_path, sr=16000)  # Whisper expects 16kHz
+                    print(f"Audio {i+1} loaded: {len(audio_array)} samples at {sampling_rate}Hz", file=sys.stderr)
+                except Exception as e:
+                    transcriptions.append(f"Audio {i+1} ({os.path.basename(audio_file_path)}): ERROR - Failed to load audio: {str(e)}")
+                    continue
+                
+                # Process audio with the model
+                print(f"Running speech recognition for audio {i+1}...", file=sys.stderr)
+                
+                result = pipe(audio_array)
+                
+                # Extract transcription text
+                if isinstance(result, dict) and "text" in result:
+                    transcription = result["text"].strip()
+                elif isinstance(result, list) and len(result) > 0 and "text" in result[0]:
+                    transcription = result[0]["text"].strip()
+                else:
+                    transcription = str(result).strip()
+                
+                print(f"Transcription {i+1} complete: {len(transcription)} characters", file=sys.stderr)
+                
+                if transcription:
+                    transcriptions.append(f"Audio {i+1} ({os.path.basename(audio_file_path)}): {transcription}")
+                else:
+                    transcriptions.append(f"Audio {i+1} ({os.path.basename(audio_file_path)}): No speech detected in the audio file")
+                    
+            except Exception as e:
+                error_msg = f"Audio {i+1} ({os.path.basename(audio_file_path)}): ERROR - {str(e)}"
+                transcriptions.append(error_msg)
+                print(f"Error processing audio {i+1}: {e}", file=sys.stderr)
         
-        # Process audio with the model
-        print("Running speech recognition...", file=sys.stderr)
-        result = pipe(audio_array)
-        
-        # Extract transcription text
-        if isinstance(result, dict) and "text" in result:
-            transcription = result["text"].strip()
-        elif isinstance(result, list) and len(result) > 0 and "text" in result[0]:
-            transcription = result[0]["text"].strip()
+        # Combine results
+        if len(transcriptions) == 1:
+            # Single audio result - remove the "Audio 1" prefix for single audio files
+            return transcriptions[0].replace("Audio 1 ", "").replace("(", "").replace("):", ":") if transcriptions[0].startswith("Audio 1 ") else transcriptions[0]
         else:
-            transcription = str(result).strip()
-        
-        print(f"Transcription complete: {len(transcription)} characters", file=sys.stderr)
-        
-        if not transcription:
-            return "No speech detected in the audio file."
-        
-        return f"Transcription: {transcription}"
+            # Multiple audio files result - just join the individual transcriptions without wrapper
+            return "\n\n".join(transcriptions)
         
     except Exception as e:
         error_msg = str(e)
