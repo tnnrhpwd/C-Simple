@@ -1796,7 +1796,8 @@ namespace CSimple.ViewModels
 
                 // Clear the step content cache to ensure fresh data for the new action
                 _ensembleModelService.ClearStepContentCache();
-                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Cleared step content cache for action change");
+                _ensembleModelService.ClearModelNodeActionSteps(Nodes);
+                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Cleared step content cache and model ActionSteps for action change");
 
                 // Use the ActionStepNavigationService to load the action
                 var result = await _actionStepNavigationService.LoadSelectedActionAsync(

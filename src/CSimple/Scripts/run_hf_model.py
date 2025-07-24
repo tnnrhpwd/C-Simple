@@ -272,6 +272,7 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any], 
 def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
     """Run automatic speech recognition on audio files (supports multiple files)."""
     try:
+        import re  # For regex pattern matching
         print(f"Processing speech recognition with model: {model_id}", file=sys.stderr)
         print(f"Raw input text received: {input_text}", file=sys.stderr)
         
@@ -453,11 +454,26 @@ def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any
         
         # Combine results
         if len(transcriptions) == 1:
-            # Single audio result - remove the "Audio 1" prefix for single audio files
-            return transcriptions[0].replace("Audio 1 ", "").replace("(", "").replace("):", ":") if transcriptions[0].startswith("Audio 1 ") else transcriptions[0]
+            # Single audio result - clean format: just return the transcription without numbering
+            result = transcriptions[0]
+            # Remove "Audio 1 (" prefix and clean up
+            if result.startswith("Audio 1 ("):
+                # Extract just the transcription part after the filename
+                match = re.search(r'Audio 1 \([^)]+\): (.+)', result)
+                if match:
+                    return match.group(1)
+            return result
         else:
-            # Multiple audio files result - just join the individual transcriptions without wrapper
-            return "\n\n".join(transcriptions)
+            # Multiple audio files result - return clean format for C# processing
+            clean_results = []
+            for result in transcriptions:
+                # Extract just the transcription part for each audio
+                match = re.search(r'Audio \d+ \([^)]+\): (.+)', result)
+                if match:
+                    clean_results.append(match.group(1))
+                else:
+                    clean_results.append(result)
+            return "\n\n".join(clean_results)
         
     except Exception as e:
         error_msg = str(e)
@@ -474,6 +490,7 @@ def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any
 def run_image_to_text(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
     """Run image-to-text processing on image files using BLIP and similar models."""
     try:
+        import re  # For regex pattern matching
         print(f"Processing image-to-text with model: {model_id}", file=sys.stderr)
         print(f"Raw input text received: {input_text}", file=sys.stderr)
         
@@ -659,11 +676,26 @@ def run_image_to_text(model_id: str, input_text: str, params: Dict[str, Any], lo
         
         # Combine results
         if len(captions) == 1:
-            # Single image result - remove the "Image 1" prefix for single images
-            return captions[0].replace("Image 1 ", "").replace("(", "").replace("):", ":") if captions[0].startswith("Image 1 ") else captions[0]
+            # Single image result - clean format: just return the caption without numbering
+            result = captions[0]
+            # Remove "Image 1 (" prefix and clean up
+            if result.startswith("Image 1 ("):
+                # Extract just the caption part after the filename
+                match = re.search(r'Image 1 \([^)]+\): (.+)', result)
+                if match:
+                    return match.group(1)
+            return result
         else:
-            # Multiple images result - just join the individual captions without wrapper
-            return "\n\n".join(captions)
+            # Multiple images result - return clean format for C# processing
+            clean_results = []
+            for result in captions:
+                # Extract just the caption part for each image
+                match = re.search(r'Image \d+ \([^)]+\): (.+)', result)
+                if match:
+                    clean_results.append(match.group(1))
+                else:
+                    clean_results.append(result)
+            return "\n\n".join(clean_results)
         
     except Exception as e:
         error_msg = str(e)

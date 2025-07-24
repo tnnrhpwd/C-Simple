@@ -48,6 +48,33 @@ namespace CSimple.Services
             {
                 _batchedExecutions.Clear();
             }
+
+            Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ClearStepContentCache] Cleared all ensemble service caches");
+        }
+
+        /// <summary>
+        /// Clear ActionSteps from specific model nodes to prevent old content artifacts
+        /// </summary>
+        public void ClearModelNodeActionSteps(IEnumerable<NodeViewModel> nodes)
+        {
+            try
+            {
+                if (nodes == null) return;
+
+                foreach (var node in nodes)
+                {
+                    if (node?.Type == NodeType.Model && node.ActionSteps?.Count > 0)
+                    {
+                        Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [ClearModelNodeActionSteps] Clearing {node.ActionSteps.Count} ActionSteps from model node: {node.Name}");
+                        node.ActionSteps.Clear();
+                    }
+                }
+                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ClearModelNodeActionSteps] Cleared ActionSteps from model nodes");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ClearModelNodeActionSteps] Error clearing ActionSteps: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -562,6 +589,12 @@ namespace CSimple.Services
                 return input;
             }
 
+            // Clear ActionSteps from model nodes to prevent old content artifacts before processing
+            if (connectedInputNodes != null)
+            {
+                ClearModelNodeActionSteps(connectedInputNodes);
+            }
+
             // Check if this looks like a combined image input format
             bool isCombinedImageInput = DetectCombinedImageInput(input);
 
@@ -777,6 +810,12 @@ namespace CSimple.Services
                 return input;
             }
 
+            // Clear ActionSteps from model nodes to prevent old content artifacts before processing
+            if (connectedInputNodes != null)
+            {
+                ClearModelNodeActionSteps(connectedInputNodes);
+            }
+
             // Check if this looks like a combined audio input format
             bool isCombinedAudioInput = DetectCombinedAudioInput(input);
 
@@ -907,13 +946,65 @@ namespace CSimple.Services
         /// </summary>
         private string GetNodeContextDescription(string filePath, List<NodeViewModel> connectedInputNodes, string mediaType)
         {
+            Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Analyzing file: {filePath} for {mediaType}");
+
             if (connectedInputNodes == null || connectedInputNodes.Count == 0)
             {
-                return $"Unknown {mediaType}";
+                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] No connected input nodes provided");
+            }
+            else
+            {
+                Debug.WriteLine($"📋 [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Connected nodes: {string.Join(", ", connectedInputNodes.Select(n => n.Name ?? "Unnamed"))}");
+            }
+
+            // Enhanced fallback - try to infer from file path first (most reliable)
+            string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
+            Debug.WriteLine($"📁 [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Filename without extension: {fileName}");
+
+            // Check filename patterns first for better accuracy
+            if (fileName.Contains("webcamaudio") || (fileName.Contains("webcam") && fileName.Contains("audio")))
+            {
+                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Webcam Audio from filename");
+                return "Webcam Audio";
+            }
+            else if (fileName.Contains("webcamimage") || (fileName.Contains("webcam") && (fileName.Contains("image") || fileName.Contains("jpg") || fileName.Contains("png"))))
+            {
+                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Webcam Image from filename");
+                return "Webcam Image";
+            }
+            else if (fileName.Contains("pcaudio") || (fileName.Contains("pc") && fileName.Contains("audio")))
+            {
+                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected PC Audio from filename");
+                return "PC Audio";
+            }
+            else if (fileName.Contains("screencapture") || fileName.Contains("screenshot") || (fileName.Contains("screen") && (fileName.Contains("capture") || fileName.Contains("display"))))
+            {
+                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Screen Image from filename");
+                return "Screen Image";
+            }
+            else if (fileName.Contains("microphone") || fileName.Contains("mic"))
+            {
+                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Microphone Audio from filename");
+                return "Microphone Audio";
+            }
+            else if (fileName.Contains("webcam"))
+            {
+                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected generic Webcam from filename");
+                return $"Webcam {mediaType}";
+            }
+            else if (fileName.Contains("screen"))
+            {
+                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected generic Screen from filename");
+                return $"Screen {mediaType}";
+            }
+            else if (fileName.Contains("pc") || fileName.Contains("system") || fileName.Contains("desktop"))
+            {
+                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected generic PC from filename");
+                return $"PC {mediaType}";
             }
 
             // Try to find the node that corresponds to this file path
-            var matchingNode = connectedInputNodes.FirstOrDefault(node =>
+            var matchingNode = connectedInputNodes?.FirstOrDefault(node =>
             {
                 // Try to match based on the file path or node content
                 var nodeContent = node.GetStepContent(1); // Get the latest content
@@ -924,43 +1015,11 @@ namespace CSimple.Services
             if (matchingNode != null)
             {
                 nodeName = matchingNode.Name ?? "Unknown";
+                Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Found matching node: {nodeName}");
             }
-
-            // Enhanced fallback - try to infer from file path regardless of matching node
-            string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
-
-            // Check filename patterns first for better accuracy
-            if (fileName.Contains("webcamaudio") || (fileName.Contains("webcam") && fileName.Contains("audio")))
+            else
             {
-                return "Webcam Audio";
-            }
-            else if (fileName.Contains("webcamimage") || (fileName.Contains("webcam") && (fileName.Contains("image") || fileName.Contains("jpg") || fileName.Contains("png"))))
-            {
-                return "Webcam Image";
-            }
-            else if (fileName.Contains("pcaudio") || (fileName.Contains("pc") && fileName.Contains("audio")))
-            {
-                return "PC Audio";
-            }
-            else if (fileName.Contains("screencapture") || fileName.Contains("screenshot") || (fileName.Contains("screen") && (fileName.Contains("capture") || fileName.Contains("display"))))
-            {
-                return "Screen Image";
-            }
-            else if (fileName.Contains("microphone") || fileName.Contains("mic"))
-            {
-                return "Microphone Audio";
-            }
-            else if (fileName.Contains("webcam"))
-            {
-                return $"Webcam {mediaType}";
-            }
-            else if (fileName.Contains("screen"))
-            {
-                return $"Screen {mediaType}";
-            }
-            else if (fileName.Contains("pc") || fileName.Contains("system") || fileName.Contains("desktop"))
-            {
-                return $"PC {mediaType}";
+                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] No matching node found for file");
             }
 
             // If we have a matching node, use its name with enhanced patterns
@@ -971,65 +1030,77 @@ namespace CSimple.Services
                 // Add descriptive context based on node name with enhanced specificity
                 if (lowerNodeName.Contains("webcam") && lowerNodeName.Contains("audio"))
                 {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Webcam Audio from node name");
                     return "Webcam Audio";
                 }
                 else if (lowerNodeName.Contains("webcam") && (lowerNodeName.Contains("image") || lowerNodeName.Contains("video")))
                 {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Webcam Image from node name");
                     return "Webcam Image";
                 }
                 else if (lowerNodeName.Contains("webcam"))
                 {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected generic Webcam from node name");
                     return $"Webcam {mediaType}";
                 }
                 else if (lowerNodeName.Contains("pc") && lowerNodeName.Contains("audio"))
                 {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected PC Audio from node name");
                     return "PC Audio";
                 }
                 else if (lowerNodeName.Contains("system") && lowerNodeName.Contains("audio"))
                 {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected System Audio from node name");
                     return "System Audio";
                 }
                 else if (lowerNodeName.Contains("desktop") && lowerNodeName.Contains("audio"))
                 {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Desktop Audio from node name");
                     return "Desktop Audio";
                 }
                 else if (lowerNodeName.Contains("screen") && lowerNodeName.Contains("audio"))
                 {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Screen Audio from node name");
                     return "Screen Audio";
                 }
                 else if (lowerNodeName.Contains("screen") || lowerNodeName.Contains("screenshot"))
                 {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Screen Image from node name");
                     return "Screen Image";
                 }
                 else if (lowerNodeName.Contains("microphone") || lowerNodeName.Contains("mic"))
                 {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Microphone Audio from node name");
                     return "Microphone Audio";
                 }
                 else if (lowerNodeName.Contains("file"))
                 {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected File from node name");
                     return $"File {mediaType}";
                 }
                 else if (lowerNodeName.Contains("audio"))
                 {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected generic Audio from node name");
                     return $"{nodeName} Audio";
                 }
                 else if (lowerNodeName.Contains("image") || lowerNodeName.Contains("video") || lowerNodeName.Contains("camera"))
                 {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected generic Image from node name");
                     return $"{nodeName} Image";
                 }
                 else
                 {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Using node name as-is");
                     return $"{nodeName} {mediaType}";
                 }
             }
 
             // Final fallback to generic description
+            Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Using fallback: Source {mediaType}");
             return $"Source {mediaType}";
-        }
-
-        /// <summary>
-        /// Detects if input looks like combined audio input
-        /// </summary>
+        }        /// <summary>
+                 /// Detects if input looks like combined audio input
+                 /// </summary>
         private bool DetectCombinedAudioInput(string input)
         {
             if (string.IsNullOrEmpty(input)) return false;
