@@ -434,6 +434,13 @@ def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any
                 
                 print(f"Transcription {i+1} complete: {len(transcription)} characters", file=sys.stderr)
                 
+                # Clean up transcription - remove duplicate filename if present
+                filename_without_ext = os.path.splitext(os.path.basename(audio_file_path))[0]
+                if transcription.startswith(f"{filename_without_ext}: "):
+                    transcription = transcription[len(f"{filename_without_ext}: "):]
+                elif transcription.startswith(f"{os.path.basename(audio_file_path)}: "):
+                    transcription = transcription[len(f"{os.path.basename(audio_file_path)}: "):]
+                
                 if transcription:
                     transcriptions.append(f"Audio {i+1} ({os.path.basename(audio_file_path)}): {transcription}")
                 else:
@@ -632,6 +639,13 @@ def run_image_to_text(model_id: str, input_text: str, params: Dict[str, Any], lo
                 caption = processor.decode(out[0], skip_special_tokens=True)
                 
                 print(f"Caption {i+1} generated: {len(caption)} characters", file=sys.stderr)
+                
+                # Clean up caption - remove duplicate filename if present
+                filename_without_ext = os.path.splitext(os.path.basename(image_file_path))[0]
+                if caption.startswith(f"{filename_without_ext}: "):
+                    caption = caption[len(f"{filename_without_ext}: "):]
+                elif caption.startswith(f"{os.path.basename(image_file_path)}: "):
+                    caption = caption[len(f"{os.path.basename(image_file_path)}: "):]
                 
                 if caption:
                     captions.append(f"Image {i+1} ({os.path.basename(image_file_path)}): {caption}")

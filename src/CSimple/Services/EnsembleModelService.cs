@@ -616,24 +616,34 @@ namespace CSimple.Services
                         var individualResult = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, imagePath);
                         if (!string.IsNullOrEmpty(individualResult))
                         {
-                            // Check if the result already contains proper formatting (from Python script)
-                            if (individualResult.StartsWith($"Image {i + 1} (") || individualResult.Contains("): "))
+                            // Clean up the result - remove duplicate filename references and format properly
+                            var cleanResult = individualResult;
+
+                            // Remove duplicate filename if it appears at the start of the caption
+                            var filename = Path.GetFileName(imagePath);
+                            if (cleanResult.StartsWith($"{filename}: "))
                             {
-                                // Python script already formatted it, but add node context
-                                var formattedResult = individualResult.Replace($"Image {i + 1} (", $"{nodeContext} Image {i + 1} (");
+                                cleanResult = cleanResult.Substring($"{filename}: ".Length);
+                            }
+
+                            // Check if the result already contains proper formatting (from Python script)
+                            if (cleanResult.StartsWith($"Image {i + 1} (") || cleanResult.Contains("): "))
+                            {
+                                // Python script already formatted it, but replace with clean node context
+                                var formattedResult = cleanResult.Replace($"Image {i + 1} (", $"{nodeContext} (");
                                 imageResults.Add(formattedResult);
                             }
                             else
                             {
-                                // Add formatting with node context
-                                imageResults.Add($"{nodeContext} Image {i + 1} ({Path.GetFileName(imagePath)}): {individualResult}");
+                                // Add clean formatting with node context (no duplicate filenames)
+                                imageResults.Add($"{nodeContext}: {cleanResult}");
                             }
                         }
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Error processing image {i + 1}: {ex.Message}");
-                        imageResults.Add($"{nodeContext} Image {i + 1} ({Path.GetFileName(imagePath)}): Error - {ex.Message}");
+                        imageResults.Add($"{nodeContext}: Error - {ex.Message}");
                     }
                 }
 
@@ -821,24 +831,34 @@ namespace CSimple.Services
                         var individualResult = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, audioPath);
                         if (!string.IsNullOrEmpty(individualResult))
                         {
-                            // Check if the result already contains proper formatting (from Python script)
-                            if (individualResult.StartsWith($"Audio {i + 1} (") || individualResult.Contains("): "))
+                            // Clean up the result - remove duplicate filename references and format properly
+                            var cleanResult = individualResult;
+
+                            // Remove duplicate filename if it appears at the start of the transcription
+                            var filename = Path.GetFileName(audioPath);
+                            if (cleanResult.StartsWith($"{filename}: "))
                             {
-                                // Python script already formatted it, but add node context
-                                var formattedResult = individualResult.Replace($"Audio {i + 1} (", $"{nodeContext} Audio {i + 1} (");
+                                cleanResult = cleanResult.Substring($"{filename}: ".Length);
+                            }
+
+                            // Check if the result already contains proper formatting (from Python script)
+                            if (cleanResult.StartsWith($"Audio {i + 1} (") || cleanResult.Contains("): "))
+                            {
+                                // Python script already formatted it, but replace with clean node context
+                                var formattedResult = cleanResult.Replace($"Audio {i + 1} (", $"{nodeContext} (");
                                 audioResults.Add(formattedResult);
                             }
                             else
                             {
-                                // Add formatting with node context
-                                audioResults.Add($"{nodeContext} Audio {i + 1} ({Path.GetFileName(audioPath)}): {individualResult}");
+                                // Add clean formatting with node context (no duplicate filenames)
+                                audioResults.Add($"{nodeContext}: {cleanResult}");
                             }
                         }
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Error processing audio {i + 1}: {ex.Message}");
-                        audioResults.Add($"{nodeContext} Audio {i + 1} ({Path.GetFileName(audioPath)}): Error - {ex.Message}");
+                        audioResults.Add($"{nodeContext}: Error - {ex.Message}");
                     }
                 }
 
@@ -900,9 +920,52 @@ namespace CSimple.Services
                 return nodeContent.Value?.Contains(Path.GetFileName(filePath)) == true;
             });
 
+            string nodeName = null;
             if (matchingNode != null)
             {
-                string nodeName = matchingNode.Name ?? "Unknown";
+                nodeName = matchingNode.Name ?? "Unknown";
+            }
+
+            // Enhanced fallback - try to infer from file path regardless of matching node
+            string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
+
+            // Check filename patterns first for better accuracy
+            if (fileName.Contains("webcamaudio") || (fileName.Contains("webcam") && fileName.Contains("audio")))
+            {
+                return "Webcam Audio";
+            }
+            else if (fileName.Contains("webcamimage") || (fileName.Contains("webcam") && (fileName.Contains("image") || fileName.Contains("jpg") || fileName.Contains("png"))))
+            {
+                return "Webcam Image";
+            }
+            else if (fileName.Contains("pcaudio") || (fileName.Contains("pc") && fileName.Contains("audio")))
+            {
+                return "PC Audio";
+            }
+            else if (fileName.Contains("screencapture") || fileName.Contains("screenshot") || (fileName.Contains("screen") && (fileName.Contains("capture") || fileName.Contains("display"))))
+            {
+                return "Screen Image";
+            }
+            else if (fileName.Contains("microphone") || fileName.Contains("mic"))
+            {
+                return "Microphone Audio";
+            }
+            else if (fileName.Contains("webcam"))
+            {
+                return $"Webcam {mediaType}";
+            }
+            else if (fileName.Contains("screen"))
+            {
+                return $"Screen {mediaType}";
+            }
+            else if (fileName.Contains("pc") || fileName.Contains("system") || fileName.Contains("desktop"))
+            {
+                return $"PC {mediaType}";
+            }
+
+            // If we have a matching node, use its name with enhanced patterns
+            if (!string.IsNullOrEmpty(nodeName) && nodeName != "Unknown")
+            {
                 string lowerNodeName = nodeName.ToLower();
 
                 // Add descriptive context based on node name with enhanced specificity
@@ -958,25 +1021,6 @@ namespace CSimple.Services
                 {
                     return $"{nodeName} {mediaType}";
                 }
-            }
-
-            // Fallback - try to infer from file path if no matching node found
-            string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
-            if (fileName.Contains("webcam"))
-            {
-                return $"Webcam {mediaType}";
-            }
-            else if (fileName.Contains("screen") || fileName.Contains("screenshot"))
-            {
-                return $"Screen {mediaType}";
-            }
-            else if (fileName.Contains("mic") || fileName.Contains("microphone"))
-            {
-                return $"Microphone {mediaType}";
-            }
-            else if (fileName.Contains("pc") || fileName.Contains("system") || fileName.Contains("desktop"))
-            {
-                return $"PC {mediaType}";
             }
 
             // Final fallback to generic description
