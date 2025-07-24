@@ -153,16 +153,16 @@ namespace CSimple.Services
                 case "average":
                 case "averaging":
                     Debug.WriteLine($"📊 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using averaging method (fallback to concatenation for text)");
-                    return $"[Ensemble Average of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
+                    return string.Join("\n\n", stepContents);
 
                 case "voting":
                 case "majority":
                     Debug.WriteLine($"🗳️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using voting method (fallback to concatenation for text)");
-                    return $"[Ensemble Voting of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
+                    return string.Join("\n\n", stepContents);
 
                 case "weighted":
                     Debug.WriteLine($"⚖️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Using weighted method (fallback to concatenation for text)");
-                    return $"[Ensemble Weighted of {stepContents.Count} inputs]:\n\n" + string.Join("\n\n", stepContents);
+                    return string.Join("\n\n", stepContents);
             }
         }
 
@@ -180,7 +180,34 @@ namespace CSimple.Services
                 }
 
                 // Check if this is a combined image input that needs special handling
-                string processedInput = ProcessCombinedImageInput(model, input);
+                string processedInput;
+
+                // Check if input is already an ensemble-processed result
+                if (input.StartsWith("ENSEMBLE_PROCESSED:"))
+                {
+                    // Return the already processed ensemble result
+                    var ensembleResult = input.Substring("ENSEMBLE_PROCESSED:".Length);
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] Returning pre-processed ensemble result ({ensembleResult.Length} chars)");
+                    return ensembleResult;
+                }
+
+                // Check if this is a multi-image input that should be processed as ensemble
+                if (DetectCombinedImageInput(input) && model.InputType == ModelInputType.Image)
+                {
+                    Debug.WriteLine($"🎯 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] Detected multi-image input for image model, processing as ensemble");
+                    processedInput = await ProcessCombinedImageInputAsync(model, input);
+
+                    // If it was processed as ensemble, return the result directly
+                    if (processedInput.StartsWith("ENSEMBLE_PROCESSED:"))
+                    {
+                        return processedInput.Substring("ENSEMBLE_PROCESSED:".Length);
+                    }
+                }
+                else
+                {
+                    // Use synchronous processing for backward compatibility
+                    processedInput = ProcessCombinedImageInput(model, input);
+                }
 
                 var result = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, processedInput);
                 return result ?? "No output generated";
@@ -502,7 +529,7 @@ namespace CSimple.Services
         /// <param name="model">The model that will process the input</param>
         /// <param name="input">The combined image input (could be multiple paths)</param>
         /// <returns>Processed input suitable for the model</returns>
-        private string ProcessCombinedImageInput(NeuralNetworkModel model, string input)
+        private async Task<string> ProcessCombinedImageInputAsync(NeuralNetworkModel model, string input)
         {
             if (string.IsNullOrEmpty(input))
             {
@@ -538,25 +565,85 @@ namespace CSimple.Services
                 return imagePaths[0];
             }
 
-            // Multiple images - we need to create an ensemble approach
+            // Multiple images - process each separately and combine results
             Debug.WriteLine($"🎨 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Processing {imagePaths.Count} images for ensemble execution");
 
-            // For now, we'll process each image individually and combine results
-            // This is where proper image ensemble processing would happen
-            // For the immediate fix, we'll use the first valid image but log all
             var validImagePaths = imagePaths.Where(path => !string.IsNullOrEmpty(path) && IsValidImagePath(path)).ToList();
 
             if (validImagePaths.Count > 0)
             {
-                Debug.WriteLine($"🖼️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Using first valid image from ensemble: {validImagePaths[0]}");
-                Debug.WriteLine($"📋 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Other images in ensemble: {string.Join(", ", validImagePaths.Skip(1))}");
+                Debug.WriteLine($"🖼️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Processing {validImagePaths.Count} valid images individually");
 
-                // TODO: Implement proper multi-image ensemble processing
-                // For now, return the first image but ensure we're processing all
-                return validImagePaths[0];
+                // Process each image separately and collect results
+                var imageResults = new List<string>();
+                for (int i = 0; i < validImagePaths.Count; i++)
+                {
+                    var imagePath = validImagePaths[i];
+                    Debug.WriteLine($"📸 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Processing image {i + 1}/{validImagePaths.Count}: {Path.GetFileName(imagePath)}");
+
+                    try
+                    {
+                        // Execute model on individual image
+                        var individualResult = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, imagePath);
+                        if (!string.IsNullOrEmpty(individualResult))
+                        {
+                            // Check if the result already contains proper formatting (from Python script)
+                            if (individualResult.StartsWith($"Image {i + 1} (") || individualResult.Contains("): "))
+                            {
+                                // Python script already formatted it properly, use as-is
+                                imageResults.Add(individualResult);
+                            }
+                            else
+                            {
+                                // Add formatting if not already present
+                                imageResults.Add($"Image {i + 1} ({Path.GetFileName(imagePath)}): {individualResult}");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Error processing image {i + 1}: {ex.Message}");
+                        imageResults.Add($"Image {i + 1} ({Path.GetFileName(imagePath)}): Error - {ex.Message}");
+                    }
+                }
+
+                if (imageResults.Count > 0)
+                {
+                    // Combine all individual results without extra wrapper text
+                    var combinedResult = string.Join("\n\n", imageResults);
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Successfully processed {imageResults.Count} images, combined result length: {combinedResult.Length}");
+
+                    // Return a special marker to indicate this is already processed
+                    return $"ENSEMBLE_PROCESSED:{combinedResult}";
+                }
             }
 
             Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] No valid image paths found, returning original input");
+            return input;
+        }
+
+        /// <summary>
+        /// Synchronous wrapper for backward compatibility
+        /// </summary>
+        private string ProcessCombinedImageInput(NeuralNetworkModel model, string input)
+        {
+            // For simple cases, return the input directly to avoid breaking existing functionality
+            if (string.IsNullOrEmpty(input) || !DetectCombinedImageInput(input))
+            {
+                return input;
+            }
+
+            // For combined image inputs, we'll fall back to first image approach for now
+            // The async version above should be used for proper ensemble processing
+            var imagePaths = ParseCombinedImageInput(input);
+            var validImagePaths = imagePaths.Where(path => !string.IsNullOrEmpty(path) && IsValidImagePath(path)).ToList();
+
+            if (validImagePaths.Count > 0)
+            {
+                Debug.WriteLine($"⚡ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] Sync version: using first image {validImagePaths[0]} (consider using async ensemble processing)");
+                return validImagePaths[0];
+            }
+
             return input;
         }
 

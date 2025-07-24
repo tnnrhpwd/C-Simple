@@ -414,51 +414,75 @@ def run_image_to_text(model_id: str, input_text: str, params: Dict[str, Any], lo
         print(f"Processing image-to-text with model: {model_id}", file=sys.stderr)
         print(f"Raw input text received: {input_text}", file=sys.stderr)
         
-        # Extract image file path from input text
-        image_file_path = None
+        # Extract image file paths from input text (support multiple images)
+        image_file_paths = []
         
         # Handle multiple formats:
         # 1. Direct file path
         # 2. "image file: [path]" format
         # 3. Combined ensemble format like "[Node Name]: C:\path\to\file.jpg"
+        # 4. Multiple images separated by delimiters (|, ;, &, ,)
         
         if "image file:" in input_text:
             # Extract the file path after "image file:"
             parts = input_text.split("image file:")
             if len(parts) > 1:
-                image_file_path = parts[1].strip()
+                image_file_paths.append(parts[1].strip())
         elif any(ext in input_text.lower() for ext in ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp']):
-            # Look for file paths in ensemble format [Node Name]: C:\path\to\file.ext
+            # Look for file paths in ensemble format
             import re
-            # Find all file paths that end with image extensions
-            # Updated patterns to correctly handle Windows paths with drive letters
-            image_patterns = [
-                r'\]:\s*([A-Z]:[^:]+\.(jpg|jpeg|png|bmp|gif|tiff|webp))',  # Match after ]: C:\path
-                r':\s*([A-Z]:[^:\[\]]+\.(jpg|jpeg|png|bmp|gif|tiff|webp))',  # Match after : C:\path (but not inside brackets)
-                r'([A-Z]:[^:\[\]]+\.(jpg|jpeg|png|bmp|gif|tiff|webp))'      # Direct match C:\path
-            ]
             
-            for pattern in image_patterns:
-                matches = re.findall(pattern, input_text, re.IGNORECASE)
-                if matches:
-                    # Take the first match (for ensemble, we use the first image file)
-                    if isinstance(matches[0], tuple):
-                        image_file_path = matches[0][0].strip()
-                    else:
-                        image_file_path = matches[0].strip()
-                    break
+            # Check for ensemble delimiters first
+            if any(delimiter in input_text for delimiter in ['|', ';', '&', ',']):
+                # Parse ensemble format
+                ensemble_patterns = [
+                    r'img\d+:([^|;,&]+)',  # Sequential format: img1:path|img2:path
+                    r'([^|;,&]+\.(jpg|jpeg|png|bmp|gif|tiff|webp))',  # Direct paths with delimiters
+                ]
+                
+                for pattern in ensemble_patterns:
+                    matches = re.findall(pattern, input_text, re.IGNORECASE)
+                    if matches:
+                        for match in matches:
+                            if isinstance(match, tuple):
+                                path = match[0].strip()
+                            else:
+                                path = match.strip()
+                            if path and os.path.exists(path):
+                                image_file_paths.append(path)
+                        break
+            
+            # If no ensemble matches, look for individual file paths
+            if not image_file_paths:
+                image_patterns = [
+                    r'\]:\s*([A-Z]:[^:]+\.(jpg|jpeg|png|bmp|gif|tiff|webp))',  # Match after ]: C:\path
+                    r':\s*([A-Z]:[^:\[\]]+\.(jpg|jpeg|png|bmp|gif|tiff|webp))',  # Match after : C:\path (but not inside brackets)
+                    r'([A-Z]:[^:\[\]]+\.(jpg|jpeg|png|bmp|gif|tiff|webp))'      # Direct match C:\path
+                ]
+                
+                for pattern in image_patterns:
+                    matches = re.findall(pattern, input_text, re.IGNORECASE)
+                    if matches:
+                        for match in matches:
+                            if isinstance(match, tuple):
+                                path = match[0].strip()
+                            else:
+                                path = match.strip()
+                            if path and os.path.exists(path):
+                                image_file_paths.append(path)
         else:
             # Try treating the entire input as a file path
             potential_path = input_text.strip()
             if os.path.exists(potential_path) and any(potential_path.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp']):
-                image_file_path = potential_path
+                image_file_paths.append(potential_path)
         
-        print(f"Extracted image file path: {image_file_path}", file=sys.stderr)
+        # Remove duplicates while preserving order
+        image_file_paths = list(dict.fromkeys(image_file_paths))
         
-        if not image_file_path or not os.path.exists(image_file_path):
-            return f"ERROR: No valid image file path found in input. Input received: {input_text}"
+        print(f"Extracted {len(image_file_paths)} image file path(s): {image_file_paths}", file=sys.stderr)
         
-        print(f"Processing image file: {image_file_path}", file=sys.stderr)
+        if not image_file_paths:
+            return f"ERROR: No valid image file paths found in input. Input received: {input_text}"
         
         # Check if required image processing libraries are available
         try:
@@ -526,34 +550,50 @@ def run_image_to_text(model_id: str, input_text: str, params: Dict[str, Any], lo
         except Exception as e:
             return f"ERROR: Failed to load model or processor: {e}"
         
-        print("Loading and processing image file...", file=sys.stderr)
+        # Process all images
+        print(f"Loading and processing {len(image_file_paths)} image file(s)...", file=sys.stderr)
         
-        # Load image file
-        try:
-            image = Image.open(image_file_path).convert("RGB")
-            print(f"Image loaded: {image.size} pixels", file=sys.stderr)
-        except Exception as e:
-            return f"ERROR: Failed to load image file: {e}"
+        captions = []
+        for i, image_file_path in enumerate(image_file_paths):
+            try:
+                print(f"Processing image {i+1}/{len(image_file_paths)}: {os.path.basename(image_file_path)}", file=sys.stderr)
+                
+                # Load image file
+                image = Image.open(image_file_path).convert("RGB")
+                print(f"Image {i+1} loaded: {image.size} pixels", file=sys.stderr)
+                
+                # Process image with the model
+                print(f"Running image captioning for image {i+1}...", file=sys.stderr)
+                
+                # Prepare inputs
+                inputs = processor(image, return_tensors="pt")
+                
+                # Generate caption
+                with torch.no_grad():
+                    out = model.generate(**inputs, max_length=params.get("max_length", 50), num_beams=5)
+                
+                # Decode caption
+                caption = processor.decode(out[0], skip_special_tokens=True)
+                
+                print(f"Caption {i+1} generated: {len(caption)} characters", file=sys.stderr)
+                
+                if caption:
+                    captions.append(f"Image {i+1} ({os.path.basename(image_file_path)}): {caption}")
+                else:
+                    captions.append(f"Image {i+1} ({os.path.basename(image_file_path)}): No caption could be generated")
+                    
+            except Exception as e:
+                error_msg = f"Image {i+1} ({os.path.basename(image_file_path)}): ERROR - {str(e)}"
+                captions.append(error_msg)
+                print(f"Error processing image {i+1}: {e}", file=sys.stderr)
         
-        # Process image with the model
-        print("Running image captioning...", file=sys.stderr)
-        
-        # Prepare inputs
-        inputs = processor(image, return_tensors="pt")
-        
-        # Generate caption
-        with torch.no_grad():
-            out = model.generate(**inputs, max_length=params.get("max_length", 50), num_beams=5)
-        
-        # Decode caption
-        caption = processor.decode(out[0], skip_special_tokens=True)
-        
-        print(f"Caption generated: {len(caption)} characters", file=sys.stderr)
-        
-        if not caption:
-            return "No caption could be generated for this image."
-        
-        return f"Image Caption: {caption}"
+        # Combine results
+        if len(captions) == 1:
+            # Single image result - remove the "Image 1" prefix for single images
+            return captions[0].replace("Image 1 ", "").replace("(", "").replace("):", ":") if captions[0].startswith("Image 1 ") else captions[0]
+        else:
+            # Multiple images result - just join the individual captions without wrapper
+            return "\n\n".join(captions)
         
     except Exception as e:
         error_msg = str(e)
