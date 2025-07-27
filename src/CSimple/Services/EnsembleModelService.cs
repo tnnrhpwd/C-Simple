@@ -355,7 +355,7 @@ namespace CSimple.Services
                             {
                                 cachedContent = contentType?.ToLowerInvariant() == "image" || contentType?.ToLowerInvariant() == "audio"
                                                ? contentValue
-                                               : $"[{inputNode.Name}]: {contentValue}";
+                                               : $"{inputNode.Name}: {contentValue}"; // Use safe formatting without brackets
                             }
                             else
                             {

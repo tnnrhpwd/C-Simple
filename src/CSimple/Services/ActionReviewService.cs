@@ -204,9 +204,10 @@ namespace CSimple.Services
                 }
                 else
                 {
-                    // stepContentData.Content = $"Model: {selectedNode.Name}\nNo output generated yet. Use 'Generate' or 'Run All Models' to process inputs.";
+                    // For model nodes with no output, show a helpful message instead of trying to display input content
+                    stepContentData.Content = $"Model: {selectedNode.Name}\nNo output generated yet. Use 'Generate' or 'Run All Models' to process inputs.";
                     stepContentData.ContentType = "text";
-                    Debug.WriteLine("[ActionReviewService.UpdateStepContent] No stored model output found.");
+                    Debug.WriteLine("[ActionReviewService.UpdateStepContent] No stored model output found, showing helpful message.");
                     return stepContentData;
                 }
             }

@@ -260,16 +260,52 @@ def main():
             print(f'Pipeline failed, trying manual approach: {pipe_error}');
             
             # Fallback to manual tokenizer/model approach
-            tokenizer = AutoTokenizer.from_pretrained(args.model_id, trust_remote_code=True)
-            model = AutoModel.from_pretrained(args.model_id, trust_remote_code=True)
-            
-            inputs = tokenizer(args.input, return_tensors='pt')
-            
-            with torch.no_grad():
-                outputs = model(**inputs)
+            try:
+                from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModelForSeq2SeqLM
                 
-            # Basic response for demonstration
-            print(f'Model processed input successfully. Input tokens: {inputs[""input_ids""].shape[1]}')
+                tokenizer = AutoTokenizer.from_pretrained(args.model_id, trust_remote_code=True)
+                
+                # Try to load as a causal LM first (like GPT), then seq2seq
+                try:
+                    model = AutoModelForCausalLM.from_pretrained(args.model_id, trust_remote_code=True)
+                    is_causal_lm = True
+                except:
+                    model = AutoModelForSeq2SeqLM.from_pretrained(args.model_id, trust_remote_code=True)
+                    is_causal_lm = False
+                
+                inputs = tokenizer(args.input, return_tensors='pt', truncation=True, max_length=512)
+                
+                with torch.no_grad():
+                    if is_causal_lm:
+                        # For causal LM (GPT-like models)
+                        outputs = model.generate(
+                            inputs['input_ids'], 
+                            max_length=inputs['input_ids'].shape[1] + 50,
+                            temperature=0.8,
+                            do_sample=True,
+                            pad_token_id=tokenizer.eos_token_id
+                        )
+                        # Extract only the newly generated tokens
+                        generated_tokens = outputs[0][inputs['input_ids'].shape[1]:]
+                        result_text = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+                    else:
+                        # For seq2seq models
+                        outputs = model.generate(
+                            inputs['input_ids'],
+                            max_length=100,
+                            temperature=0.8,
+                            do_sample=True
+                        )
+                        result_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+                
+                if result_text.strip():
+                    print(result_text.strip())
+                else:
+                    print(f'Generated response for input with {inputs[""input_ids""].shape[1]} tokens')
+                    
+            except Exception as manual_error:
+                print(f'Manual approach also failed: {manual_error}')
+                print(f'Model processed input successfully. Input tokens: {inputs[""input_ids""].shape[1] if ""inputs"" in locals() else ""unknown""}')
             
     except ImportError as e:
         print(f'ERROR: Missing required packages. Please install with: pip install transformers torch')

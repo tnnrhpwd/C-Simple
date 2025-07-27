@@ -2415,7 +2415,7 @@ namespace CSimple.ViewModels
                                         }
                                         else
                                         {
-                                            stepContents.Add($"[{inputNode.Name}]: {content}");
+                                            stepContents.Add($"{inputNode.Name}: {content}"); // Use safe formatting without brackets
                                         }
                                     }
                                     else
@@ -3117,10 +3117,87 @@ namespace CSimple.ViewModels
                 }
 
                 var connectedInputNodes = _ensembleModelService.GetConnectedInputNodes(modelNode, nodesCopy, connectionsCopy);
-                string input = _ensembleModelService.PrepareModelInput(modelNode, connectedInputNodes, stepIndex, actionItemTimestamp);
 
-                // Execute the model
-                var result = await _ensembleModelService.ExecuteModelWithInput(correspondingModel, input);
+                string result;
+                string input;
+
+                // For image models, process each input node individually and combine results
+                if (correspondingModel.InputType == ModelInputType.Image)
+                {
+                    Debug.WriteLine($"🖼️ [ExecuteModelForStepAsync] Image model detected - processing each input node individually");
+
+                    var nodeResults = new List<string>();
+                    var imagePaths = new List<string>();
+
+                    // Process each input node's images sequentially to maintain proper organization
+                    foreach (var inputNode in connectedInputNodes)
+                    {
+                        // Get step content for current step
+                        int stepForNodeContent = stepIndex + 1; // Convert to 1-based index
+                        var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent, actionItemTimestamp);
+
+                        if (contentType?.ToLowerInvariant() == "image" && !string.IsNullOrEmpty(contentValue))
+                        {
+                            Debug.WriteLine($"📸 [ExecuteModelForStepAsync] Found image content from {inputNode.Name}: {contentValue}");
+
+                            // Check if this is multiple images (semicolon-separated)
+                            var nodeImagePaths = contentValue.Contains(';')
+                                ? contentValue.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(p => p.Trim()).ToList()
+                                : new List<string> { contentValue };
+
+                            var nodeImageResults = new List<string>();
+
+                            // Process each image from this input node
+                            foreach (var imagePath in nodeImagePaths)
+                            {
+                                if (!string.IsNullOrEmpty(imagePath) && File.Exists(imagePath))
+                                {
+                                    imagePaths.Add(imagePath);
+                                    var imageResult = await ProcessSingleImageAsync(correspondingModel, imagePath, inputNode.Name);
+                                    if (!string.IsNullOrEmpty(imageResult))
+                                    {
+                                        nodeImageResults.Add(imageResult);
+                                    }
+                                }
+                            }
+
+                            // Combine results from this input node
+                            if (nodeImageResults.Count > 0)
+                            {
+                                if (nodeImageResults.Count == 1)
+                                {
+                                    nodeResults.Add(nodeImageResults[0]);
+                                }
+                                else
+                                {
+                                    var combinedNodeResult = string.Join("\n", nodeImageResults);
+                                    nodeResults.Add(combinedNodeResult);
+                                }
+                            }
+                        }
+                    }
+
+                    if (nodeResults.Count > 0)
+                    {
+                        result = string.Join("\n\n", nodeResults);
+                        input = string.Join("; ", imagePaths); // For logging purposes
+                        Debug.WriteLine($"✅ [ExecuteModelForStepAsync] Combined results from {nodeResults.Count} input nodes");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"❌ [ExecuteModelForStepAsync] No valid image content found");
+                        result = "Error: No valid image content found";
+                        input = "No valid images";
+                    }
+                }
+                else
+                {
+                    // For non-image models, use the existing approach
+                    input = _ensembleModelService.PrepareModelInput(modelNode, connectedInputNodes, stepIndex, actionItemTimestamp);
+
+                    // Execute the model
+                    result = await _ensembleModelService.ExecuteModelWithInput(correspondingModel, input);
+                }
 
                 // Determine content type and store step output
                 var resultContentType = _ensembleModelService.DetermineResultContentType(correspondingModel, result);
@@ -3299,55 +3376,7 @@ namespace CSimple.ViewModels
                 ExecutionStatus = "Collecting inputs...";
                 ExecutionProgress = 50;
 
-                // Collect step content from connected nodes
-                var stepContents = new List<string>();
-                foreach (var inputNode in connectedInputNodes)
-                {
-                    Debug.WriteLine($"📄 [ExecuteGenerateAsync] Processing input node: {inputNode.Name} (Type: {inputNode.DataType})");
-
-                    // Get step content for current step (using the same logic as UpdateStepContent)
-                    int stepForNodeContent = CurrentActionStep + 1; // Convert to 1-based index
-                    var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
-
-                    Debug.WriteLine($"📝 [ExecuteGenerateAsync] Input node '{inputNode.Name}' content: Type='{contentType}', Value='{contentValue?.Substring(0, Math.Min(contentValue?.Length ?? 0, 100))}...'");
-
-                    if (!string.IsNullOrEmpty(contentValue))
-                    {
-                        // For image content, pass the file path directly for model execution
-                        if (contentType?.ToLowerInvariant() == "image")
-                        {
-                            stepContents.Add(contentValue); // Direct file path for image models
-                            Debug.WriteLine($"📸 [ExecuteGenerateAsync] Added image file path: {contentValue}");
-                        }
-                        // For audio content, pass the file path directly for model execution
-                        else if (contentType?.ToLowerInvariant() == "audio")
-                        {
-                            stepContents.Add(contentValue); // Direct file path for audio models
-                            Debug.WriteLine($"🔊 [ExecuteGenerateAsync] Added audio file path: {contentValue}");
-                        }
-                        else
-                        {
-                            stepContents.Add($"[{inputNode.Name}]: {contentValue}"); // Text content with node name prefix
-                        }
-                    }
-                }
-
-                if (stepContents.Count == 0)
-                {
-                    ExecutionStatus = "Error: No valid content";
-                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [ExecuteGenerateAsync] No valid step content found from connected nodes");
-                    await ShowAlert?.Invoke("Error", "No valid content found from connected input nodes.", "OK");
-                    return;
-                }
-
-                ExecutionStatus = "Finding model...";
-                ExecutionProgress = 75;
-
-                // Combine step contents using ensemble method
-                string combinedInput = CombineStepContents(stepContents, SelectedNode.SelectedEnsembleMethod);
-                Debug.WriteLine($"🔀 [ExecuteGenerateAsync] Combined input ({SelectedNode.SelectedEnsembleMethod}): {combinedInput?.Substring(0, Math.Min(combinedInput?.Length ?? 0, 200))}...");
-
-                // Find corresponding model in NetPageViewModel
+                // Find corresponding model first to determine processing strategy
                 var correspondingModel = FindCorrespondingModel(_netPageViewModel, SelectedNode);
                 if (correspondingModel == null)
                 {
@@ -3359,11 +3388,140 @@ namespace CSimple.ViewModels
 
                 Debug.WriteLine($"✅ [ExecuteGenerateAsync] Found corresponding model: {correspondingModel.Name} (HF ID: {correspondingModel.HuggingFaceModelId})");
 
-                ExecutionStatus = $"Executing {SelectedNode.Name}...";
-                ExecutionProgress = 90;
+                string result;
 
-                // Execute the model using NetPageViewModel's infrastructure
-                string result = await ExecuteModelWithInput(correspondingModel, combinedInput);
+                // For image models, process each input node individually and combine results
+                if (correspondingModel.InputType == ModelInputType.Image)
+                {
+                    ExecutionStatus = "Processing images individually...";
+                    ExecutionProgress = 60;
+
+                    Debug.WriteLine($"🖼️ [ExecuteGenerateAsync] Image model detected - processing each input node individually");
+
+                    var nodeResults = new List<string>();
+
+                    // Process each input node's images sequentially to maintain proper organization
+                    foreach (var inputNode in connectedInputNodes)
+                    {
+                        Debug.WriteLine($"📄 [ExecuteGenerateAsync] Processing input node: {inputNode.Name} (Type: {inputNode.DataType})");
+
+                        // Get step content for current step
+                        int stepForNodeContent = CurrentActionStep + 1; // Convert to 1-based index
+                        var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
+
+                        if (contentType?.ToLowerInvariant() == "image" && !string.IsNullOrEmpty(contentValue))
+                        {
+                            Debug.WriteLine($"🔍 [ExecuteGenerateAsync] Found image content from {inputNode.Name}: {contentValue}");
+
+                            // Check if this is multiple images (semicolon-separated)
+                            var imagePaths = contentValue.Contains(';')
+                                ? contentValue.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(p => p.Trim()).ToList()
+                                : new List<string> { contentValue };
+
+                            var nodeImageResults = new List<string>();
+
+                            // Process each image from this input node
+                            foreach (var imagePath in imagePaths)
+                            {
+                                if (!string.IsNullOrEmpty(imagePath) && File.Exists(imagePath))
+                                {
+                                    var imageResult = await ProcessSingleImageAsync(correspondingModel, imagePath, inputNode.Name);
+                                    if (!string.IsNullOrEmpty(imageResult))
+                                    {
+                                        nodeImageResults.Add(imageResult);
+                                    }
+                                }
+                            }
+
+                            // Combine results from this input node
+                            if (nodeImageResults.Count > 0)
+                            {
+                                if (nodeImageResults.Count == 1)
+                                {
+                                    nodeResults.Add(nodeImageResults[0]);
+                                }
+                                else
+                                {
+                                    var combinedNodeResult = string.Join("\n", nodeImageResults);
+                                    nodeResults.Add(combinedNodeResult);
+                                }
+                            }
+                        }
+                    }
+
+                    if (nodeResults.Count == 0)
+                    {
+                        ExecutionStatus = "Error: No valid images";
+                        Debug.WriteLine($"❌ [ExecuteGenerateAsync] No valid image content found from connected nodes");
+                        await ShowAlert?.Invoke("Error", "No valid image content found from connected input nodes.", "OK");
+                        return;
+                    }
+
+                    ExecutionStatus = $"Processed {nodeResults.Count} input nodes...";
+                    ExecutionProgress = 80;
+
+                    // Create well-organized combined result with proper separation by input node
+                    if (nodeResults.Count == 1)
+                    {
+                        result = nodeResults[0];
+                    }
+                    else
+                    {
+                        result = $"Image Analysis Results:\n\n{string.Join("\n\n", nodeResults)}";
+                    }
+                    Debug.WriteLine($"✅ [ExecuteGenerateAsync] Combined results from {nodeResults.Count} input nodes");
+                }
+                else
+                {
+                    // For non-image models, use the existing approach
+                    var stepContents = new List<string>();
+                    foreach (var inputNode in connectedInputNodes)
+                    {
+                        Debug.WriteLine($"📄 [ExecuteGenerateAsync] Processing input node: {inputNode.Name} (Type: {inputNode.DataType})");
+
+                        // Get step content for current step
+                        int stepForNodeContent = CurrentActionStep + 1; // Convert to 1-based index
+                        var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
+
+                        Debug.WriteLine($"� [ExecuteGenerateAsync] Input node '{inputNode.Name}' content: Type='{contentType}', Value='{contentValue?.Substring(0, Math.Min(contentValue?.Length ?? 0, 100))}...'");
+
+                        if (!string.IsNullOrEmpty(contentValue))
+                        {
+                            // For audio content, pass the file path directly for model execution
+                            if (contentType?.ToLowerInvariant() == "audio")
+                            {
+                                stepContents.Add(contentValue); // Direct file path for audio models
+                                Debug.WriteLine($"🔊 [ExecuteGenerateAsync] Added audio file path: {contentValue}");
+                            }
+                            else
+                            {
+                                // Use safe formatting without brackets to avoid command line argument conflicts
+                                stepContents.Add($"{inputNode.Name}: {contentValue}"); // Text content with node name prefix (no brackets)
+                            }
+                        }
+                    }
+
+                    if (stepContents.Count == 0)
+                    {
+                        ExecutionStatus = "Error: No valid content";
+                        Debug.WriteLine($"❌ [ExecuteGenerateAsync] No valid step content found from connected nodes");
+                        await ShowAlert?.Invoke("Error", "No valid content found from connected input nodes.", "OK");
+                        return;
+                    }
+
+                    ExecutionStatus = "Finding model...";
+                    ExecutionProgress = 75;
+
+                    // Combine step contents using ensemble method
+                    string combinedInput = CombineStepContents(stepContents, SelectedNode.SelectedEnsembleMethod);
+                    Debug.WriteLine($"🔀 [ExecuteGenerateAsync] Combined input ({SelectedNode.SelectedEnsembleMethod}): {combinedInput?.Substring(0, Math.Min(combinedInput?.Length ?? 0, 200))}...");
+
+                    ExecutionStatus = $"Executing {SelectedNode.Name}...";
+                    ExecutionProgress = 90;
+
+                    // Execute the model using NetPageViewModel's infrastructure
+                    result = await ExecuteModelWithInput(correspondingModel, combinedInput);
+                }
 
                 Debug.WriteLine($"🎉 [ExecuteGenerateAsync] Model execution result: {result?.Substring(0, Math.Min(result?.Length ?? 0, 200))}...");
 
@@ -3456,6 +3614,49 @@ namespace CSimple.ViewModels
         private async Task<string> ExecuteModelWithInput(NeuralNetworkModel model, string input)
         {
             return await _ensembleModelService.ExecuteModelWithInput(model, input);
+        }
+
+        /// <summary>
+        /// Processes a single image through the model and returns the result with context
+        /// </summary>
+        private async Task<string> ProcessSingleImageAsync(NeuralNetworkModel model, string imagePath, string nodeContext)
+        {
+            try
+            {
+                Debug.WriteLine($"📸 [ProcessSingleImageAsync] Processing image: {Path.GetFileName(imagePath)} from {nodeContext}");
+
+                // Execute model on individual image
+                var result = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, imagePath);
+
+                if (!string.IsNullOrEmpty(result))
+                {
+                    // Clean up the result - remove duplicate filename references
+                    var cleanResult = result;
+                    var filename = Path.GetFileName(imagePath);
+
+                    // Remove duplicate filename if it appears at the start of the result
+                    if (cleanResult.StartsWith($"{filename}: "))
+                    {
+                        cleanResult = cleanResult.Substring($"{filename}: ".Length);
+                    }
+
+                    // Create well-formatted result with clear source labeling
+                    var formattedResult = $"[{nodeContext}] {cleanResult}";
+
+                    Debug.WriteLine($"✅ [ProcessSingleImageAsync] Successfully processed image from {nodeContext}");
+                    return formattedResult;
+                }
+                else
+                {
+                    Debug.WriteLine($"⚠️ [ProcessSingleImageAsync] Empty result from model for image: {imagePath}");
+                    return $"[{nodeContext}] No description generated";
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ [ProcessSingleImageAsync] Error processing image {imagePath}: {ex.Message}");
+                return $"[{nodeContext}] Error - {ex.Message}";
+            }
         }
 
         private string DetermineResultContentType(NeuralNetworkModel model, string result)

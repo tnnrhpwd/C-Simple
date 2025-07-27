@@ -179,16 +179,35 @@ namespace CSimple.Services
                 lowerName.Contains("chat"))
                 return "text";
 
-            // Image models
+            // Image models - distinguish between image-to-text and other image models
             if (lowerName.Contains("image") ||
                 lowerName.Contains("vision") ||
                 lowerName.Contains("yolo") ||
                 lowerName.Contains("resnet") ||
-                lowerName.Contains("clip") ||
-                lowerName.Contains("diffusion") ||
-                lowerName.Contains("stable") ||
-                lowerName.Contains("gan"))
-                return "image";
+                lowerName.Contains("clip"))
+            {
+                // Image-to-text models should output text, not images
+                if (lowerName.Contains("caption") ||
+                    lowerName.Contains("describe") ||
+                    lowerName.Contains("vision") ||
+                    lowerName.Contains("clip") ||
+                    lowerName.Contains("blip") ||
+                    lowerName.Contains("image") && (lowerName.Contains("text") || lowerName.Contains("caption") || lowerName.Contains("describe")))
+                {
+                    return "text"; // Image-to-text models output text
+                }
+
+                // Pure image generation/processing models
+                if (lowerName.Contains("diffusion") ||
+                    lowerName.Contains("stable") ||
+                    lowerName.Contains("gan"))
+                {
+                    return "image"; // Image generation models output images
+                }
+
+                // Default for other image models - most are likely image-to-text
+                return "text"; // Most image models in this context are image-to-text
+            }
 
             // Audio models
             if (lowerName.Contains("audio") ||

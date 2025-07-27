@@ -1066,7 +1066,7 @@ namespace CSimple.Services
                         }
                         else
                         {
-                            stepContents.Add($"[{inputNode.Name}]: {content}");
+                            stepContents.Add($"{inputNode.Name}: {content}"); // Use safe formatting without brackets
                         }
                     }
                 }
@@ -1155,7 +1155,7 @@ namespace CSimple.Services
             }
 
             // Append classification text with appropriate formatting
-            string appendedInput = $"{originalInput}\n\n[{modelNode.Classification}]: {classificationText}";
+            string appendedInput = $"{originalInput}\n\n{modelNode.Classification}: {classificationText}"; // Use safe formatting without brackets
             
             Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [AppendClassificationText] Appended {modelNode.Classification} text to input for node '{modelNode.Name}': '{classificationText}'");
             

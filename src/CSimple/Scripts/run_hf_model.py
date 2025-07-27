@@ -261,7 +261,30 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any], 
         
         # Quick validation
         if not generated_text:
-            return f"Model processed input successfully."
+            # Try alternative approach for empty results
+            try:
+                # Fallback: try with different parameters
+                fallback_kwargs = generation_kwargs.copy()
+                fallback_kwargs.update({
+                    'max_new_tokens': 30,
+                    'temperature': 0.9,
+                    'do_sample': True
+                })
+                
+                with torch.no_grad():
+                    fallback_outputs = model.generate(**inputs, **fallback_kwargs)
+                
+                fallback_text = tokenizer.decode(fallback_outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=False)
+                
+                if fallback_text.startswith(clean_input):
+                    fallback_text = fallback_text[len(clean_input):].strip()
+                
+                if fallback_text:
+                    return fallback_text
+                else:
+                    return f"No text generated - model may need different parameters for this input."
+            except:
+                return f"No text generated - model processing completed but returned empty result."
         
         return generated_text
         
