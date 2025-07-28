@@ -2829,7 +2829,10 @@ namespace CSimple.ViewModels
 
                 // Step 5: Update pipeline with compressed memory state
                 ExecutionStatus = "Updating Pipeline State...";
-                await UpdatePipelineWithCompressedStateAsync(compressionResult);
+                await _memoryCompressionService.UpdatePipelineWithCompressedStateAsync(
+                    compressionResult,
+                    SaveCurrentPipelineAsync,
+                    AddExecutionResult);
 
                 ExecutionProgress = 100;
                 await Task.Delay(300);

@@ -16,6 +16,11 @@ namespace CSimple.Services
         Task<CompressionResult> ExecuteSleepMemoryCompressionAsync(
             IEnumerable<NodeViewModel> nodes,
             IEnumerable<ConnectionViewModel> connections);
+
+        Task UpdatePipelineWithCompressedStateAsync(
+            CompressionResult compressionResult,
+            Func<Task> saveCurrentPipelineAsync,
+            Action<string> addExecutionResult);
     }
 
     public class MemoryCompressionService : IMemoryCompressionService
@@ -218,6 +223,32 @@ namespace CSimple.Services
                 "ContextCompression" => (int)(analysis.TotalTokens * rule.Threshold * 0.5f),
                 _ => 0
             };
+        }
+
+        public async Task UpdatePipelineWithCompressedStateAsync(
+            CompressionResult compressionResult,
+            Func<Task> saveCurrentPipelineAsync,
+            Action<string> addExecutionResult)
+        {
+            await Task.Delay(100); // Simulate pipeline update
+
+            if (compressionResult.CompressionSuccessful)
+            {
+                // Add a compression note to pipeline metadata (if it exists)
+                // In a real implementation, this would update node properties or add compression metadata
+
+                // Update execution results with compression info
+                addExecutionResult($"[{DateTime.Now:HH:mm:ss}] Applied memory compression rules:");
+                foreach (var rule in compressionResult.RulesApplied)
+                {
+                    addExecutionResult($"  - {rule}");
+                }
+
+                // Trigger a save of the current pipeline state
+                await saveCurrentPipelineAsync();
+
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 💾 [UpdatePipelineWithCompressedStateAsync] Pipeline state saved with compression metadata");
+            }
         }
     }
 }
