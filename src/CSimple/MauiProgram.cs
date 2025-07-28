@@ -39,6 +39,7 @@ public static class MauiProgram
         services.AddSingleton<ActionStepNavigationService>(); // ADDED for action step navigation functionality
         services.AddSingleton<EnsembleModelService>(); // ADDED for ensemble model execution
         services.AddSingleton<IMemoryCompressionService, MemoryCompressionService>(); // ADDED for memory compression functionality
+        services.AddSingleton<ExecutionStatusTrackingService>(); // ADDED for execution status tracking
         services.AddSingleton(sp =>
         {
             var actionService = sp.GetRequiredService<ActionService>();

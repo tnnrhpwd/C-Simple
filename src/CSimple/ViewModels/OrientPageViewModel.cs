@@ -35,6 +35,7 @@ namespace CSimple.ViewModels
         private readonly PipelineExecutionService _pipelineExecutionService; // Added for pipeline execution with dependency resolution
         private readonly ActionStepNavigationService _actionStepNavigationService; // Added for action step navigation
         private readonly IMemoryCompressionService _memoryCompressionService; // Added for memory compression functionality
+        private readonly ExecutionStatusTrackingService _executionStatusTrackingService; // Added for execution status tracking
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -151,142 +152,85 @@ namespace CSimple.ViewModels
         public ICommand RenamePipelineCommand { get; }
         public ICommand DeletePipelineCommand { get; }
 
-        // --- Model Execution Status Properties ---
-        private bool _isExecutingModels;
+        // --- Model Execution Status Properties (Delegated to ExecutionStatusTrackingService) ---
         public bool IsExecutingModels
         {
-            get => _isExecutingModels;
-            set => SetProperty(ref _isExecutingModels, value);
+            get => _executionStatusTrackingService.IsExecutingModels;
+            set => _executionStatusTrackingService.IsExecutingModels = value;
         }
 
-        private string _executionStatus = "Ready";
         public string ExecutionStatus
         {
-            get => _executionStatus;
-            set => SetProperty(ref _executionStatus, value);
+            get => _executionStatusTrackingService.ExecutionStatus;
+            set => _executionStatusTrackingService.ExecutionStatus = value;
         }
 
-        private int _executionProgress;
         public int ExecutionProgress
         {
-            get => _executionProgress;
-            set => SetProperty(ref _executionProgress, value);
+            get => _executionStatusTrackingService.ExecutionProgress;
+            set => _executionStatusTrackingService.ExecutionProgress = value;
         }
 
-        private int _totalModelsToExecute;
         public int TotalModelsToExecute
         {
-            get => _totalModelsToExecute;
-            set => SetProperty(ref _totalModelsToExecute, value);
+            get => _executionStatusTrackingService.TotalModelsToExecute;
+            set => _executionStatusTrackingService.TotalModelsToExecute = value;
         }
 
-        private int _modelsExecutedCount;
         public int ModelsExecutedCount
         {
-            get => _modelsExecutedCount;
-            set
-            {
-                if (SetProperty(ref _modelsExecutedCount, value))
-                {
-                    // Update progress percentage with safer calculation
-                    if (TotalModelsToExecute > 0)
-                    {
-                        ExecutionProgress = Math.Min(100, (int)((double)value / TotalModelsToExecute * 100));
-                    }
-                    else
-                    {
-                        ExecutionProgress = value > 0 ? 100 : 0;
-                    }
-                }
-            }
+            get => _executionStatusTrackingService.ModelsExecutedCount;
+            set => _executionStatusTrackingService.ModelsExecutedCount = value;
         }
 
-        private string _currentExecutingModel = "";
         public string CurrentExecutingModel
         {
-            get => _currentExecutingModel;
-            set => SetProperty(ref _currentExecutingModel, value);
+            get => _executionStatusTrackingService.CurrentExecutingModel;
+            set => _executionStatusTrackingService.CurrentExecutingModel = value;
         }
 
-        private string _currentExecutingModelType = "";
         public string CurrentExecutingModelType
         {
-            get => _currentExecutingModelType;
-            set => SetProperty(ref _currentExecutingModelType, value);
+            get => _executionStatusTrackingService.CurrentExecutingModelType;
+            set => _executionStatusTrackingService.CurrentExecutingModelType = value;
         }
-
-        // Execution timing properties
-        private DateTime _executionStartTime;
-        private System.Timers.Timer _executionTimer;
-        private double _executionDurationSeconds;
 
         public double ExecutionDurationSeconds
         {
-            get => _executionDurationSeconds;
-            set => SetProperty(ref _executionDurationSeconds, value);
+            get => _executionStatusTrackingService.ExecutionDurationSeconds;
+            set => _executionStatusTrackingService.ExecutionDurationSeconds = value;
         }
 
-        public string ExecutionDurationDisplay
-        {
-            get
-            {
-                if (_executionDurationSeconds <= 0)
-                    return "No cycle time";
-
-                var timeSpan = TimeSpan.FromSeconds(_executionDurationSeconds);
-                if (timeSpan.TotalMinutes >= 1)
-                    return $"{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
-                else
-                    return $"{timeSpan.TotalSeconds:F1}s";
-            }
-        }
+        public string ExecutionDurationDisplay => _executionStatusTrackingService.ExecutionDurationDisplay;
 
         // Execution group tracking properties
-        private bool _isExecutingInGroups;
         public bool IsExecutingInGroups
         {
-            get => _isExecutingInGroups;
-            set => SetProperty(ref _isExecutingInGroups, value);
+            get => _executionStatusTrackingService.IsExecutingInGroups;
+            set => _executionStatusTrackingService.IsExecutingInGroups = value;
         }
 
-        private int _currentExecutionGroup;
         public int CurrentExecutionGroup
         {
-            get => _currentExecutionGroup;
-            set => SetProperty(ref _currentExecutionGroup, value);
+            get => _executionStatusTrackingService.CurrentExecutionGroup;
+            set => _executionStatusTrackingService.CurrentExecutionGroup = value;
         }
 
-        private int _totalExecutionGroups;
         public int TotalExecutionGroups
         {
-            get => _totalExecutionGroups;
-            set => SetProperty(ref _totalExecutionGroups, value);
+            get => _executionStatusTrackingService.TotalExecutionGroups;
+            set => _executionStatusTrackingService.TotalExecutionGroups = value;
         }
 
-        private DateTime _groupExecutionStartTime;
-        private double _groupExecutionDurationSeconds;
         public double GroupExecutionDurationSeconds
         {
-            get => _groupExecutionDurationSeconds;
-            set => SetProperty(ref _groupExecutionDurationSeconds, value);
+            get => _executionStatusTrackingService.GroupExecutionDurationSeconds;
+            set => _executionStatusTrackingService.GroupExecutionDurationSeconds = value;
         }
 
-        public string GroupExecutionDurationDisplay
-        {
-            get
-            {
-                if (_groupExecutionDurationSeconds <= 0)
-                    return "0.0s";
+        public string GroupExecutionDurationDisplay => _executionStatusTrackingService.GroupExecutionDurationDisplay;
 
-                var timeSpan = TimeSpan.FromSeconds(_groupExecutionDurationSeconds);
-                if (timeSpan.TotalMinutes >= 1)
-                    return $"{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
-                else
-                    return $"{timeSpan.TotalSeconds:F1}s";
-            }
-        }
-
-        public ObservableCollection<ExecutionGroupInfo> ExecutionGroups { get; } = new ObservableCollection<ExecutionGroupInfo>();
+        public ObservableCollection<ExecutionGroupInfo> ExecutionGroups => _executionStatusTrackingService.ExecutionGroups;
 
         private List<string> _executionResults = new List<string>();
         public ObservableCollection<string> ExecutionResults { get; } = new ObservableCollection<string>();        // Add these properties and fields for Action Review functionality
@@ -372,7 +316,7 @@ namespace CSimple.ViewModels
 
         // --- Constructor ---
         // Ensure FileService and PythonBootstrapper are injected
-        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService)
+        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService, ExecutionStatusTrackingService executionStatusTrackingService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -385,6 +329,10 @@ namespace CSimple.ViewModels
             _ensembleModelService = ensembleModelService; // Initialize ensemble model service
             _actionStepNavigationService = actionStepNavigationService; // Initialize action step navigation service via DI
             _memoryCompressionService = memoryCompressionService; // Initialize memory compression service
+            _executionStatusTrackingService = executionStatusTrackingService; // Initialize execution status tracking service
+
+            // Subscribe to the execution status tracking service's property changed events
+            _executionStatusTrackingService.PropertyChanged += OnExecutionStatusTrackingServicePropertyChanged;
 
             // Initialize pipeline execution service with dependency injection
             _pipelineExecutionService = new PipelineExecutionService(
@@ -491,8 +439,7 @@ namespace CSimple.ViewModels
             // Load available pipelines on initialization
             _ = LoadAvailablePipelinesAsync();
 
-            // Initialize execution timer
-            InitializeExecutionTimer();
+            // No need to initialize execution timer - handled by ExecutionStatusTrackingService
 
             // Start background warmup immediately to avoid delays later
             StartBackgroundWarmup();
@@ -621,148 +568,16 @@ namespace CSimple.ViewModels
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔥 [BackgroundWarmup] Completed in {stopwatch.ElapsedMilliseconds}ms");
         }
 
-        // --- Execution Timer Methods ---
-        /// <summary>
-        /// Initialize the execution timer for tracking model execution duration
-        /// </summary>
-        private void InitializeExecutionTimer()
-        {
-            _executionTimer = new System.Timers.Timer(100); // Update every 100ms for smooth display
-            _executionTimer.Elapsed += OnExecutionTimerElapsed;
-            _executionTimer.AutoReset = true;
-            ExecutionDurationSeconds = 0;
-        }
-
-        /// <summary>
-        /// Start the execution timer
-        /// </summary>
-        private void StartExecutionTimer()
-        {
-            _executionStartTime = DateTime.Now;
-            ExecutionDurationSeconds = 0;
-            _executionTimer?.Start();
-            OnPropertyChanged(nameof(ExecutionDurationDisplay));
-        }
-
-        /// <summary>
-        /// Stop the execution timer
-        /// </summary>
-        private void StopExecutionTimer()
-        {
-            _executionTimer?.Stop();
-            OnPropertyChanged(nameof(ExecutionDurationDisplay));
-        }
-
-        /// <summary>
-        /// Timer elapsed event handler to update execution duration
-        /// </summary>
-        private void OnExecutionTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
-        {
-            ExecutionDurationSeconds = (DateTime.Now - _executionStartTime).TotalSeconds;
-
-            // Update group execution duration if executing in groups
-            if (IsExecutingInGroups && CurrentExecutionGroup > 0)
-            {
-                GroupExecutionDurationSeconds = (DateTime.Now - _groupExecutionStartTime).TotalSeconds;
-
-                // Update the current group's duration in the collection
-                var currentGroup = ExecutionGroups.FirstOrDefault(g => g.IsCurrentlyExecuting);
-                if (currentGroup != null)
-                {
-                    currentGroup.ExecutionDurationSeconds = GroupExecutionDurationSeconds;
-                }
-            }
-
-            Microsoft.Maui.Controls.Application.Current?.Dispatcher.Dispatch(() =>
-            {
-                OnPropertyChanged(nameof(ExecutionDurationDisplay));
-                OnPropertyChanged(nameof(GroupExecutionDurationDisplay));
-            });
-        }
-
-        /// <summary>
-        /// Initialize execution groups for tracking
-        /// </summary>
-        private void InitializeExecutionGroups(int groupCount)
-        {
-            ExecutionGroups.Clear();
-            for (int i = 1; i <= groupCount; i++)
-            {
-                ExecutionGroups.Add(new ExecutionGroupInfo
-                {
-                    GroupNumber = i,
-                    ModelCount = 0, // Will be updated when groups are actually processed
-                    ExecutionDurationSeconds = 0,
-                    IsCurrentlyExecuting = false,
-                    IsCompleted = false
-                });
-            }
-
-            TotalExecutionGroups = groupCount;
-            IsExecutingInGroups = groupCount > 1;
-            CurrentExecutionGroup = 0;
-        }
-
-        /// <summary>
-        /// Start execution for a specific group
-        /// </summary>
-        private void StartGroupExecution(int groupNumber, int modelCount)
-        {
-            // Complete previous group if any
-            if (CurrentExecutionGroup > 0)
-            {
-                CompleteGroupExecution(CurrentExecutionGroup);
-            }
-
-            CurrentExecutionGroup = groupNumber;
-            _groupExecutionStartTime = DateTime.Now;
-            GroupExecutionDurationSeconds = 0;
-
-            // Update the group info
-            var group = ExecutionGroups.FirstOrDefault(g => g.GroupNumber == groupNumber);
-            if (group != null)
-            {
-                group.ModelCount = modelCount;
-                group.IsCurrentlyExecuting = true;
-                group.IsCompleted = false;
-                group.ExecutionDurationSeconds = 0;
-            }
-        }
-
-        /// <summary>
-        /// Complete execution for a specific group
-        /// </summary>
-        private void CompleteGroupExecution(int groupNumber)
-        {
-            var group = ExecutionGroups.FirstOrDefault(g => g.GroupNumber == groupNumber);
-            if (group != null)
-            {
-                // Capture the final duration before changing execution state
-                if (group.IsCurrentlyExecuting && _groupExecutionStartTime != default)
-                {
-                    var finalDuration = (DateTime.Now - _groupExecutionStartTime).TotalSeconds;
-                    group.ExecutionDurationSeconds = finalDuration;
-                }
-
-                group.IsCurrentlyExecuting = false;
-                group.IsCompleted = true;
-                // The final duration is now preserved in ExecutionDurationSeconds
-            }
-        }
-
-        /// <summary>
-        /// Reset group execution tracking
-        /// </summary>
-        private void ResetGroupExecution()
-        {
-            IsExecutingInGroups = false;
-            CurrentExecutionGroup = 0;
-            TotalExecutionGroups = 0;
-            GroupExecutionDurationSeconds = 0;
-            ExecutionGroups.Clear();
-        }
+        // --- Execution Timer Methods (Moved to ExecutionStatusTrackingService) ---
+        // Timer methods are now handled by the ExecutionStatusTrackingService
 
         // --- Event Handlers ---
+        private void OnExecutionStatusTrackingServicePropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            // Forward property change notifications from the service to any UI bindings
+            OnPropertyChanged(e.PropertyName);
+        }
+
         private async void NetPageViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(NetPageViewModel.AvailableModels))
@@ -1651,13 +1466,7 @@ namespace CSimple.ViewModels
         /// </summary>
         private void InitializeExecutionStatus()
         {
-            IsExecutingModels = false;
-            ExecutionStatus = "Ready";
-            ExecutionProgress = 0;
-            ModelsExecutedCount = 0;
-            TotalModelsToExecute = 0;
-            CurrentExecutingModel = "";
-            CurrentExecutingModelType = "";
+            _executionStatusTrackingService.InitializeExecutionStatus();
             ExecutionResults.Clear();
             AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] System initialized");
         }
@@ -2587,7 +2396,7 @@ namespace CSimple.ViewModels
                 ExecutionResults.Clear();
 
                 // Start execution timer
-                StartExecutionTimer();
+                _executionStatusTrackingService.StartExecutionTimer();
 
                 // Count total models to execute
                 var modelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
@@ -2671,17 +2480,19 @@ namespace CSimple.ViewModels
                 ExecutionStatus = "Executing models...";
                 var executionStopwatch = Stopwatch.StartNew();
 
-                var (successCount, skippedCount) = await _pipelineExecutionService.ExecuteAllModelsOptimizedAsync(
+                var executionResult = await _pipelineExecutionService.ExecuteAllModelsOptimizedAsync(
                     Nodes,
                     Connections,
                     CurrentActionStep,
                     _preloadedModelCache,
                     _precomputedCombinedInputs,
                     ShowAlert,
-                    onGroupsInitialized: (groupCount) => InitializeExecutionGroups(groupCount),
-                    onGroupStarted: (groupNumber, modelCount) => StartGroupExecution(groupNumber, modelCount),
-                    onGroupCompleted: (groupNumber) => CompleteGroupExecution(groupNumber)
+                    onGroupsInitialized: (groupCount) => _executionStatusTrackingService.InitializeExecutionGroups(groupCount),
+                    onGroupStarted: (groupNumber, modelCount) => _executionStatusTrackingService.StartGroupExecution(groupNumber, modelCount),
+                    onGroupCompleted: (groupNumber) => _executionStatusTrackingService.CompleteGroupExecution(groupNumber)
                 );
+                var successCount = executionResult.Item1;
+                var skippedCount = executionResult.Item2;
                 executionStopwatch.Stop();
 
                 // Restore the original selected node
@@ -2741,12 +2552,12 @@ namespace CSimple.ViewModels
                 IsExecutingModels = false;
 
                 // Stop execution timer
-                StopExecutionTimer();
+                _executionStatusTrackingService.StopExecutionTimer();
 
                 // Complete any remaining group execution
                 if (CurrentExecutionGroup > 0)
                 {
-                    CompleteGroupExecution(CurrentExecutionGroup);
+                    _executionStatusTrackingService.CompleteGroupExecution(CurrentExecutionGroup);
                 }
 
                 // Don't reset ExecutionProgress immediately so user can see final result
@@ -2831,7 +2642,7 @@ namespace CSimple.ViewModels
                 ModelsExecutedCount = 0;
                 ExecutionProgress = 0;
                 ExecutionResults.Clear();
-                StartExecutionTimer();
+                _executionStatusTrackingService.StartExecutionTimer();
 
                 int totalSteps = currentActionItems.Count;
                 int totalExecutions = totalSteps * modelNodes.Count;
@@ -2873,13 +2684,13 @@ namespace CSimple.ViewModels
                 }
 
                 // Initialize execution groups display
-                InitializeExecutionGroups(executionGroups.Count);
+                _executionStatusTrackingService.InitializeExecutionGroups(executionGroups.Count);
 
                 // Execute each group across all action steps
                 for (int groupIndex = 0; groupIndex < executionGroups.Count; groupIndex++)
                 {
                     var group = executionGroups[groupIndex];
-                    StartGroupExecution(groupIndex + 1, group.Count * totalSteps);
+                    _executionStatusTrackingService.StartGroupExecution(groupIndex + 1, group.Count * totalSteps);
 
                     ExecutionStatus = $"Executing Group {groupIndex + 1}/{executionGroups.Count} across all {totalSteps} steps...";
 
@@ -2920,7 +2731,7 @@ namespace CSimple.ViewModels
                     ExecutionProgress = (int)((double)(successfulExecutions + skippedExecutions) / totalExecutions * 100);
                     ModelsExecutedCount = successfulExecutions;
 
-                    CompleteGroupExecution(groupIndex + 1);
+                    _executionStatusTrackingService.CompleteGroupExecution(groupIndex + 1);
 
                     Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [ExecuteRunAllNodesAsync] Group {groupIndex + 1} completed: {groupSuccessCount} successful, {groupSkipCount} failed");
                 }
@@ -2962,12 +2773,12 @@ namespace CSimple.ViewModels
             finally
             {
                 IsExecutingModels = false;
-                StopExecutionTimer();
+                _executionStatusTrackingService.StopExecutionTimer();
 
                 // Complete any remaining group execution
                 if (CurrentExecutionGroup > 0)
                 {
-                    CompleteGroupExecution(CurrentExecutionGroup);
+                    _executionStatusTrackingService.CompleteGroupExecution(CurrentExecutionGroup);
                 }
 
                 // Reset progress after delay
@@ -3324,7 +3135,7 @@ namespace CSimple.ViewModels
                 ExecutionResults.Clear();
 
                 // Start execution timer
-                StartExecutionTimer();
+                _executionStatusTrackingService.StartExecutionTimer();
 
                 Debug.WriteLine($"🚀 [OrientPageViewModel.ExecuteGenerateAsync] Starting generation for node: {SelectedNode?.Name}");
 
@@ -3559,7 +3370,7 @@ namespace CSimple.ViewModels
                 IsExecutingModels = false;
 
                 // Stop execution timer
-                StopExecutionTimer();
+                _executionStatusTrackingService.StopExecutionTimer();
 
                 // Don't reset progress immediately for single model execution
                 _ = Task.Run(async () =>
@@ -3853,12 +3664,16 @@ namespace CSimple.ViewModels
         }        // IDisposable implementation
         public void Dispose()
         {
-            // Clean up execution timer
+            // Unsubscribe from service events
+            if (_executionStatusTrackingService != null)
+            {
+                _executionStatusTrackingService.PropertyChanged -= OnExecutionStatusTrackingServicePropertyChanged;
+            }
+
+            // Clean up execution timer (now handled by ExecutionStatusTrackingService)
             try
             {
-                _executionTimer?.Stop();
-                _executionTimer?.Dispose();
-                _executionTimer = null;
+                _executionStatusTrackingService?.Dispose();
             }
             catch (Exception ex)
             {
