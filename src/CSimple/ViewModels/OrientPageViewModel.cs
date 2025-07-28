@@ -34,6 +34,7 @@ namespace CSimple.ViewModels
         private readonly EnsembleModelService _ensembleModelService; // Added for ensemble model execution
         private readonly PipelineExecutionService _pipelineExecutionService; // Added for pipeline execution with dependency resolution
         private readonly ActionStepNavigationService _actionStepNavigationService; // Added for action step navigation
+        private readonly IMemoryCompressionService _memoryCompressionService; // Added for memory compression functionality
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -371,7 +372,7 @@ namespace CSimple.ViewModels
 
         // --- Constructor ---
         // Ensure FileService and PythonBootstrapper are injected
-        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService)
+        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -383,6 +384,7 @@ namespace CSimple.ViewModels
             _actionReviewService = actionReviewService; // Initialize action review service
             _ensembleModelService = ensembleModelService; // Initialize ensemble model service
             _actionStepNavigationService = actionStepNavigationService; // Initialize action step navigation service via DI
+            _memoryCompressionService = memoryCompressionService; // Initialize memory compression service
 
             // Initialize pipeline execution service with dependency injection
             _pipelineExecutionService = new PipelineExecutionService(
@@ -3003,25 +3005,12 @@ namespace CSimple.ViewModels
                 ExecutionProgress = 20;
                 await Task.Delay(500); // Simulate processing time
 
-                // Step 2: Load personality file or create default compression profile
-                ExecutionStatus = "Loading Memory Personality Profile...";
-                var personalityProfile = await LoadOrCreateMemoryPersonalityProfileAsync();
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 👤 [ExecuteSleepMemoryCompressionAsync] Loaded personality profile with {personalityProfile.CompressionRules.Count} rules");
-
-                ExecutionProgress = 40;
-                await Task.Delay(500);
-
-                // Step 3: Analyze current pipeline memory usage
-                ExecutionStatus = "Analyzing Pipeline Memory Usage...";
-                var memoryAnalysis = await AnalyzePipelineMemoryUsageAsync();
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📊 [ExecuteSleepMemoryCompressionAsync] Memory analysis: {memoryAnalysis.TotalTokens} tokens, {memoryAnalysis.RedundantConnections} redundant connections");
-
-                ExecutionProgress = 60;
-                await Task.Delay(500);
-
-                // Step 4: Apply neural network compression using personality profile
                 ExecutionStatus = "Applying Neural Memory Compression...";
-                var compressionResult = await ApplyNeuralMemoryCompressionAsync(personalityProfile, memoryAnalysis);
+                ExecutionProgress = 40;
+
+                // Use the memory compression service to handle all compression logic
+                var compressionResult = await _memoryCompressionService.ExecuteSleepMemoryCompressionAsync(Nodes, Connections);
+
                 Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🗜️ [ExecuteSleepMemoryCompressionAsync] Compression completed: {compressionResult.TokensReduced} tokens reduced, {compressionResult.EfficiencyGain:P2} efficiency gain");
 
                 ExecutionProgress = 80;
