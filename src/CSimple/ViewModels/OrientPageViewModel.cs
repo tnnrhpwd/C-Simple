@@ -36,6 +36,7 @@ namespace CSimple.ViewModels
         private readonly ActionStepNavigationService _actionStepNavigationService; // Added for action step navigation
         private readonly IMemoryCompressionService _memoryCompressionService; // Added for memory compression functionality
         private readonly ExecutionStatusTrackingService _executionStatusTrackingService; // Added for execution status tracking
+        private readonly ICameraOffsetService _cameraOffsetService; // Added for camera offset management
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -127,19 +128,31 @@ namespace CSimple.ViewModels
             set => SetProperty(ref _memoryFileName, value);
         }
 
-        // Camera Offset Properties for Pan Persistence
-        private float _cameraOffsetX = 0f;
+        // Camera Offset Properties for Pan Persistence (Delegated to CameraOffsetService)
         public float CameraOffsetX
         {
-            get => _cameraOffsetX;
-            set => SetProperty(ref _cameraOffsetX, value);
+            get => _cameraOffsetService.CameraOffsetX;
+            set
+            {
+                if (_cameraOffsetService.CameraOffsetX != value)
+                {
+                    _cameraOffsetService.CameraOffsetX = value;
+                    OnPropertyChanged();
+                }
+            }
         }
 
-        private float _cameraOffsetY = 0f;
         public float CameraOffsetY
         {
-            get => _cameraOffsetY;
-            set => SetProperty(ref _cameraOffsetY, value);
+            get => _cameraOffsetService.CameraOffsetY;
+            set
+            {
+                if (_cameraOffsetService.CameraOffsetY != value)
+                {
+                    _cameraOffsetService.CameraOffsetY = value;
+                    OnPropertyChanged();
+                }
+            }
         }
 
         // Temporary state for drawing connections
@@ -316,7 +329,7 @@ namespace CSimple.ViewModels
 
         // --- Constructor ---
         // Ensure FileService and PythonBootstrapper are injected
-        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService, ExecutionStatusTrackingService executionStatusTrackingService)
+        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService, ExecutionStatusTrackingService executionStatusTrackingService, ICameraOffsetService cameraOffsetService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -330,6 +343,7 @@ namespace CSimple.ViewModels
             _actionStepNavigationService = actionStepNavigationService; // Initialize action step navigation service via DI
             _memoryCompressionService = memoryCompressionService; // Initialize memory compression service
             _executionStatusTrackingService = executionStatusTrackingService; // Initialize execution status tracking service
+            _cameraOffsetService = cameraOffsetService; // Initialize camera offset service
 
             // Subscribe to the execution status tracking service's property changed events
             _executionStatusTrackingService.PropertyChanged += OnExecutionStatusTrackingServicePropertyChanged;
@@ -1015,74 +1029,24 @@ namespace CSimple.ViewModels
         // Save camera offset for pan persistence
         public async Task SaveCameraOffsetAsync()
         {
-            try
-            {
-                // Save camera offset to the same directory as pipelines (MyDocuments instead of ApplicationData)
-                string pipelineDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "Pipelines");
-                if (!Directory.Exists(pipelineDir))
-                {
-                    Directory.CreateDirectory(pipelineDir);
-                }
-
-                string offsetFile = Path.Combine(pipelineDir, $"{CurrentPipelineName}_cameraOffset.json");
-                var offsetData = new { X = CameraOffsetX, Y = CameraOffsetY };
-                string json = System.Text.Json.JsonSerializer.Serialize(offsetData);
-
-                await File.WriteAllTextAsync(offsetFile, json);
-                Debug.WriteLine($"💾 [SaveCameraOffsetAsync] Saved camera offset: ({CameraOffsetX}, {CameraOffsetY}) for pipeline: {CurrentPipelineName} to {offsetFile}");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"⚠️ [SaveCameraOffsetAsync] Error saving camera offset: {ex.Message}");
-            }
+            await _cameraOffsetService.SaveCameraOffsetAsync(CurrentPipelineName);
         }
 
         // Load camera offset for pan persistence  
         public async Task LoadCameraOffsetAsync()
         {
-            try
-            {
-                string pipelineDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "Pipelines");
-                string offsetFile = Path.Combine(pipelineDir, $"{CurrentPipelineName}_cameraOffset.json");
-
-                if (File.Exists(offsetFile))
-                {
-                    string json = await File.ReadAllTextAsync(offsetFile);
-                    var offsetData = System.Text.Json.JsonSerializer.Deserialize<dynamic>(json);
-
-                    if (offsetData != null)
-                    {
-                        var element = (System.Text.Json.JsonElement)offsetData;
-                        if (element.TryGetProperty("X", out var xElement) && element.TryGetProperty("Y", out var yElement))
-                        {
-                            CameraOffsetX = xElement.GetSingle();
-                            CameraOffsetY = yElement.GetSingle();
-                            Debug.WriteLine($"� [LoadCameraOffsetAsync] Loaded camera offset: ({CameraOffsetX}, {CameraOffsetY}) for pipeline: {CurrentPipelineName}");
-                        }
-                    }
-                }
-                else
-                {
-                    // Set default values if no saved offset exists
-                    CameraOffsetX = 0f;
-                    CameraOffsetY = 0f;
-                    Debug.WriteLine($"📂 [LoadCameraOffsetAsync] No saved camera offset found for pipeline: {CurrentPipelineName}, using defaults");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"⚠️ [LoadCameraOffsetAsync] Error loading camera offset: {ex.Message}");
-                // Set default values on error
-                CameraOffsetX = 0f;
-                CameraOffsetY = 0f;
-            }
+            await _cameraOffsetService.LoadCameraOffsetAsync(CurrentPipelineName);
+            // Notify properties changed after loading
+            OnPropertyChanged(nameof(CameraOffsetX));
+            OnPropertyChanged(nameof(CameraOffsetY));
         }
 
         // Update camera offset from OrientPage
         public void UpdateCameraOffset(float x, float y)
         {
-            CameraOffsetX = x;
-            CameraOffsetY = y;
+            _cameraOffsetService.UpdateCameraOffset(x, y);
+            OnPropertyChanged(nameof(CameraOffsetX));
+            OnPropertyChanged(nameof(CameraOffsetY));
         }
 
         private async Task CreateNewPipeline()
