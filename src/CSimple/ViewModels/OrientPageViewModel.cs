@@ -37,6 +37,7 @@ namespace CSimple.ViewModels
         private readonly IMemoryCompressionService _memoryCompressionService; // Added for memory compression functionality
         private readonly ExecutionStatusTrackingService _executionStatusTrackingService; // Added for execution status tracking
         private readonly ICameraOffsetService _cameraOffsetService; // Added for camera offset management
+        private readonly IStepContentManagementService _stepContentManagementService; // Added for step content management
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -329,7 +330,7 @@ namespace CSimple.ViewModels
 
         // --- Constructor ---
         // Ensure FileService and PythonBootstrapper are injected
-        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService, ExecutionStatusTrackingService executionStatusTrackingService, ICameraOffsetService cameraOffsetService)
+        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService, ExecutionStatusTrackingService executionStatusTrackingService, ICameraOffsetService cameraOffsetService, IStepContentManagementService stepContentManagementService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -344,6 +345,7 @@ namespace CSimple.ViewModels
             _memoryCompressionService = memoryCompressionService; // Initialize memory compression service
             _executionStatusTrackingService = executionStatusTrackingService; // Initialize execution status tracking service
             _cameraOffsetService = cameraOffsetService; // Initialize camera offset service
+            _stepContentManagementService = stepContentManagementService; // Initialize step content management service
 
             // Subscribe to the execution status tracking service's property changed events
             _executionStatusTrackingService.PropertyChanged += OnExecutionStatusTrackingServicePropertyChanged;
@@ -1733,88 +1735,14 @@ namespace CSimple.ViewModels
 
         public void UpdateStepContent()
         {
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Called - SelectedNode: {SelectedNode?.Name ?? "null"}, CurrentActionStep: {CurrentActionStep}, SelectedAction: {SelectedReviewActionName ?? "null"}");
-
             try
             {
-                var stepContentData = _actionReviewService.UpdateStepContent(SelectedNode, CurrentActionStep, _currentActionItems, SelectedReviewActionName);
+                var result = _stepContentManagementService.UpdateStepContent(SelectedNode, CurrentActionStep, _currentActionItems, SelectedReviewActionName);
 
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Retrieved content - Type: {stepContentData.ContentType}, Content: {stepContentData.Content?.Substring(0, Math.Min(100, stepContentData.Content?.Length ?? 0))}...");
-
-                StepContentType = stepContentData.ContentType;
-                StepContent = stepContentData.Content;
-
-                // Handle multiple images for screen capture nodes with enhanced error checking
-                if (stepContentData.ContentType?.ToLower() == "image" && !string.IsNullOrEmpty(stepContentData.Content))
-                {
-                    try
-                    {
-                        if (stepContentData.Content.Contains(';'))
-                        {
-                            // Multiple images - split and store separately with validation
-                            var imagePaths = stepContentData.Content.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                                                                    .Select(path => path.Trim())
-                                                                    .Where(path => !string.IsNullOrEmpty(path))
-                                                                    .ToList();
-
-                            // Validate each image path and log missing files
-                            var validImagePaths = new List<string>();
-                            foreach (var imagePath in imagePaths)
-                            {
-                                if (File.Exists(imagePath))
-                                {
-                                    validImagePaths.Add(imagePath);
-                                }
-                                else
-                                {
-                                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Warning: Image file not found: {imagePath}");
-                                }
-                            }
-
-                            if (validImagePaths.Count > 0)
-                            {
-                                StepContentImages = validImagePaths;
-                                HasMultipleImages = validImagePaths.Count > 1;
-                                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Found {validImagePaths.Count} valid image(s) out of {imagePaths.Count} total paths");
-                            }
-                            else
-                            {
-                                // No valid images found after filtering
-                                StepContentImages = new List<string>();
-                                HasMultipleImages = false;
-                                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] No valid images found after filtering {imagePaths.Count} paths");
-                            }
-                        }
-                        else
-                        {
-                            // Single image - validate it exists
-                            if (File.Exists(stepContentData.Content))
-                            {
-                                StepContentImages = new List<string> { stepContentData.Content };
-                                HasMultipleImages = false;
-                                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Found single valid image: {stepContentData.Content}");
-                            }
-                            else
-                            {
-                                // Image file doesn't exist
-                                StepContentImages = new List<string>();
-                                HasMultipleImages = false;
-                                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Single image file not found: {stepContentData.Content}");
-                            }
-                        }
-                    }
-                    catch (Exception imageEx)
-                    {
-                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.UpdateStepContent] Error processing images: {imageEx.Message}");
-                        StepContentImages = new List<string>();
-                        HasMultipleImages = false;
-                    }
-                }
-                else
-                {
-                    StepContentImages = new List<string>();
-                    HasMultipleImages = false;
-                }
+                StepContentType = result.ContentType;
+                StepContent = result.Content;
+                StepContentImages = result.Images;
+                HasMultipleImages = result.HasMultipleImages;
 
                 OnPropertyChanged(nameof(StepContentType));
                 OnPropertyChanged(nameof(StepContent));
@@ -1851,21 +1779,7 @@ namespace CSimple.ViewModels
         /// </summary>
         private void RefreshAllNodeStepContent()
         {
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.RefreshAllNodeStepContent] Refreshing step content for all nodes");
-
-            var allNodes = GetAllNodes();
-            foreach (var node in allNodes)
-            {
-                // Force a refresh by triggering property change notifications
-                if (node.Type == NodeType.Input || node.Type == NodeType.Model)
-                {
-                    // If the node has ActionSteps, we want to ensure UI elements that depend on them are refreshed
-                    if (node.ActionSteps != null && node.ActionSteps.Count > 0)
-                    {
-                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.RefreshAllNodeStepContent] Node {node.Name} has {node.ActionSteps.Count} ActionSteps");
-                    }
-                }
-            }
+            _stepContentManagementService.RefreshAllNodeStepContent(GetAllNodes());
         }
 
         private async void PlayAudio()
