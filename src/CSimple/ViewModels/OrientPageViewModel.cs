@@ -38,6 +38,7 @@ namespace CSimple.ViewModels
         private readonly ExecutionStatusTrackingService _executionStatusTrackingService; // Added for execution status tracking
         private readonly ICameraOffsetService _cameraOffsetService; // Added for camera offset management
         private readonly IStepContentManagementService _stepContentManagementService; // Added for step content management
+        private readonly ICommandManagementService _commandManagementService; // Added for command management
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -160,11 +161,11 @@ namespace CSimple.ViewModels
         internal NodeViewModel _temporaryConnectionState = null;
 
         // --- Commands ---
-        public ICommand AddModelNodeCommand { get; }
-        public ICommand DeleteSelectedNodeCommand { get; }
-        public ICommand CreateNewPipelineCommand { get; }
-        public ICommand RenamePipelineCommand { get; }
-        public ICommand DeletePipelineCommand { get; }
+        public ICommand AddModelNodeCommand { get; private set; }
+        public ICommand DeleteSelectedNodeCommand { get; private set; }
+        public ICommand CreateNewPipelineCommand { get; private set; }
+        public ICommand RenamePipelineCommand { get; private set; }
+        public ICommand DeletePipelineCommand { get; private set; }
 
         // --- Model Execution Status Properties (Delegated to ExecutionStatusTrackingService) ---
         public bool IsExecutingModels
@@ -313,15 +314,15 @@ namespace CSimple.ViewModels
         private List<ActionItem> _currentActionItems = new List<ActionItem>();
 
         // Commands for action stepping
-        public ICommand StepForwardCommand { get; }
-        public ICommand StepBackwardCommand { get; }
-        public ICommand ResetActionCommand { get; }
-        public ICommand GenerateCommand { get; }
-        public ICommand RunAllModelsCommand { get; }
-        public ICommand RunAllNodesCommand { get; }
-        public ICommand SleepMemoryCompressionCommand { get; }
-        public ICommand SelectSaveFileCommand { get; }
-        public ICommand CreateNewMemoryFileCommand { get; }
+        public ICommand StepForwardCommand { get; private set; }
+        public ICommand StepBackwardCommand { get; private set; }
+        public ICommand ResetActionCommand { get; private set; }
+        public ICommand GenerateCommand { get; private set; }
+        public ICommand RunAllModelsCommand { get; private set; }
+        public ICommand RunAllNodesCommand { get; private set; }
+        public ICommand SleepMemoryCompressionCommand { get; private set; }
+        public ICommand SelectSaveFileCommand { get; private set; }
+        public ICommand CreateNewMemoryFileCommand { get; private set; }
 
 
         // --- UI Interaction Delegates ---
@@ -330,7 +331,7 @@ namespace CSimple.ViewModels
 
         // --- Constructor ---
         // Ensure FileService and PythonBootstrapper are injected
-        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService, ExecutionStatusTrackingService executionStatusTrackingService, ICameraOffsetService cameraOffsetService, IStepContentManagementService stepContentManagementService)
+        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService, ExecutionStatusTrackingService executionStatusTrackingService, ICameraOffsetService cameraOffsetService, IStepContentManagementService stepContentManagementService, ICommandManagementService commandManagementService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -346,6 +347,7 @@ namespace CSimple.ViewModels
             _executionStatusTrackingService = executionStatusTrackingService; // Initialize execution status tracking service
             _cameraOffsetService = cameraOffsetService; // Initialize camera offset service
             _stepContentManagementService = stepContentManagementService; // Initialize step content management service
+            _commandManagementService = commandManagementService; // Initialize command management service
 
             // Subscribe to the execution status tracking service's property changed events
             _executionStatusTrackingService.PropertyChanged += OnExecutionStatusTrackingServicePropertyChanged;
@@ -360,6 +362,26 @@ namespace CSimple.ViewModels
             _audioStepContentService.PlaybackStarted += OnAudioPlaybackStarted;
             _audioStepContentService.PlaybackStopped += OnAudioPlaybackStopped;
 
+            // Subscribe to NetPageViewModel's PropertyChanged event
+            netPageViewModel.PropertyChanged += NetPageViewModel_PropertyChanged;
+
+            // Initialize Commands using the command management service
+            _commandManagementService.InitializeCommands(this);
+
+            // Load available pipelines on initialization
+            _ = LoadAvailablePipelinesAsync();
+
+            // No need to initialize execution timer - handled by ExecutionStatusTrackingService
+
+            // Start background warmup immediately to avoid delays later
+            StartBackgroundWarmup();
+        }
+
+        /// <summary>
+        /// Initialize all commands - extracted for better organization
+        /// </summary>
+        public void InitializeCommands()
+        {
             // Initialize Commands
             AddModelNodeCommand = new Command<HuggingFaceModel>(async (model) => await AddModelNode(model));
             DeleteSelectedNodeCommand = new Command(async () => await DeleteSelectedNode());
@@ -373,9 +395,6 @@ namespace CSimple.ViewModels
             });
             RenamePipelineCommand = new Command(async () => await RenameCurrentPipeline());
             DeletePipelineCommand = new Command(async () => await DeleteCurrentPipeline());
-
-            // Subscribe to NetPageViewModel's PropertyChanged event
-            netPageViewModel.PropertyChanged += NetPageViewModel_PropertyChanged;
 
             // Initialize Review Action commands using the service
             StepForwardCommand = new Command(async () =>
@@ -414,7 +433,7 @@ namespace CSimple.ViewModels
             GenerateCommand = new Command(async () => await ExecuteGenerateAsync(), () => SelectedNode != null && SelectedNode.Type == NodeType.Model && SelectedNode.EnsembleInputCount > 1);
 
             // Initialize RunAllModelsCommand with debug logging
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔧 [OrientPageViewModel.Constructor] Initializing RunAllModelsCommand");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔧 [OrientPageViewModel.InitializeCommands] Initializing RunAllModelsCommand");
             RunAllModelsCommand = new Command(async () =>
             {
                 Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🚀 [RunAllModelsCommand] Button clicked - executing command");
@@ -427,7 +446,7 @@ namespace CSimple.ViewModels
             });
 
             // Initialize RunAllNodesCommand with debug logging
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔧 [OrientPageViewModel.Constructor] Initializing RunAllNodesCommand");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔧 [OrientPageViewModel.InitializeCommands] Initializing RunAllNodesCommand");
             RunAllNodesCommand = new Command(async () =>
             {
                 Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🚀 [RunAllNodesCommand] Button clicked - executing command");
@@ -451,14 +470,6 @@ namespace CSimple.ViewModels
             // Initialize Audio commands
             PlayAudioCommand = new Command(() => PlayAudio(), CanPlayAudio);
             StopAudioCommand = new Command(() => StopAudio(), CanStopAudio);
-
-            // Load available pipelines on initialization
-            _ = LoadAvailablePipelinesAsync();
-
-            // No need to initialize execution timer - handled by ExecutionStatusTrackingService
-
-            // Start background warmup immediately to avoid delays later
-            StartBackgroundWarmup();
         }
 
         /// <summary>
@@ -1725,8 +1736,8 @@ namespace CSimple.ViewModels
         public bool HasFirstImage => !string.IsNullOrEmpty(FirstImage);
         public bool HasSecondImage => !string.IsNullOrEmpty(SecondImage);
 
-        public ICommand PlayAudioCommand { get; }
-        public ICommand StopAudioCommand { get; }
+        public ICommand PlayAudioCommand { get; private set; }
+        public ICommand StopAudioCommand { get; private set; }
 
         public OrientPageViewModel()
         {

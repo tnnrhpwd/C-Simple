@@ -36,6 +36,7 @@ namespace CSimple.Extensions
             services.AddSingleton<EnsembleModelService>();
             services.AddSingleton<ExecutionStatusTrackingService>();
             services.AddSingleton<IStepContentManagementService, StepContentManagementService>();
+            services.AddSingleton<ICommandManagementService, CommandManagementService>();
 
             // Application Mode and UI Services
             services.AddSingleton<AppModeService>();
