@@ -1420,12 +1420,13 @@ namespace CSimple.ViewModels
             get => _stepContentImages;
             set
             {
-                // Validate and filter the incoming image paths to prevent crashes
-                var validatedPaths = ValidateImagePaths(value);
+                // Validate and filter the incoming image paths using the service
+                var validatedPaths = _stepContentManagementService.ValidateImagePaths(value);
 
                 if (SetProperty(ref _stepContentImages, validatedPaths))
                 {
-                    // Update computed properties when the collection changes
+                    // Notify property changes for computed properties
+                    OnPropertyChanged(nameof(HasMultipleImages));
                     OnPropertyChanged(nameof(FirstImage));
                     OnPropertyChanged(nameof(SecondImage));
                     OnPropertyChanged(nameof(HasFirstImage));
@@ -1434,54 +1435,12 @@ namespace CSimple.ViewModels
             }
         }
 
-        /// <summary>
-        /// Validates a list of image paths and returns only those that exist and are accessible
-        /// </summary>
-        private List<string> ValidateImagePaths(List<string> imagePaths)
-        {
-            if (imagePaths == null || imagePaths.Count == 0)
-            {
-                return new List<string>();
-            }
-
-            var validPaths = new List<string>();
-            foreach (var path in imagePaths)
-            {
-                if (!string.IsNullOrEmpty(path))
-                {
-                    try
-                    {
-                        if (File.Exists(path))
-                        {
-                            validPaths.Add(path);
-                        }
-                        else
-                        {
-                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.ValidateImagePaths] Filtering out non-existent image: {path}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [OrientPageViewModel.ValidateImagePaths] Error validating image path '{path}': {ex.Message}");
-                    }
-                }
-            }
-
-            return validPaths;
-        }
-
-        private bool _hasMultipleImages;
-        public bool HasMultipleImages
-        {
-            get => _hasMultipleImages;
-            set => SetProperty(ref _hasMultipleImages, value);
-        }
-
-        // Safe access properties for individual images
-        public string FirstImage => StepContentImages?.Count > 0 ? StepContentImages[0] : null;
-        public string SecondImage => StepContentImages?.Count > 1 ? StepContentImages[1] : null;
-        public bool HasFirstImage => !string.IsNullOrEmpty(FirstImage);
-        public bool HasSecondImage => !string.IsNullOrEmpty(SecondImage);
+        // Safe access properties for individual images using the service
+        public bool HasMultipleImages => _stepContentManagementService.GetStepContentProperties(StepContentImages).HasMultipleImages;
+        public string FirstImage => _stepContentManagementService.GetStepContentProperties(StepContentImages).FirstImage;
+        public string SecondImage => _stepContentManagementService.GetStepContentProperties(StepContentImages).SecondImage;
+        public bool HasFirstImage => _stepContentManagementService.GetStepContentProperties(StepContentImages).HasFirstImage;
+        public bool HasSecondImage => _stepContentManagementService.GetStepContentProperties(StepContentImages).HasSecondImage;
 
         public ICommand PlayAudioCommand { get; private set; }
         public ICommand StopAudioCommand { get; private set; }
@@ -1500,7 +1459,6 @@ namespace CSimple.ViewModels
                 StepContentType = result.ContentType;
                 StepContent = result.Content;
                 StepContentImages = result.Images;
-                HasMultipleImages = result.HasMultipleImages;
 
                 OnPropertyChanged(nameof(StepContentType));
                 OnPropertyChanged(nameof(StepContent));
@@ -1519,7 +1477,6 @@ namespace CSimple.ViewModels
                 StepContentType = null;
                 StepContent = null;
                 StepContentImages = new List<string>();
-                HasMultipleImages = false;
 
                 OnPropertyChanged(nameof(StepContentType));
                 OnPropertyChanged(nameof(StepContent));

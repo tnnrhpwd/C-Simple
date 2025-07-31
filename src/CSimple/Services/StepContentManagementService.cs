@@ -13,6 +13,8 @@ namespace CSimple.Services
         StepContentUpdateResult UpdateStepContent(NodeViewModel selectedNode, int currentActionStep, List<ActionItem> currentActionItems, string selectedReviewActionName);
         List<string> ProcessImageContent(string content);
         void RefreshAllNodeStepContent(IEnumerable<NodeViewModel> nodes);
+        List<string> ValidateImagePaths(List<string> imagePaths);
+        StepContentProperties GetStepContentProperties(List<string> stepContentImages);
     }
 
     public class StepContentManagementService : IStepContentManagementService
@@ -144,6 +146,51 @@ namespace CSimple.Services
                 }
             }
         }
+
+        public List<string> ValidateImagePaths(List<string> imagePaths)
+        {
+            if (imagePaths == null || imagePaths.Count == 0)
+            {
+                return new List<string>();
+            }
+
+            var validPaths = new List<string>();
+            foreach (var path in imagePaths)
+            {
+                if (!string.IsNullOrEmpty(path))
+                {
+                    try
+                    {
+                        if (File.Exists(path))
+                        {
+                            validPaths.Add(path);
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [StepContentManagementService.ValidateImagePaths] Filtering out non-existent image: {path}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [StepContentManagementService.ValidateImagePaths] Error validating image path '{path}': {ex.Message}");
+                    }
+                }
+            }
+
+            return validPaths;
+        }
+
+        public StepContentProperties GetStepContentProperties(List<string> stepContentImages)
+        {
+            return new StepContentProperties
+            {
+                FirstImage = stepContentImages?.Count > 0 ? stepContentImages[0] : null,
+                SecondImage = stepContentImages?.Count > 1 ? stepContentImages[1] : null,
+                HasFirstImage = stepContentImages?.Count > 0 && !string.IsNullOrEmpty(stepContentImages[0]),
+                HasSecondImage = stepContentImages?.Count > 1 && !string.IsNullOrEmpty(stepContentImages[1]),
+                HasMultipleImages = stepContentImages?.Count > 1
+            };
+        }
     }
 
     public class StepContentUpdateResult
@@ -151,6 +198,15 @@ namespace CSimple.Services
         public string ContentType { get; set; }
         public string Content { get; set; }
         public List<string> Images { get; set; } = new List<string>();
+        public bool HasMultipleImages { get; set; }
+    }
+
+    public class StepContentProperties
+    {
+        public string FirstImage { get; set; }
+        public string SecondImage { get; set; }
+        public bool HasFirstImage { get; set; }
+        public bool HasSecondImage { get; set; }
         public bool HasMultipleImages { get; set; }
     }
 }
