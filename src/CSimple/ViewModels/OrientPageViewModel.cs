@@ -39,6 +39,8 @@ namespace CSimple.ViewModels
         private readonly ICameraOffsetService _cameraOffsetService; // Added for camera offset management
         private readonly IStepContentManagementService _stepContentManagementService; // Added for step content management
         private readonly ICommandManagementService _commandManagementService; // Added for command management
+        private readonly IPipelineExecutionValidationService _pipelineExecutionValidationService; // Added for pipeline execution and validation
+        private readonly IModelLoadingManagementService _modelLoadingManagementService; // Added for model loading and management
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -331,7 +333,7 @@ namespace CSimple.ViewModels
 
         // --- Constructor ---
         // Ensure FileService and PythonBootstrapper are injected
-        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService, ExecutionStatusTrackingService executionStatusTrackingService, ICameraOffsetService cameraOffsetService, IStepContentManagementService stepContentManagementService, ICommandManagementService commandManagementService)
+        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService, ExecutionStatusTrackingService executionStatusTrackingService, ICameraOffsetService cameraOffsetService, IStepContentManagementService stepContentManagementService, ICommandManagementService commandManagementService, IPipelineExecutionValidationService pipelineExecutionValidationService, IModelLoadingManagementService modelLoadingManagementService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -348,6 +350,8 @@ namespace CSimple.ViewModels
             _cameraOffsetService = cameraOffsetService; // Initialize camera offset service
             _stepContentManagementService = stepContentManagementService; // Initialize step content management service
             _commandManagementService = commandManagementService; // Initialize command management service
+            _pipelineExecutionValidationService = pipelineExecutionValidationService; // Initialize pipeline execution validation service
+            _modelLoadingManagementService = modelLoadingManagementService; // Initialize model loading management service
 
             // Subscribe to the execution status tracking service's property changed events
             _executionStatusTrackingService.PropertyChanged += OnExecutionStatusTrackingServicePropertyChanged;
@@ -744,157 +748,38 @@ namespace CSimple.ViewModels
 
         public async Task LoadAvailableModelsAsync()
         {
-            try
-            {
-                Debug.WriteLine("Loading available HuggingFace models...");
-                AvailableModels.Clear();
-
-                // Get the NetPageViewModel and ensure it has loaded its models
-                var netPageVM = ((App)Application.Current).NetPageViewModel;
-                if (netPageVM != null)
-                {
-                    // Ensure NetPageViewModel has loaded its models for execution
-                    if (netPageVM.AvailableModels == null || netPageVM.AvailableModels.Count == 0)
-                    {
-                        Debug.WriteLine("LoadAvailableModelsAsync: NetPageViewModel has no models, forcing load for execution");
-                        await netPageVM.LoadDataAsync();
-                        Debug.WriteLine($"LoadAvailableModelsAsync: After LoadDataAsync, NetPageViewModel has {netPageVM.AvailableModels?.Count ?? 0} models");
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"LoadAvailableModelsAsync: NetPageViewModel already has {netPageVM.AvailableModels.Count} models loaded");
-                    }
-                }
-
-                // First, try to load models from FileService like NetPageViewModel does
-                var persistedModels = await _fileService.LoadHuggingFaceModelsAsync();
-
-                // Also check if NetPageViewModel has already loaded models that we can use
-                if (netPageVM?.AvailableModels != null && netPageVM.AvailableModels.Count > 0)
-                {
-                    Debug.WriteLine($"Found {netPageVM.AvailableModels.Count} models in NetPageViewModel");
-                    // If we got fewer models from FileService, prefer the NetPageViewModel's models
-                    if (persistedModels == null || persistedModels.Count < netPageVM.AvailableModels.Count)
-                    {
-                        Debug.WriteLine("Using NetPageViewModel's models as they are more complete");
-                        persistedModels = netPageVM.AvailableModels.ToList();
-                    }
-                }
-
-                if (persistedModels != null && persistedModels.Count > 0)
-                {
-                    // Filter to just get unique HuggingFace models
-                    var uniqueHfModels = new Dictionary<string, NeuralNetworkModel>();
-
-                    foreach (var model in persistedModels)
-                    {
-                        string key = model.IsHuggingFaceReference && !string.IsNullOrEmpty(model.HuggingFaceModelId)
-                            ? model.HuggingFaceModelId
-                            : model.Id;
-
-                        if (!uniqueHfModels.ContainsKey(key))
-                        {
-                            uniqueHfModels.Add(key, model);
-                        }
-                    }
-
-                    // Convert NeuralNetworkModel to HuggingFaceModel and add to collection
-                    foreach (var model in uniqueHfModels.Values)
-                    {
-                        var hfModel = new CSimple.Models.HuggingFaceModel
-                        {
-                            Id = model.Id,
-                            ModelId = model.IsHuggingFaceReference ? model.HuggingFaceModelId : model.Name,
-                            Description = model.Description ?? "No description available",
-                            Author = "Imported Model" // Default author if not available
-                        };
-
-                        AvailableModels.Add(hfModel);
-                    }
-
-                    Debug.WriteLine($"Loaded {AvailableModels.Count} available models from persisted data.");
-                }
-
-                // If no models were loaded from persistence, add some defaults as fallback
-                if (AvailableModels.Count == 0)
-                {
-                    Debug.WriteLine("No persisted models found. Adding default examples.");
-                    AddDefaultModelExamples();
-                }
-
-                // Verify NetPageViewModel still has the models needed for execution
-                if (netPageVM?.AvailableModels?.Count > 0)
-                {
-                    Debug.WriteLine($"LoadAvailableModelsAsync: Confirmed NetPageViewModel has {netPageVM.AvailableModels.Count} execution-ready models");
-                }
-                else
-                {
-                    Debug.WriteLine("LoadAvailableModelsAsync: WARNING - NetPageViewModel has no execution-ready models!");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading models: {ex.Message}");
-                // Fall back to default examples if loading fails
-                AvailableModels.Clear();
-                AddDefaultModelExamples();
-            }
-
-            // Add input nodes to the AvailableModels list
-            AddDefaultInputNodesToAvailableModels();
+            await _modelLoadingManagementService.LoadAvailableModelsAsync(
+                AvailableModels,
+                _fileService,
+                _netPageViewModel);
         }
 
         // Helper method to add default input nodes to the AvailableModels list
         private void AddDefaultInputNodesToAvailableModels()
         {
-            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "webcam_image", ModelId = "Webcam Image (Input)" });
-            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "screen_image", ModelId = "Screen Image (Input)" });
-            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "pc_audio", ModelId = "PC Audio (Input)" });
-            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "webcam_audio", ModelId = "Webcam Audio (Input)" });
-            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "keyboard_text", ModelId = "Keyboard Text (Input)" });
-            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "mouse_text", ModelId = "Mouse Text (Input)" });
-            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "memory_node", ModelId = "Memory (File)" });
+            _modelLoadingManagementService.AddDefaultInputNodesToAvailableModels(AvailableModels);
         }
 
         // Helper method to add default examples as a fallback
         private void AddDefaultModelExamples()
         {
-            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "gpt2", ModelId = "Text Generator (GPT-2)" });
-            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "resnet-50", ModelId = "Image Classifier (ResNet)" });
-            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "openai/whisper-base", ModelId = "Audio Recognizer (Whisper)" });
-            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "deepseek-ai/deepseek-coder-1.3b-instruct", ModelId = "DeepSeek Coder" });
-            AvailableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "meta-llama/Meta-Llama-3-8B-Instruct", ModelId = "Llama 3 8B Instruct" });
+            _modelLoadingManagementService.AddDefaultModelExamples(AvailableModels);
         }
 
         public async Task AddModelNode(CSimple.Models.HuggingFaceModel model)
         {
-            if (model == null)
-            {
-                await ShowAlert?.Invoke("Error", "No model selected.", "OK");
-                return;
-            }
-
-            // Improve model node creation with HuggingFace info
-            var modelId = model.ModelId ?? model.Id;
-            var modelType = _nodeManagementService.InferNodeTypeFromName(modelId);
-            var modelName = _nodeManagementService.GetFriendlyModelName(modelId);
-
-            // Generate a reasonable position for the new node
-            // Find a vacant spot in the middle area of the canvas
-            float x = 300 + (Nodes.Count % 3) * 180;
-            float y = 200 + (Nodes.Count / 3) * 100;
-
-            // Use the NodeManagementService to add the node
-            await _nodeManagementService.AddModelNodeAsync(Nodes, model.Id, modelName, modelType, new PointF(x, y));
-            InvalidatePipelineStateCache(); // Invalidate cache when structure changes
-            UpdateEnsembleCounts(); // ADDED: Update counts after adding node
-            Debug.WriteLine($"🔄 [AddModelNode] Updating RunAllModelsCommand CanExecute - Model nodes count: {Nodes.Count(n => n.Type == NodeType.Model)}");
-            (RunAllModelsCommand as Command)?.ChangeCanExecute(); // Update Run All Models button state
-            (RunAllNodesCommand as Command)?.ChangeCanExecute(); // Update Run All Nodes button state
-            await SaveCurrentPipelineAsync(); // Save after adding
-
-            // Update execution status
-            UpdateExecutionStatusFromPipeline();
+            await _modelLoadingManagementService.AddModelNodeAsync(
+                AvailableModels,
+                Nodes,
+                model,
+                _nodeManagementService,
+                ShowAlert,
+                InvalidatePipelineStateCache,
+                UpdateEnsembleCounts,
+                () => (RunAllModelsCommand as Command)?.ChangeCanExecute(),
+                () => (RunAllNodesCommand as Command)?.ChangeCanExecute(),
+                SaveCurrentPipelineAsync,
+                UpdateExecutionStatusFromPipeline);
         }
 
         public async Task DeleteSelectedNode()
@@ -1205,144 +1090,11 @@ namespace CSimple.ViewModels
         /// <returns>The simulated output string from the final node, or an error message.</returns>
         public async Task<string> ExecuteCurrentPipelineAsync(string promptOverride = null)
         {
-            Debug.WriteLine($"Executing pipeline '{CurrentPipelineName}' with prompt override: '{promptOverride}'");
-
-            if (!HasAnyNodes() || !HasAnyConnections())
-            {
-                return "Error: Pipeline is empty or has no connections.";
-            }
-
-            // --- Simulation Logic ---
-            // This needs to be replaced with actual graph traversal and model execution.
-            // For now, we'll make assumptions based on common patterns:
-            // 1. Find Input nodes.
-            // 2. Find Model nodes directly connected FROM Input nodes (Interpreters).
-            // 3. Find a Model node connected FROM multiple Interpreters (Combiner/Final Text Model).
-
-            var inputNodes = Nodes.Where(n => n.Type == NodeType.Input).ToList();
-            if (!inputNodes.Any()) return "Error: No input nodes found.";
-
-            var interpreterOutputs = new Dictionary<string, string>(); // NodeId -> Simulated Output
-            var interpreterNodes = new List<NodeViewModel>();
-
-            // Simulate interpreter models processing inputs
-            foreach (var inputNode in inputNodes)
-            {
-                var connectedModelIds = Connections
-                    .Where(c => c.SourceNodeId == inputNode.Id)
-                    .Select(c => c.TargetNodeId);
-
-                foreach (var modelId in connectedModelIds)
-                {
-                    var modelNode = Nodes.FirstOrDefault(n => n.Id == modelId && n.Type == NodeType.Model);
-                    if (modelNode != null && !interpreterOutputs.ContainsKey(modelNode.Id))
-                    {
-                        // Simulate output based on input type
-                        string simulatedOutput = $"Interpreted {inputNode.DataType ?? "data"} from '{inputNode.Name}' via '{modelNode.Name}'.";
-                        interpreterOutputs.Add(modelNode.Id, simulatedOutput);
-                        if (!interpreterNodes.Contains(modelNode))
-                        {
-                            interpreterNodes.Add(modelNode);
-                        }
-                        Debug.WriteLine($"Simulated output for interpreter '{modelNode.Name}': {simulatedOutput}");
-                    }
-                }
-            }
-
-            if (!interpreterNodes.Any()) return "Error: No interpreter models found connected to inputs.";
-
-            // Find the final combiner/text model (connected FROM interpreters)
-            NodeViewModel finalModel = null;
-            var textModelNodes = GetTextModelNodes();
-            foreach (var potentialFinalNode in textModelNodes)
-            {
-                var incomingConnections = Connections
-                    .Where(c => c.TargetNodeId == potentialFinalNode.Id)
-                    .Select(c => c.SourceNodeId);
-
-                // Check if this node receives input from *all* identified interpreters
-                bool receivesFromAllInterpreters = interpreterNodes.All(interp => incomingConnections.Contains(interp.Id));
-
-                // Or check if it receives from *any* interpreter (simpler assumption)
-                bool receivesFromAnyInterpreter = interpreterNodes.Any(interp => incomingConnections.Contains(interp.Id));
-
-
-                // Let's assume the final node is the first text model connected to *any* interpreter
-                if (receivesFromAnyInterpreter)
-                {
-                    finalModel = potentialFinalNode;
-                    Debug.WriteLine($"Identified potential final model: '{finalModel.Name}'");
-                    break;
-                }
-            }
-
-
-            if (finalModel == null)
-            {
-                // Fallback: Find *any* model connected from an interpreter if no text model found - thread-safe version
-                List<NodeViewModel> nodesCopy;
-                List<ConnectionViewModel> connectionsCopy;
-
-                lock (_nodesLock)
-                {
-                    nodesCopy = Nodes.ToList();
-                }
-
-                lock (_connectionsLock)
-                {
-                    connectionsCopy = Connections.ToList();
-                }
-
-                finalModel = nodesCopy.FirstOrDefault(n => n.Type == NodeType.Model &&
-                    connectionsCopy.Any(c => c.TargetNodeId == n.Id && interpreterNodes.Any(interp => interp.Id == c.SourceNodeId)));
-                if (finalModel != null)
-                {
-                    Debug.WriteLine($"Identified fallback final model (non-text?): '{finalModel.Name}'");
-                }
-            }
-
-
-            if (finalModel == null) return "Error: Could not identify a final processing model connected to interpreters.";
-
-            // Simulate final model execution
-            var combinedInput = new StringBuilder();
-            combinedInput.AppendLine($"Processing request for model '{finalModel.Name}':");
-
-            // Gather inputs from connected interpreters
-            var finalModelInputs = Connections
-                   .Where(c => c.TargetNodeId == finalModel.Id)
-                   .Select(c => c.SourceNodeId);
-
-            foreach (var inputId in finalModelInputs)
-            {
-                if (interpreterOutputs.TryGetValue(inputId, out var output))
-                {
-                    combinedInput.AppendLine($"- Input: {output}");
-                }
-                else
-                {
-                    // Maybe connected directly from an input node?
-                    var directInputNode = Nodes.FirstOrDefault(n => n.Id == inputId && n.Type == NodeType.Input);
-                    if (directInputNode != null)
-                    {
-                        combinedInput.AppendLine($"- Direct Input: Raw {directInputNode.DataType ?? "data"} from '{directInputNode.Name}'.");
-                    }
-                }
-            }
-
-
-            if (!string.IsNullOrWhiteSpace(promptOverride))
-            {
-                combinedInput.AppendLine($"- Specific Prompt: {promptOverride}");
-            }
-
-            // Simulate API call or local execution delay
-            await Task.Delay(1500); // Simulate processing time
-
-            string finalOutput = $"Simulated result from '{finalModel.Name}': Based on the inputs ({interpreterNodes.Count} sources) and the prompt, the suggested improvement is to [Simulated AI Suggestion - Refine workflow for {finalModel.Name}].";
-            Debug.WriteLine($"Final simulated output: {finalOutput}");
-
-            return finalOutput;
+            return await _pipelineExecutionValidationService.ExecuteCurrentPipelineAsync(
+                Nodes,
+                Connections,
+                CurrentPipelineName,
+                promptOverride);
         }
 
         // Method to load a specific pipeline by name
@@ -1382,15 +1134,10 @@ namespace CSimple.ViewModels
         // Method to execute a pipeline by name
         public async Task<string> ExecutePipelineByNameAsync(string pipelineName, string initialInput)
         {
-            Debug.WriteLine($"Attempting to execute pipeline: {pipelineName} with input: {initialInput}");
-            await LoadPipelineByNameAsync(pipelineName); // Load the specified pipeline first
+            // Load the pipeline first
+            await LoadPipelineByNameAsync(pipelineName);
 
-            if (CurrentPipelineName != pipelineName || Nodes.Count == 0)
-            {
-                return $"Error: Failed to load pipeline '{pipelineName}' before execution.";
-            }
-
-            // Now execute the loaded pipeline (using the logic from ExecuteCurrentPipelineAsync)
+            // Now execute the loaded pipeline using the existing method
             return await ExecuteCurrentPipelineAsync(initialInput);
         }
 
@@ -1860,10 +1607,7 @@ namespace CSimple.ViewModels
 
         private List<NodeViewModel> GetTextModelNodes()
         {
-            lock (_nodesLock)
-            {
-                return Nodes.Where(n => n.Type == NodeType.Model && n.DataType == "text").ToList();
-            }
+            return _pipelineExecutionValidationService.GetTextModelNodes(Nodes);
         }
 
         private List<NodeViewModel> GetAllNodes()
@@ -1884,18 +1628,12 @@ namespace CSimple.ViewModels
 
         private bool HasAnyNodes()
         {
-            lock (_nodesLock)
-            {
-                return Nodes.Any();
-            }
+            return _pipelineExecutionValidationService.HasAnyNodes(Nodes);
         }
 
         private bool HasAnyConnections()
         {
-            lock (_connectionsLock)
-            {
-                return Connections.Any();
-            }
+            return _pipelineExecutionValidationService.HasAnyConnections(Connections);
         }
 
         // --- Proactive preparation for Run All Models optimization ---
