@@ -1133,7 +1133,6 @@ namespace CSimple.ViewModels
             }
         }
 
-
         // Method to execute a pipeline by name
         public async Task<string> ExecutePipelineByNameAsync(string pipelineName, string initialInput)
         {
@@ -1621,10 +1620,7 @@ namespace CSimple.ViewModels
         }
 
         // --- Ultra-fast execution optimization methods ---
-
-        /// <summary>
         /// Pre-loads and caches all expensive operations before model execution
-        /// </summary>
         private async Task PrecomputeExecutionOptimizationsAsync()
         {
             if (_executionOptimizationCacheValid) return;
@@ -1825,9 +1821,7 @@ namespace CSimple.ViewModels
             Debug.WriteLine($"🎉 [PrecomputeExecutionOptimizations] Completed in {stopwatch.ElapsedMilliseconds}ms");
         }
 
-        /// <summary>
         /// Ensures background warmup is ready, with optional timeout
-        /// </summary>
         private async Task EnsureWarmupReadyAsync(int maxWaitMs = 5000)
         {
             lock (_warmupLock)
@@ -1852,9 +1846,7 @@ namespace CSimple.ViewModels
             }
         }
 
-        /// <summary>
         /// Pre-warms the execution environment by ensuring Python is ready and models are accessible
-        /// </summary>
         private async Task PrewarmExecutionEnvironmentAsync()
         {
             var stopwatch = Stopwatch.StartNew();
@@ -2974,9 +2966,7 @@ namespace CSimple.ViewModels
             return await _ensembleModelService.ExecuteModelWithInput(model, input);
         }
 
-        /// <summary>
         /// Processes a single image through the model and returns the result with context
-        /// </summary>
         private async Task<string> ProcessSingleImageAsync(NeuralNetworkModel model, string imagePath, string nodeContext)
         {
             try
@@ -3076,6 +3066,7 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"⚠️ [RouteOutputToConnectedFileNodes] Error in output routing: {ex.Message}");
             }
         }        // IDisposable implementation
+
         public void Dispose()
         {
             // Unsubscribe from service events
@@ -3162,11 +3153,7 @@ namespace CSimple.ViewModels
             }
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🐛 [DebugRunAllModelsCommand] === END DEBUG ===");
         }
-
-        /// <summary>
-        /// <summary>
         /// Helper method for the navigation service to set current action step asynchronously
-        /// </summary>
         private Task SetCurrentActionStepAsync(int newStep)
         {
             CurrentActionStep = newStep;
@@ -3174,12 +3161,8 @@ namespace CSimple.ViewModels
         }
 
         // --- Event Handlers ---
-
         // --- Proactive Preparation for Run All Models Optimization ---
-
-        /// <summary>
         /// Triggers proactive preparation for model execution to optimize "Run All Models" performance
-        /// </summary>
         private void TriggerProactivePreparation()
         {
             lock (_preparationLock)
@@ -3212,9 +3195,7 @@ namespace CSimple.ViewModels
             }
         }
 
-        /// <summary>
         /// Performs proactive preparation for model execution in background
-        /// </summary>
         private async Task PerformProactivePreparationAsync(CancellationToken cancellationToken)
         {
             var preparationStopwatch = Stopwatch.StartNew();
@@ -3261,9 +3242,7 @@ namespace CSimple.ViewModels
             }
         }
 
-        /// <summary>
         /// Pre-warms the Python environment and model cache for faster execution
-        /// </summary>
         private async Task PrewarmModelExecutionEnvironmentAsync(CancellationToken cancellationToken)
         {
             List<NodeViewModel> modelNodesCopy;
@@ -3337,9 +3316,7 @@ namespace CSimple.ViewModels
             }
         }
 
-        /// <summary>
         /// Checks if proactive preparation is complete, with optional wait
-        /// </summary>
         private async Task<bool> IsProactivePreparationReadyAsync(int maxWaitMs = 1000)
         {
             lock (_preparationLock)
@@ -3381,7 +3358,6 @@ namespace CSimple.ViewModels
         }
 
         // ===== Memory Compression Support Methods =====
-
         private async Task<MemoryPersonalityProfile> LoadOrCreateMemoryPersonalityProfileAsync()
         {
             try
