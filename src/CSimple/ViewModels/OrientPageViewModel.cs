@@ -40,6 +40,7 @@ namespace CSimple.ViewModels
         private readonly IStepContentManagementService _stepContentManagementService; // Added for step content management
         private readonly ICommandManagementService _commandManagementService; // Added for command management
         private readonly IPipelineExecutionValidationService _pipelineExecutionValidationService; // Added for pipeline execution and validation
+        private readonly IActionReviewNavigationService _actionReviewNavigationService; // Added for action review navigation functionality
         private readonly IModelLoadingManagementService _modelLoadingManagementService; // Added for model loading and management
 
         // --- Properties ---
@@ -333,7 +334,7 @@ namespace CSimple.ViewModels
 
         // --- Constructor ---
         // Ensure FileService and PythonBootstrapper are injected
-        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService, ExecutionStatusTrackingService executionStatusTrackingService, ICameraOffsetService cameraOffsetService, IStepContentManagementService stepContentManagementService, ICommandManagementService commandManagementService, IPipelineExecutionValidationService pipelineExecutionValidationService, IModelLoadingManagementService modelLoadingManagementService)
+        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService, ExecutionStatusTrackingService executionStatusTrackingService, ICameraOffsetService cameraOffsetService, IStepContentManagementService stepContentManagementService, ICommandManagementService commandManagementService, IPipelineExecutionValidationService pipelineExecutionValidationService, IModelLoadingManagementService modelLoadingManagementService, IActionReviewNavigationService actionReviewNavigationService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -352,6 +353,7 @@ namespace CSimple.ViewModels
             _commandManagementService = commandManagementService; // Initialize command management service
             _pipelineExecutionValidationService = pipelineExecutionValidationService; // Initialize pipeline execution validation service
             _modelLoadingManagementService = modelLoadingManagementService; // Initialize model loading management service
+            _actionReviewNavigationService = actionReviewNavigationService; // Initialize action review navigation service
 
             // Subscribe to the execution status tracking service's property changed events
             _executionStatusTrackingService.PropertyChanged += OnExecutionStatusTrackingServicePropertyChanged;
@@ -1327,43 +1329,29 @@ namespace CSimple.ViewModels
         {
             try
             {
-                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Attempting to load action: {SelectedReviewActionName ?? "null"}");
-
-                // Clear the step content cache to ensure fresh data for the new action
-                _ensembleModelService.ClearStepContentCache();
-                _ensembleModelService.ClearModelNodeActionSteps(Nodes);
-                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Cleared step content cache and model ActionSteps for action change");
-
-                // Use the ActionStepNavigationService to load the action
-                var result = await _actionStepNavigationService.LoadSelectedActionAsync(
+                await _actionReviewNavigationService.LoadSelectedActionAsync(
                     SelectedReviewActionName,
+                    _currentActionItems,
                     Nodes,
                     SetCurrentActionStepAsync,
                     () =>
                     {
                         (StepForwardCommand as Command)?.ChangeCanExecute();
                         (StepBackwardCommand as Command)?.ChangeCanExecute();
+                    },
+                    (newActionItems) => _currentActionItems = newActionItems,
+                    RefreshAllNodeStepContent,
+                    () =>
+                    {
+                        OnPropertyChanged(nameof(StepContent));
+                        OnPropertyChanged(nameof(StepContentType));
+                        OnPropertyChanged(nameof(CurrentActionStep));
                     });
 
-                _currentActionItems = result.ActionItems;
+                // Add a small delay to ensure all async operations complete
+                await Task.Delay(100);
 
-                // Update static property for NodeViewModel access
-                NodeViewModel.CurrentActionItems = _currentActionItems;
-
-                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Loaded '{SelectedReviewActionName}' with {_currentActionItems.Count} action items via navigation service.");
-
-                // Force UI refresh after action change
-                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Forcing UI refresh for new action");
-
-                // Explicit refresh of all node ActionSteps to ensure UI updates
-                RefreshAllNodeStepContent();
-
-                // Notify UI that step content might have changed
-                OnPropertyChanged(nameof(StepContent));
-                OnPropertyChanged(nameof(StepContentType));
-
-                // Also notify that the current action step display should update
-                OnPropertyChanged(nameof(CurrentActionStep));
+                UpdateStepContent(); // Call this to reflect the state for CurrentActionStep = 0
             }
             catch (Exception ex)
             {
@@ -1374,13 +1362,6 @@ namespace CSimple.ViewModels
                 (StepForwardCommand as Command)?.ChangeCanExecute();
                 (StepBackwardCommand as Command)?.ChangeCanExecute();
                 (ResetActionCommand as Command)?.ChangeCanExecute();
-
-                // Add a small delay to ensure all async operations complete
-                await Task.Delay(100);
-
-                UpdateStepContent(); // Call this to reflect the state for CurrentActionStep = 0
-
-                Debug.WriteLine($"[OrientPageViewModel.LoadSelectedAction] Action loading complete, step content updated");
             }
         }
 
@@ -3336,6 +3317,7 @@ namespace CSimple.ViewModels
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🐛 [DebugRunAllModelsCommand] === END DEBUG ===");
         }
 
+        /// <summary>
         /// <summary>
         /// Helper method for the navigation service to set current action step asynchronously
         /// </summary>
