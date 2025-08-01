@@ -42,6 +42,7 @@ namespace CSimple.ViewModels
         private readonly IPipelineExecutionValidationService _pipelineExecutionValidationService; // Added for pipeline execution and validation
         private readonly IActionReviewNavigationService _actionReviewNavigationService; // Added for action review navigation functionality
         private readonly IModelLoadingManagementService _modelLoadingManagementService; // Added for model loading and management
+        private readonly IFileManagementService _fileManagementService; // Added for file management operations
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -334,7 +335,7 @@ namespace CSimple.ViewModels
 
         // --- Constructor ---
         // Ensure FileService and PythonBootstrapper are injected
-        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService, ExecutionStatusTrackingService executionStatusTrackingService, ICameraOffsetService cameraOffsetService, IStepContentManagementService stepContentManagementService, ICommandManagementService commandManagementService, IPipelineExecutionValidationService pipelineExecutionValidationService, IModelLoadingManagementService modelLoadingManagementService, IActionReviewNavigationService actionReviewNavigationService)
+        public OrientPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, NetPageViewModel netPageViewModel, PythonBootstrapper pythonBootstrapper, NodeManagementService nodeManagementService, PipelineManagementService pipelineManagementService, ActionReviewService actionReviewService, EnsembleModelService ensembleModelService, ActionStepNavigationService actionStepNavigationService, IMemoryCompressionService memoryCompressionService, ExecutionStatusTrackingService executionStatusTrackingService, ICameraOffsetService cameraOffsetService, IStepContentManagementService stepContentManagementService, ICommandManagementService commandManagementService, IPipelineExecutionValidationService pipelineExecutionValidationService, IModelLoadingManagementService modelLoadingManagementService, IActionReviewNavigationService actionReviewNavigationService, IFileManagementService fileManagementService)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -354,6 +355,7 @@ namespace CSimple.ViewModels
             _pipelineExecutionValidationService = pipelineExecutionValidationService; // Initialize pipeline execution validation service
             _modelLoadingManagementService = modelLoadingManagementService; // Initialize model loading management service
             _actionReviewNavigationService = actionReviewNavigationService; // Initialize action review navigation service
+            _fileManagementService = fileManagementService; // Initialize file management service
 
             // Subscribe to the execution status tracking service's property changed events
             _executionStatusTrackingService.PropertyChanged += OnExecutionStatusTrackingServicePropertyChanged;
@@ -383,9 +385,7 @@ namespace CSimple.ViewModels
             StartBackgroundWarmup();
         }
 
-        /// <summary>
         /// Initialize all commands - extracted for better organization
-        /// </summary>
         public void InitializeCommands()
         {
             // Initialize Commands
@@ -468,19 +468,29 @@ namespace CSimple.ViewModels
             SleepMemoryCompressionCommand = new Command(async () => await ExecuteSleepMemoryCompressionAsync(), () => true);
 
             // Initialize SelectSaveFileCommand
-            SelectSaveFileCommand = new Command(async () => await ExecuteSelectSaveFileAsync(), () => SelectedNode?.IsFileNode == true);
+            SelectSaveFileCommand = new Command(async () =>
+                await _fileManagementService.ExecuteSelectSaveFileAsync(
+                    SelectedNode,
+                    ShowAlert,
+                    SaveCurrentPipelineAsync),
+                () => SelectedNode?.IsFileNode == true);
 
             // Initialize CreateNewMemoryFileCommand
-            CreateNewMemoryFileCommand = new Command(async () => await ExecuteCreateNewMemoryFileAsync(), () => SelectedNode?.IsFileNode == true);
+            CreateNewMemoryFileCommand = new Command(async () =>
+                await _fileManagementService.ExecuteCreateNewMemoryFileAsync(
+                    SelectedNode,
+                    MemoryFileName,
+                    ShowAlert,
+                    SaveCurrentPipelineAsync,
+                    (fileName) => MemoryFileName = fileName),
+                () => SelectedNode?.IsFileNode == true);
 
             // Initialize Audio commands
             PlayAudioCommand = new Command(() => PlayAudio(), CanPlayAudio);
             StopAudioCommand = new Command(() => StopAudio(), CanStopAudio);
         }
 
-        /// <summary>
         /// Start background warmup to avoid delays during execution
-        /// </summary>
         private void StartBackgroundWarmup()
         {
             lock (_warmupLock)
@@ -508,9 +518,7 @@ namespace CSimple.ViewModels
             }
         }
 
-        /// <summary>
         /// Background warmup that doesn't block initialization
-        /// </summary>
         private async Task BackgroundWarmupAsync()
         {
             var stopwatch = Stopwatch.StartNew();
@@ -700,9 +708,7 @@ namespace CSimple.ViewModels
             UpdateExecutionStatusFromPipeline();
         }
 
-        /// <summary>
         /// Preloads NetPage integration components to ensure smooth interoperability
-        /// </summary>
         private async Task PreloadNetPageIntegrationAsync(NetPageViewModel netPageVM)
         {
             try
@@ -1026,9 +1032,7 @@ namespace CSimple.ViewModels
             }
         }
 
-
         // --- Helper Methods ---
-
         private void ClearCanvas()
         {
             lock (_nodesLock)
@@ -1083,11 +1087,8 @@ namespace CSimple.ViewModels
         }
 
         // --- Pipeline Execution Logic ---
-
-        /// <summary>
         /// Executes the currently loaded pipeline, optionally injecting a prompt into the final text model.
         /// NOTE: This is a simulation and does not run actual models.
-        /// </summary>
         /// <param name="promptOverride">A specific prompt to add to the final text model's input.</param>
         /// <returns>The simulated output string from the final node, or an error message.</returns>
         public async Task<string> ExecuteCurrentPipelineAsync(string promptOverride = null)
@@ -1150,9 +1151,7 @@ namespace CSimple.ViewModels
             CurrentPipelineName = data.Name;
         }
 
-
         // --- INotifyPropertyChanged Implementation ---
-
         public event PropertyChangedEventHandler PropertyChanged;
         protected virtual bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string propertyName = null)
         {
@@ -1186,10 +1185,7 @@ namespace CSimple.ViewModels
         public Action InvalidateCanvas { get; set; }
 
         // --- Helper Methods ---
-
-        /// <summary>
         /// Initialize execution status panel with default values
-        /// </summary>
         private void InitializeExecutionStatus()
         {
             _executionStatusTrackingService.InitializeExecutionStatus();
@@ -1197,9 +1193,7 @@ namespace CSimple.ViewModels
             AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] System initialized");
         }
 
-        /// <summary>
         /// Update execution status based on current pipeline state
-        /// </summary>
         private void UpdateExecutionStatusFromPipeline()
         {
             var modelCount = Nodes.Count(n => n.Type == NodeType.Model);
@@ -1219,9 +1213,7 @@ namespace CSimple.ViewModels
             }
         }
 
-        /// <summary>
         /// Add execution result and maintain only the most recent 6 entries
-        /// </summary>
         private void AddExecutionResult(string message)
         {
             ExecutionResults.Add(message);
@@ -1470,9 +1462,7 @@ namespace CSimple.ViewModels
             }
         }
 
-        /// <summary>
         /// Refreshes ActionSteps for all nodes to ensure they reflect the current action
-        /// </summary>
         private void RefreshAllNodeStepContent()
         {
             _stepContentManagementService.RefreshAllNodeStepContent(GetAllNodes());
@@ -3032,152 +3022,8 @@ namespace CSimple.ViewModels
             return _ensembleModelService.DetermineResultContentType(model, result);
         }
 
-        // --- File Selection Command Implementation ---
-        private async Task ExecuteSelectSaveFileAsync()
-        {
-            try
-            {
-                if (SelectedNode == null || !SelectedNode.IsFileNode)
-                {
-                    await ShowAlert?.Invoke("Error", "Please select a file node first.", "OK");
-                    return;
-                }
-
-                Debug.WriteLine($"🗂️ [ExecuteSelectSaveFileAsync] Opening file picker for node: {SelectedNode.Name}");
-
-                // Use the MAUI FilePicker to select a file for saving
-                var fileResult = await FilePicker.PickAsync(new PickOptions
-                {
-                    PickerTitle = "Select save file for text output",
-                    FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
-                    {
-                        { DevicePlatform.WinUI, new[] { ".txt", ".md", ".log" } },
-                        { DevicePlatform.Android, new[] { "text/*" } },
-                        { DevicePlatform.iOS, new[] { "public.text" } },
-                        { DevicePlatform.macOS, new[] { "txt", "md", "log" } }
-                    })
-                });
-
-                if (fileResult != null)
-                {
-                    // Update the selected node's save file path
-                    SelectedNode.SaveFilePath = fileResult.FullPath;
-
-                    Debug.WriteLine($"✅ [ExecuteSelectSaveFileAsync] File selected: {fileResult.FullPath}");
-
-                    // Persist the pipeline to save the file selection
-                    await SaveCurrentPipelineAsync();
-
-                    Debug.WriteLine($"💾 [ExecuteSelectSaveFileAsync] Pipeline saved with updated file path");
-                }
-                else
-                {
-                    Debug.WriteLine($"❌ [ExecuteSelectSaveFileAsync] File selection cancelled");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"⚠️ [ExecuteSelectSaveFileAsync] Error selecting file: {ex.Message}");
-                await ShowAlert?.Invoke("Error", $"Failed to select file: {ex.Message}", "OK");
-            }
-        }
-
-        private async Task ExecuteCreateNewMemoryFileAsync()
-        {
-            try
-            {
-                if (SelectedNode == null || !SelectedNode.IsFileNode)
-                {
-                    await ShowAlert?.Invoke("Error", "No file node selected.", "OK");
-                    return;
-                }
-
-                Debug.WriteLine($"🗂️ [ExecuteCreateNewMemoryFileAsync] Creating new memory file for node: {SelectedNode.Name}");
-
-                // Get the user-specific memory files directory path
-                string userName = Environment.UserName;
-                string memoryFilesDir = Path.Combine("C:", "Users", userName, "Documents", "CSimple", "Resources", "MemoryFiles");
-
-                // Ensure the directory exists
-                if (!Directory.Exists(memoryFilesDir))
-                {
-                    Directory.CreateDirectory(memoryFilesDir);
-                    Debug.WriteLine($"📁 [ExecuteCreateNewMemoryFileAsync] Created memory files directory: {memoryFilesDir}");
-                }
-
-                // Get filename from input field
-                string fileName = string.IsNullOrWhiteSpace(MemoryFileName)
-                    ? $"Memory_{SelectedNode.Name}_{DateTime.Now:yyyyMMdd_HHmmss}"
-                    : MemoryFileName.Trim();
-
-                if (string.IsNullOrWhiteSpace(fileName))
-                {
-                    await ShowAlert?.Invoke("Error", "Please enter a name for the memory file.", "OK");
-                    return;
-                }
-
-                // Validate filename - remove invalid characters
-                char[] invalidChars = Path.GetInvalidFileNameChars();
-                foreach (char c in invalidChars)
-                {
-                    fileName = fileName.Replace(c, '_');
-                }
-
-                // Ensure .txt extension
-                if (!fileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
-                {
-                    fileName += ".txt";
-                }
-
-                string fullFilePath = Path.Combine(memoryFilesDir, fileName);
-
-                // Check if file already exists
-                if (File.Exists(fullFilePath))
-                {
-                    bool overwrite = await Application.Current.MainPage.DisplayAlert(
-                        "File Exists",
-                        $"A file named '{fileName}' already exists. Do you want to overwrite it?",
-                        "Yes", "No");
-
-                    if (!overwrite)
-                    {
-                        Debug.WriteLine($"❌ [ExecuteCreateNewMemoryFileAsync] File creation cancelled - user chose not to overwrite");
-                        return;
-                    }
-                }
-
-                // Create the file with initial content
-                string initialContent = $"# Memory File for {SelectedNode.Name}\n" +
-                                      $"Created: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n" +
-                                      $"Node Type: {SelectedNode.Type}\n" +
-                                      $"Data Type: {SelectedNode.DataType}\n\n" +
-                                      $"## Memory Contents\n" +
-                                      $"This file will store outputs from the '{SelectedNode.Name}' node.\n\n";
-
-                await File.WriteAllTextAsync(fullFilePath, initialContent);
-
-                // Update the selected node's save file path
-                SelectedNode.SaveFilePath = fullFilePath;
-
-                Debug.WriteLine($"✅ [ExecuteCreateNewMemoryFileAsync] Memory file created: {fullFilePath}");
-
-                // Persist the pipeline to save the file selection
-                await SaveCurrentPipelineAsync();
-
-                Debug.WriteLine($"💾 [ExecuteCreateNewMemoryFileAsync] Pipeline saved with new memory file path");
-
-                // Clear the memory file name input for next use
-                MemoryFileName = "";
-
-                // Show success message
-                await ShowAlert?.Invoke("Success", $"Memory file '{fileName}' created successfully!", "OK");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"⚠️ [ExecuteCreateNewMemoryFileAsync] Error creating memory file: {ex.Message}");
-                await ShowAlert?.Invoke("Error", $"Failed to create memory file: {ex.Message}", "OK");
-            }
-        }
+        // --- File Management Operations (Delegated to FileManagementService) ---
+        // File selection and memory file creation operations are now handled by FileManagementService
 
         // --- Output Routing Implementation ---
         private async Task RouteOutputToConnectedFileNodesAsync(NodeViewModel sourceNode, string contentType, string content, int stepIndex)

@@ -40,6 +40,7 @@ namespace CSimple.Extensions
             services.AddSingleton<IPipelineExecutionValidationService, PipelineExecutionValidationService>();
             services.AddSingleton<IModelLoadingManagementService, ModelLoadingManagementService>();
             services.AddSingleton<IActionReviewNavigationService, ActionReviewNavigationService>();
+            services.AddSingleton<IFileManagementService, FileManagementService>();
 
             // Application Mode and UI Services
             services.AddSingleton<AppModeService>();
