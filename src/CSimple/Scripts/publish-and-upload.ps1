@@ -497,6 +497,92 @@ pause
 "@
     Set-Content -Path $batchPath -Value $batchContent
     
+    # Create README.md for end users in version directory
+    $readmePath = Join-Path $versionDir "README.md"
+    $readmeContent = @"
+# Simple App Installation Guide
+
+**Version:** $appVersion  
+**Build Date:** $releaseDate
+
+## Quick Installation (Recommended)
+
+### Option 1: Automated Installation
+1. **Run the installer:** Double-click `install.bat`
+2. **Follow prompts:** The script will automatically install the certificate and application
+3. **Done!** The app will be available in your Start menu
+
+### Option 2: Manual Installation
+
+#### Step 1: Install Certificate
+Before installing the application, you must install the security certificate:
+
+1. **Locate the certificate:** Find `$certFileName` in this folder
+2. **Install certificate:**
+   - Double-click on `$certFileName`
+   - Click "Open" if you see a security warning
+   - In the Certificate window, click "Install Certificate"
+   - Select **"Local Machine"** and click "Next" (requires admin rights)
+   - Select **"Place all certificates in the following store"**
+   - Click "Browse" and select **"Trusted Root Certification Authorities"**
+   - Click "Next" and then "Finish"
+   - Confirm the security warning by clicking "Yes"
+
+#### Step 2: Install Application
+After the certificate is installed:
+
+1. **Locate the app:** Find `$msixFileName` in this folder
+2. **Install app:** Double-click on `$msixFileName`
+3. **Complete installation:** Click "Install" and wait for completion
+4. **Launch:** Find "Simple" in your Start menu
+
+## Files in This Folder
+
+| File | Description |
+|------|-------------|
+| `$msixFileName` | Main application installer |
+| `$certFileName` | Security certificate (required) |
+| `install.bat` | Automated installation script |
+| `installation-instructions.txt` | Detailed text instructions |
+| `README.md` | This file |
+
+## Troubleshooting
+
+### "Certificate not trusted" error
+- Make sure you completed Step 1 correctly
+- Ensure you selected "Local Machine" and "Trusted Root Certification Authorities"
+- Try restarting your computer after installing the certificate
+
+### Installation fails
+- Run as Administrator: Right-click `install.bat` → "Run as administrator"
+- Check Windows version: Requires Windows 10 version 1809 or later
+- Ensure you have sufficient disk space
+
+### App won't start
+- Check if Windows Defender or antivirus is blocking the app
+- Add an exception for the Simple app in your security software
+
+## System Requirements
+
+- **OS:** Windows 10 version 1809 or later
+- **Privileges:** Administrator rights (for certificate installation)
+- **Architecture:** x64 (64-bit)
+
+## Updates
+
+When updates are available:
+- You only need to install the new MSIX file (Step 2)
+- **No need to reinstall the certificate** for updates
+
+## Support
+
+For technical support or issues, please visit our project repository or contact support.
+
+---
+*Installation completed successfully? The Simple app should now be available in your Start menu!*
+"@
+    Set-Content -Path $readmePath -Value $readmeContent -Encoding UTF8
+    
     # Create a version.txt in version directory (for backward compatibility)
     Set-Content -Path (Join-Path $versionDir "version.txt") -Value $appVersion
     
