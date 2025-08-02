@@ -364,25 +364,17 @@ function New-UserReadme {
     Write-Host "User README created at $readmePath" -ForegroundColor Green
 }
 
-# Function to create version tracking files
-function New-VersionFiles {
+# Function to create build info file (primary build information source)
+function New-BuildInfoFile {
     param (
         [string]$versionDir,
-        [string]$appVersion,
-        [int]$currentRevision,
         [string]$buildInfoPath
     )
     
-    # Create a version.txt in version directory (for backward compatibility)
-    Set-Content -Path (Join-Path $versionDir "version.txt") -Value $appVersion
-    
-    # Create a revision.txt in version directory (for backward compatibility)
-    Set-Content -Path (Join-Path $versionDir "revision.txt") -Value $currentRevision
-    
-    # Copy build-info.json to version directory
+    # Copy build-info.json to version directory as the single source of build information
     Copy-Item -Path $buildInfoPath -Destination (Join-Path $versionDir "build-info.json") -Force
     
-    Write-Host "Version tracking files created in $versionDir" -ForegroundColor Green
+    Write-Host "Build info file copied to $versionDir (primary build information source)" -ForegroundColor Green
 }
 
 # Main function to create all documentation files
@@ -393,7 +385,6 @@ function New-InstallationDocumentation {
         [string]$releaseDate,
         [string]$certFileName,
         [string]$msixFileName,
-        [int]$currentRevision,
         [string]$buildInfoPath
     )
     
@@ -409,7 +400,7 @@ function New-InstallationDocumentation {
     New-BatchInstaller -batchPath $batchPath -appVersion $appVersion -certFileName $certFileName -msixFileName $msixFileName
     New-PowerShellInstaller -psInstallerPath $psInstallerPath -appVersion $appVersion -certFileName $certFileName -msixFileName $msixFileName
     New-UserReadme -readmePath $readmePath -appVersion $appVersion -releaseDate $releaseDate -certFileName $certFileName -msixFileName $msixFileName
-    New-VersionFiles -versionDir $versionDir -appVersion $appVersion -currentRevision $currentRevision -buildInfoPath $buildInfoPath
+    New-BuildInfoFile -versionDir $versionDir -buildInfoPath $buildInfoPath
     
     Write-Host "All installation documentation created successfully!" -ForegroundColor Green
 }

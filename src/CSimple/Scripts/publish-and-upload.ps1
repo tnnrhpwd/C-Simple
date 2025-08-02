@@ -384,7 +384,7 @@ try {
     Copy-Item -Path $certResult.CerPath -Destination (Join-Path $versionDir $certFileName) -Force
     
     # Create all installation documentation using the documentation service
-    New-InstallationDocumentation -versionDir $versionDir -appVersion $appVersion -releaseDate $releaseDate -certFileName $certFileName -msixFileName $msixFileName -currentRevision $currentRevision -buildInfoPath $buildInfoPath
+    New-InstallationDocumentation -versionDir $versionDir -appVersion $appVersion -releaseDate $releaseDate -certFileName $certFileName -msixFileName $msixFileName -buildInfoPath $buildInfoPath
     
     # Update release metadata
     Update-ReleaseMetadata -metadataPath $releaseMetadataPath -version $appVersion -revision $currentRevision -releaseDate $releaseDate
