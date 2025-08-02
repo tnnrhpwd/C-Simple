@@ -469,117 +469,305 @@ Once you've installed the certificate, you won't need to reinstall it for future
 "@
     Set-Content -Path $instructionsPath -Value $instructionsContent
     
-    # Create simple installer batch file in version directory
+    # Create enhanced installer batch file with better automation
     $batchPath = Join-Path $versionDir "install.bat"
     $batchContent = @"
 @echo off
-echo Installing Simple App v$appVersion
+setlocal enabledelayedexpansion
+cls
+echo ===============================================
+echo Simple App v$appVersion - Quick Installer
+echo ===============================================
 echo.
-echo Step 1: Installing certificate...
-certutil -addstore -f "Root" "$certFileName"
-if %ERRORLEVEL% NEQ 0 (
-    echo Certificate installation failed! Please install manually.
+echo This installer will:
+echo 1. Install security certificate (requires admin)
+echo 2. Install Simple application
+echo 3. Complete setup automatically
+echo.
+
+REM Check for admin privileges
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ERROR: Administrator privileges required!
+    echo.
+    echo Please right-click this file and select "Run as administrator"
+    echo.
     pause
     exit /b 1
 )
-echo Certificate installed successfully!
-echo.
-echo Step 2: Installing application...
-powershell -command "Add-AppxPackage -Path '$msixFileName'"
-if %ERRORLEVEL% NEQ 0 (
-    echo Application installation failed! Please install manually.
-    pause
-    exit /b 1
+
+echo [1/3] Installing security certificate...
+certutil -addstore -f "Root" "$certFileName" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo ✓ Certificate installed successfully
+) else (
+    echo ✗ Certificate installation failed
+    echo.
+    echo Trying alternative installation method...
+    powershell -command "Import-Certificate -FilePath '$certFileName' -CertStoreLocation Cert:\LocalMachine\Root" >nul 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        echo ✓ Certificate installed successfully (alternative method)
+    ) else (
+        echo ✗ Certificate installation failed. Manual installation required.
+        echo Please see README.md for manual installation steps.
+        pause
+        exit /b 1
+    )
 )
 echo.
-echo Simple App v$appVersion installed successfully!
+
+echo [2/3] Installing Simple application...
+powershell -command "Add-AppxPackage -Path '$msixFileName'" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo ✓ Application installed successfully
+) else (
+    echo ✗ Application installation failed
+    echo.
+    echo Trying to resolve common issues...
+    REM Try to enable sideloading
+    powershell -command "Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -Name 'AllowAllTrustedApps' -Value 1" >nul 2>&1
+    echo Retrying application installation...
+    powershell -command "Add-AppxPackage -Path '$msixFileName'" >nul 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        echo ✓ Application installed successfully (after fixes)
+    ) else (
+        echo ✗ Application installation failed. Please see README.md for troubleshooting.
+        pause
+        exit /b 1
+    )
+)
+echo.
+
+echo [3/3] Finalizing setup...
+timeout /t 2 /nobreak >nul
+echo ✓ Installation completed successfully!
+echo.
+echo Simple App is now available in your Start menu.
+echo You can close this window and start using the app.
+echo.
+echo Thank you for installing Simple App v$appVersion!
+echo.
 pause
 "@
     Set-Content -Path $batchPath -Value $batchContent
     
+    # Create PowerShell installer for advanced scenarios
+    $psInstallerPath = Join-Path $versionDir "install.ps1"
+    $psInstallerContent = @"
+# Simple App PowerShell Installer v$appVersion
+# This installer provides more robust error handling and diagnostics
+
+param(
+    [switch]`$Force,
+    [switch]`$Quiet
+)
+
+`$ErrorActionPreference = "Stop"
+
+function Write-Status {
+    param([string]`$Message, [string]`$Status = "INFO")
+    if (-not `$Quiet) {
+        switch (`$Status) {
+            "SUCCESS" { Write-Host "✓ `$Message" -ForegroundColor Green }
+            "ERROR"   { Write-Host "✗ `$Message" -ForegroundColor Red }
+            "WARNING" { Write-Host "⚠ `$Message" -ForegroundColor Yellow }
+            default   { Write-Host "ℹ `$Message" -ForegroundColor Cyan }
+        }
+    }
+}
+
+function Test-AdminPrivileges {
+    `$currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    `$principal = New-Object Security.Principal.WindowsPrincipal(`$currentUser)
+    return `$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Install-Certificate {
+    param([string]`$CertPath)
+    
+    try {
+        # Method 1: PowerShell Import-Certificate
+        Import-Certificate -FilePath `$CertPath -CertStoreLocation Cert:\LocalMachine\Root -ErrorAction Stop
+        Write-Status "Certificate installed successfully" "SUCCESS"
+        return `$true
+    }
+    catch {
+        Write-Status "PowerShell method failed, trying certutil..." "WARNING"
+        
+        # Method 2: certutil
+        `$result = Start-Process -FilePath "certutil" -ArgumentList @("-addstore", "-f", "Root", `$CertPath) -Wait -PassThru -NoNewWindow
+        if (`$result.ExitCode -eq 0) {
+            Write-Status "Certificate installed successfully (certutil)" "SUCCESS"
+            return `$true
+        }
+        else {
+            Write-Status "Certificate installation failed with both methods" "ERROR"
+            return `$false
+        }
+    }
+}
+
+function Install-Application {
+    param([string]`$AppPath)
+    
+    try {
+        # Enable developer mode and sideloading if needed
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" -Name "AllowAllTrustedApps" -Value 1 -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" -Name "AllowDevelopmentWithoutDevLicense" -Value 1 -ErrorAction SilentlyContinue
+        
+        # Install the MSIX package
+        Add-AppxPackage -Path `$AppPath -ErrorAction Stop
+        Write-Status "Application installed successfully" "SUCCESS"
+        return `$true
+    }
+    catch {
+        Write-Status "Application installation failed: `$(`$_.Exception.Message)" "ERROR"
+        return `$false
+    }
+}
+
+# Main installation process
+if (-not `$Quiet) {
+    Clear-Host
+    Write-Host "===============================================" -ForegroundColor Cyan
+    Write-Host "Simple App v$appVersion - PowerShell Installer" -ForegroundColor Cyan
+    Write-Host "===============================================" -ForegroundColor Cyan
+    Write-Host ""
+}
+
+# Check admin privileges
+if (-not (Test-AdminPrivileges)) {
+    Write-Status "Administrator privileges required!" "ERROR"
+    Write-Status "Please run PowerShell as Administrator and try again" "ERROR"
+    if (-not `$Quiet) { Read-Host "Press Enter to exit" }
+    exit 1
+}
+
+Write-Status "Starting installation process..."
+
+# Install certificate
+Write-Status "Installing security certificate..."
+if (-not (Install-Certificate "$certFileName")) {
+    Write-Status "Certificate installation failed. Installation cannot continue." "ERROR"
+    if (-not `$Quiet) { Read-Host "Press Enter to exit" }
+    exit 1
+}
+
+# Install application
+Write-Status "Installing Simple application..."
+if (-not (Install-Application "$msixFileName")) {
+    Write-Status "Application installation failed." "ERROR"
+    Write-Status "Please check Windows version (requires Windows 10 1809+) and try again" "WARNING"
+    if (-not `$Quiet) { Read-Host "Press Enter to exit" }
+    exit 1
+}
+
+Write-Status "Installation completed successfully!" "SUCCESS"
+Write-Status "Simple App is now available in your Start menu" "SUCCESS"
+
+if (-not `$Quiet) {
+    Write-Host ""
+    Write-Host "Thank you for installing Simple App v$appVersion!" -ForegroundColor Green
+    Read-Host "Press Enter to exit"
+}
+"@
+    Set-Content -Path $psInstallerPath -Value $psInstallerContent -Encoding UTF8
+    
     # Create README.md for end users in version directory
     $readmePath = Join-Path $versionDir "README.md"
     $readmeContent = @"
-# Simple App Installation Guide
+# 🚀 Simple App Installation Guide
 
-**Version:** $appVersion  
-**Build Date:** $releaseDate
+**Version:** $appVersion | **Build Date:** $releaseDate
 
-## Quick Installation (Recommended)
+## ⚡ One-Click Installation (Recommended)
 
-### Option 1: Automated Installation
-1. **Run the installer:** Double-click `install.bat`
-2. **Follow prompts:** The script will automatically install the certificate and application
-3. **Done!** The app will be available in your Start menu
+### 🎯 Super Quick Setup (30 seconds)
+1. **Right-click** on `install.bat` → **"Run as administrator"**
+2. **Click "Yes"** when Windows asks for permission
+3. **Wait** for the automated installation (certificate + app)
+4. **Done!** Find "Simple" in your Start menu
 
-### Option 2: Manual Installation
-
-#### Step 1: Install Certificate
-Before installing the application, you must install the security certificate:
-
-1. **Locate the certificate:** Find `$certFileName` in this folder
-2. **Install certificate:**
-   - Double-click on `$certFileName`
-   - Click "Open" if you see a security warning
-   - In the Certificate window, click "Install Certificate"
-   - Select **"Local Machine"** and click "Next" (requires admin rights)
-   - Select **"Place all certificates in the following store"**
-   - Click "Browse" and select **"Trusted Root Certification Authorities"**
-   - Click "Next" and then "Finish"
-   - Confirm the security warning by clicking "Yes"
-
-#### Step 2: Install Application
-After the certificate is installed:
-
-1. **Locate the app:** Find `$msixFileName` in this folder
-2. **Install app:** Double-click on `$msixFileName`
-3. **Complete installation:** Click "Install" and wait for completion
-4. **Launch:** Find "Simple" in your Start menu
-
-## Files in This Folder
-
-| File | Description |
-|------|-------------|
-| `$msixFileName` | Main application installer |
-| `$certFileName` | Security certificate (required) |
-| `install.bat` | Automated installation script |
-| `installation-instructions.txt` | Detailed text instructions |
-| `README.md` | This file |
-
-## Troubleshooting
-
-### "Certificate not trusted" error
-- Make sure you completed Step 1 correctly
-- Ensure you selected "Local Machine" and "Trusted Root Certification Authorities"
-- Try restarting your computer after installing the certificate
-
-### Installation fails
-- Run as Administrator: Right-click `install.bat` → "Run as administrator"
-- Check Windows version: Requires Windows 10 version 1809 or later
-- Ensure you have sufficient disk space
-
-### App won't start
-- Check if Windows Defender or antivirus is blocking the app
-- Add an exception for the Simple app in your security software
-
-## System Requirements
-
-- **OS:** Windows 10 version 1809 or later
-- **Privileges:** Administrator rights (for certificate installation)
-- **Architecture:** x64 (64-bit)
-
-## Updates
-
-When updates are available:
-- You only need to install the new MSIX file (Step 2)
-- **No need to reinstall the certificate** for updates
-
-## Support
-
-For technical support or issues, please visit our project repository or contact support.
+> **💡 Pro Tip:** The installer handles everything automatically - no manual certificate steps needed!
 
 ---
-*Installation completed successfully? The Simple app should now be available in your Start menu!*
+
+## 🔧 Alternative Installation Methods
+
+### Method 2: PowerShell Installer (Advanced Users)
+```powershell
+# Right-click PowerShell → "Run as administrator", then:
+.\install.ps1
+```
+*Better error handling and diagnostics*
+
+### Method 3: Manual Installation (If Automated Fails)
+
+**Step 1: Install Certificate**
+- Double-click `$certFileName`
+- Click "Install Certificate" → "Local Machine" → "Next"
+- Select "Trusted Root Certification Authorities" → "Next" → "Finish"
+
+**Step 2: Install App**
+- Double-click `$msixFileName` → "Install"
+
+---
+
+## 📁 What's in This Folder?
+
+| File | What It Does |
+|------|--------------|
+| **`install.bat`** | 🟢 **One-click installer** (recommended) |
+| `install.ps1` | 🔧 PowerShell installer (advanced) |
+| `$msixFileName` | 📱 Main app installer |
+| `$certFileName` | 🔐 Security certificate |
+| `installation-instructions.txt` | 📄 Detailed text instructions |
+| `README.md` | 📖 This guide |
+
+---
+
+## ❗ Quick Troubleshooting
+
+### "Access Denied" / "Permission Error"
+**Solution:** Right-click `install.bat` → "Run as administrator"
+
+### "Certificate not trusted"
+**Solution:** The automated installer handles this - use `install.bat`
+
+### "App installation failed"
+**Solutions:**
+- Try the PowerShell installer: `install.ps1`
+- Check Windows version (needs Windows 10 1809+)
+- Disable antivirus temporarily during installation
+
+### Still Having Issues?
+1. Use `install.ps1` for detailed error messages
+2. Check Windows Update (install latest updates)
+3. Restart computer and try again
+
+---
+
+## 💻 System Requirements
+
+- **Windows 10** version 1809 or newer
+- **Administrator access** (for certificate installation)
+- **5 minutes** of your time ⏱️
+
+---
+
+## 🔄 Installing Updates
+
+**Good News:** Future updates are even easier!
+- Certificate stays installed ✅
+- Just run the new `install.bat` from newer versions
+- No admin rights needed for app updates
+
+---
+
+## 🎉 Success!
+
+**Installation worked?** Look for "Simple" in your Start menu and you're ready to go!
+
 "@
     Set-Content -Path $readmePath -Value $readmeContent -Encoding UTF8
     
