@@ -1,19 +1,21 @@
 # Variables
 $APP_NAME = "Simple"
 $ScriptBaseDir = $PSScriptRoot # Get the directory where the script is located
-$PROJECT_PATH = Join-Path $ScriptBaseDir "src\CSimple\CSimple.csproj"  # Path relative to script location
-$OUTPUT_DIR = Join-Path $ScriptBaseDir "published"  # Publish output folder relative to script
+$PROJECT_PATH = Join-Path $ScriptBaseDir "..\CSimple.csproj"  # Path relative to script location
+$OUTPUT_DIR = (Resolve-Path (Join-Path $ScriptBaseDir "..\..\..\published")).Path  # Publish output folder in base directory
 $TARGET_FRAMEWORK = "net8.0-windows10.0.19041.0"  # Target framework
 $BUILD_CONFIG = "Release"  # Adjust as necessary
-$MSI_OUTPUT_DIR = Join-Path $ScriptBaseDir "msi_output" # MSI output folder relative to script
+$MSI_OUTPUT_DIR = Join-Path $ScriptBaseDir "..\..\..\msi_output" # MSI output folder in base directory
 $newCertPassword = "CSimpleNew"  # Password for the new .pfx file
-$CertDir = Join-Path $ScriptBaseDir "certs" # Certificate directory relative to script
+$CertDir = Join-Path $ScriptBaseDir "..\..\..\certs" # Certificate directory in base directory
 $cerPath = Join-Path $CertDir "SimpleCert.cer"
 $pfxPath = Join-Path $CertDir "CSimple_NewCert.pfx"
 $env:PATH += ";C:\Program Files\dotnet"
 $subject = "CN=CSimple, O=Simple Org, C=US"
-$mappingFilePath = Join-Path $ScriptBaseDir "mapping.txt" # Mapping file relative to script
-$versionFilePath = Join-Path $ScriptBaseDir "version.txt" # File to track version number
+$mappingFilePath = Join-Path $ScriptBaseDir "..\..\..\mapping.txt" # Mapping file in base directory
+
+# Build info file (consolidates version and revision tracking)
+$buildInfoPath = Join-Path $ScriptBaseDir "..\..\..\build-info.json" # Build info file in base directory
 
 # Root destination directory 
 $rootDestDir = "D:\My Drive\Simple"
@@ -63,23 +65,46 @@ function Test-ToolExists {
     return (Get-Command $toolName -ErrorAction SilentlyContinue) -ne $null
 }
 
-# Function to get and increment version
-function Get-IncrementedVersion {
-    if (Test-Path $versionFilePath) {
-        $version = Get-Content $versionFilePath
+# Function to get and increment build info
+function Get-IncrementedBuildInfo {
+    # Load existing build info or create default
+    if (Test-Path $buildInfoPath) {
         try {
-            $versionObj = [Version]$version
-            $newVersion = New-Object Version $versionObj.Major, $versionObj.Minor, ($versionObj.Build + 1), $versionObj.Revision
-            return $newVersion.ToString()
+            $buildInfo = Get-Content $buildInfoPath -Raw | ConvertFrom-Json
+            $currentRevision = $buildInfo.revision
+            $currentVersion = $buildInfo.version
         }
         catch {
-            Write-Host "Invalid version format in file. Using 1.0.0.0"
-            return "1.0.0.0"
+            Write-Host "Invalid build info format. Resetting to defaults." -ForegroundColor Yellow
+            $currentRevision = 0
+            $currentVersion = "1.0.0.0"
         }
     }
     else {
-        return "1.0.0.0"
+        Write-Host "Build info file not found. Starting fresh." -ForegroundColor Yellow
+        $currentRevision = 0
+        $currentVersion = "1.0.0.0"
     }
+    
+    # Increment revision
+    $newRevision = $currentRevision + 1
+    
+    # Generate new version (using revision as build number)
+    $versionParts = $currentVersion -split '\.'
+    $newVersion = "$($versionParts[0]).$($versionParts[1]).$newRevision.0"
+    
+    # Create updated build info
+    $newBuildInfo = @{
+        "version"    = $newVersion
+        "revision"   = $newRevision
+        "lastBuild"  = (Get-Date).ToString("o")
+        "buildCount" = $newRevision
+    }
+    
+    # Save updated build info
+    $newBuildInfo | ConvertTo-Json -Depth 5 | Set-Content -Path $buildInfoPath -Encoding UTF8
+    
+    return $newBuildInfo
 }
 
 # Function to get release date in standardized format
@@ -142,6 +167,7 @@ function Update-ReleaseMetadata {
     param (
         [string]$metadataPath,
         [string]$version,
+        [int]$revision,
         [string]$releaseDate,
         [string]$releaseNotes = ""
     )
@@ -164,6 +190,7 @@ function Update-ReleaseMetadata {
     # Add new release info
     $releaseInfo = @{
         "version"     = $version
+        "revision"    = $revision
         "releaseDate" = $releaseDate
         "timestamp"   = (Get-Date).ToString("o")
         "notes"       = $releaseNotes
@@ -213,9 +240,12 @@ if (-not (Test-Path $rootDestDir)) {
     New-Item -ItemType Directory -Path $rootDestDir -Force | Out-Null
 }
 
-# Get version and save it
-$appVersion = Get-IncrementedVersion
-Set-Content -Path $versionFilePath -Value $appVersion
+# Get build info and increment it
+$buildInfo = Get-IncrementedBuildInfo
+$currentRevision = $buildInfo.revision
+$appVersion = $buildInfo.version
+
+Write-Host "Building revision #$currentRevision (v$appVersion)" -ForegroundColor Green
 
 # Get release date for folder naming
 $releaseDate = Get-FormattedReleaseDate
@@ -223,12 +253,11 @@ $releaseDate = Get-FormattedReleaseDate
 # Setup version-specific paths and names
 $versionDirName = "v$appVersion-$releaseDate"
 $versionDir = Join-Path $rootDestDir $versionDirName
-$currentSymlinkDir = Join-Path $rootDestDir "current"
 
 $msixFileName = "$APP_NAME-v$appVersion.msix"
 $certFileName = "$APP_NAME-v$appVersion.cer"
-$MSIX_MANIFEST_PATH = Join-Path $ScriptBaseDir "AppxManifest.xml"
-$MSIX_OUTPUT_PATH = Join-Path $ScriptBaseDir $msixFileName
+$MSIX_MANIFEST_PATH = Join-Path $ScriptBaseDir "..\..\..\AppxManifest.xml"
+$MSIX_OUTPUT_PATH = Join-Path $ScriptBaseDir "..\..\..\$msixFileName"
 
 # Create version directory
 if (Test-Path $versionDir) {
@@ -373,8 +402,15 @@ if (-not $OUTPUT_DIR) {
 
 # Process each file and directory in $OUTPUT_DIR, excluding resources.pri
 Get-ChildItem -Path $OUTPUT_DIR -Recurse -File | Where-Object { $_.Name -ne "resources.pri" } | ForEach-Object {
-    $relativePath = $_.FullName.Substring($OUTPUT_DIR.Length + 1).Replace("\", "/")
-    $mappingContent += "`"$($_.FullName -replace '\\', '/')`" `"$relativePath`"`r`n"
+    # Ensure the file path starts with OUTPUT_DIR (case-insensitive)
+    if ($_.FullName.StartsWith($OUTPUT_DIR, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $relativePath = $_.FullName.Substring($OUTPUT_DIR.Length + 1).Replace("\", "/")
+        $mappingContent += "`"$($_.FullName -replace '\\', '/')`" `"$relativePath`"`r`n"
+    }
+    else {
+        Write-Host "Warning: File path doesn't start with OUTPUT_DIR: $($_.FullName)" -ForegroundColor Yellow
+        Write-Host "  OUTPUT_DIR: $OUTPUT_DIR" -ForegroundColor Yellow
+    }
 }
 
 # Output the mapping file content to a file
@@ -461,25 +497,17 @@ pause
 "@
     Set-Content -Path $batchPath -Value $batchContent
     
-    # Update the "current" symlink (remove and recreate)
-    if (Test-Path $currentSymlinkDir) {
-        # In PowerShell, we need to recreate the directory instead of using a true symlink
-        Remove-Item -Path $currentSymlinkDir -Force -Recurse
-    }
+    # Create a version.txt in version directory (for backward compatibility)
+    Set-Content -Path (Join-Path $versionDir "version.txt") -Value $appVersion
     
-    # Create "current" directory and copy the latest files
-    New-Item -ItemType Directory -Path $currentSymlinkDir -Force | Out-Null
-    Copy-Item -Path "$versionDir\*" -Destination $currentSymlinkDir -Recurse -Force
+    # Create a revision.txt in version directory (for backward compatibility)
+    Set-Content -Path (Join-Path $versionDir "revision.txt") -Value $currentRevision
     
-    # Create latest version aliases with generic names (without version)
-    Copy-Item -Path (Join-Path $versionDir $msixFileName) -Destination (Join-Path $currentSymlinkDir "$APP_NAME-latest.msix") -Force
-    Copy-Item -Path (Join-Path $versionDir $certFileName) -Destination (Join-Path $currentSymlinkDir "$APP_NAME-latest.cer") -Force
-    
-    # Create a version.txt in current directory
-    Set-Content -Path (Join-Path $currentSymlinkDir "version.txt") -Value $appVersion
+    # Copy build-info.json to version directory
+    Copy-Item -Path $buildInfoPath -Destination (Join-Path $versionDir "build-info.json") -Force
     
     # Update release metadata
-    Update-ReleaseMetadata -metadataPath $releaseMetadataPath -version $appVersion -releaseDate $releaseDate
+    Update-ReleaseMetadata -metadataPath $releaseMetadataPath -version $appVersion -revision $currentRevision -releaseDate $releaseDate
     
     # Archive older versions
     Invoke-VersionArchiving -rootPath $rootDestDir -keepCount $maxVersionsToKeep
@@ -497,9 +525,7 @@ if (Test-Path $MSIX_MANIFEST_PATH) { Remove-Item $MSIX_MANIFEST_PATH -Force }
 if (Test-Path $MSIX_OUTPUT_PATH) { Remove-Item $MSIX_OUTPUT_PATH -Force }
 
 Write-Host "Process complete! Files have been published to:" -ForegroundColor Green
-Write-Host "- Latest version: $currentSymlinkDir" -ForegroundColor Green
-Write-Host "- Version specific: $versionDir" -ForegroundColor Green
+Write-Host "- Version directory: $versionDir" -ForegroundColor Green
 Write-Host ""
-Write-Host "Quick access links to share with users:" -ForegroundColor Green
-Write-Host "- Latest MSIX: $(Join-Path $currentSymlinkDir "$APP_NAME-latest.msix")" -ForegroundColor Green
-Write-Host "- Latest Certificate: $(Join-Path $currentSymlinkDir "$APP_NAME-latest.cer")" -ForegroundColor Green
+Write-Host "MSIX package: $(Join-Path $versionDir $msixFileName)" -ForegroundColor Green
+Write-Host "Certificate: $(Join-Path $versionDir $certFileName)" -ForegroundColor Green

@@ -464,25 +464,46 @@ powershell -ExecutionPolicy Bypass -File ./generate_structure.ps1
 
    Run the publication script to build, package, and deploy a new version:
 
-   ```bash
-   powershell -ExecutionPolicy Bypass -File ./publish-and-upload.ps1
+   ```powershell
+   powershell -ExecutionPolicy Bypass -Command "Write-Host 'Starting C-Simple Build Process...' -ForegroundColor Cyan; .\src\CSimple\Scripts\publish-and-upload.ps1; Write-Host '--- BUILD PROCESS COMPLETED ---' -ForegroundColor Green"
    ```
 
    This script will:
-   - Increment the version number
+   - **Automatically increment the revision number** (tracked in `revision.txt`)
    - Build and publish the MAUI application
-   - Create and sign an MSIX package
+   - Create and sign an MSIX package with revision-based naming
    - Deploy to the configured destination folder with version tracking
    - Maintain an organized version history
 
-2. **Version Management**
+2. **Revision Management**
+
+   The system automatically manages revision numbers:
+   - **Current Revision**: Stored in `revision.txt` in the project root
+   - **Auto-increment**: Each publish automatically increments the revision
+   - **Naming Convention**: Files are named as `Simple-v1.0.X.0-rY` where X is the revision and Y is the revision number
+   - **Directory Structure**: Version directories include revision info: `v1.0.X.0-rY-YYYY.MM.DD`
+   
+   To check the current revision:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -Command "Write-Host 'Current Build Information:' -ForegroundColor Yellow; Get-Content .\build-info.json | ConvertFrom-Json | Format-List"
+   ```
+
+   Or check revision only:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -Command "Write-Host 'Current Revision:' -ForegroundColor Yellow; (Get-Content .\build-info.json | ConvertFrom-Json).revision"
+   ```
+
+3. **Version Management**
 
    The system maintains:
    - `/current` - Always contains the latest version
-   - `/v1.0.0.0-YYYY.MM.DD` - Version-specific folders
+   - `/v1.0.X.0-rY-YYYY.MM.DD` - Version-specific folders with revision info
    - `/archive` - Older versions automatically archived
+   - `releases.json` - Metadata including version and revision history
 
-3. **Manual Publishing**
+4. **Manual Publishing**
 
    If you prefer to publish manually:
 
