@@ -24,6 +24,9 @@
         <PackageDescription>Simple is a comprehensive productivity application designed to streamline your workflow and enhance automation capabilities.</PackageDescription>
         <!-- Logo and Branding Configuration -->
         <UseWinUI>true</UseWinUI>
+        <WindowsPackageType>MSIX</WindowsPackageType>
+        <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+        <UseWindowsAppSdk>true</UseWindowsAppSdk>
         <!-- (Optional) Pin to a specific version -->
         <!-- <MauiVersion>6.0.101-preview.11.2349</MauiVersion> -->
         <!-- Required for C# Hot Reload -->
@@ -42,7 +45,7 @@
         <GenerateTestArtifacts>True</GenerateTestArtifacts>
         <AppInstallerUri>C:/</AppInstallerUri>
         <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
-        <PackageCertificateThumbprint>04A35983A3D8F28C11C7C4A7B4531F0920E46DE0</PackageCertificateThumbprint>
+        <PackageCertificateThumbprint>5F47B67FF3CE766F4ABB13BF336003DE3A643861</PackageCertificateThumbprint>
     </PropertyGroup>
     <!-- To generate MSIX as part of dotnet publish -->
     <PropertyGroup Condition="$(TargetFramework.Contains('-windows')) and '$(Configuration)' == 'Release'">
@@ -96,6 +99,8 @@
         </Content>
     </ItemGroup>
     <ItemGroup>
+        <PackageReference Include="Microsoft.WindowsAppSDK"
+                          Version="1.5.240802000" />
         <PackageReference Include="Microsoft.Maui.Controls"
                           Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.Maui.Controls.Compatibility"

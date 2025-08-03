@@ -204,12 +204,42 @@ echo         INSTALLING SIMPLE APP v{0}
 echo ================================================
 echo.
 echo This installer will perform these steps:
+echo 0. Check Windows App Runtime dependency
 echo 1. Install security certificate (requires admin)
 echo 2. Install Simple application
 echo 3. Complete setup and verification
 echo.
 
 echo Starting installation...
+echo.
+
+REM Step 0: Check Windows App Runtime
+echo [0/3] Checking Windows App Runtime dependency...
+echo      - Verifying Windows App Runtime 1.5 is installed...
+powershell -command "Get-AppxPackage -Name '*WindowsAppRuntime.1.5*' | Select-Object -First 1" > runtime_check.txt 2>nul
+findstr /C:"WindowsAppRuntime" runtime_check.txt > nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    color 0C
+    echo [ERROR] Windows App Runtime 1.5 is not installed!
+    echo.
+    echo ================================================
+    echo    MISSING CRITICAL DEPENDENCY
+    echo ================================================
+    echo.
+    echo Windows App Runtime 1.5 is required for Simple App to run.
+    echo.
+    echo Please follow these steps:
+    echo 1. Download Windows App Runtime 1.5 from:
+    echo    https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads
+    echo 2. Install the runtime package for your system
+    echo 3. Run this installer again
+    echo.
+    echo Press any key to exit...
+    pause >nul
+    goto cleanup_and_exit
+) else (
+    echo [OK] Windows App Runtime 1.5 found
+)
 echo.
 
 REM Step 1: Certificate Installation
@@ -363,6 +393,7 @@ goto installation_failed
 REM Clean up temporary files
 del temp_check.txt 2>nul
 del verify_check.txt 2>nul
+del runtime_check.txt 2>nul
 color 07
 
 REM Failsafe - ensure window doesn't close unexpectedly
@@ -431,6 +462,26 @@ function Test-AdminPrivileges {
     return `$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Test-WindowsAppRuntime {
+    try {
+        `$runtime = Get-AppxPackage -Name "*WindowsAppRuntime.1.5*" -ErrorAction SilentlyContinue
+        if (`$runtime) {
+            Write-Status "Windows App Runtime 1.5 found: Version `$(`$runtime[0].Version)" "SUCCESS"
+            return `$true
+        }
+        else {
+            Write-Status "Windows App Runtime 1.5 not found!" "ERROR"
+            Write-Status "Please install Windows App Runtime 1.5 from:" "ERROR"
+            Write-Status "https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads" "ERROR"
+            return `$false
+        }
+    }
+    catch {
+        Write-Status "Error checking Windows App Runtime: `$(`$_.Exception.Message)" "ERROR"
+        return `$false
+    }
+}
+
 function Install-Certificate {
     param([string]`$CertPath)
     
@@ -494,6 +545,15 @@ if (-not (Test-AdminPrivileges)) {
 
 Write-Status "Starting installation process..."
 
+# Check Windows App Runtime
+Write-Status "Checking Windows App Runtime..."
+if (-not (Test-WindowsAppRuntime)) {
+    Write-Status "Windows App Runtime 1.5 is required but not found!" "ERROR"
+    Write-Status "Please install it first, then run this installer again." "ERROR"
+    if (-not `$Quiet) { Read-Host "Press Enter to exit" }
+    exit 1
+}
+
 # Install certificate
 Write-Status "Installing security certificate..."
 if (-not (Install-Certificate "$certFileName")) {
@@ -537,7 +597,19 @@ function New-UserReadme {
     $readmeContent = @"
 # Simple App Installation Instructions (v$appVersion)
 
-## First-Time Installation
+⚠️ **IMPORTANT PREREQUISITES** ⚠️
+
+**Before installing Simple App, you MUST install Windows App Runtime:**
+
+1. **Download and install Microsoft Windows App Runtime 1.5** from:
+   - https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads
+   - Or direct link: https://aka.ms/WindowsAppRuntime/1.5/Latest/download
+   
+2. **Install BOTH packages for your system architecture:**
+   - Microsoft.WindowsAppRuntime.1.5.x64.msix (for 64-bit systems)
+   - Microsoft.WindowsAppRuntime.1.5.x86.msix (for 32-bit systems, if needed)
+
+## Certificate Installation (Required)
 
 Before installing the Simple app (v$appVersion), you need to install the certificate:
 
@@ -550,7 +622,9 @@ Before installing the Simple app (v$appVersion), you need to install the certifi
 7. Click "Next" and then "Finish"
 8. Confirm the security warning by clicking "Yes"
 
-After installing the certificate, you can install the app:
+## Application Installation
+
+After installing both the Windows App Runtime AND the certificate:
 1. Double-click on the file: $msixFileName
 2. Click "Install"
 
