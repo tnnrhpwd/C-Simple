@@ -57,7 +57,7 @@ REM Check for admin privileges first
 echo Verifying administrator privileges...
 net session >nul 2>&1
 if %errorlevel% neq 0 (
-    color 0C
+    color 07
     echo.
     echo ===============================================
     echo        ADMINISTRATOR ACCESS REQUIRED
@@ -177,7 +177,7 @@ if !ERRORLEVEL! EQU 0 (
     pause >nul
     goto cleanup_and_exit
 ) else (
-    color 0C
+    color 07
     echo [ERROR] Failed to uninstall Simple App
     echo.
     echo Please try uninstalling manually:
@@ -215,43 +215,52 @@ echo.
 
 REM Step 0: Check Windows App Runtime
 echo [0/3] Checking Windows App Runtime dependency...
-echo      - Verifying Windows App Runtime 1.5 is installed...
-powershell -command "Get-AppxPackage -Name '*WindowsAppRuntime.1.5*' | Select-Object -First 1" > runtime_check.txt 2>nul
+echo      - Verifying Windows App Runtime 1.5+ is installed...
+powershell -command "Get-AppxPackage -Name '*WindowsAppRuntime*' | Where-Object { $_.Name -match 'WindowsAppRuntime\.1\.[5-9]|WindowsAppRuntime\.CBS' } | Select-Object -First 1" > runtime_check.txt 2>nul
 findstr /C:"WindowsAppRuntime" runtime_check.txt > nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    color 0C
-    echo [ERROR] Windows App Runtime 1.5 is not installed!
+    color 07
+    echo [ERROR] Windows App Runtime 1.5+ is not installed!
     echo.
     echo ================================================
     echo    MISSING CRITICAL DEPENDENCY
     echo ================================================
     echo.
-    echo Windows App Runtime 1.5 is required for Simple App to run.
+    echo Windows App Runtime 1.5 or newer is required for Simple App to run.
     echo.
     echo Please follow these steps:
-    echo 1. Download Windows App Runtime 1.5 from:
+    echo 1. Download Windows App Runtime from:
     echo    https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads
-    echo 2. Install the runtime package for your system
+    echo 2. Install the latest runtime package for your system
     echo 3. Run this installer again
     echo.
     echo Press any key to exit...
     pause >nul
     goto cleanup_and_exit
 ) else (
-    echo [OK] Windows App Runtime 1.5 found
+    echo [OK] Windows App Runtime 1.5+ found
 )
 echo.
 
 REM Step 1: Certificate Installation
 echo [1/3] Installing security certificate...
 echo      - Locating certificate file: {1}
-REM Get the directory where the batch file is located
+REM Get the directory where the batch file is located - use more robust method
 set "SCRIPT_DIR=%~dp0"
+REM Handle case where %~dp0 might be empty or incorrect in elevated mode
+if "%SCRIPT_DIR%"=="" set "SCRIPT_DIR=%CD%\"
+REM Ensure SCRIPT_DIR ends with backslash
+if not "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR%\"
 set "CERT_PATH=%SCRIPT_DIR%{1}"
+echo      - Script directory: %SCRIPT_DIR%
+echo      - Certificate path: %CERT_PATH%
 if not exist "%CERT_PATH%" (
-    color 0C
+    color 07
     echo [ERROR] Certificate file not found: %CERT_PATH%
     echo Please ensure all installation files are in the same folder.
+    echo Current directory: %CD%
+    echo Looking for: {1}
+    dir "%SCRIPT_DIR%" /B | findstr /I "\.cer"
     goto installation_failed
 )
 
@@ -259,28 +268,36 @@ echo      - Installing certificate to trusted root store...
 certutil -addstore -f "Root" "%CERT_PATH%" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     echo [OK] Certificate installed successfully
-) else (
-    echo [WARNING] Primary certificate installation failed
-    echo      - Trying alternative PowerShell method...
-    powershell -command "Import-Certificate -FilePath '%CERT_PATH%' -CertStoreLocation Cert:\LocalMachine\Root" >nul 2>&1
-    if !ERRORLEVEL! EQU 0 (
-        echo [OK] Certificate installed successfully (alternative method)
-    ) else (
-        color 0C
-        echo [ERROR] Certificate installation failed with both methods
-        goto installation_failed
-    )
+    goto cert_install_complete
 )
+
+echo [WARNING] Primary certificate installation failed
+echo      - Trying alternative PowerShell method...
+powershell -command "Import-Certificate -FilePath '%CERT_PATH%' -CertStoreLocation Cert:\LocalMachine\Root" >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    echo [OK] Certificate installed successfully (alternative method)
+    goto cert_install_complete
+)
+
+color 07
+echo [ERROR] Certificate installation failed with both methods
+goto installation_failed
+
+:cert_install_complete
 echo.
 
 REM Step 2: Application Installation
 echo [2/3] Installing Simple application...
 echo      - Locating application package: {2}
 set "MSIX_PATH=%SCRIPT_DIR%{2}"
+echo      - MSIX package path: %MSIX_PATH%
 if not exist "%MSIX_PATH%" (
-    color 0C
+    color 07
     echo [ERROR] Application package not found: %MSIX_PATH%
     echo Please ensure all installation files are in the same folder.
+    echo Current directory: %CD%
+    echo Looking for: {2}
+    dir "%SCRIPT_DIR%" /B | findstr /I "\.msix"
     goto installation_failed
 )
 
@@ -291,34 +308,69 @@ echo      - Installing application package...
 powershell -command "Add-AppxPackage -Path '%MSIX_PATH%'" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     echo [OK] Application installed successfully
-) else (
-    echo [WARNING] Initial installation attempt failed
-    echo      - Analyzing common issues...
-    echo      - Attempting installation with dependency resolution...
-    powershell -command "Add-AppxPackage -Path '%MSIX_PATH%' -ForceApplicationShutdown" >nul 2>&1
-    if !ERRORLEVEL! EQU 0 (
-        echo [OK] Application installed successfully (with force shutdown)
-    ) else (
-        color 0C
-        echo [ERROR] Application installation failed
-        goto installation_failed
-    )
+    goto app_install_complete
 )
+
+echo [WARNING] Initial installation attempt failed
+echo      - Analyzing common issues...
+echo      - Attempting installation with dependency resolution...
+powershell -command "Add-AppxPackage -Path '%MSIX_PATH%' -ForceApplicationShutdown" >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    echo [OK] Application installed successfully (with force shutdown)
+    goto app_install_complete
+)
+
+color 07
+echo [ERROR] Application installation failed
+goto installation_failed
+
+:app_install_complete
 echo.
 
 REM Step 3: Verification and Finalization
 echo [3/3] Finalizing installation and verification...
 echo      - Verifying application registration...
 timeout /t 2 /nobreak >nul
-powershell -command "Get-AppxPackage -Name '*CSimple*' | Select-Object -First 1" > verify_check.txt 2>nul
-findstr /C:"Name" verify_check.txt > nul 2>&1
+
+REM Try multiple verification methods to ensure we catch the installed app
+echo      - Checking for Simple App installation...
+powershell -command "Get-AppxPackage | Where-Object { $_.Name -like '*Simple*' -or $_.DisplayName -like '*Simple*' -or $_.Name -like '*CSimple*' } | Select-Object Name, DisplayName, Version | Format-List" > verify_check.txt 2>nul
+
+REM Check if we found any Simple-related packages
+findstr /I /C:"Name" verify_check.txt > nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     echo [OK] Application verified and registered successfully
+    echo      - Application details:
+    type verify_check.txt
 ) else (
-    color 0C
-    echo [ERROR] Application verification failed
-    goto installation_failed
+    echo [WARNING] Standard verification failed, trying alternative method...
+    REM Try broader search
+    powershell -command "Get-AppxPackage | Where-Object { $_.Name -match 'Simple|CSimple' } | Select-Object Name, DisplayName, PackageFamilyName | Format-List" > verify_check2.txt 2>nul
+    findstr /I /C:"Name" verify_check2.txt > nul 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        echo [OK] Application verified with alternative method
+        echo      - Application details:
+        type verify_check2.txt
+    ) else (
+        color 07
+        echo [ERROR] Application verification failed - app may not be properly registered
+        echo      - Checking if MSIX file was processed...
+        if exist "%MSIX_PATH%" (
+            echo [INFO] MSIX file exists, installation may have succeeded despite verification failure
+            echo [INFO] Try launching the app from Start menu or try manual verification
+            echo.
+            echo Would you like to continue anyway? (Y/N):
+            set /p continue_choice="Enter your choice: "
+            if /I "!continue_choice!"=="Y" (
+                echo [INFO] Continuing with setup completion...
+                goto verification_complete
+            )
+        )
+        goto installation_failed
+    )
 )
+
+:verification_complete
 
 echo      - Setting up application shortcuts...
 timeout /t 1 /nobreak >nul
@@ -393,6 +445,7 @@ goto installation_failed
 REM Clean up temporary files
 del temp_check.txt 2>nul
 del verify_check.txt 2>nul
+del verify_check2.txt 2>nul
 del runtime_check.txt 2>nul
 color 07
 
@@ -411,9 +464,9 @@ echo.
 exit /b 0
 '@
     
-    # Use string formatting to replace placeholders
+    # Use string replacement instead of -f operator to avoid brace conflicts
     try {
-        $finalBatchContent = $batchContent -f $appVersion, $certFileName, $msixFileName
+        $finalBatchContent = $batchContent.Replace("{0}", $appVersion).Replace("{1}", $certFileName).Replace("{2}", $msixFileName)
         Set-Content -Path $batchPath -Value $finalBatchContent -Encoding UTF8
         Write-Host "Enhanced batch installer created at $batchPath" -ForegroundColor Green
     }
@@ -464,14 +517,15 @@ function Test-AdminPrivileges {
 
 function Test-WindowsAppRuntime {
     try {
-        `$runtime = Get-AppxPackage -Name "*WindowsAppRuntime.1.5*" -ErrorAction SilentlyContinue
+        `$runtime = Get-AppxPackage -Name "*WindowsAppRuntime*" -ErrorAction SilentlyContinue | Where-Object { `$_.Name -match "WindowsAppRuntime\.1\.[5-9]|WindowsAppRuntime\.CBS" }
         if (`$runtime) {
-            Write-Status "Windows App Runtime 1.5 found: Version `$(`$runtime[0].Version)" "SUCCESS"
+            `$latestVersion = (`$runtime | Sort-Object Version -Descending)[0]
+            Write-Status "Windows App Runtime 1.5+ found: `$(`$latestVersion.Name) Version `$(`$latestVersion.Version)" "SUCCESS"
             return `$true
         }
         else {
-            Write-Status "Windows App Runtime 1.5 not found!" "ERROR"
-            Write-Status "Please install Windows App Runtime 1.5 from:" "ERROR"
+            Write-Status "Windows App Runtime 1.5+ not found!" "ERROR"
+            Write-Status "Please install Windows App Runtime 1.5 or newer from:" "ERROR"
             Write-Status "https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads" "ERROR"
             return `$false
         }
@@ -601,13 +655,14 @@ function New-UserReadme {
 
 **Before installing Simple App, you MUST install Windows App Runtime:**
 
-1. **Download and install Microsoft Windows App Runtime 1.5** from:
+1. **Download and install Microsoft Windows App Runtime 1.5 or newer** from:
    - https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads
-   - Or direct link: https://aka.ms/WindowsAppRuntime/1.5/Latest/download
+   - Or direct link: https://aka.ms/WindowsAppRuntime/Latest/download
    
-2. **Install BOTH packages for your system architecture:**
-   - Microsoft.WindowsAppRuntime.1.5.x64.msix (for 64-bit systems)
-   - Microsoft.WindowsAppRuntime.1.5.x86.msix (for 32-bit systems, if needed)
+2. **Install the appropriate package for your system architecture:**
+   - Choose the latest available version (1.5, 1.6, 1.7, or newer)
+   - Select x64 package for 64-bit systems, x86 for 32-bit systems if needed
+   - Note: Most modern systems use x64 architecture
 
 ## Certificate Installation (Required)
 
