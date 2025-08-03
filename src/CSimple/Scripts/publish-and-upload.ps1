@@ -160,7 +160,14 @@ function Update-ReleaseMetadata {
     # Load existing metadata if present
     if (Test-Path $metadataPath) {
         try {
-            $metadata = Get-Content $metadataPath -Raw | ConvertFrom-Json -AsHashtable
+            $jsonContent = Get-Content $metadataPath -Raw | ConvertFrom-Json
+            # Convert PSCustomObject to hashtable manually for compatibility
+            $metadata = @{
+                "releases" = @()
+            }
+            if ($jsonContent.releases) {
+                $metadata.releases = $jsonContent.releases
+            }
         }
         catch {
             Write-Host "Error reading metadata file, creating new one: $_" -ForegroundColor Yellow
