@@ -234,7 +234,7 @@ $versionDirName = "v$appVersion-$releaseDate"
 $versionDir = Join-Path $rootDestDir $versionDirName
 
 $msixFileName = "$APP_NAME-v$appVersion.msix"
-$certFileName = "$APP_NAME-v$appVersion.cer"
+$certFileName = "SimpleCert.cer"  # Use consistent certificate name
 $MSIX_MANIFEST_PATH = Join-Path $ScriptBaseDir "..\..\..\AppxManifest.xml"
 $MSIX_OUTPUT_PATH = Join-Path $ScriptBaseDir "..\..\..\$msixFileName"
 

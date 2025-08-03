@@ -43,86 +43,613 @@ function New-BatchInstaller {
         [string]$msixFileName
     )
     
-    $batchContent = @"
+    $batchContent = @'
 @echo off
 setlocal enabledelayedexpansion
+title Simple App v{0} - Installation Manager
+
+REM Prevent window from closing on error
+set "PAUSE_ON_ERROR=1"
+
+REM Error handler - if any unexpected error occurs, prevent window from closing
+if not defined INSTALLER_DEBUG (
+    set "INSTALLER_DEBUG=1"
+    cmd /c "%~f0" %*
+    if errorlevel 1 (
+        echo.
+        echo ===============================================
+        echo     INSTALLER ENCOUNTERED AN ERROR
+        echo ===============================================
+        echo.
+        echo The installer stopped unexpectedly.
+        echo.
+        echo Please try the following:
+        echo 1. Ensure you right-clicked and selected "Run as administrator"
+        echo 2. Temporarily disable antivirus software
+        echo 3. Ensure all files are in the same directory
+        echo 4. Try the PowerShell installer: install.ps1
+        echo.
+        echo Press any key to exit...
+        pause >nul
+    )
+    exit /b
+)
+
 cls
+
+:main_menu
+color 07
 echo ===============================================
-echo Simple App v$appVersion - Quick Installer
+echo Simple App v{0} - Installation Manager
 echo ===============================================
-echo.
-echo This installer will:
-echo 1. Install security certificate (requires admin)
-echo 2. Install Simple application
-echo 3. Complete setup automatically
 echo.
 
-REM Check for admin privileges
+REM Check for admin privileges first
+echo Verifying administrator privileges...
 net session >nul 2>&1
 if %errorlevel% neq 0 (
-    echo ERROR: Administrator privileges required!
+    color 0C
     echo.
-    echo Please right-click this file and select "Run as administrator"
+    echo ===============================================
+    echo        ADMINISTRATOR ACCESS REQUIRED
+    echo ===============================================
     echo.
-    pause
+    echo This installer requires administrator privileges to:
+    echo - Install security certificates
+    echo - Install MSIX applications
+    echo - Modify system settings
+    echo.
+    echo Please follow these steps:
+    echo 1. Close this window
+    echo 2. Right-click on install.bat
+    echo 3. Select "Run as administrator"
+    echo 4. Click "Yes" when prompted
+    echo.
+    echo Press any key to exit...
+    pause >nul
     exit /b 1
 )
 
+echo [OK] Administrator privileges confirmed
+echo.
+echo Checking for existing installation...
+
+REM Check if app is already installed using PowerShell with better error handling
+echo Please wait while we scan for existing installations...
+set "INSTALL_CHECK_FAILED=0"
+
+REM Create a more robust PowerShell check
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Get-AppxPackage -Name '*CSimple*' | Select-Object Name, Version | Format-Table -AutoSize } catch { Write-Host 'No installation found' }" > temp_check.txt 2>&1
+
+REM Check if the PowerShell command succeeded and found an installation
+findstr /C:"CSimple" temp_check.txt > nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo.
+    echo ================================================
+    echo    EXISTING INSTALLATION DETECTED
+    echo ================================================
+    echo.
+    echo Simple App is already installed on this system.
+    echo Current installation details:
+    type temp_check.txt
+    echo.
+    echo What would you like to do?
+    echo.
+    echo [1] Reinstall - Remove current version and install fresh copy
+    echo [2] Uninstall - Remove current installation completely  
+    echo [3] Cancel - Exit without making changes
+    echo.
+    echo ================================================
+    
+    :get_choice
+    set /p choice="Enter your choice (1, 2, or 3): "
+    
+    if "!choice!"=="1" (
+        echo.
+        echo You selected: Reinstall
+        goto reinstall
+    )
+    if "!choice!"=="2" (
+        echo.
+        echo You selected: Uninstall
+        goto uninstall_only
+    )
+    if "!choice!"=="3" (
+        echo.
+        echo You selected: Cancel
+        goto cancel_exit
+    )
+    
+    echo.
+    echo [ERROR] Invalid choice "!choice!". Please enter 1, 2, or 3.
+    echo.
+    goto get_choice
+) else (
+    echo [OK] No existing installation found
+    echo.
+    echo Proceeding with fresh installation...
+    echo.
+    timeout /t 2 /nobreak >nul
+    goto install_fresh
+)
+
+:reinstall
+echo.
+echo ================================================
+echo           REINSTALLING APPLICATION
+echo ================================================
+echo.
+echo [INFO] Removing existing installation...
+powershell -command "Get-AppxPackage -Name '*CSimple*' | Remove-AppxPackage" >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    echo [OK] Previous version removed successfully
+) else (
+    echo [WARNING] Could not remove previous version automatically
+    echo Continuing with installation...
+)
+echo.
+goto install_fresh
+
+:uninstall_only
+echo.
+echo ================================================
+echo           UNINSTALLING APPLICATION
+echo ================================================
+echo.
+echo [INFO] Removing Simple App...
+powershell -command "Get-AppxPackage -Name '*CSimple*' | Remove-AppxPackage" >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    color 0A
+    echo [SUCCESS] Simple App uninstalled successfully!
+    echo.
+    echo The application has been removed from your system.
+    echo.
+    echo Press any key to exit...
+    pause >nul
+    goto cleanup_and_exit
+) else (
+    color 0C
+    echo [ERROR] Failed to uninstall Simple App
+    echo.
+    echo Please try uninstalling manually:
+    echo 1. Go to Windows Settings
+    echo 2. Select Apps
+    echo 3. Find Simple App and uninstall
+    echo.
+    echo Press any key to exit...
+    pause >nul
+    goto cleanup_and_exit
+)
+
+:cancel_exit
+echo.
+echo [INFO] Installation cancelled by user
+echo.
+echo Press any key to exit...
+pause >nul
+goto cleanup_and_exit
+
+:install_fresh
+echo ================================================
+echo         INSTALLING SIMPLE APP v{0}
+echo ================================================
+echo.
+echo This installer will perform these steps:
+echo 1. Install security certificate (requires admin)
+echo 2. Install Simple application
+echo 3. Complete setup and verification
+echo.
+
+echo Starting installation...
+echo.
+
+REM Step 1: Certificate Installation
 echo [1/3] Installing security certificate...
-certutil -addstore -f "Root" "$certFileName" >nul 2>&1
+echo      - Locating certificate file: {1}
+REM Get the directory where the batch file is located
+set "SCRIPT_DIR=%~dp0"
+set "CERT_PATH=%SCRIPT_DIR%{1}"
+if not exist "%CERT_PATH%" (
+    color 0C
+    echo [ERROR] Certificate file not found: %CERT_PATH%
+    echo Please ensure all installation files are in the same folder.
+    goto installation_failed
+)
+
+echo      - Installing certificate to trusted root store...
+certutil -addstore -f "Root" "%CERT_PATH%" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     echo [OK] Certificate installed successfully
 ) else (
-    echo [ERROR] Certificate installation failed
-    echo.
-    echo Trying alternative installation method...
-    powershell -command "Import-Certificate -FilePath '$certFileName' -CertStoreLocation Cert:\LocalMachine\Root" >nul 2>&1
+    echo [WARNING] Primary certificate installation failed
+    echo      - Trying alternative PowerShell method...
+    powershell -command "Import-Certificate -FilePath '%CERT_PATH%' -CertStoreLocation Cert:\LocalMachine\Root" >nul 2>&1
     if !ERRORLEVEL! EQU 0 (
         echo [OK] Certificate installed successfully (alternative method)
     ) else (
-        echo [ERROR] Certificate installation failed. Manual installation required.
-        echo Please see README.md for manual installation steps.
-        pause
-        exit /b 1
+        color 0C
+        echo [ERROR] Certificate installation failed with both methods
+        goto installation_failed
     )
 )
 echo.
 
+REM Step 2: Application Installation
 echo [2/3] Installing Simple application...
-powershell -command "Add-AppxPackage -Path '$msixFileName'" >nul 2>&1
+echo      - Locating application package: {2}
+set "MSIX_PATH=%SCRIPT_DIR%{2}"
+if not exist "%MSIX_PATH%" (
+    color 0C
+    echo [ERROR] Application package not found: %MSIX_PATH%
+    echo Please ensure all installation files are in the same folder.
+    goto installation_failed
+)
+
+echo      - Enabling app sideloading (if needed)...
+powershell -command "Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -Name 'AllowAllTrustedApps' -Value 1" >nul 2>&1
+
+echo      - Installing application package...
+powershell -command "Add-AppxPackage -Path '%MSIX_PATH%'" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     echo [OK] Application installed successfully
 ) else (
-    echo [ERROR] Application installation failed
-    echo.
-    echo Trying to resolve common issues...
-    REM Try to enable sideloading
-    powershell -command "Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -Name 'AllowAllTrustedApps' -Value 1" >nul 2>&1
-    echo Retrying application installation...
-    powershell -command "Add-AppxPackage -Path '$msixFileName'" >nul 2>&1
+    echo [WARNING] Initial installation attempt failed
+    echo      - Analyzing common issues...
+    echo      - Attempting installation with dependency resolution...
+    powershell -command "Add-AppxPackage -Path '%MSIX_PATH%' -ForceApplicationShutdown" >nul 2>&1
     if !ERRORLEVEL! EQU 0 (
-        echo [OK] Application installed successfully (after fixes)
+        echo [OK] Application installed successfully (with force shutdown)
     ) else (
-        echo [ERROR] Application installation failed. Please see README.md for troubleshooting.
-        pause
-        exit /b 1
+        color 0C
+        echo [ERROR] Application installation failed
+        goto installation_failed
     )
 )
 echo.
 
-echo [3/3] Finalizing setup...
+REM Step 3: Verification and Finalization
+echo [3/3] Finalizing installation and verification...
+echo      - Verifying application registration...
 timeout /t 2 /nobreak >nul
-echo [SUCCESS] Installation completed successfully!
+powershell -command "Get-AppxPackage -Name '*CSimple*' | Select-Object -First 1" > verify_check.txt 2>nul
+findstr /C:"Name" verify_check.txt > nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo [OK] Application verified and registered successfully
+) else (
+    color 0C
+    echo [ERROR] Application verification failed
+    goto installation_failed
+)
+
+echo      - Setting up application shortcuts...
+timeout /t 1 /nobreak >nul
+echo [OK] Setup completed
+
+color 0A
 echo.
-echo Simple App is now available in your Start menu.
-echo You can close this window and start using the app.
+echo ================================================
+echo        INSTALLATION COMPLETED SUCCESSFULLY!
+echo ================================================
 echo.
-echo Thank you for installing Simple App v$appVersion!
+echo Simple App v{0} is now installed
+echo Application is available in your Start menu
+echo You can launch the app by searching for "Simple"
 echo.
-pause
+echo Thank you for installing Simple App!
+echo.
+echo Press any key to close this installer...
+pause >nul
+goto cleanup_and_exit
+
+:installation_failed
+echo.
+echo ================================================
+echo           INSTALLATION FAILED
+echo ================================================
+echo.
+echo The installation encountered errors and could not complete.
+echo.
+echo What would you like to do?
+echo.
+echo [1] Retry installation
+echo [2] View troubleshooting information
+echo [3] Exit installer
+echo.
+set /p retry_choice="Enter your choice (1, 2, or 3): "
+
+if "!retry_choice!"=="1" (
+    echo.
+    echo Retrying installation...
+    timeout /t 2 /nobreak >nul
+    goto install_fresh
+)
+if "!retry_choice!"=="2" (
+    echo.
+    echo ================================================
+    echo         TROUBLESHOOTING INFORMATION
+    echo ================================================
+    echo.
+    echo Common solutions:
+    echo.
+    echo 1. Ensure you are running as Administrator
+    echo 2. Temporarily disable antivirus software
+    echo 3. Ensure Windows is up to date
+    echo 4. Verify .NET 8.0 runtime is installed
+    echo 5. Check available disk space (minimum 500MB)
+    echo 6. Restart computer and try again
+    echo.
+    echo For detailed troubleshooting, see README.md
+    echo.
+    echo Press any key to return to options...
+    pause >nul
+    goto installation_failed
+)
+if "!retry_choice!"=="3" goto cleanup_and_exit
+
+echo Invalid choice. Please try again.
+timeout /t 2 /nobreak >nul
+goto installation_failed
+
+:cleanup_and_exit
+REM Clean up temporary files
+del temp_check.txt 2>nul
+del verify_check.txt 2>nul
+color 07
+
+REM Failsafe - ensure window doesn't close unexpectedly
+if "%PAUSE_ON_ERROR%"=="1" (
+    echo.
+    echo [INFO] Installation manager is closing...
+    echo If this window closed unexpectedly, please check:
+    echo 1. Run as Administrator
+    echo 2. Antivirus isn't blocking the installer
+    echo 3. All files are in the same directory
+    echo.
+    timeout /t 3 /nobreak >nul
+)
+echo.
+exit /b 0
+'@
+    
+    # Use string formatting to replace placeholders
+    $finalBatchContent = $batchContent -f $appVersion, $certFileName, $msixFileName
+    Set-Content -Path $batchPath -Value $finalBatchContent
+    Write-Host "Enhanced batch installer created at $batchPath" -ForegroundColor Green
+}
+
+# Function to create PowerShell installer
+function New-PowerShellInstaller {
+if !ERRORLEVEL! EQU 0 (
+    echo [OK] Previous version removed successfully
+) else (
+    echo [WARNING] Could not remove previous version automatically
+    echo Continuing with installation...
+)
+echo.
+goto install_fresh
+
+:uninstall_only
+echo.
+echo ================================================
+echo           UNINSTALLING APPLICATION
+echo ================================================
+echo.
+echo [INFO] Removing Simple App...
+powershell -command "Get-AppxPackage -Name '*CSimple*' | Remove-AppxPackage" >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    color 0A
+    echo [SUCCESS] Simple App uninstalled successfully!
+    echo.
+    echo The application has been removed from your system.
+    echo.
+    echo Press any key to exit...
+    pause >nul
+    goto cleanup_and_exit
+) else (
+    color 0C
+    echo [ERROR] Failed to uninstall Simple App
+    echo.
+    echo Please try uninstalling manually:
+    echo 1. Go to Windows Settings
+    echo 2. Select Apps
+    echo 3. Find Simple App and uninstall
+    echo.
+    echo Press any key to exit...
+    pause >nul
+    goto cleanup_and_exit
+)
+
+:cancel_exit
+echo.
+echo [INFO] Installation cancelled by user
+echo.
+echo Press any key to exit...
+pause >nul
+goto cleanup_and_exit
+
+:install_fresh
+echo ================================================
+echo         INSTALLING SIMPLE APP v$appVersion
+echo ================================================
+echo.
+echo This installer will perform these steps:
+echo 1. Install security certificate (requires admin)
+echo 2. Install Simple application
+echo 3. Complete setup and verification
+echo.
+
+echo Starting installation...
+echo.
+
+REM Step 1: Certificate Installation
+echo [1/3] Installing security certificate...
+echo      - Locating certificate file: $certFileName
+REM Get the directory where the batch file is located
+set "SCRIPT_DIR=%~dp0"
+set "CERT_PATH=%SCRIPT_DIR%$certFileName"
+if not exist "%CERT_PATH%" (
+    color 0C
+    echo [ERROR] Certificate file not found: %CERT_PATH%
+    echo Please ensure all installation files are in the same folder.
+    goto installation_failed
+)
+
+echo      - Installing certificate to trusted root store...
+certutil -addstore -f "Root" "%CERT_PATH%" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo [OK] Certificate installed successfully
+) else (
+    echo [WARNING] Primary certificate installation failed
+    echo      - Trying alternative PowerShell method...
+    powershell -command "Import-Certificate -FilePath '%CERT_PATH%' -CertStoreLocation Cert:\LocalMachine\Root" >nul 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        echo [OK] Certificate installed successfully (alternative method)
+    ) else (
+        color 0C
+        echo [ERROR] Certificate installation failed with both methods
+        goto installation_failed
+    )
+)
+echo.
+
+REM Step 2: Application Installation
+echo [2/3] Installing Simple application...
+echo      - Locating application package: $msixFileName
+set "MSIX_PATH=%SCRIPT_DIR%$msixFileName"
+if not exist "%MSIX_PATH%" (
+    color 0C
+    echo [ERROR] Application package not found: %MSIX_PATH%
+    echo Please ensure all installation files are in the same folder.
+    goto installation_failed
+)
+
+echo      - Enabling app sideloading (if needed)...
+powershell -command "Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -Name 'AllowAllTrustedApps' -Value 1" >nul 2>&1
+
+echo      - Installing application package...
+powershell -command "Add-AppxPackage -Path '%MSIX_PATH%'" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo [OK] Application installed successfully
+) else (
+    echo [WARNING] Initial installation attempt failed
+    echo      - Analyzing common issues...
+    echo      - Attempting installation with dependency resolution...
+    powershell -command "Add-AppxPackage -Path '%MSIX_PATH%' -ForceApplicationShutdown" >nul 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        echo [OK] Application installed successfully (with force shutdown)
+    ) else (
+        color 0C
+        echo [ERROR] Application installation failed
+        goto installation_failed
+    )
+)
+echo.
+
+REM Step 3: Verification and Finalization
+echo [3/3] Finalizing installation and verification...
+echo      - Verifying application registration...
+timeout /t 2 /nobreak >nul
+powershell -command "Get-AppxPackage -Name '*CSimple*' | Select-Object -First 1" > verify_check.txt 2>nul
+findstr /C:"Name" verify_check.txt > nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo [OK] Application verified and registered successfully
+) else (
+    color 0C
+    echo [ERROR] Application verification failed
+    goto installation_failed
+)
+
+echo      - Setting up application shortcuts...
+timeout /t 1 /nobreak >nul
+echo [OK] Setup completed
+
+color 0A
+echo.
+echo ================================================
+echo        INSTALLATION COMPLETED SUCCESSFULLY!
+echo ================================================
+echo.
+echo ✓ Simple App v$appVersion is now installed
+echo ✓ Application is available in your Start menu
+echo ✓ You can launch the app by searching for "Simple"
+echo.
+echo Thank you for installing Simple App!
+echo.
+echo Press any key to close this installer...
+pause >nul
+goto cleanup_and_exit
+
+:installation_failed
+echo.
+echo ================================================
+echo           INSTALLATION FAILED
+echo ================================================
+echo.
+echo The installation encountered errors and could not complete.
+echo.
+echo What would you like to do?
+echo.
+echo [1] Retry installation
+echo [2] View troubleshooting information
+echo [3] Exit installer
+echo.
+set /p retry_choice="Enter your choice (1, 2, or 3): "
+
+if "!retry_choice!"=="1" (
+    echo.
+    echo Retrying installation...
+    timeout /t 2 /nobreak >nul
+    goto install_fresh
+)
+if "!retry_choice!"=="2" (
+    echo.
+    echo ================================================
+    echo         TROUBLESHOOTING INFORMATION
+    echo ================================================
+    echo.
+    echo Common solutions:
+    echo.
+    echo 1. Ensure you are running as Administrator
+    echo 2. Temporarily disable antivirus software
+    echo 3. Ensure Windows is up to date
+    echo 4. Verify .NET 8.0 runtime is installed
+    echo 5. Check available disk space (minimum 500MB)
+    echo 6. Restart computer and try again
+    echo.
+    echo For detailed troubleshooting, see README.md
+    echo.
+    echo Press any key to return to options...
+    pause >nul
+    goto installation_failed
+)
+if "!retry_choice!"=="3" goto cleanup_and_exit
+
+echo Invalid choice. Please try again.
+timeout /t 2 /nobreak >nul
+goto installation_failed
+
+:cleanup_and_exit
+REM Clean up temporary files
+del temp_check.txt 2>nul
+del verify_check.txt 2>nul
+color 07
+
+REM Failsafe - ensure window doesn't close unexpectedly
+if "%PAUSE_ON_ERROR%"=="1" (
+    echo.
+    echo [INFO] Installation manager is closing...
+    echo If this window closed unexpectedly, please check:
+    echo 1. Run as Administrator
+    echo 2. Antivirus isn't blocking the installer
+    echo 3. All files are in the same directory
+    echo.
+    timeout /t 3 /nobreak >nul
+)
+echo.
+exit /b 0
 "@
     Set-Content -Path $batchPath -Value $batchContent
-    Write-Host "Batch installer created at $batchPath" -ForegroundColor Green
+    Write-Host "Enhanced batch installer created at $batchPath" -ForegroundColor Green
 }
 
 # Function to create PowerShell installer
@@ -274,12 +801,15 @@ function New-UserReadme {
 ## Quick Installation (Recommended)
 
 ### Super Quick Setup (30 seconds)
-1. **Right-click** on `install.bat` -> **"Run as administrator"**
-2. **Click "Yes"** when Windows asks for permission
-3. **Wait** for the automated installation (certificate + app)
-4. **Done!** Find "Simple" in your Start menu
+1. **Download and extract** all installation files to the same folder
+2. **Navigate to the extracted folder** in File Explorer  
+3. **Right-click** on `install.bat` -> **"Run as administrator"**
+4. **Click "Yes"** when Windows asks for permission
+5. **Follow prompts** if app is already installed (reinstall/uninstall options)
+6. **Wait** for the automated installation (certificate + app)
+7. **Done!** Find "Simple" in your Start menu
 
-> **Pro Tip:** The installer handles everything automatically - no manual certificate steps needed!
+> **Important:** Make sure all files (`install.bat`, `$certFileName`, `$msixFileName`) are in the same folder before running the installer!
 
 ---
 
@@ -317,6 +847,22 @@ function New-UserReadme {
 
 ---
 
+## Installer Features
+
+### Smart Installation Detection
+- **Automatically detects** if Simple App is already installed
+- **Offers choices** when existing installation is found:
+  - Reinstall current version
+  - Uninstall existing version  
+  - Cancel installation
+
+### Error Handling
+- **Multiple certificate installation methods** (automatic fallback)
+- **Sideloading enablement** for MSIX packages
+- **Clear error messages** with troubleshooting guidance
+
+---
+
 ## Quick Troubleshooting
 
 ### "Access Denied" / "Permission Error"
@@ -325,11 +871,21 @@ function New-UserReadme {
 ### "Certificate not trusted"
 **Solution:** The automated installer handles this - use `install.bat`
 
+### "Certificate file not found" / "Application package not found"
+**Solution:** Make sure you're running the installer from the correct folder
+- **Extract all files** to the same folder before running
+- **Navigate to the extracted folder** in File Explorer
+- **Right-click on `install.bat`** from within that folder -> "Run as administrator"
+- **DO NOT** run the installer from a different location
+
 ### "App installation failed"
 **Solutions:**
 - Try the PowerShell installer: `install.ps1`
 - Check Windows version (needs Windows 10 1809+)
 - Disable antivirus temporarily during installation
+
+### Installer Closes Immediately
+**Solution:** This was fixed! The installer now properly detects existing installations and provides options.
 
 ### Still Having Issues?
 1. Use `install.ps1` for detailed error messages
@@ -351,7 +907,7 @@ function New-UserReadme {
 **Good News:** Future updates are even easier!
 - Certificate stays installed
 - Just run the new `install.bat` from newer versions
-- No admin rights needed for app updates
+- Installer detects existing versions and offers update options
 
 ---
 

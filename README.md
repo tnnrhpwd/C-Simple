@@ -126,6 +126,18 @@ cd "c:\Users\tanne\Documents\Github\C-Simple\src"; dotnet run --project CSimple 
 cd "c:\Users\tanne\Documents\Github\C-Simple\src"; dotnet clean; dotnet restore; dotnet build --configuration Release
 ```
 
+**Dev Cleanup & Deploy:**
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "$msg = Read-Host 'Enter commit message'; git add .; git commit -m '$msg'; git push origin; Write-Host 'Starting C-Simple Build Process...' -ForegroundColor Cyan; .\src\CSimple\Scripts\publish-and-upload.ps1; Write-Host '--- BUILD PROCESS COMPLETED ---' -ForegroundColor Green"
+```
+
+**Dev Cleanup & Deploy (with Copilot):**
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "gh copilot suggest 'git commit message for recent changes'; pause; $msg = Read-Host 'Enter commit message'; git add .; git commit -m '$msg'; git push origin; Write-Host 'Starting C-Simple Build Process...' -ForegroundColor Cyan; .\src\CSimple\Scripts\publish-and-upload.ps1; Write-Host '--- BUILD PROCESS COMPLETED ---' -ForegroundColor Green"
+```
+
 **Check Dependencies:**
 
 ```text
