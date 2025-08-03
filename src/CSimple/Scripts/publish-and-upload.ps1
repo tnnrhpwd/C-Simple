@@ -9,7 +9,7 @@ $MSI_OUTPUT_DIR = Join-Path $ScriptBaseDir "..\..\..\msi_output" # MSI output fo
 $newCertPassword = "CSimpleNew"  # Password for the new .pfx file
 $CertDir = Join-Path $ScriptBaseDir "..\..\..\certs" # Certificate directory in base directory
 $env:PATH += ";C:\Program Files\dotnet"
-$subject = "CN=CSimple, O=Simple Org, C=US"
+$subject = "CN=CSimple, O=Simple Inc, C=US"
 $mappingFilePath = Join-Path $ScriptBaseDir "..\..\..\mapping.txt" # Mapping file in base directory
 
 # Build info file (consolidates version and revision tracking)
@@ -291,14 +291,15 @@ $defaultManifest = @"
   IgnorableNamespaces="uap rescap">
   
   <Identity 
-    Name="CSimple-App" 
-    Publisher="CN=CSimple, O=Simple Org, C=US" 
+    Name="Simple-App" 
+    Publisher="CN=CSimple, O=Simple Inc, C=US" 
     Version="$appVersion" />
   
   <Properties>
     <DisplayName>Simple</DisplayName>
-    <PublisherDisplayName>Simple Org</PublisherDisplayName>
-    <Logo>Assets\StoreLogo.png</Logo>
+    <PublisherDisplayName>Simple Inc</PublisherDisplayName>
+    <Description>Simple - Streamlined productivity and automation tools</Description>
+    <Logo>appiconStoreLogo.scale-100.png</Logo>
   </Properties>
   
   <Dependencies>
@@ -315,10 +316,26 @@ $defaultManifest = @"
     <Application Id="CSimple" Executable="CSimple.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements 
         DisplayName="Simple" 
-        Description="Simple App" 
-        BackgroundColor="transparent" 
-        Square150x150Logo="Assets\Square150x150Logo.png" 
-        Square44x44Logo="Assets\Square44x44Logo.png">
+        Description="Streamlined productivity and automation tools" 
+        BackgroundColor="#081B25" 
+        Square150x150Logo="appiconMediumTile.scale-100.png" 
+        Square44x44Logo="appiconLogo.scale-100.png">
+        
+        <!-- Enhanced Logo Support for Microsoft Store -->
+        <uap:DefaultTile 
+          Wide310x150Logo="appiconWideTile.scale-100.png"
+          Square310x310Logo="appiconLargeTile.scale-100.png"
+          Square71x71Logo="appiconSmallTile.scale-100.png"
+          ShortName="Simple">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo"/>
+            <uap:ShowOn Tile="wide310x150Logo"/>
+            <uap:ShowOn Tile="square310x310Logo"/>
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        
+        <!-- Splash Screen using the generated splash screen assets -->
+        <uap:SplashScreen Image="appiconfgSplashScreen.scale-100.png" BackgroundColor="#081B25"/>
       </uap:VisualElements>
     </Application>
   </Applications>
@@ -327,18 +344,7 @@ $defaultManifest = @"
 
 Set-Content -Path $MSIX_MANIFEST_PATH -Value $defaultManifest -Encoding UTF8
 
-# Check if Assets directory exists, create placeholder assets if not
-$assetsDir = Join-Path $OUTPUT_DIR "Assets"
-if (-not (Test-Path $assetsDir)) {
-    Write-Host "Creating Assets directory and placeholders..."
-    New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
-    
-    # Create empty placeholder images
-    $emptyPng = [byte[]]::new(1024)
-    Set-Content -Path (Join-Path $assetsDir "StoreLogo.png") -Value $emptyPng -Encoding Byte
-    Set-Content -Path (Join-Path $assetsDir "Square150x150Logo.png") -Value $emptyPng -Encoding Byte
-    Set-Content -Path (Join-Path $assetsDir "Square44x44Logo.png") -Value $emptyPng -Encoding Byte
-}
+Write-Host "Using MAUI-generated logo assets for Microsoft Store compliance..." -ForegroundColor Green
 
 # Create the mapping file with only the files from OUTPUT_DIR
 # Don't include AppxManifest.xml in mapping when using /m parameter
