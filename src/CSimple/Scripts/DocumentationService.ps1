@@ -417,239 +417,135 @@ exit /b 0
     Write-Host "Enhanced batch installer created at $batchPath" -ForegroundColor Green
 }
 
-# Function to create PowerShell installer
+# Function to create PowerShell installer  
 function New-PowerShellInstaller {
-if !ERRORLEVEL! EQU 0 (
-    echo [OK] Previous version removed successfully
-) else (
-    echo [WARNING] Could not remove previous version automatically
-    echo Continuing with installation...
-)
-echo.
-goto install_fresh
-
-:uninstall_only
-echo.
-echo ================================================
-echo           UNINSTALLING APPLICATION
-echo ================================================
-echo.
-echo [INFO] Removing Simple App...
-powershell -command "Get-AppxPackage -Name '*CSimple*' | Remove-AppxPackage" >nul 2>&1
-if !ERRORLEVEL! EQU 0 (
-    color 0A
-    echo [SUCCESS] Simple App uninstalled successfully!
-    echo.
-    echo The application has been removed from your system.
-    echo.
-    echo Press any key to exit...
-    pause >nul
-    goto cleanup_and_exit
-) else (
-    color 0C
-    echo [ERROR] Failed to uninstall Simple App
-    echo.
-    echo Please try uninstalling manually:
-    echo 1. Go to Windows Settings
-    echo 2. Select Apps
-    echo 3. Find Simple App and uninstall
-    echo.
-    echo Press any key to exit...
-    pause >nul
-    goto cleanup_and_exit
-)
-
-:cancel_exit
-echo.
-echo [INFO] Installation cancelled by user
-echo.
-echo Press any key to exit...
-pause >nul
-goto cleanup_and_exit
-
-:install_fresh
-echo ================================================
-echo         INSTALLING SIMPLE APP v$appVersion
-echo ================================================
-echo.
-echo This installer will perform these steps:
-echo 1. Install security certificate (requires admin)
-echo 2. Install Simple application
-echo 3. Complete setup and verification
-echo.
-
-echo Starting installation...
-echo.
-
-REM Step 1: Certificate Installation
-echo [1/3] Installing security certificate...
-echo      - Locating certificate file: $certFileName
-REM Get the directory where the batch file is located
-set "SCRIPT_DIR=%~dp0"
-set "CERT_PATH=%SCRIPT_DIR%$certFileName"
-if not exist "%CERT_PATH%" (
-    color 0C
-    echo [ERROR] Certificate file not found: %CERT_PATH%
-    echo Please ensure all installation files are in the same folder.
-    goto installation_failed
-)
-
-echo      - Installing certificate to trusted root store...
-certutil -addstore -f "Root" "%CERT_PATH%" >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo [OK] Certificate installed successfully
-) else (
-    echo [WARNING] Primary certificate installation failed
-    echo      - Trying alternative PowerShell method...
-    powershell -command "Import-Certificate -FilePath '%CERT_PATH%' -CertStoreLocation Cert:\LocalMachine\Root" >nul 2>&1
-    if !ERRORLEVEL! EQU 0 (
-        echo [OK] Certificate installed successfully (alternative method)
-    ) else (
-        color 0C
-        echo [ERROR] Certificate installation failed with both methods
-        goto installation_failed
+    param (
+        [string]$psInstallerPath,
+        [string]$appVersion,
+        [string]$certFileName,
+        [string]$msixFileName
     )
-)
-echo.
+    
+    $psInstallerContent = @"
+# Simple App PowerShell Installer v$appVersion
+# This installer provides more robust error handling and diagnostics
 
-REM Step 2: Application Installation
-echo [2/3] Installing Simple application...
-echo      - Locating application package: $msixFileName
-set "MSIX_PATH=%SCRIPT_DIR%$msixFileName"
-if not exist "%MSIX_PATH%" (
-    color 0C
-    echo [ERROR] Application package not found: %MSIX_PATH%
-    echo Please ensure all installation files are in the same folder.
-    goto installation_failed
+param(
+    [switch]`$Force,
+    [switch]`$Quiet
 )
 
-echo      - Enabling app sideloading (if needed)...
-powershell -command "Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -Name 'AllowAllTrustedApps' -Value 1" >nul 2>&1
+`$ErrorActionPreference = "Stop"
 
-echo      - Installing application package...
-powershell -command "Add-AppxPackage -Path '%MSIX_PATH%'" >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo [OK] Application installed successfully
-) else (
-    echo [WARNING] Initial installation attempt failed
-    echo      - Analyzing common issues...
-    echo      - Attempting installation with dependency resolution...
-    powershell -command "Add-AppxPackage -Path '%MSIX_PATH%' -ForceApplicationShutdown" >nul 2>&1
-    if !ERRORLEVEL! EQU 0 (
-        echo [OK] Application installed successfully (with force shutdown)
-    ) else (
-        color 0C
-        echo [ERROR] Application installation failed
-        goto installation_failed
-    )
-)
-echo.
+function Write-Status {
+    param([string]`$Message, [string]`$Status = "INFO")
+    if (-not `$Quiet) {
+        switch (`$Status) {
+            "SUCCESS" { Write-Host "✓ `$Message" -ForegroundColor Green }
+            "ERROR" { Write-Host "✗ `$Message" -ForegroundColor Red }
+            "WARNING" { Write-Host "⚠ `$Message" -ForegroundColor Yellow }
+            default { Write-Host "ℹ `$Message" -ForegroundColor Cyan }
+        }
+    }
+}
 
-REM Step 3: Verification and Finalization
-echo [3/3] Finalizing installation and verification...
-echo      - Verifying application registration...
-timeout /t 2 /nobreak >nul
-powershell -command "Get-AppxPackage -Name '*CSimple*' | Select-Object -First 1" > verify_check.txt 2>nul
-findstr /C:"Name" verify_check.txt > nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo [OK] Application verified and registered successfully
-) else (
-    color 0C
-    echo [ERROR] Application verification failed
-    goto installation_failed
-)
+function Test-AdminPrivileges {
+    `$currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    `$principal = New-Object Security.Principal.WindowsPrincipal(`$currentUser)
+    return `$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
 
-echo      - Setting up application shortcuts...
-timeout /t 1 /nobreak >nul
-echo [OK] Setup completed
+function Install-Certificate {
+    param([string]`$CertPath)
+    
+    try {
+        # Method 1: PowerShell Import-Certificate
+        Import-Certificate -FilePath `$CertPath -CertStoreLocation Cert:\LocalMachine\Root -ErrorAction Stop
+        Write-Status "Certificate installed successfully" "SUCCESS"
+        return `$true
+    }
+    catch {
+        Write-Status "PowerShell method failed, trying certutil..." "WARNING"
+        
+        # Method 2: certutil
+        `$result = Start-Process -FilePath "certutil" -ArgumentList @("-addstore", "-f", "Root", `$CertPath) -Wait -PassThru -NoNewWindow
+        if (`$result.ExitCode -eq 0) {
+            Write-Status "Certificate installed successfully (certutil)" "SUCCESS"
+            return `$true
+        }
+        else {
+            Write-Status "Certificate installation failed with both methods" "ERROR"
+            return `$false
+        }
+    }
+}
 
-color 0A
-echo.
-echo ================================================
-echo        INSTALLATION COMPLETED SUCCESSFULLY!
-echo ================================================
-echo.
-echo ✓ Simple App v$appVersion is now installed
-echo ✓ Application is available in your Start menu
-echo ✓ You can launch the app by searching for "Simple"
-echo.
-echo Thank you for installing Simple App!
-echo.
-echo Press any key to close this installer...
-pause >nul
-goto cleanup_and_exit
+function Install-Application {
+    param([string]`$AppPath)
+    
+    try {
+        # Enable developer mode and sideloading if needed
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" -Name "AllowAllTrustedApps" -Value 1 -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" -Name "AllowDevelopmentWithoutDevLicense" -Value 1 -ErrorAction SilentlyContinue
+        
+        # Install the MSIX package
+        Add-AppxPackage -Path `$AppPath -ErrorAction Stop
+        Write-Status "Application installed successfully" "SUCCESS"
+        return `$true
+    }
+    catch {
+        Write-Status "Application installation failed: `$(`$_.Exception.Message)" "ERROR"
+        return `$false
+    }
+}
 
-:installation_failed
-echo.
-echo ================================================
-echo           INSTALLATION FAILED
-echo ================================================
-echo.
-echo The installation encountered errors and could not complete.
-echo.
-echo What would you like to do?
-echo.
-echo [1] Retry installation
-echo [2] View troubleshooting information
-echo [3] Exit installer
-echo.
-set /p retry_choice="Enter your choice (1, 2, or 3): "
+# Main installation process
+if (-not `$Quiet) {
+    Clear-Host
+    Write-Host "===============================================" -ForegroundColor Cyan
+    Write-Host "Simple App v$appVersion - PowerShell Installer" -ForegroundColor Cyan
+    Write-Host "===============================================" -ForegroundColor Cyan
+    Write-Host ""
+}
 
-if "!retry_choice!"=="1" (
-    echo.
-    echo Retrying installation...
-    timeout /t 2 /nobreak >nul
-    goto install_fresh
-)
-if "!retry_choice!"=="2" (
-    echo.
-    echo ================================================
-    echo         TROUBLESHOOTING INFORMATION
-    echo ================================================
-    echo.
-    echo Common solutions:
-    echo.
-    echo 1. Ensure you are running as Administrator
-    echo 2. Temporarily disable antivirus software
-    echo 3. Ensure Windows is up to date
-    echo 4. Verify .NET 8.0 runtime is installed
-    echo 5. Check available disk space (minimum 500MB)
-    echo 6. Restart computer and try again
-    echo.
-    echo For detailed troubleshooting, see README.md
-    echo.
-    echo Press any key to return to options...
-    pause >nul
-    goto installation_failed
-)
-if "!retry_choice!"=="3" goto cleanup_and_exit
+# Check admin privileges
+if (-not (Test-AdminPrivileges)) {
+    Write-Status "Administrator privileges required!" "ERROR"
+    Write-Status "Please run PowerShell as Administrator and try again" "ERROR"
+    if (-not `$Quiet) { Read-Host "Press Enter to exit" }
+    exit 1
+}
 
-echo Invalid choice. Please try again.
-timeout /t 2 /nobreak >nul
-goto installation_failed
+Write-Status "Starting installation process..."
 
-:cleanup_and_exit
-REM Clean up temporary files
-del temp_check.txt 2>nul
-del verify_check.txt 2>nul
-color 07
+# Install certificate
+Write-Status "Installing security certificate..."
+if (-not (Install-Certificate "$certFileName")) {
+    Write-Status "Certificate installation failed. Installation cannot continue." "ERROR"
+    if (-not `$Quiet) { Read-Host "Press Enter to exit" }
+    exit 1
+}
 
-REM Failsafe - ensure window doesn't close unexpectedly
-if "%PAUSE_ON_ERROR%"=="1" (
-    echo.
-    echo [INFO] Installation manager is closing...
-    echo If this window closed unexpectedly, please check:
-    echo 1. Run as Administrator
-    echo 2. Antivirus isn't blocking the installer
-    echo 3. All files are in the same directory
-    echo.
-    timeout /t 3 /nobreak >nul
-)
-echo.
-exit /b 0
+# Install application
+Write-Status "Installing Simple application..."
+if (-not (Install-Application "$msixFileName")) {
+    Write-Status "Application installation failed." "ERROR"
+    Write-Status "Please check Windows version (requires Windows 10 1809+) and try again" "WARNING"
+    if (-not `$Quiet) { Read-Host "Press Enter to exit" }
+    exit 1
+}
+
+Write-Status "Installation completed successfully!" "SUCCESS"
+Write-Status "Simple App is now available in your Start menu" "SUCCESS"
+
+if (-not `$Quiet) {
+    Write-Host ""
+    Write-Host "Thank you for installing Simple App v$appVersion!" -ForegroundColor Green
+    Read-Host "Press Enter to exit"
+}
 "@
-    Set-Content -Path $batchPath -Value $batchContent
-    Write-Host "Enhanced batch installer created at $batchPath" -ForegroundColor Green
+    Set-Content -Path $psInstallerPath -Value $psInstallerContent -Encoding UTF8
+    Write-Host "PowerShell installer created at $psInstallerPath" -ForegroundColor Green
 }
 
 # Function to create PowerShell installer
@@ -677,9 +573,9 @@ function Write-Status {
     if (-not `$Quiet) {
         switch (`$Status) {
             "SUCCESS" { Write-Host "✓ `$Message" -ForegroundColor Green }
-            "ERROR"   { Write-Host "✗ `$Message" -ForegroundColor Red }
+            "ERROR" { Write-Host "✗ `$Message" -ForegroundColor Red }
             "WARNING" { Write-Host "⚠ `$Message" -ForegroundColor Yellow }
-            default   { Write-Host "ℹ `$Message" -ForegroundColor Cyan }
+            default { Write-Host "ℹ `$Message" -ForegroundColor Cyan }
         }
     }
 }
@@ -816,10 +712,10 @@ function New-UserReadme {
 ## Alternative Installation Methods
 
 ### Method 2: PowerShell Installer (Advanced Users)
-``````powershell
+```powershell
 # Right-click PowerShell -> "Run as administrator", then:
 .\install.ps1
-``````
+```
 *Better error handling and diagnostics*
 
 ### Method 3: Manual Installation (If Automated Fails)
@@ -837,13 +733,13 @@ function New-UserReadme {
 ## What's in This Folder?
 
 | File | What It Does |
-|------|--------------|
+| ------ | -------------- |
 | **`install.bat`** | **One-click installer** (recommended) |
-| `install.ps1` | PowerShell installer (advanced) |
-| `$msixFileName` | Main app installer |
-| `$certFileName` | Security certificate |
-| `installation-instructions.txt` | Detailed text instructions |
-| `README.md` | This guide |
+| `install.ps1`  | PowerShell installer (advanced) |
+| `$msixFileName`  | Main app installer |
+| `$certFileName`  | Security certificate |
+| `installation-instructions.txt`  | Detailed text instructions |
+| `README.md`  | This guide |
 
 ---
 
