@@ -119,7 +119,7 @@ echo Please wait while we scan for existing installations...
 set "INSTALL_CHECK_FAILED=0"
 
 REM Create a more robust PowerShell check
-powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Get-AppxPackage -Name '*CSimple*' | Select-Object Name, Version | Format-Table -AutoSize } catch { Write-Host 'No installation found' }" > temp_check.txt 2>&1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try {{ Get-AppxPackage -Name '*CSimple*' | Select-Object Name, Version | Format-Table -AutoSize }} catch {{ Write-Host 'No installation found' }}" > temp_check.txt 2>&1
 
 REM Check if the PowerShell command succeeded and found an installation
 findstr /C:"CSimple" temp_check.txt > nul 2>&1
@@ -412,143 +412,19 @@ exit /b 0
 '@
     
     # Use string formatting to replace placeholders
-    $finalBatchContent = $batchContent -f $appVersion, $certFileName, $msixFileName
-    Set-Content -Path $batchPath -Value $finalBatchContent
-    Write-Host "Enhanced batch installer created at $batchPath" -ForegroundColor Green
+    try {
+        $finalBatchContent = $batchContent -f $appVersion, $certFileName, $msixFileName
+        Set-Content -Path $batchPath -Value $finalBatchContent -Encoding UTF8
+        Write-Host "Enhanced batch installer created at $batchPath" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Error formatting batch content: $_" -ForegroundColor Red
+        Write-Host "AppVersion: '$appVersion', CertFileName: '$certFileName', MsixFileName: '$msixFileName'" -ForegroundColor Yellow
+        throw
+    }
 }
 
 # Function to create PowerShell installer  
-function New-PowerShellInstaller {
-    param (
-        [string]$psInstallerPath,
-        [string]$appVersion,
-        [string]$certFileName,
-        [string]$msixFileName
-    )
-    
-    $psInstallerContent = @"
-# Simple App PowerShell Installer v$appVersion
-# This installer provides more robust error handling and diagnostics
-
-param(
-    [switch]`$Force,
-    [switch]`$Quiet
-)
-
-`$ErrorActionPreference = "Stop"
-
-function Write-Status {
-    param([string]`$Message, [string]`$Status = "INFO")
-    if (-not `$Quiet) {
-        switch (`$Status) {
-            "SUCCESS" { Write-Host "✓ `$Message" -ForegroundColor Green }
-            "ERROR" { Write-Host "✗ `$Message" -ForegroundColor Red }
-            "WARNING" { Write-Host "⚠ `$Message" -ForegroundColor Yellow }
-            default { Write-Host "ℹ `$Message" -ForegroundColor Cyan }
-        }
-    }
-}
-
-function Test-AdminPrivileges {
-    `$currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
-    `$principal = New-Object Security.Principal.WindowsPrincipal(`$currentUser)
-    return `$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
-
-function Install-Certificate {
-    param([string]`$CertPath)
-    
-    try {
-        # Method 1: PowerShell Import-Certificate
-        Import-Certificate -FilePath `$CertPath -CertStoreLocation Cert:\LocalMachine\Root -ErrorAction Stop
-        Write-Status "Certificate installed successfully" "SUCCESS"
-        return `$true
-    }
-    catch {
-        Write-Status "PowerShell method failed, trying certutil..." "WARNING"
-        
-        # Method 2: certutil
-        `$result = Start-Process -FilePath "certutil" -ArgumentList @("-addstore", "-f", "Root", `$CertPath) -Wait -PassThru -NoNewWindow
-        if (`$result.ExitCode -eq 0) {
-            Write-Status "Certificate installed successfully (certutil)" "SUCCESS"
-            return `$true
-        }
-        else {
-            Write-Status "Certificate installation failed with both methods" "ERROR"
-            return `$false
-        }
-    }
-}
-
-function Install-Application {
-    param([string]`$AppPath)
-    
-    try {
-        # Enable developer mode and sideloading if needed
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" -Name "AllowAllTrustedApps" -Value 1 -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" -Name "AllowDevelopmentWithoutDevLicense" -Value 1 -ErrorAction SilentlyContinue
-        
-        # Install the MSIX package
-        Add-AppxPackage -Path `$AppPath -ErrorAction Stop
-        Write-Status "Application installed successfully" "SUCCESS"
-        return `$true
-    }
-    catch {
-        Write-Status "Application installation failed: `$(`$_.Exception.Message)" "ERROR"
-        return `$false
-    }
-}
-
-# Main installation process
-if (-not `$Quiet) {
-    Clear-Host
-    Write-Host "===============================================" -ForegroundColor Cyan
-    Write-Host "Simple App v$appVersion - PowerShell Installer" -ForegroundColor Cyan
-    Write-Host "===============================================" -ForegroundColor Cyan
-    Write-Host ""
-}
-
-# Check admin privileges
-if (-not (Test-AdminPrivileges)) {
-    Write-Status "Administrator privileges required!" "ERROR"
-    Write-Status "Please run PowerShell as Administrator and try again" "ERROR"
-    if (-not `$Quiet) { Read-Host "Press Enter to exit" }
-    exit 1
-}
-
-Write-Status "Starting installation process..."
-
-# Install certificate
-Write-Status "Installing security certificate..."
-if (-not (Install-Certificate "$certFileName")) {
-    Write-Status "Certificate installation failed. Installation cannot continue." "ERROR"
-    if (-not `$Quiet) { Read-Host "Press Enter to exit" }
-    exit 1
-}
-
-# Install application
-Write-Status "Installing Simple application..."
-if (-not (Install-Application "$msixFileName")) {
-    Write-Status "Application installation failed." "ERROR"
-    Write-Status "Please check Windows version (requires Windows 10 1809+) and try again" "WARNING"
-    if (-not `$Quiet) { Read-Host "Press Enter to exit" }
-    exit 1
-}
-
-Write-Status "Installation completed successfully!" "SUCCESS"
-Write-Status "Simple App is now available in your Start menu" "SUCCESS"
-
-if (-not `$Quiet) {
-    Write-Host ""
-    Write-Host "Thank you for installing Simple App v$appVersion!" -ForegroundColor Green
-    Read-Host "Press Enter to exit"
-}
-"@
-    Set-Content -Path $psInstallerPath -Value $psInstallerContent -Encoding UTF8
-    Write-Host "PowerShell installer created at $psInstallerPath" -ForegroundColor Green
-}
-
-# Function to create PowerShell installer
 function New-PowerShellInstaller {
     param (
         [string]$psInstallerPath,
