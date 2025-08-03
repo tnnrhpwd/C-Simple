@@ -1,38 +1,7 @@
 # Documentation Service
 # This service handles all documentation and installer file creation for the C-Simple application
 
-# Function to create installation instructions text file
-function New-InstallationInstructions {
-    param (
-        [string]$instructionsPath,
-        [string]$appVersion,
-        [string]$certFileName,
-        [string]$msixFileName
-    )
-    
-    $instructionsContent = @"
-SIMPLE APP INSTALLATION INSTRUCTIONS (v$appVersion)
-
-Before installing the Simple app (v$appVersion), you need to install the certificate:
-
-1. First, double-click on the file: $certFileName
-2. Click "Open" if prompted with a security warning
-3. In the Certificate window, click "Install Certificate"
-4. Select "Local Machine" and click "Next" (requires admin rights)
-5. Select "Place all certificates in the following store"
-6. Click "Browse" and select "Trusted Root Certification Authorities"
-7. Click "Next" and then "Finish"
-8. Confirm the security warning by clicking "Yes"
-
-After installing the certificate, you can install the app:
-1. Double-click on the file: $msixFileName
-2. Click "Install"
-
-Once you've installed the certificate, you won't need to reinstall it for future updates.
-"@
-    Set-Content -Path $instructionsPath -Value $instructionsContent
-    Write-Host "Installation instructions created at $instructionsPath" -ForegroundColor Green
-}
+# Function removed - installation-instructions.txt is no longer needed since README.md is comprehensive
 
 # Function to create enhanced batch installer
 function New-BatchInstaller {
@@ -628,18 +597,7 @@ Once you've installed the certificate, you won't need to reinstall it for future
     Write-Host "User README created at $readmePath" -ForegroundColor Green
 }
 
-# Function to create build info file (primary build information source)
-function New-BuildInfoFile {
-    param (
-        [string]$versionDir,
-        [string]$buildInfoPath
-    )
-    
-    # Copy build-info.json to version directory as the single source of build information
-    Copy-Item -Path $buildInfoPath -Destination (Join-Path $versionDir "build-info.json") -Force
-    
-    Write-Host "Build info file copied to $versionDir (primary build information source)" -ForegroundColor Green
-}
+# Function removed - build-info.json copy is not needed in distribution folder
 
 # Main function to create all documentation files
 function New-InstallationDocumentation {
@@ -652,19 +610,17 @@ function New-InstallationDocumentation {
         [string]$buildInfoPath
     )
     
-    Write-Host "Creating installation documentation..." -ForegroundColor Cyan
+    Write-Host "Creating essential installation files..." -ForegroundColor Cyan
     
-    # Create all documentation files
-    $instructionsPath = Join-Path $versionDir "installation-instructions.txt"
+    # Create only essential distribution files
     $batchPath = Join-Path $versionDir "install.bat"
     $psInstallerPath = Join-Path $versionDir "install.ps1"
     $readmePath = Join-Path $versionDir "README.md"
     
-    New-InstallationInstructions -instructionsPath $instructionsPath -appVersion $appVersion -certFileName $certFileName -msixFileName $msixFileName
+    # Create installers and documentation
     New-BatchInstaller -batchPath $batchPath -appVersion $appVersion -certFileName $certFileName -msixFileName $msixFileName
     New-PowerShellInstaller -psInstallerPath $psInstallerPath -appVersion $appVersion -certFileName $certFileName -msixFileName $msixFileName
     New-UserReadme -readmePath $readmePath -appVersion $appVersion -releaseDate $releaseDate -certFileName $certFileName -msixFileName $msixFileName
-    New-BuildInfoFile -versionDir $versionDir -buildInfoPath $buildInfoPath
     
-    Write-Host "All installation documentation created successfully!" -ForegroundColor Green
+    Write-Host "Essential installation files created successfully!" -ForegroundColor Green
 }
