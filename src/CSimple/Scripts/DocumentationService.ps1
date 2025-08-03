@@ -566,127 +566,63 @@ function New-UserReadme {
     )
     
     $readmeContent = @"
-# Simple App Installation Guide
+# Simple App Installation Instructions (v$appVersion)
 
-**Version:** $appVersion | **Build Date:** $releaseDate
+## First-Time Installation
 
-## Quick Installation (Recommended)
+Before installing the Simple app (v$appVersion), you need to install the certificate:
 
-### Super Quick Setup (30 seconds)
-1. **Download and extract** all installation files to the same folder
-2. **Navigate to the extracted folder** in File Explorer  
-3. **Right-click** on `install.bat` -> **"Run as administrator"**
-4. **Click "Yes"** when Windows asks for permission
-5. **Follow prompts** if app is already installed (reinstall/uninstall options)
-6. **Wait** for the automated installation (certificate + app)
-7. **Done!** Find "Simple" in your Start menu
+1. First, double-click on the file: $certFileName
+2. Click "Open" if prompted with a security warning
+3. In the Certificate window, click "Install Certificate"
+4. Select "Local Machine" and click "Next" (requires admin rights)
+5. Select "Place all certificates in the following store"
+6. Click "Browse" and select "Trusted Root Certification Authorities"
+7. Click "Next" and then "Finish"
+8. Confirm the security warning by clicking "Yes"
 
-> **Important:** Make sure all files (`install.bat`, `$certFileName`, `$msixFileName`) are in the same folder before running the installer!
+After installing the certificate, you can install the app:
+1. Double-click on the file: $msixFileName
+2. Click "Install"
 
----
+## Updating an Existing Installation
+
+**Note:** If you already have Simple App installed and are updating to a newer version, you can skip the certificate installation steps above. Simply double-click the new MSIX file and click "Install" to update your existing installation.
+
+Once you've installed the certificate, you won't need to reinstall it for future updates.
 
 ## Alternative Installation Methods
 
-### Method 2: PowerShell Installer (Advanced Users)
-```powershell
-# Right-click PowerShell -> "Run as administrator", then:
-.\install.ps1
-```
-*Better error handling and diagnostics*
+### Automated Installer (Recommended)
+- Right-click on `install.bat` -> "Run as administrator"
+- Follow the prompts for automatic installation
 
-### Method 3: Manual Installation (If Automated Fails)
-
-**Step 1: Install Certificate**
-- Double-click `$certFileName`
-- Click "Install Certificate" -> "Local Machine" -> "Next"
-- Select "Trusted Root Certification Authorities" -> "Next" -> "Finish"
-
-**Step 2: Install App**
-- Double-click `$msixFileName` -> "Install"
-
----
-
-## What's in This Folder?
-
-| File | What It Does |
-| ------ | -------------- |
-| **`install.bat`** | **One-click installer** (recommended) |
-| `install.ps1`  | PowerShell installer (advanced) |
-| `$msixFileName`  | Main app installer |
-| `$certFileName`  | Security certificate |
-| `installation-instructions.txt`  | Detailed text instructions |
-| `README.md`  | This guide |
-
----
-
-## Installer Features
-
-### Smart Installation Detection
-- **Automatically detects** if Simple App is already installed
-- **Offers choices** when existing installation is found:
-  - Reinstall current version
-  - Uninstall existing version  
-  - Cancel installation
-
-### Error Handling
-- **Multiple certificate installation methods** (automatic fallback)
-- **Sideloading enablement** for MSIX packages
-- **Clear error messages** with troubleshooting guidance
-
----
-
-## Quick Troubleshooting
-
-### "Access Denied" / "Permission Error"
-**Solution:** Right-click `install.bat` -> "Run as administrator"
-
-### "Certificate not trusted"
-**Solution:** The automated installer handles this - use `install.bat`
-
-### "Certificate file not found" / "Application package not found"
-**Solution:** Make sure you're running the installer from the correct folder
-- **Extract all files** to the same folder before running
-- **Navigate to the extracted folder** in File Explorer
-- **Right-click on `install.bat`** from within that folder -> "Run as administrator"
-- **DO NOT** run the installer from a different location
-
-### "App installation failed"
-**Solutions:**
-- Try the PowerShell installer: `install.ps1`
-- Check Windows version (needs Windows 10 1809+)
-- Disable antivirus temporarily during installation
-
-### Installer Closes Immediately
-**Solution:** This was fixed! The installer now properly detects existing installations and provides options.
-
-### Still Having Issues?
-1. Use `install.ps1` for detailed error messages
-2. Check Windows Update (install latest updates)
-3. Restart computer and try again
-
----
+### PowerShell Installer (Advanced Users)
+- Right-click PowerShell -> "Run as administrator"
+- Run: `.\install.ps1`
 
 ## System Requirements
 
-- **Windows 10** version 1809 or newer
-- **Administrator access** (for certificate installation)
-- **5 minutes** of your time
+- Windows 10 version 1809 or newer
+- Administrator privileges (for certificate installation)
 
----
+## Troubleshooting
 
-## Installing Updates
+### "Certificate not trusted" or "App package is not trusted"
+- Ensure you have installed the $certFileName certificate file first
+- Verify the certificate was installed in "Trusted Root Certification Authorities"
 
-**Good News:** Future updates are even easier!
-- Certificate stays installed
-- Just run the new `install.bat` from newer versions
-- Installer detects existing versions and offers update options
+### "Access Denied" during installation
+- Right-click on the installer and select "Run as administrator"
+- Ensure you have local administrator privileges
 
----
+### Installation fails
+- Check that you're running Windows 10 version 1809 or newer
+- Ensure you have sufficient disk space (minimum 500MB recommended)
+- Temporarily disable antivirus software during installation
+- Try restarting your computer and running the installation again
 
-## Success!
-
-**Installation worked?** Look for "Simple" in your Start menu and you're ready to go!
-
+**Build Date:** $releaseDate
 "@
     Set-Content -Path $readmePath -Value $readmeContent -Encoding UTF8
     Write-Host "User README created at $readmePath" -ForegroundColor Green
