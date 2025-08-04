@@ -56,7 +56,7 @@ echo.
 REM Check for admin privileges first
 echo Verifying administrator privileges...
 net session >nul 2>&1
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     color 07
     echo.
     echo ===============================================
@@ -83,64 +83,71 @@ echo [OK] Administrator privileges confirmed
 echo.
 echo Checking for existing installation...
 
-REM Check if app is already installed using PowerShell with better error handling
+REM Check if app is already installed using the same method as verification
 echo Please wait while we scan for existing installations...
 set "INSTALL_CHECK_FAILED=0"
 
-REM Create a more robust PowerShell check
-powershell -NoProfile -ExecutionPolicy Bypass -Command "try {{ Get-AppxPackage -Name '*CSimple*' | Select-Object Name, Version | Format-Table -AutoSize }} catch {{ Write-Host 'No installation found' }}" > temp_check.txt 2>&1
+REM Use the same robust PowerShell check as the verification step
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try {{ Get-AppxPackage | Where-Object {{ `$_.Name -like '*CSimple*' -or `$_.DisplayName -like '*CSimple*' -or `$_.Name -eq 'CSimple-App' }} | Select-Object Name, DisplayName, Version | Format-List }} catch {{ Write-Host 'No installation found' }}" > temp_check.txt 2>&1
 
-REM Check if the PowerShell command succeeded and found an installation
-findstr /C:"CSimple" temp_check.txt > nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo.
-    echo ================================================
-    echo    EXISTING INSTALLATION DETECTED
-    echo ================================================
-    echo.
-    echo CSimple is already installed on this system.
-    echo Current installation details:
-    type temp_check.txt
-    echo.
-    echo What would you like to do?
-    echo.
-    echo [1] Reinstall - Remove current version and install fresh copy
-    echo [2] Uninstall - Remove current installation completely  
-    echo [3] Cancel - Exit without making changes
-    echo.
-    echo ================================================
-    
-    :get_choice
-    set /p choice="Enter your choice (1, 2, or 3): "
-    
-    if "!choice!"=="1" (
-        echo.
-        echo You selected: Reinstall
-        goto reinstall
-    )
-    if "!choice!"=="2" (
-        echo.
-        echo You selected: Uninstall
-        goto uninstall_only
-    )
-    if "!choice!"=="3" (
-        echo.
-        echo You selected: Cancel
-        goto cancel_exit
-    )
-    
-    echo.
-    echo [ERROR] Invalid choice "!choice!". Please enter 1, 2, or 3.
-    echo.
-    goto get_choice
-) else (
-    echo [OK] No existing installation found
-    echo.
-    echo Proceeding with fresh installation...
-    echo.
-    timeout /t 2 /nobreak >nul
-    goto install_fresh
-)
+REM Check if we found any CSimple-related packages using the same method as verification
+findstr /I /C:"Name" temp_check.txt > nul 2>&1
+if !ERRORLEVEL! EQU 0 goto existing_installation_found
+
+REM Standard check found no installation, trying alternative method
+echo [INFO] Standard check found no installation, trying alternative method...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try {{ Get-AppxPackage | Where-Object {{ `$_.Name -match '^CSimple' -or `$_.PackageFamilyName -like '*CSimple*' }} | Select-Object Name, DisplayName, PackageFamilyName | Format-List }} catch {{ Write-Host 'No installation found' }}" > temp_check2.txt 2>&1
+findstr /I /C:"Name" temp_check2.txt > nul 2>&1
+if !ERRORLEVEL! EQU 0 goto existing_installation_found_alt
+
+REM No installation found with either method
+echo [OK] No existing installation found
+echo.
+echo Proceeding with fresh installation...
+echo.
+timeout /t 2 /nobreak >nul
+goto install_fresh
+
+:existing_installation_found
+echo.
+echo ================================================
+echo    EXISTING INSTALLATION DETECTED
+echo ================================================
+echo.
+echo CSimple is already installed on this system.
+echo Current installation details:
+type temp_check.txt
+echo.
+echo What would you like to do?
+echo.
+echo [1] Reinstall - Remove current version and install fresh copy
+echo [2] Uninstall - Remove current installation completely  
+echo [3] Cancel - Exit without making changes
+echo.
+echo ================================================
+
+:get_choice
+set /p choice="Enter your choice (1, 2, or 3): "
+
+if "!choice!"=="1" goto reinstall
+if "!choice!"=="2" goto uninstall_only
+if "!choice!"=="3" goto cancel_exit
+
+echo.
+echo [ERROR] Invalid choice "!choice!". Please enter 1, 2, or 3.
+echo.
+goto get_choice
+
+:existing_installation_found_alt
+echo.
+echo ================================================
+echo    EXISTING INSTALLATION DETECTED (ALT METHOD)
+echo ================================================
+echo.
+echo CSimple installation found using alternative detection.
+echo Current installation details:
+type temp_check2.txt
+goto get_choice
 
 :reinstall
 echo.
@@ -218,7 +225,7 @@ echo [0/3] Checking Windows App Runtime dependency...
 echo      - Verifying Windows App Runtime 1.5+ is installed...
 powershell -command "Get-AppxPackage -Name '*WindowsAppRuntime*' | Where-Object { $_.Name -match 'WindowsAppRuntime\.1\.[5-9]|WindowsAppRuntime\.CBS' } | Select-Object -First 1" > runtime_check.txt 2>nul
 findstr /C:"WindowsAppRuntime" runtime_check.txt > nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     color 07
     echo [ERROR] Windows App Runtime 1.5+ is not installed!
     echo.
@@ -266,7 +273,7 @@ if not exist "%CERT_PATH%" (
 
 echo      - Installing certificate to trusted root store...
 certutil -addstore -f "Root" "%CERT_PATH%" >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
+if !ERRORLEVEL! EQU 0 (
     echo [OK] Certificate installed successfully
     goto cert_install_complete
 )
@@ -306,7 +313,7 @@ powershell -command "Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\Cu
 
 echo      - Installing application package...
 powershell -command "Add-AppxPackage -Path '%MSIX_PATH%'" >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
+if !ERRORLEVEL! EQU 0 (
     echo [OK] Application installed successfully
     goto app_install_complete
 )
@@ -334,18 +341,18 @@ timeout /t 2 /nobreak >nul
 
 REM Try multiple verification methods to ensure we catch the installed app
 echo      - Checking for CSimple installation...
-powershell -command "Get-AppxPackage | Where-Object { $_.Name -like '*Simple*' -or $_.DisplayName -like '*Simple*' -or $_.Name -like '*CSimple*' } | Select-Object Name, DisplayName, Version | Format-List" > verify_check.txt 2>nul
+powershell -command "Get-AppxPackage | Where-Object { $_.Name -like '*CSimple*' -or $_.DisplayName -like '*CSimple*' -or $_.Name -eq 'CSimple-App' } | Select-Object Name, DisplayName, Version | Format-List" > verify_check.txt 2>nul
 
-REM Check if we found any Simple-related packages
+REM Check if we found any CSimple-related packages
 findstr /I /C:"Name" verify_check.txt > nul 2>&1
-if %ERRORLEVEL% EQU 0 (
+if !ERRORLEVEL! EQU 0 (
     echo [OK] Application verified and registered successfully
     echo      - Application details:
     type verify_check.txt
 ) else (
     echo [WARNING] Standard verification failed, trying alternative method...
     REM Try broader search
-    powershell -command "Get-AppxPackage | Where-Object { $_.Name -match 'Simple|CSimple' } | Select-Object Name, DisplayName, PackageFamilyName | Format-List" > verify_check2.txt 2>nul
+    powershell -command "Get-AppxPackage | Where-Object { $_.Name -match '^CSimple' -or $_.PackageFamilyName -like '*CSimple*' } | Select-Object Name, DisplayName, PackageFamilyName | Format-List" > verify_check2.txt 2>nul
     findstr /I /C:"Name" verify_check2.txt > nul 2>&1
     if !ERRORLEVEL! EQU 0 (
         echo [OK] Application verified with alternative method
@@ -355,11 +362,11 @@ if %ERRORLEVEL% EQU 0 (
         color 07
         echo [ERROR] Application verification failed - app may not be properly registered
         echo      - Checking if MSIX file was processed...
-        if exist "%MSIX_PATH%" (
+        if exist "!MSIX_PATH!" (
             echo [INFO] MSIX file exists, installation may have succeeded despite verification failure
             echo [INFO] Try launching the app from Start menu or try manual verification
             echo.
-            echo Would you like to continue anyway? (Y/N):
+            echo Would you like to continue anyway? ^(Y/N^):
             set /p continue_choice="Enter your choice: "
             if /I "!continue_choice!"=="Y" (
                 echo [INFO] Continuing with setup completion...
@@ -444,6 +451,7 @@ goto installation_failed
 :cleanup_and_exit
 REM Clean up temporary files
 del temp_check.txt 2>nul
+del temp_check2.txt 2>nul
 del verify_check.txt 2>nul
 del verify_check2.txt 2>nul
 del runtime_check.txt 2>nul
