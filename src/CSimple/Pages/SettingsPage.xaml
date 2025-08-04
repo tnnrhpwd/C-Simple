@@ -73,6 +73,36 @@
         <ScrollView Grid.Row="1"
                     Margin="{OnIdiom Phone=15, Default=25}">
             <VerticalStackLayout Spacing="8">
+                <!-- App Title and Description -->
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
+                       CornerRadius="10"
+                       Padding="20"
+                       Margin="0,0,0,10">
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="15">
+                        <Image Grid.Column="0"
+                               Source="csimple_logo_png.png"
+                               HeightRequest="60"
+                               WidthRequest="60"
+                               VerticalOptions="Start"
+                               HorizontalOptions="Start" />
+                        <VerticalStackLayout Grid.Column="1"
+                                             Spacing="8">
+                            <Label Text="Settings - CSimple by Simple Inc"
+                                   FontSize="24"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
+                                   HorizontalOptions="Start" />
+                            <Label Text="Configure your AI assistant settings and preferences to customize your experience."
+                                   FontSize="14"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                                   HorizontalOptions="Start"
+                                   HorizontalTextAlignment="Start"
+                                   LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Frame>
                 <Label Text="Account"
                        class="SectionTitle" />
                 <StackLayout x:Name="AccountSection"

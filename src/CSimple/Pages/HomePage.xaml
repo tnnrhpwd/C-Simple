@@ -71,55 +71,85 @@
                 </VerticalStackLayout>
                 <VerticalStackLayout Grid.Column="2"
                                      Spacing="2">
-              <VerticalStackLayout Spacing="8">
-                     <!-- AI Assistant Toggle -->
-                     <Frame Padding="10,8"
+                    <VerticalStackLayout Spacing="8">
+                        <!-- AI Assistant Toggle -->
+                        <Frame Padding="6,5"
                                CornerRadius="15"
                                BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
                                HasShadow="False"
-                               Margin="0,8,0,0">
+                               Margin="0,5,0,0">
                             <Grid ColumnDefinitions="Auto,*"
-                                     ColumnSpacing="8">
-                                          <Switch IsToggled="{Binding IsAIEnabled}"
-                                                 OnColor="{StaticResource Primary}"
-                                                 ThumbColor="White"
-                                                 Scale="0.8" />
-                                   <Label Grid.Column="1"
-                                          Text="Simply start"
-                                          FontSize="12"
-                                          FontAttributes="Bold"
-                                          TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
-                                          VerticalOptions="Center" />
+                                  ColumnSpacing="5">
+                                <Switch IsToggled="{Binding IsAIEnabled}"
+                                        OnColor="{StaticResource Primary}"
+                                        ThumbColor="White"
+                                        Scale="0.8" />
+                                <Label Grid.Column="1"
+                                       Text="Simply start"
+                                       FontSize="12"
+                                       FontAttributes="Bold"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                       VerticalOptions="Center" />
                             </Grid>
-                     </Frame>
-                     <!-- Online Mode Toggle -->
-                     <Frame Padding="10,8"
+                        </Frame>
+                        <!-- Online Mode Toggle -->
+                        <Frame Padding="6,5"
                                CornerRadius="15"
                                BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
                                HasShadow="False"
-                               Margin="0,8,0,0">
+                               Margin="0,5,0,0">
                             <Grid ColumnDefinitions="Auto,*"
-                                     ColumnSpacing="8">
-                                   <Switch Grid.Column="0"
-                                                 IsToggled="{Binding IsOnlineMode}"
-                                                 OnColor="{StaticResource Accent}"
-                                                 ThumbColor="White"
-                                                 Scale="0.7" />
-                                   <Label Grid.Column="1"
-                                             Text="{Binding AppModeLabel}"
-                                             FontSize="11"
-                                             FontAttributes="Bold"
-                                             TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
-                                             VerticalOptions="Center" />
+                                  ColumnSpacing="5">
+                                <Switch Grid.Column="0"
+                                        IsToggled="{Binding IsOnlineMode}"
+                                        OnColor="{StaticResource Accent}"
+                                        ThumbColor="White"
+                                        Scale="0.7" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding AppModeLabel}"
+                                       FontSize="11"
+                                       FontAttributes="Bold"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                       VerticalOptions="Center" />
                             </Grid>
-                     </Frame>
-              </VerticalStackLayout>
+                        </Frame>
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
             </Grid>
         </Frame>
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Spacing="15"
                                  Padding="15">
+                <!-- Page Title and Description -->
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
+                       CornerRadius="10"
+                       Padding="20"
+                       Margin="0,0,0,10">
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="15">
+                        <Image Grid.Column="0"
+                               Source="csimple_logo_png.png"
+                               HeightRequest="60"
+                               WidthRequest="60"
+                               VerticalOptions="Start"
+                               HorizontalOptions="Start" />
+                        <VerticalStackLayout Grid.Column="1"
+                                             Spacing="8">
+                            <Label Text="Home - CSimple by Simple Inc"
+                                   FontSize="24"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
+                                   HorizontalOptions="Start" />
+                            <Label Text="Give your Windows system the intelligence to help you. AI-powered assistance that learns from your interactions to accurately predict and support your actions."
+                                   FontSize="14"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                                   HorizontalOptions="Start"
+                                   HorizontalTextAlignment="Start"
+                                   LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Frame>
                 <Button Text="Refresh"
                         FontSize="Caption"
                         BackgroundColor="Transparent"
