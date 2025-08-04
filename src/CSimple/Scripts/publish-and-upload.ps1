@@ -1,5 +1,5 @@
 # Variables
-$APP_NAME = "Simple"
+$APP_NAME = "CSimple"
 $ScriptBaseDir = $PSScriptRoot # Get the directory where the script is located
 $PROJECT_PATH = Join-Path $ScriptBaseDir "..\CSimple.csproj"  # Path relative to script location
 $OUTPUT_DIR = (Resolve-Path (Join-Path $ScriptBaseDir "..\..\..\published")).Path  # Publish output folder in base directory
@@ -9,7 +9,7 @@ $MSI_OUTPUT_DIR = Join-Path $ScriptBaseDir "..\..\..\msi_output" # MSI output fo
 $newCertPassword = "CSimpleNew"  # Password for the new .pfx file
 $CertDir = Join-Path $ScriptBaseDir "..\..\..\certs" # Certificate directory in base directory
 $env:PATH += ";C:\Program Files\dotnet"
-$subject = "CN=CSimple, O=Simple Inc, C=US"
+$subject = "CN=Simple Inc, O=Simple Inc, C=US"
 $mappingFilePath = Join-Path $ScriptBaseDir "..\..\..\mapping.txt" # Mapping file in base directory
 
 # Build info file (consolidates version and revision tracking)
@@ -104,7 +104,7 @@ function Get-VersionDirectories {
     return @()
 }
 
-# Function to archive old versions
+# Function to clean up old versions
 function Invoke-VersionArchiving {
     param (
         [string]$rootPath,
@@ -113,32 +113,25 @@ function Invoke-VersionArchiving {
     
     $versionDirs = Get-VersionDirectories -rootPath $rootPath
     
-    # Create archive directory if it doesn't exist
-    $archivePath = Join-Path $rootPath "archive"
-    if (-not (Test-Path $archivePath)) {
-        New-Item -ItemType Directory -Path $archivePath -Force | Out-Null
-    }
-    
-    # Skip archiving if we don't have more than the keep count
+    # Skip cleanup if we don't have more than the keep count
     if ($versionDirs.Count -le $keepCount) {
         return
     }
     
-    # Archive older versions (skip the first $keepCount which are the newest)
-    $toArchive = $versionDirs | Select-Object -Skip $keepCount
+    # Delete older versions (skip the first $keepCount which are the newest)
+    $toDelete = $versionDirs | Select-Object -Skip $keepCount
     
-    foreach ($dir in $toArchive) {
-        $archiveDestination = Join-Path $archivePath $dir.Name
+    foreach ($dir in $toDelete) {
+        Write-Host "Deleting older version: $($dir.Name)" -ForegroundColor Yellow
         
-        # Skip if already in archive
-        if (Test-Path $archiveDestination) {
-            continue
+        try {
+            # Remove the directory and all its contents
+            Remove-Item -Path $dir.FullName -Recurse -Force
+            Write-Host "Successfully deleted: $($dir.Name)" -ForegroundColor Green
         }
-        
-        Write-Host "Archiving older version: $($dir.Name)" -ForegroundColor Yellow
-        
-        # Move the directory to the archive
-        Move-Item -Path $dir.FullName -Destination $archiveDestination -Force
+        catch {
+            Write-Host "Failed to delete $($dir.Name): $_" -ForegroundColor Red
+        }
     }
 }
 
@@ -291,14 +284,14 @@ $defaultManifest = @"
   IgnorableNamespaces="uap rescap">
   
   <Identity 
-    Name="Simple-App" 
-    Publisher="CN=CSimple, O=Simple Inc, C=US" 
+    Name="CSimple-App" 
+    Publisher="CN=Simple Inc, O=Simple Inc, C=US" 
     Version="$appVersion" />
   
   <Properties>
-    <DisplayName>Simple</DisplayName>
+    <DisplayName>CSimple</DisplayName>
     <PublisherDisplayName>Simple Inc</PublisherDisplayName>
-    <Description>Simple - Streamlined productivity and automation tools</Description>
+    <Description>CSimple - Streamlined productivity and automation tools</Description>
     <Logo>appiconStoreLogo.scale-100.png</Logo>
   </Properties>
   
@@ -315,7 +308,7 @@ $defaultManifest = @"
   <Applications>
     <Application Id="CSimple" Executable="CSimple.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements 
-        DisplayName="Simple" 
+        DisplayName="CSimple" 
         Description="Streamlined productivity and automation tools" 
         BackgroundColor="#081B25" 
         Square150x150Logo="appiconMediumTile.scale-100.png" 
@@ -326,7 +319,7 @@ $defaultManifest = @"
           Wide310x150Logo="appiconWideTile.scale-100.png"
           Square310x310Logo="appiconLargeTile.scale-100.png"
           Square71x71Logo="appiconSmallTile.scale-100.png"
-          ShortName="Simple">
+          ShortName="CSimple">
           <uap:ShowNameOnTiles>
             <uap:ShowOn Tile="square150x150Logo"/>
             <uap:ShowOn Tile="wide310x150Logo"/>

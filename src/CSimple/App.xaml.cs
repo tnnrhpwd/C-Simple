@@ -131,16 +131,6 @@ public partial class App : Application
         DependencyService.Register<DataService>();
     }
 
-    // protected override Window CreateWindow(IActivationState activationState)
-    // {
-    //     var window = new Window(new AppShell());
-
-    //     // Set window properties
-    //     window.Title = "Simple App";
-
-    //     return window;
-    // }
-
     private async Task ExtractBundledScriptsAsync()
     {
         try

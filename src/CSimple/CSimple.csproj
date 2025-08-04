@@ -14,14 +14,14 @@
         <SingleProject>true</SingleProject>
         <UseMaui>true</UseMaui>
         <RootNamespace>CSimple</RootNamespace>
-        <ApplicationTitle>Simple</ApplicationTitle>
-        <ApplicationId>com.simpleinc.simple</ApplicationId>
+        <ApplicationTitle>CSimple</ApplicationTitle>
+        <ApplicationId>com.simpleinc.csimple</ApplicationId>
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
         <ApplicationVersion>1</ApplicationVersion>
         <!-- Microsoft Store Configuration -->
         <ApplicationPublisher>Simple Inc</ApplicationPublisher>
-        <ApplicationDescription>Simple - Streamlined productivity and automation tools</ApplicationDescription>
-        <PackageDescription>Simple is a comprehensive productivity application designed to streamline your workflow and enhance automation capabilities.</PackageDescription>
+        <ApplicationDescription>CSimple - Streamlined productivity and automation tools</ApplicationDescription>
+        <PackageDescription>CSimple is a comprehensive productivity application designed to streamline your workflow and enhance automation capabilities.</PackageDescription>
         <!-- Logo and Branding Configuration -->
         <UseWinUI>true</UseWinUI>
         <WindowsPackageType>MSIX</WindowsPackageType>

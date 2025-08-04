@@ -526,7 +526,7 @@ powershell -ExecutionPolicy Bypass -File ./generate_structure.ps1
 ### For End Users
 
 End users can always access the latest version at:
-- [Latest Simple App Download](https://drive.google.com/drive/folders/1lKQeLUHYwlrqO8P7LkMztHxSd_CpTvrx?usp=sharing)
+- [Latest CSimple Download](https://drive.google.com/drive/folders/1lKQeLUHYwlrqO8P7LkMztHxSd_CpTvrx?usp=sharing)
 
 For installation instructions, see the [End-User Installation](#end-user-installation) section above.
 

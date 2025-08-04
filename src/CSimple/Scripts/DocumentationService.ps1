@@ -15,7 +15,7 @@ function New-BatchInstaller {
     $batchContent = @'
 @echo off
 setlocal enabledelayedexpansion
-title Simple App v{0} - Installation Manager
+title CSimple v{0} - Installation Manager
 
 REM Prevent window from closing on error
 set "PAUSE_ON_ERROR=1"
@@ -49,7 +49,7 @@ cls
 :main_menu
 color 07
 echo ===============================================
-echo Simple App v{0} - Installation Manager
+echo CSimple v{0} - Installation Manager
 echo ===============================================
 echo.
 
@@ -98,7 +98,7 @@ if %ERRORLEVEL% EQU 0 (
     echo    EXISTING INSTALLATION DETECTED
     echo ================================================
     echo.
-    echo Simple App is already installed on this system.
+    echo CSimple is already installed on this system.
     echo Current installation details:
     type temp_check.txt
     echo.
@@ -165,11 +165,11 @@ echo ================================================
 echo           UNINSTALLING APPLICATION
 echo ================================================
 echo.
-echo [INFO] Removing Simple App...
+echo [INFO] Removing CSimple...
 powershell -command "Get-AppxPackage -Name '*CSimple*' | Remove-AppxPackage" >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
     color 0A
-    echo [SUCCESS] Simple App uninstalled successfully!
+    echo [SUCCESS] CSimple uninstalled successfully!
     echo.
     echo The application has been removed from your system.
     echo.
@@ -178,12 +178,12 @@ if !ERRORLEVEL! EQU 0 (
     goto cleanup_and_exit
 ) else (
     color 07
-    echo [ERROR] Failed to uninstall Simple App
+    echo [ERROR] Failed to uninstall CSimple
     echo.
     echo Please try uninstalling manually:
     echo 1. Go to Windows Settings
     echo 2. Select Apps
-    echo 3. Find Simple App and uninstall
+    echo 3. Find CSimple and uninstall
     echo.
     echo Press any key to exit...
     pause >nul
@@ -200,13 +200,13 @@ goto cleanup_and_exit
 
 :install_fresh
 echo ================================================
-echo         INSTALLING SIMPLE APP v{0}
+echo         INSTALLING CSIMPLE v{0}
 echo ================================================
 echo.
 echo This installer will perform these steps:
 echo 0. Check Windows App Runtime dependency
 echo 1. Install security certificate (requires admin)
-echo 2. Install Simple application
+echo 2. Install CSimple application
 echo 3. Complete setup and verification
 echo.
 
@@ -226,7 +226,7 @@ if %ERRORLEVEL% NEQ 0 (
     echo    MISSING CRITICAL DEPENDENCY
     echo ================================================
     echo.
-    echo Windows App Runtime 1.5 or newer is required for Simple App to run.
+    echo Windows App Runtime 1.5 or newer is required for CSimple to run.
     echo.
     echo Please follow these steps:
     echo 1. Download Windows App Runtime from:
@@ -287,7 +287,7 @@ goto installation_failed
 echo.
 
 REM Step 2: Application Installation
-echo [2/3] Installing Simple application...
+echo [2/3] Installing CSimple application...
 echo      - Locating application package: {2}
 set "MSIX_PATH=%SCRIPT_DIR%{2}"
 echo      - MSIX package path: %MSIX_PATH%
@@ -333,7 +333,7 @@ echo      - Verifying application registration...
 timeout /t 2 /nobreak >nul
 
 REM Try multiple verification methods to ensure we catch the installed app
-echo      - Checking for Simple App installation...
+echo      - Checking for CSimple installation...
 powershell -command "Get-AppxPackage | Where-Object { $_.Name -like '*Simple*' -or $_.DisplayName -like '*Simple*' -or $_.Name -like '*CSimple*' } | Select-Object Name, DisplayName, Version | Format-List" > verify_check.txt 2>nul
 
 REM Check if we found any Simple-related packages
@@ -382,11 +382,11 @@ echo ================================================
 echo        INSTALLATION COMPLETED SUCCESSFULLY!
 echo ================================================
 echo.
-echo Simple App v{0} is now installed
+echo CSimple v{0} is now installed
 echo Application is available in your Start menu
-echo You can launch the app by searching for "Simple"
+echo You can launch the app by searching for "CSimple"
 echo.
-echo Thank you for installing Simple App!
+echo Thank you for installing CSimple!
 echo.
 echo Press any key to close this installer...
 pause >nul
@@ -487,7 +487,7 @@ function New-PowerShellInstaller {
     )
     
     $psInstallerContent = @"
-# Simple App PowerShell Installer v$appVersion
+# CSimple PowerShell Installer v$appVersion
 # This installer provides more robust error handling and diagnostics
 
 param(
@@ -584,7 +584,7 @@ function Install-Application {
 if (-not `$Quiet) {
     Clear-Host
     Write-Host "===============================================" -ForegroundColor Cyan
-    Write-Host "Simple App v$appVersion - PowerShell Installer" -ForegroundColor Cyan
+    Write-Host "CSimple v$appVersion - PowerShell Installer" -ForegroundColor Cyan
     Write-Host "===============================================" -ForegroundColor Cyan
     Write-Host ""
 }
@@ -617,7 +617,7 @@ if (-not (Install-Certificate "$certFileName")) {
 }
 
 # Install application
-Write-Status "Installing Simple application..."
+Write-Status "Installing CSimple application..."
 if (-not (Install-Application "$msixFileName")) {
     Write-Status "Application installation failed." "ERROR"
     Write-Status "Please check Windows version (requires Windows 10 1809+) and try again" "WARNING"
@@ -626,11 +626,11 @@ if (-not (Install-Application "$msixFileName")) {
 }
 
 Write-Status "Installation completed successfully!" "SUCCESS"
-Write-Status "Simple App is now available in your Start menu" "SUCCESS"
+Write-Status "CSimple is now available in your Start menu" "SUCCESS"
 
 if (-not `$Quiet) {
     Write-Host ""
-    Write-Host "Thank you for installing Simple App v$appVersion!" -ForegroundColor Green
+    Write-Host "Thank you for installing CSimple v$appVersion!" -ForegroundColor Green
     Read-Host "Press Enter to exit"
 }
 "@
@@ -649,7 +649,7 @@ function New-UserReadme {
     )
     
     $readmeContent = @"
-# Simple App Installation Instructions (v$appVersion)
+# CSimple Installation Instructions (v$appVersion)
 
 ⚠️ **IMPORTANT PREREQUISITES** ⚠️
 
