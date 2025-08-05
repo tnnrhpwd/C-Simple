@@ -87,7 +87,10 @@ namespace CSimple.Extensions
         {
             // Simple pages
             services.AddSingleton<LoginPage>();
-            services.AddSingleton<SettingsPage>();
+            services.AddSingleton(sp => new SettingsPage(
+                sp.GetRequiredService<DataService>(),
+                sp.GetRequiredService<IDebugConsoleService>()
+            ));
             services.AddSingleton<NetPage>();
             services.AddSingleton<OrientPage>();
             services.AddSingleton<GoalPage>();
@@ -119,9 +122,16 @@ namespace CSimple.Extensions
 #if WINDOWS
             services.AddSingleton<ITrayService, WinUI.TrayService>();
             services.AddSingleton<INotificationService, WinUI.NotificationService>();
+            services.AddSingleton<IDebugConsoleService, Platforms.Windows.WindowsDebugConsoleService>();
+            services.AddSingleton<IHotkeyService, Platforms.Windows.WindowsHotkeyService>();
 #elif MACCATALYST
             services.AddSingleton<ITrayService, MacCatalyst.TrayService>();
             services.AddSingleton<INotificationService, MacCatalyst.NotificationService>();
+            services.AddSingleton<IDebugConsoleService, DefaultDebugConsoleService>();
+            services.AddSingleton<IHotkeyService, DefaultHotkeyService>();
+#else
+            services.AddSingleton<IDebugConsoleService, DefaultDebugConsoleService>();
+            services.AddSingleton<IHotkeyService, DefaultHotkeyService>();
 #endif
             return services;
         }

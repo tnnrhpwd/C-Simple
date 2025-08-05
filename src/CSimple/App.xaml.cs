@@ -43,20 +43,39 @@ public partial class App : Application
     public NetPageViewModel NetPageViewModel { get; private set; }
 
     // Inject services via constructor - Change PythonDependencyManager to PythonBootstrapper
-    public App(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService)
+    public App(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, IDebugConsoleService debugConsoleService, IHotkeyService hotkeyService)
     {
         try
         {
+            // Initialize debug console first
+            CSimple.Utilities.DebugConsole.Initialize(debugConsoleService);
+            CSimple.Utilities.DebugConsole.Info("CSimple application starting...");
+
+            // Register F12 hotkey to toggle debug console
+            try
+            {
+                hotkeyService.RegisterHotkey("F12", () =>
+                {
+                    CSimple.Utilities.DebugConsole.Toggle();
+                    CSimple.Utilities.DebugConsole.Info("Debug console toggled via F12 hotkey");
+                });
+                CSimple.Utilities.DebugConsole.Info("F12 hotkey registered for debug console toggle");
+            }
+            catch (Exception ex)
+            {
+                CSimple.Utilities.DebugConsole.Warning($"Failed to register F12 hotkey: {ex.Message}");
+            }
+
             // Create converters before initialization
             var boolToColorConverter = new BoolToColorConverter();
             var intToColorConverter = new IntToColorConverter();
             var intToBoolConverter = new IntToBoolConverter();
             var inverseBoolConverter = new InverseBoolConverter();
 
-            Debug.WriteLine("App constructor: Converters created");
+            CSimple.Utilities.DebugConsole.Info("App constructor: Converters created");
 
             InitializeComponent();
-            Debug.WriteLine("App constructor: InitializeComponent completed");
+            CSimple.Utilities.DebugConsole.Info("App constructor: InitializeComponent completed");
 
 #if WINDOWS
             // Set up window handle for tray functionality on Windows
@@ -68,14 +87,14 @@ public partial class App : Application
                 {
                     var windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(nativeWindow);
                     WindowExtensions.Hwnd = windowHandle;
-                    Debug.WriteLine($"Window handle set: {windowHandle}");
+                    CSimple.Utilities.DebugConsole.Info($"Window handle set: {windowHandle}");
                 }
             });
 #endif
 
             // Instantiate NetPageViewModel using injected services - Pass pythonBootstrapper
             NetPageViewModel = new NetPageViewModel(fileService, huggingFaceService, pythonBootstrapper, appModeService, pythonEnvironmentService, modelCommunicationService, modelExecutionService, modelImportExportService, trayService, modelDownloadService, modelImportService, chatManagementService, mediaSelectionService);
-            Debug.WriteLine("App constructor: NetPageViewModel instantiated");
+            CSimple.Utilities.DebugConsole.Info("App constructor: NetPageViewModel instantiated");
 
             // Extract bundled scripts to app data directory
             Task.Run(ExtractBundledScriptsAsync);
@@ -88,11 +107,11 @@ public partial class App : Application
                 Resources["IntToBoolConverter"] = intToBoolConverter;
                 Resources["InverseBoolConverter"] = inverseBoolConverter;
 
-                Debug.WriteLine("App constructor: Converters registered successfully");
+                CSimple.Utilities.DebugConsole.Success("App constructor: Converters registered successfully");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error registering converters: {ex.Message}");
+                CSimple.Utilities.DebugConsole.Error($"Error registering converters: {ex.Message}");
             }
 
             // Register routes
@@ -109,7 +128,8 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Critical error in App constructor: {ex.Message}");
+            CSimple.Utilities.DebugConsole.Error($"Critical error in App constructor: {ex.Message}");
+            CSimple.Utilities.DebugConsole.Error($"Stack trace: {ex.StackTrace}");
         }
 
         ToggleFlyoutCommand = new Command(() =>
@@ -153,17 +173,17 @@ public partial class App : Application
                 {
                     string destPath = Path.Combine(scriptsPath, Path.GetFileName(file));
                     File.Copy(file, destPath, overwrite: true);
-                    Debug.WriteLine($"Copied script: {Path.GetFileName(file)} to {destPath}");
+                    CSimple.Utilities.DebugConsole.Info($"Copied script: {Path.GetFileName(file)} to {destPath}");
                 }
             }
             else
             {
-                Debug.WriteLine($"No embedded scripts found at {embeddedScriptsPath}");
+                CSimple.Utilities.DebugConsole.Warning($"No embedded scripts found at {embeddedScriptsPath}");
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error extracting bundled scripts: {ex.Message}");
+            CSimple.Utilities.DebugConsole.Error($"Error extracting bundled scripts: {ex.Message}");
         }
     }
 
@@ -174,13 +194,13 @@ public partial class App : Application
             switch (_navigationMode)
             {
                 case NavMode.Tabs:
-                    Debug.WriteLine("Setting navigation mode to Tabs");
+                    CSimple.Utilities.DebugConsole.Info("Setting navigation mode to Tabs");
                     PhoneTabs.IsVisible = true;
                     Shell.SetFlyoutBehavior(AppShell, FlyoutBehavior.Disabled);
                     break;
                 case NavMode.Flyout:
                 default:
-                    Debug.WriteLine("Setting navigation mode to Flyout");
+                    CSimple.Utilities.DebugConsole.Info("Setting navigation mode to Flyout");
                     PhoneTabs.IsVisible = false;
                     Shell.SetFlyoutBehavior(AppShell, FlyoutBehavior.Flyout);
                     break;
@@ -196,7 +216,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"err: {ex.Message}");
+            CSimple.Utilities.DebugConsole.Error($"Navigation error: {ex.Message}");
         }
     }
 }

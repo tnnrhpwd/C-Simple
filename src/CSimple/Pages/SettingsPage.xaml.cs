@@ -1,5 +1,6 @@
 ﻿using CSimple.ViewModels;
 using System.Diagnostics;
+using CSimple.Services;
 namespace CSimple.Pages;
 
 using Microsoft.Maui.Controls;
@@ -15,6 +16,7 @@ public partial class SettingsPage : ContentPage
 {
     private readonly DataService _dataService;
     private readonly SettingsService _settingsService;
+    private readonly IDebugConsoleService _debugConsoleService;
     public ICommand LogoutCommand { get; }
     private Dictionary<string, Switch> _permissionSwitches;
     private Dictionary<string, Switch> _featureSwitches;
@@ -32,10 +34,11 @@ public partial class SettingsPage : ContentPage
         "Other/Unknown"
     };
 
-    public SettingsPage(DataService dataService)
+    public SettingsPage(DataService dataService, IDebugConsoleService debugConsoleService)
     {
         InitializeComponent();
         _dataService = dataService;
+        _debugConsoleService = debugConsoleService;
         _settingsService = new SettingsService(dataService);
         LogoutCommand = new Command(ExecuteLogout);
         BindingContext = new SettingsViewModel();
@@ -87,6 +90,14 @@ public partial class SettingsPage : ContentPage
         await LoadMembershipDataAsync();
 
         LoadModelCompatibilitySettings();
+
+        // Initialize debug console switch state
+        bool debugConsoleEnabled = Preferences.Get("DebugConsoleEnabled", false);
+        DebugConsoleSwitch.IsToggled = debugConsoleEnabled;
+        if (debugConsoleEnabled)
+        {
+            _debugConsoleService?.Show();
+        }
     }
 
     private async Task InitializeAISettings()
@@ -464,6 +475,30 @@ public partial class SettingsPage : ContentPage
         {
             Debug.WriteLine($"Error updating recommended model preview: {ex.Message}");
             RecommendedModelLabel.Text = "General Assistant";
+        }
+    }
+
+    private void DebugConsoleSwitch_Toggled(object sender, ToggledEventArgs e)
+    {
+        try
+        {
+            if (e.Value)
+            {
+                _debugConsoleService?.Show();
+                CSimple.Utilities.DebugConsole.Info("Debug console enabled from settings");
+            }
+            else
+            {
+                _debugConsoleService?.Hide();
+                CSimple.Utilities.DebugConsole.Info("Debug console disabled from settings");
+            }
+
+            // Save the preference
+            Preferences.Set("DebugConsoleEnabled", e.Value);
+        }
+        catch (Exception ex)
+        {
+            CSimple.Utilities.DebugConsole.Error($"Error toggling debug console: {ex.Message}");
         }
     }
 }

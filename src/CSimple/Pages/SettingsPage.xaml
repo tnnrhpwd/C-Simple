@@ -473,6 +473,29 @@
                         Title="Select Time Zone"
                         SelectedIndexChanged="TimeZonePicker_SelectedIndexChanged" />
                 <BoxView class="HRule" />
+                <!-- Developer Settings Section -->
+                <Label Text="Developer Settings"
+                       class="Subhead" />
+                <Grid RowDefinitions="Auto,Auto"
+                      ColumnDefinitions="*,Auto"
+                      Padding="10,5">
+                    <Label Text="Debug Console"
+                           Grid.Row="0"
+                           Grid.Column="0"
+                           VerticalOptions="Center" />
+                    <Switch x:Name="DebugConsoleSwitch"
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Toggled="DebugConsoleSwitch_Toggled"
+                            IsToggled="False" />
+                    <Label Text="Show debug console window for real-time logging"
+                           Grid.Row="1"
+                           Grid.ColumnSpan="2"
+                           FontSize="12"
+                           TextColor="{StaticResource MidGray}"
+                           Margin="0,0,0,5" />
+                </Grid>
+                <BoxView class="HRule" />
                 <Label Grid.Row="0"
                        Text="Support"
                        class="Subhead">
