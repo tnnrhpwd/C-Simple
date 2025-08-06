@@ -296,13 +296,21 @@ $defaultManifest = @"
   </Properties>
   
   <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
+    <PackageDependency Name="Microsoft.WindowsAppRuntime.1.5" MinVersion="5001.373.1736.0" Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" />
+    <PackageDependency Name="Microsoft.VCLibs.140.00.UWPDesktop" MinVersion="14.0.0.0" Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" />
   </Dependencies>
   
-  <!-- Removed the Resources section that was causing issues -->
+  <Resources>
+    <Resource Language="EN-US" />
+  </Resources>
   
   <Capabilities>
     <rescap:Capability Name="runFullTrust"/>
+    <Capability Name="internetClient" />
+    <uap:Capability Name="removableStorage" />
+    <uap:Capability Name="documentsLibrary" />
   </Capabilities>
   
   <Applications>

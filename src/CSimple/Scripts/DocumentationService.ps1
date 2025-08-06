@@ -17,6 +17,15 @@ function New-BatchInstaller {
 setlocal enabledelayedexpansion
 title CSimple v{0} - Installation Manager
 
+REM Check for administrator privileges and auto-elevate if needed
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Requesting administrator privileges...
+    echo Please click "Yes" when prompted to allow this installer to run as administrator.
+    powershell -Command "Start-Process cmd -ArgumentList '/c \"%~f0\"' -Verb RunAs"
+    exit /b
+)
+
 REM Prevent window from closing on error
 set "PAUSE_ON_ERROR=1"
 
@@ -33,7 +42,7 @@ if not defined INSTALLER_DEBUG (
         echo The installer stopped unexpectedly.
         echo.
         echo Please try the following:
-        echo 1. Ensure you right-clicked and selected "Run as administrator"
+        echo 1. Click "Yes" when prompted for administrator access
         echo 2. Temporarily disable antivirus software
         echo 3. Ensure all files are in the same directory
         echo 4. Try the PowerShell installer: install.ps1
@@ -53,26 +62,23 @@ echo CSimple v{0} - Installation Manager
 echo ===============================================
 echo.
 
-REM Check for admin privileges first
+REM Verify administrator privileges (should already have them due to auto-elevation)
 echo Verifying administrator privileges...
 net session >nul 2>&1
 if !errorlevel! neq 0 (
     color 07
     echo.
     echo ===============================================
-    echo        ADMINISTRATOR ACCESS REQUIRED
+    echo     ADMINISTRATOR ELEVATION FAILED
     echo ===============================================
     echo.
-    echo This installer requires administrator privileges to:
+    echo The automatic elevation request was denied or failed.
+    echo Administrator privileges are required to:
     echo - Install security certificates
     echo - Install MSIX applications
     echo - Modify system settings
     echo.
-    echo Please follow these steps:
-    echo 1. Close this window
-    echo 2. Right-click on install.bat
-    echo 3. Select "Run as administrator"
-    echo 4. Click "Yes" when prompted
+    echo Please try again and click "Yes" when prompted.
     echo.
     echo Press any key to exit...
     pause >nul
@@ -700,7 +706,8 @@ Once you've installed the certificate, you won't need to reinstall it for future
 ## Alternative Installation Methods
 
 ### Automated Installer (Recommended)
-- Right-click on `install.bat` -> "Run as administrator"
+- Double-click on `install.bat`
+- Click "Yes" when prompted for administrator privileges
 - Follow the prompts for automatic installation
 
 ### PowerShell Installer (Advanced Users)

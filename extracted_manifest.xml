@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Package IgnorableNamespaces="uap rescap" xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+  
+  <Identity Name="CSimple-App" Publisher="CN=Simple Inc, O=Simple Inc, C=US" Version="1.0.87.0"/>
+  
+  <Properties>
+    <DisplayName>CSimple</DisplayName>
+    <PublisherDisplayName>Simple Inc</PublisherDisplayName>
+    <Description>CSimple - Streamlined productivity and automation tools</Description>
+    <Logo>appiconStoreLogo.scale-100.png</Logo>
+  </Properties>
+  
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0"/>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0"/>
+    <PackageDependency Name="Microsoft.WindowsAppRuntime.1.5" MinVersion="5.0.0.0" Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"/>
+  </Dependencies>
+  
+  <Resources>
+    
+  </Resources>
+  
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust"/>
+    <Capability Name="internetClient"/>
+    <uap:Capability Name="removableStorage"/>
+    <uap:Capability Name="documentsLibrary"/>
+  </Capabilities>
+  
+  <Applications>
+    <Application Id="CSimple" Executable="CSimple.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="CSimple" Description="Streamlined productivity and automation tools" BackgroundColor="#081B25" Square150x150Logo="appiconMediumTile.scale-100.png" Square44x44Logo="appiconLogo.scale-100.png">
+        
+        
+        <uap:DefaultTile Wide310x150Logo="appiconWideTile.scale-100.png" Square310x310Logo="appiconLargeTile.scale-100.png" Square71x71Logo="appiconSmallTile.scale-100.png" ShortName="CSimple">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo"/>
+            <uap:ShowOn Tile="wide310x150Logo"/>
+            <uap:ShowOn Tile="square310x310Logo"/>
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        
+        
+        <uap:SplashScreen Image="appiconfgSplashScreen.scale-100.png" BackgroundColor="#081B25"/>
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+</Package>
