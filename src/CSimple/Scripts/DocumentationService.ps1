@@ -667,7 +667,7 @@ function New-UserReadme {
 
 ⚠️ **IMPORTANT PREREQUISITES** ⚠️
 
-**Before installing Simple App, you MUST install Windows App Runtime:**
+**Before installing CSimple, you MUST install Windows App Runtime:**
 
 1. **Download and install Microsoft Windows App Runtime 1.5 or newer** from:
    - https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads
@@ -678,12 +678,26 @@ function New-UserReadme {
    - Select x64 package for 64-bit systems, x86 for 32-bit systems if needed
    - Note: Most modern systems use x64 architecture
 
-## Certificate Installation (Required)
+## Quick Installation (Recommended)
 
-Before installing the Simple app (v$appVersion), you need to install the certificate:
+**The fastest and most reliable method:**
 
-1. First, double-click on the file: $certFileName
-2. Click "Open" if prompted with a security warning
+1. **Run the automated installer:**
+   - Right-click on `install.bat` and select "Run as administrator"
+   - OR double-click on `install.bat` and click "Yes" when prompted for administrator privileges
+   - Follow the prompts for automatic installation
+   - The installer will handle certificate installation and app deployment automatically
+
+## Manual Installation (Advanced Users)
+
+If you prefer to install manually or troubleshoot issues:
+
+### Step 1: Certificate Installation (Required)
+
+Before installing CSimple (v$appVersion), you need to install the certificate:
+
+1. Right-click on the file: `$certFileName` and select "Run as administrator"
+2. OR double-click on `$certFileName` and click "Open" if prompted with a security warning
 3. In the Certificate window, click "Install Certificate"
 4. Select "Local Machine" and click "Next" (requires admin rights)
 5. Select "Place all certificates in the following store"
@@ -691,51 +705,110 @@ Before installing the Simple app (v$appVersion), you need to install the certifi
 7. Click "Next" and then "Finish"
 8. Confirm the security warning by clicking "Yes"
 
-## Application Installation
+### Step 2: Enable Developer Mode (If Needed)
 
-After installing both the Windows App Runtime AND the certificate:
-1. Double-click on the file: $msixFileName
+If installation fails with signing errors:
+
+1. Open Windows Settings (Windows key + I)
+2. Go to "Update & Security" → "For developers"
+3. Enable "Developer mode" or "Sideload apps"
+
+### Step 3: Application Installation
+
+After installing the certificate:
+1. Double-click on the file: `$msixFileName`
 2. Click "Install"
+3. **CSimple will now be available in your Windows Start menu**
+
+## Start Menu Access
+
+Once installed successfully:
+- Press the Windows key
+- Type "CSimple" in the search box
+- Click on the CSimple application to launch it
+- You can also pin it to your taskbar or Start menu for quick access
 
 ## Updating an Existing Installation
 
-**Note:** If you already have Simple App installed and are updating to a newer version, you can skip the certificate installation steps above. Simply double-click the new MSIX file and click "Install" to update your existing installation.
-
-Once you've installed the certificate, you won't need to reinstall it for future updates.
+**Note:** If you already have CSimple installed and are updating to a newer version:
+- You can skip the certificate installation steps above (certificate remains valid)
+- Simply double-click the new MSIX file and click "Install" to update
+- The update will preserve your settings and data
 
 ## Alternative Installation Methods
 
-### Automated Installer (Recommended)
-- Double-click on `install.bat`
-- Click "Yes" when prompted for administrator privileges
-- Follow the prompts for automatic installation
-
 ### PowerShell Installer (Advanced Users)
-- Right-click PowerShell -> "Run as administrator"
+- Right-click PowerShell and select "Run as administrator"
+- Navigate to the installation folder
 - Run: `.\install.ps1`
+
+### Manual PowerShell Commands (Expert Users)
+If automated methods fail, you can install manually:
+```powershell
+# Install certificate (run as administrator)
+Import-Certificate -FilePath ".\$certFileName" -CertStoreLocation Cert:\LocalMachine\Root
+
+# Enable sideloading
+Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -Name 'AllowAllTrustedApps' -Value 1
+
+# Install the app
+Add-AppxPackage -Path ".\$msixFileName"
+```
 
 ## System Requirements
 
-- Windows 10 version 1809 or newer
-- Administrator privileges (for certificate installation)
+- Windows 10 version 1809 (October 2018 Update) or newer
+- Windows 11 (all versions supported)
+- Microsoft Windows App Runtime 1.5 or newer
+- Administrator privileges (for certificate installation only)
+- Minimum 500MB free disk space
 
 ## Troubleshooting
 
 ### "Certificate not trusted" or "App package is not trusted"
-- Ensure you have installed the $certFileName certificate file first
+- **Solution:** Ensure you have installed the `$certFileName` certificate file first
 - Verify the certificate was installed in "Trusted Root Certification Authorities"
+- Try running the installer as administrator
 
 ### "Access Denied" during installation
-- Right-click on the installer and select "Run as administrator"
-- Ensure you have local administrator privileges
+- **Solution:** Right-click on the installer and select "Run as administrator"
+- Ensure you have local administrator privileges on the computer
 
-### Installation fails
+### "The package deployment failed because its publisher is not in the unsigned namespace"
+- **Solution:** Enable Developer Mode in Windows Settings
+- OR use the automated installer which handles this automatically
+
+### Installation fails with signing errors
+- **Solution:** 
+  1. Install the certificate first (see Step 1 above)
+  2. Enable "Sideload apps" or "Developer mode" in Windows Settings
+  3. Try the automated installer (`install.bat`) which handles these settings
+
+### App doesn't appear in Start menu
+- **Solution:** 
+  1. Wait 30-60 seconds after installation completes
+  2. Press Windows key and search for "CSimple"
+  3. Check if app is listed in Settings → Apps → Apps & features
+  4. If still missing, try reinstalling using the automated installer
+
+### Installation fails completely
 - Check that you're running Windows 10 version 1809 or newer
+- Ensure Windows App Runtime 1.5+ is installed (see prerequisites above)
 - Ensure you have sufficient disk space (minimum 500MB recommended)
 - Temporarily disable antivirus software during installation
 - Try restarting your computer and running the installation again
+- Use the automated installer (`install.bat`) which handles most common issues
 
-**Build Date:** $releaseDate
+## Technical Notes
+
+- This package uses MSIX format for Windows modern app deployment
+- The application identity is `CSimple-App` published by `Simple Inc`
+- Package is digitally signed for security and Windows Store compliance
+- Version synchronization ensures consistency between build info and package version
+
+**Build Date:** $releaseDate  
+**Package Version:** $appVersion  
+**Publisher:** Simple Inc
 "@
     Set-Content -Path $readmePath -Value $readmeContent -Encoding UTF8
     Write-Host "User README created at $readmePath" -ForegroundColor Green

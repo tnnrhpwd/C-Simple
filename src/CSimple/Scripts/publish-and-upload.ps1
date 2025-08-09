@@ -1,3 +1,22 @@
+# CSimple Publish and Upload Script
+# 
+# This script builds, packages, signs, and distributes CSimple for Windows
+# 
+# PROVEN WORKING METHOD (Cemented 2025-08-09):
+# 1. Updates project version files (Package.appxmanifest and .csproj) with build-info.json version
+# 2. Uses dotnet publish to build and generate MSIX package automatically 
+# 3. Locates the generated test MSIX package from AppPackages directory
+# 4. Signs the MSIX package using the certificate (CSimple_NewCert.pfx)
+# 5. Copies signed package to distribution directory with proper documentation
+# 
+# This method ensures:
+# - Version consistency between build-info.json and actual package
+# - Proper package identity (CSimple-App) and publisher (Simple Inc)
+# - Correct digital signing for Windows trust
+# - Start menu accessibility after installation
+# 
+# Version: 2.0 (Updated to cement working methodology)
+
 # Variables
 $APP_NAME = "CSimple"
 $ScriptBaseDir = $PSScriptRoot # Get the directory where the script is located
@@ -43,6 +62,40 @@ function Test-ToolExists {
     }
     
     return $null -ne (Get-Command $toolName -ErrorAction SilentlyContinue)
+}
+
+# Function to update project files with current version
+function Update-ProjectVersion {
+    param (
+        [string]$projectPath,
+        [string]$manifestPath,
+        [string]$version
+    )
+    
+    Write-Host "Updating project version to $version..." -ForegroundColor Yellow
+    
+    # Parse version parts
+    $versionParts = $version -split '\.'
+    $majorMinor = "$($versionParts[0]).$($versionParts[1])"
+    $buildNumber = $versionParts[2]
+    
+    # Update Package.appxmanifest - be more specific with the replacement
+    if (Test-Path $manifestPath) {
+        $manifestContent = Get-Content $manifestPath -Raw
+        # Only replace the Version attribute in the Identity element
+        $manifestContent = $manifestContent -replace '<Identity([^>]*)\s+Version="[^"]*"', "<Identity`$1 Version=`"$version`""
+        Set-Content -Path $manifestPath -Value $manifestContent -Encoding UTF8
+        Write-Host "Updated Package.appxmanifest version to $version" -ForegroundColor Green
+    }
+    
+    # Update .csproj file
+    if (Test-Path $projectPath) {
+        $projectContent = Get-Content $projectPath -Raw
+        $projectContent = $projectContent -replace '<ApplicationDisplayVersion>[^<]*</ApplicationDisplayVersion>', "<ApplicationDisplayVersion>$majorMinor.$buildNumber</ApplicationDisplayVersion>"
+        $projectContent = $projectContent -replace '<ApplicationVersion>[^<]*</ApplicationVersion>', "<ApplicationVersion>$buildNumber</ApplicationVersion>"
+        Set-Content -Path $projectPath -Value $projectContent -Encoding UTF8
+        Write-Host "Updated .csproj ApplicationDisplayVersion to $majorMinor.$buildNumber and ApplicationVersion to $buildNumber" -ForegroundColor Green
+    }
 }
 
 # Function to get and increment build info
@@ -226,6 +279,10 @@ $appVersion = $buildInfo.version
 
 Write-Host "Building revision #$currentRevision (v$appVersion)" -ForegroundColor Green
 
+# Update project files with the current version
+$manifestPath = Join-Path $ScriptBaseDir "..\Platforms\Windows\Package.appxmanifest"
+Update-ProjectVersion -projectPath $PROJECT_PATH -manifestPath $manifestPath -version $appVersion
+
 # Get release date for folder naming
 $releaseDate = Get-FormattedReleaseDate
 
@@ -257,138 +314,51 @@ if (-not (Test-Path $PROJECT_PATH)) {
 dotnet build $PROJECT_PATH --framework $TARGET_FRAMEWORK -c $BUILD_CONFIG
 if ($LASTEXITCODE -ne 0) { Write-Host "Build failed." ; exit 1 }
 
-# Publish .NET MAUI App
-Write-Host "Publishing app..."
-# Add /p:AppxPackageSigningEnabled=false to disable signing during publish
+# Publish .NET MAUI App and create MSIX package
+Write-Host "Publishing app and creating MSIX package..."
+# The project is configured to generate MSIX packages automatically during publish
 dotnet publish $PROJECT_PATH -f $TARGET_FRAMEWORK -c $BUILD_CONFIG -o $OUTPUT_DIR --self-contained /p:AppxPackageSigningEnabled=false
 if ($LASTEXITCODE -ne 0) { Write-Host "Publish failed." ; exit 1 }
+
+# Find the generated MSIX package
+$msixPackageDir = Get-ChildItem -Path (Split-Path $PROJECT_PATH) -Recurse -Directory | Where-Object { $_.Name -match "AppPackages" } | Select-Object -First 1
+if (-not $msixPackageDir) {
+    Write-Host "Could not find AppPackages directory" -ForegroundColor Red
+    exit 1
+}
+
+# Find the test package directory that matches our current version
+$testPackageDir = Get-ChildItem -Path $msixPackageDir.FullName -Directory | Where-Object { $_.Name -match "_Test$" -and $_.Name -like "*$appVersion*" } | Sort-Object CreationTime -Descending | Select-Object -First 1
+if (-not $testPackageDir) {
+    Write-Host "Could not find test package directory for version $appVersion" -ForegroundColor Red
+    Write-Host "Available directories:" -ForegroundColor Yellow
+    Get-ChildItem -Path $msixPackageDir.FullName -Directory | ForEach-Object { Write-Host "  $($_.Name)" -ForegroundColor Yellow }
+    exit 1
+}
+
+$generatedMsix = Get-ChildItem -Path $testPackageDir.FullName -Filter "*.msix" | Select-Object -First 1
+if (-not $generatedMsix) {
+    Write-Host "Could not find generated MSIX package in $($testPackageDir.FullName)" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Found generated MSIX: $($generatedMsix.FullName)" -ForegroundColor Green
 
 # Initialize and handle certificate management
 $certResult = Initialize-AppCertificate -certDir $CertDir -subject $subject -password $newCertPassword
 
-if ($certResult.IsNew) {
-    # Sign the published output using the new certificate
-    Invoke-FilesSigning -outputDir $OUTPUT_DIR -pfxPath $certResult.PfxPath -password $newCertPassword -signtoolPath $signtoolPath
-}
-
-Write-Host "Creating mapping file..."
-
-# Always create a new AppxManifest.xml with the correct format
-Write-Host "Creating a new AppxManifest.xml file..."
-$defaultManifest = @"
-<?xml version="1.0" encoding="utf-8"?>
-<Package 
-  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" 
-  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" 
-  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" 
-  IgnorableNamespaces="uap rescap">
-  
-  <Identity 
-    Name="CSimple-App" 
-    Publisher="CN=Simple Inc, O=Simple Inc, C=US" 
-    Version="$appVersion" />
-  
-  <Properties>
-    <DisplayName>CSimple</DisplayName>
-    <PublisherDisplayName>Simple Inc</PublisherDisplayName>
-    <Description>CSimple - Streamlined productivity and automation tools</Description>
-    <Logo>appiconStoreLogo.scale-100.png</Logo>
-  </Properties>
-  
-  <Dependencies>
-    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
-    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
-    <PackageDependency Name="Microsoft.WindowsAppRuntime.1.5" MinVersion="5001.373.1736.0" Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" />
-    <PackageDependency Name="Microsoft.VCLibs.140.00.UWPDesktop" MinVersion="14.0.0.0" Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" />
-  </Dependencies>
-  
-  <Resources>
-    <Resource Language="EN-US" />
-  </Resources>
-  
-  <Capabilities>
-    <rescap:Capability Name="runFullTrust"/>
-    <Capability Name="internetClient" />
-    <uap:Capability Name="removableStorage" />
-    <uap:Capability Name="documentsLibrary" />
-  </Capabilities>
-  
-  <Applications>
-    <Application Id="CSimple" Executable="CSimple.exe" EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements 
-        DisplayName="CSimple" 
-        Description="Streamlined productivity and automation tools" 
-        BackgroundColor="#081B25" 
-        Square150x150Logo="appiconMediumTile.scale-100.png" 
-        Square44x44Logo="appiconLogo.scale-100.png">
-        
-        <!-- Enhanced Logo Support for Microsoft Store -->
-        <uap:DefaultTile 
-          Wide310x150Logo="appiconWideTile.scale-100.png"
-          Square310x310Logo="appiconLargeTile.scale-100.png"
-          Square71x71Logo="appiconSmallTile.scale-100.png"
-          ShortName="CSimple">
-          <uap:ShowNameOnTiles>
-            <uap:ShowOn Tile="square150x150Logo"/>
-            <uap:ShowOn Tile="wide310x150Logo"/>
-            <uap:ShowOn Tile="square310x310Logo"/>
-          </uap:ShowNameOnTiles>
-        </uap:DefaultTile>
-        
-        <!-- Splash Screen using the generated splash screen assets -->
-        <uap:SplashScreen Image="appiconfgSplashScreen.scale-100.png" BackgroundColor="#081B25"/>
-      </uap:VisualElements>
-    </Application>
-  </Applications>
-</Package>
-"@
-
-Set-Content -Path $MSIX_MANIFEST_PATH -Value $defaultManifest -Encoding UTF8
-
-Write-Host "Using MAUI-generated logo assets for Microsoft Store compliance..." -ForegroundColor Green
-
-# Create the mapping file with only the files from OUTPUT_DIR
-# Don't include AppxManifest.xml in mapping when using /m parameter
-$mappingContent = "[Files]`r`n"
-
-# Ensure $OUTPUT_DIR is set
-if (-not $OUTPUT_DIR) {
-    Write-Host "Error: OUTPUT_DIR is not defined." -ForegroundColor Red
-    exit 1
-}
-
-# Process each file and directory in $OUTPUT_DIR, excluding resources.pri
-Get-ChildItem -Path $OUTPUT_DIR -Recurse -File | Where-Object { $_.Name -ne "resources.pri" } | ForEach-Object {
-    # Ensure the file path starts with OUTPUT_DIR (case-insensitive)
-    if ($_.FullName.StartsWith($OUTPUT_DIR, [System.StringComparison]::OrdinalIgnoreCase)) {
-        $relativePath = $_.FullName.Substring($OUTPUT_DIR.Length + 1).Replace("\", "/")
-        $mappingContent += "`"$($_.FullName -replace '\\', '/')`" `"$relativePath`"`r`n"
-    }
-    else {
-        Write-Host "Warning: File path doesn't start with OUTPUT_DIR: $($_.FullName)" -ForegroundColor Yellow
-        Write-Host "  OUTPUT_DIR: $OUTPUT_DIR" -ForegroundColor Yellow
-    }
-}
-
-# Output the mapping file content to a file
-Set-Content -Path $mappingFilePath -Value $mappingContent -Encoding UTF8
-
-# Debug: Display the first few lines of the mapping file
-Write-Host "Debug: First few lines of mapping file:"
-Get-Content $mappingFilePath -TotalCount 5 | ForEach-Object { Write-Host $_ }
-
-Write-Host "Mapping file created successfully at $mappingFilePath" -ForegroundColor Green
-
-# Create MSIX package
-Write-Host "Creating MSIX package..."
-& $makeAppxPath pack /m $MSIX_MANIFEST_PATH /f $mappingFilePath /p $MSIX_OUTPUT_PATH
+# Sign the generated MSIX package
+Write-Host "Signing MSIX package..."
+& $signtoolPath sign /fd SHA256 /a /f $certResult.PfxPath /p $newCertPassword $generatedMsix.FullName
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "MSIX package creation failed." -ForegroundColor Red
+    Write-Host "MSIX signing failed." -ForegroundColor Red
     exit 1
 }
 
-# Sign the MSIX package
-Invoke-MsixSigning -msixPath $MSIX_OUTPUT_PATH -pfxPath $certResult.PfxPath -password $newCertPassword -signtoolPath $signtoolPath
+Write-Host "MSIX package signed successfully" -ForegroundColor Green
+
+# Set the final MSIX path for copying to distribution directory
+$MSIX_OUTPUT_PATH = $generatedMsix.FullName
 
 # Copy files to the version-specific directory
 Write-Host "Copying files to version directory: $versionDir"
@@ -416,7 +386,7 @@ catch {
 Write-Host "Cleaning up temporary files..."
 if (Test-Path $mappingFilePath) { Remove-Item $mappingFilePath -Force }
 if (Test-Path $MSIX_MANIFEST_PATH) { Remove-Item $MSIX_MANIFEST_PATH -Force }
-if (Test-Path $MSIX_OUTPUT_PATH) { Remove-Item $MSIX_OUTPUT_PATH -Force }
+# Note: We keep the generated MSIX package for distribution
 
 Write-Host "Process complete! Files have been published to:" -ForegroundColor Green
 Write-Host "- Version directory: $versionDir" -ForegroundColor Green

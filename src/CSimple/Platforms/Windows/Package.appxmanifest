@@ -4,7 +4,7 @@
          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
          IgnorableNamespaces="uap rescap">
     <Identity Name="CSimple-App"
-              Version="1.0.3.0"
+              Version="1.0.99.0"
               Publisher="CN=Simple Inc, O=Simple Inc, C=US" />
     <Properties>
         <DisplayName>CSimple</DisplayName>
@@ -13,10 +13,10 @@
     </Properties>
     <Dependencies>
         <TargetDeviceFamily Name="Windows.Universal"
-                            MinVersion="10.0.17763.0"
+                            MinVersion="1.0.98.0"
                             MaxVersionTested="10.0.19041.0" />
         <TargetDeviceFamily Name="Windows.Desktop"
-                            MinVersion="10.0.17763.0"
+                            MinVersion="1.0.98.0"
                             MaxVersionTested="10.0.19041.0" />
     </Dependencies>
     <Resources>
