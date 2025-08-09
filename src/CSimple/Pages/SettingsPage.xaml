@@ -94,6 +94,11 @@
                                    FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
                                    HorizontalOptions="Start" />
+                            <Label x:Name="AppVersionLabel"
+                                   Text="Version Loading..."
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                                   HorizontalOptions="Start" />
                             <Label Text="Configure your AI assistant settings and preferences to customize your experience."
                                    FontSize="14"
                                    TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"

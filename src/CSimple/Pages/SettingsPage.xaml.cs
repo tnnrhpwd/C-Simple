@@ -70,6 +70,10 @@ public partial class SettingsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+
+        // Load and display app version
+        LoadAppVersion();
+
         var (userNickname, userEmail) = await _settingsService.LoadUserData();
         if (!string.IsNullOrEmpty(userNickname) || !string.IsNullOrEmpty(userEmail))
         {
@@ -97,6 +101,23 @@ public partial class SettingsPage : ContentPage
         if (debugConsoleEnabled)
         {
             _debugConsoleService?.Show();
+        }
+    }
+
+    private void LoadAppVersion()
+    {
+        try
+        {
+            var version = AppInfo.VersionString;
+            var buildString = AppInfo.BuildString;
+
+            // Display version with build number
+            AppVersionLabel.Text = $"Version {version} (Build {buildString})";
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error loading app version: {ex.Message}");
+            AppVersionLabel.Text = "Version information unavailable";
         }
     }
 
