@@ -16,7 +16,7 @@ $mappingFilePath = Join-Path $ScriptBaseDir "..\..\..\mapping.txt" # Mapping fil
 $buildInfoPath = Join-Path $ScriptBaseDir "..\..\..\build-info.json" # Build info file in base directory
 
 # Root destination directory 
-$rootDestDir = "D:\My Drive\Simple"
+$rootDestDir = "D:\My Drive\Simple\beta_versions"
 # Version-specific paths will be set after determining the version
 
 # Maximum number of versions to keep in the main directory before archiving

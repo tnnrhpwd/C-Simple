@@ -3,12 +3,12 @@
          xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
          IgnorableNamespaces="uap rescap">
-    <Identity Name="Contoso.AssetTracker"
+    <Identity Name="CSimple-App"
               Version="1.0.3.0"
-              Publisher="CN=CSimple, O=Simple Org, C=US" />
+              Publisher="CN=Simple Inc, O=Simple Inc, C=US" />
     <Properties>
         <DisplayName>CSimple</DisplayName>
-        <PublisherDisplayName>Microsoft</PublisherDisplayName>
+        <PublisherDisplayName>Simple Inc</PublisherDisplayName>
         <Logo>Assets\appiconStoreLogo.png</Logo>
     </Properties>
     <Dependencies>
