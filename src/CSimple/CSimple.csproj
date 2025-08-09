@@ -16,8 +16,8 @@
         <RootNamespace>CSimple</RootNamespace>
         <ApplicationTitle>CSimple</ApplicationTitle>
         <ApplicationId>com.simpleinc.csimple</ApplicationId>
-        <ApplicationDisplayVersion>1.0.99</ApplicationDisplayVersion>
-        <ApplicationVersion>99</ApplicationVersion>
+        <ApplicationDisplayVersion>1.0.100</ApplicationDisplayVersion>
+        <ApplicationVersion>100</ApplicationVersion>
         <!-- Microsoft Store Configuration -->
         <ApplicationPublisher>Simple Inc</ApplicationPublisher>
         <ApplicationDescription>CSimple - Streamlined productivity and automation tools</ApplicationDescription>
