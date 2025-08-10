@@ -8,7 +8,7 @@ namespace CSimple.Services
 {
     public class FileService
     {
-        private readonly string _directory;
+        private readonly IAppPathService _appPathService;
         private readonly string _dataItemsFilePath;
         private readonly string _recordedActionsFilePath;
         private readonly string _goalsFilePath;
@@ -18,19 +18,22 @@ namespace CSimple.Services
         private readonly string _pipelineDirectoryPath; // Added for pipelines
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public FileService()
+        public FileService(IAppPathService appPathService)
         {
-            _directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources");
-            System.Diagnostics.Debug.WriteLine($"Directory: {_directory}");
+            _appPathService = appPathService;
 
-            Directory.CreateDirectory(_directory);  // Ensure directory exists
-            _dataItemsFilePath = Path.Combine(_directory, "dataItems.json");
-            _recordedActionsFilePath = Path.Combine(_directory, "recordedActions.json");
-            _goalsFilePath = Path.Combine(_directory, "goals.json");
-            _plansFilePath = Path.Combine(_directory, "plans.json");
-            _localDataItemsFilePath = Path.Combine(_directory, "localDataItems.json");
-            _huggingFaceModelsFilePath = Path.Combine(_directory, "huggingFaceModels.json"); // Path for HF models
-            _pipelineDirectoryPath = Path.Combine(_directory, "Pipelines"); // Pipeline directory
+            // Initialize paths using the path service
+            var resourcesPath = _appPathService.GetResourcesPath();
+
+            System.Diagnostics.Debug.WriteLine($"Directory: {resourcesPath}");
+
+            _dataItemsFilePath = Path.Combine(resourcesPath, "dataItems.json");
+            _recordedActionsFilePath = Path.Combine(resourcesPath, "recordedActions.json");
+            _goalsFilePath = Path.Combine(resourcesPath, "goals.json");
+            _plansFilePath = Path.Combine(resourcesPath, "plans.json");
+            _localDataItemsFilePath = Path.Combine(resourcesPath, "localDataItems.json");
+            _huggingFaceModelsFilePath = Path.Combine(resourcesPath, "huggingFaceModels.json"); // Path for HF models
+            _pipelineDirectoryPath = _appPathService.GetPipelinesPath(); // Pipeline directory
 
             _jsonOptions = new JsonSerializerOptions
             {
@@ -38,20 +41,58 @@ namespace CSimple.Services
                 PropertyNameCaseInsensitive = true
             };
 
-            EnsureFileExists(_dataItemsFilePath);
-            EnsureFileExists(_recordedActionsFilePath);
-            EnsureFileExists(_goalsFilePath);
-            EnsureFileExists(_plansFilePath);
-            EnsureFileExists(_localDataItemsFilePath); // Ensure local data items file exists
-            EnsureFileExists(_huggingFaceModelsFilePath); // Ensure HuggingFace models file exists
+            // Initialize directories and files
+            InitializeAsync().ConfigureAwait(false);
+        }
 
-            // Ensure pipeline directory exists
-            if (!Directory.Exists(_pipelineDirectoryPath))
+        private async Task InitializeAsync()
+        {
+            try
             {
-                Directory.CreateDirectory(_pipelineDirectoryPath);
-                System.Diagnostics.Debug.WriteLine($"Created directory: {_pipelineDirectoryPath}");
+                await _appPathService.InitializeDirectoriesAsync();
+
+                EnsureFileExists(_dataItemsFilePath);
+                EnsureFileExists(_recordedActionsFilePath);
+                EnsureFileExists(_goalsFilePath);
+                EnsureFileExists(_plansFilePath);
+                EnsureFileExists(_localDataItemsFilePath); // Ensure local data items file exists
+                EnsureFileExists(_huggingFaceModelsFilePath); // Ensure HuggingFace models file exists
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error initializing FileService: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// Gets the current directory path for resources
+        /// </summary>
+        public string GetResourcesDirectory() => _appPathService.GetResourcesPath();
+
+        /// <summary>
+        /// Gets the WebcamImages directory path
+        /// </summary>
+        public string GetWebcamImagesDirectory() => _appPathService.GetWebcamImagesPath();
+
+        /// <summary>
+        /// Gets the PCAudio directory path
+        /// </summary>
+        public string GetPCAudioDirectory() => _appPathService.GetPCAudioPath();
+
+        /// <summary>
+        /// Gets the HFModels directory path
+        /// </summary>
+        public string GetHFModelsDirectory() => _appPathService.GetHFModelsPath();
+
+        /// <summary>
+        /// Gets the Pipelines directory path
+        /// </summary>
+        public string GetPipelinesDirectory() => _appPathService.GetPipelinesPath();
+
+        /// <summary>
+        /// Gets the MemoryFiles directory path
+        /// </summary>
+        public string GetMemoryFilesDirectory() => _appPathService.GetMemoryFilesPath();
 
         // --- Generic Save/Load Methods ---
 
@@ -63,7 +104,7 @@ namespace CSimple.Services
         /// <param name="data">The data object to serialize and save.</param>
         public async Task SaveDataAsync<T>(string filename, T data)
         {
-            var filePath = Path.Combine(_directory, filename);
+            var filePath = Path.Combine(_appPathService.GetResourcesPath(), filename);
             try
             {
                 EnsureFileDirectoryExists(filePath); // Ensure directory exists
@@ -86,7 +127,7 @@ namespace CSimple.Services
         /// <returns>The deserialized data object, or default(T) if the file doesn't exist or an error occurs.</returns>
         public async Task<T> LoadDataAsync<T>(string filename)
         {
-            var filePath = Path.Combine(_directory, filename);
+            var filePath = Path.Combine(_appPathService.GetResourcesPath(), filename);
             try
             {
                 if (!File.Exists(filePath))

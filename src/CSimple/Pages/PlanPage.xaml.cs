@@ -34,7 +34,8 @@ namespace CSimple.Pages
 
             // Initialize services
             _dataService = new DataService();
-            _fileService = new FileService();
+            var appPathService = new AppPathService();
+            _fileService = new FileService(appPathService);
             _appModeService = ServiceProvider.GetService<CSimple.Services.AppModeService.AppModeService>();
 
             // Bind the context

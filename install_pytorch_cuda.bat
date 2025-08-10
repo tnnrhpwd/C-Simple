@@ -5,7 +5,7 @@ echo.
 REM Check if we're in the virtual environment
 if not defined VIRTUAL_ENV (
     echo Activating virtual environment...
-    call "C:\Users\tanne\AppData\Local\CSimple\venv\Scripts\activate.bat"
+    call "%LOCALAPPDATA%\CSimple\venv\Scripts\activate.bat"
 )
 
 echo Current PyTorch version:

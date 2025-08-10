@@ -4,6 +4,7 @@ using CSimple.Services;
 namespace CSimple.Pages;
 
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Storage; // For Preferences
 using System;
 using System.Threading.Tasks;
@@ -17,6 +18,7 @@ public partial class SettingsPage : ContentPage
     private readonly DataService _dataService;
     private readonly SettingsService _settingsService;
     private readonly IDebugConsoleService _debugConsoleService;
+    private readonly IAppPathService _appPathService;
     public ICommand LogoutCommand { get; }
     private Dictionary<string, Switch> _permissionSwitches;
     private Dictionary<string, Switch> _featureSwitches;
@@ -34,12 +36,13 @@ public partial class SettingsPage : ContentPage
         "Other/Unknown"
     };
 
-    public SettingsPage(DataService dataService, IDebugConsoleService debugConsoleService)
+    public SettingsPage(DataService dataService, IDebugConsoleService debugConsoleService, IAppPathService appPathService = null)
     {
         InitializeComponent();
         _dataService = dataService;
         _debugConsoleService = debugConsoleService;
-        _settingsService = new SettingsService(dataService);
+        _appPathService = appPathService;
+        _settingsService = new SettingsService(dataService, appPathService);
         LogoutCommand = new Command(ExecuteLogout);
         BindingContext = new SettingsViewModel();
 
@@ -98,9 +101,147 @@ public partial class SettingsPage : ContentPage
         // Initialize debug console switch state
         bool debugConsoleEnabled = Preferences.Get("DebugConsoleEnabled", false);
         DebugConsoleSwitch.IsToggled = debugConsoleEnabled;
-        if (debugConsoleEnabled)
+
+        // Load and display current application paths
+        await LoadApplicationPaths();
+    }
+
+    // Application Path Management Methods
+    private Task LoadApplicationPaths()
+    {
+        try
         {
-            _debugConsoleService?.Show();
+            var basePath = _settingsService.GetApplicationBasePath();
+            CurrentBasePathLabel.Text = basePath;
+
+            // Clear existing path details
+            PathDetailsContainer.Children.Clear();
+
+            // Get all paths and display them
+            var allPaths = _settingsService.GetAllApplicationPaths();
+            foreach (var pathInfo in allPaths)
+            {
+                if (pathInfo.Key != "BasePath") // Skip base path as it's already shown
+                {
+                    var pathLabel = new Label
+                    {
+                        Text = $"• {pathInfo.Key.Replace("Path", "")}: {pathInfo.Value}",
+                        TextColor = Application.Current.RequestedTheme == AppTheme.Dark
+                            ? Color.FromArgb("#b0b0b0")
+                            : Color.FromArgb("#757575"),
+                        FontSize = 12,
+                        Margin = new Thickness(0, 1)
+                    };
+                    PathDetailsContainer.Children.Add(pathLabel);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error loading application paths: {ex.Message}");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async void OnChangeBasePathClicked(object sender, EventArgs e)
+    {
+        try
+        {
+            var action = await DisplayActionSheet(
+                "Change Application Folder",
+                "Cancel",
+                null,
+                "Select Custom Folder",
+                "Use Documents Folder",
+                "Use Desktop Folder");
+
+            string newBasePath = null;
+
+            switch (action)
+            {
+                case "Use Documents Folder":
+                    newBasePath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                    break;
+                case "Use Desktop Folder":
+                    newBasePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                    break;
+                case "Select Custom Folder":
+                    // For now, let user type the path. In a full implementation, 
+                    // you might want to use a folder picker
+                    newBasePath = await DisplayPromptAsync(
+                        "Custom Folder Path",
+                        "Enter the full path where you want to store CSimple data:",
+                        "OK",
+                        "Cancel",
+                        _settingsService.GetApplicationBasePath());
+                    break;
+                default:
+                    return; // User cancelled
+            }
+
+            if (!string.IsNullOrWhiteSpace(newBasePath))
+            {
+                var success = await _settingsService.SetApplicationBasePath(newBasePath);
+                if (success)
+                {
+                    await DisplayAlert("Success",
+                        $"Application folder changed to: {newBasePath}/CSimple\n\nNote: You may need to restart the application for all changes to take effect.",
+                        "OK");
+                    await LoadApplicationPaths(); // Refresh the display
+                }
+                else
+                {
+                    await DisplayAlert("Error",
+                        "Failed to change application folder. Please ensure the path is valid and accessible.",
+                        "OK");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error changing base path: {ex.Message}");
+            await DisplayAlert("Error",
+                $"An error occurred while changing the application folder: {ex.Message}",
+                "OK");
+        }
+    }
+
+    private async void OnResetPathsClicked(object sender, EventArgs e)
+    {
+        try
+        {
+            var confirm = await DisplayAlert("Reset Paths",
+                "This will reset the application folder to the default location (Documents/CSimple). Do you want to continue?",
+                "Yes",
+                "No");
+
+            if (confirm)
+            {
+                var defaultPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                var success = await _settingsService.SetApplicationBasePath(defaultPath);
+
+                if (success)
+                {
+                    await DisplayAlert("Success",
+                        "Application folder has been reset to the default location.\n\nNote: You may need to restart the application for all changes to take effect.",
+                        "OK");
+                    await LoadApplicationPaths(); // Refresh the display
+                }
+                else
+                {
+                    await DisplayAlert("Error",
+                        "Failed to reset application folder to default location.",
+                        "OK");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error resetting paths: {ex.Message}");
+            await DisplayAlert("Error",
+                $"An error occurred while resetting paths: {ex.Message}",
+                "OK");
         }
     }
 

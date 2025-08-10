@@ -478,6 +478,53 @@
                         Title="Select Time Zone"
                         SelectedIndexChanged="TimeZonePicker_SelectedIndexChanged" />
                 <BoxView class="HRule" />
+                <!-- Application Paths Section -->
+                <Label Text="Application Paths"
+                       class="SectionTitle" />
+                <Frame Padding="10"
+                       BorderColor="{StaticResource Background_Mid}"
+                       BackgroundColor="Transparent">
+                    <VerticalStackLayout Spacing="15">
+                        <!-- Current Base Path Display -->
+                        <StackLayout>
+                            <Label Text="Current Application Folder:"
+                                   FontAttributes="Bold"
+                                   Margin="0,0,0,5" />
+                            <Label x:Name="CurrentBasePathLabel"
+                                   Text="{Binding CurrentBasePath, FallbackValue='C:\\Users\\[User]\\Documents\\CSimple'}"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                   Margin="10,0,0,0" />
+                        </StackLayout>
+                        <!-- Change Base Path Button -->
+                        <Button x:Name="ChangeBasePathButton"
+                                Text="Change Application Folder"
+                                Clicked="OnChangeBasePathClicked"
+                                HorizontalOptions="Start"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                TextColor="White"
+                                Margin="0,5,0,10" />
+                        <!-- Path Details -->
+                        <StackLayout>
+                            <Label Text="Folder Structure:"
+                                   FontAttributes="Bold"
+                                   Margin="0,0,0,5" />
+                            <StackLayout x:Name="PathDetailsContainer"
+                                         Margin="10,0,0,0"
+                                         Spacing="2">
+                                <!-- Paths will be populated dynamically -->
+                            </StackLayout>
+                        </StackLayout>
+                        <!-- Reset to Default Button -->
+                        <Button x:Name="ResetPathsButton"
+                                Text="Reset to Default Location"
+                                Clicked="OnResetPathsClicked"
+                                HorizontalOptions="Start"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
+                                TextColor="White"
+                                Margin="0,5,0,0" />
+                    </VerticalStackLayout>
+                </Frame>
+                <BoxView class="HRule" />
                 <!-- Developer Settings Section -->
                 <Label Text="Developer Settings"
                        class="Subhead" />

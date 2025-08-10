@@ -36,13 +36,15 @@ namespace CSimple.Services
     {
         private readonly HuggingFaceService _huggingFaceService;
         private readonly ITrayService _trayService;
+        private readonly AppPathService _appPathService;
         private readonly Dictionary<string, CancellationTokenSource> _downloadCancellationTokens = new();
         private readonly object _downloadCancellationLock = new object();
 
-        public ModelDownloadService(HuggingFaceService huggingFaceService, ITrayService trayService)
+        public ModelDownloadService(HuggingFaceService huggingFaceService, ITrayService trayService, AppPathService appPathService = null)
         {
             _huggingFaceService = huggingFaceService;
             _trayService = trayService;
+            _appPathService = appPathService ?? new AppPathService(); // Allow injection or create new instance
         }
 
         public async Task<bool> DownloadModelAsync(
@@ -133,7 +135,7 @@ namespace CSimple.Services
                 _trayService?.ShowProgress($"Downloading {model.Name}", "Preparing download...", 0.0);
 
                 // Create a marker file for the download
-                var markerPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels",
+                var markerPath = Path.Combine(_appPathService.GetHFModelsPath(),
                     modelId.Replace("/", "_") + ".download_marker");
 
                 // Ensure the directory exists
@@ -225,7 +227,7 @@ namespace CSimple.Services
                 var modelId = model.HuggingFaceModelId ?? model.Id;
 
                 // Remove marker file
-                var markerPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\HFModels",
+                var markerPath = Path.Combine(_appPathService.GetHFModelsPath(),
                     modelId.Replace("/", "_") + ".download_marker");
 
                 if (File.Exists(markerPath))
@@ -234,7 +236,7 @@ namespace CSimple.Services
                 }
 
                 // Remove model directories (try both naming conventions)
-                var cacheDir = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
+                var cacheDir = _appPathService.GetHFModelsPath();
 
                 var possibleDirNames = new[]
                 {

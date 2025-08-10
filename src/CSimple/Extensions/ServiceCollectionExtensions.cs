@@ -10,9 +10,10 @@ namespace CSimple.Extensions
         public static IServiceCollection AddCSimpleServices(this IServiceCollection services)
         {
             // Core Services
+            services.AddSingleton<IAppPathService, AppPathService>();
             services.AddSingleton<DataService>();
-            services.AddSingleton<SettingsService>();
-            services.AddSingleton<FileService>();
+            services.AddSingleton(sp => new SettingsService(sp.GetRequiredService<DataService>(), sp.GetRequiredService<IAppPathService>()));
+            services.AddSingleton(sp => new FileService(sp.GetRequiredService<IAppPathService>()));
             services.AddSingleton<GoalService>();
             services.AddSingleton<ActionService>();
             services.AddSingleton<GlobalInputCapture>();
@@ -89,7 +90,8 @@ namespace CSimple.Extensions
             services.AddSingleton<LoginPage>();
             services.AddSingleton(sp => new SettingsPage(
                 sp.GetRequiredService<DataService>(),
-                sp.GetRequiredService<IDebugConsoleService>()
+                sp.GetRequiredService<IDebugConsoleService>(),
+                sp.GetRequiredService<IAppPathService>()
             ));
             services.AddSingleton<NetPage>();
             services.AddSingleton<OrientPage>();

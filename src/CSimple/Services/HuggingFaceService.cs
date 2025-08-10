@@ -19,13 +19,15 @@ namespace CSimple.Services
     public class HuggingFaceService
     {
         private readonly HttpClient _httpClient;
+        private readonly AppPathService _appPathService;
         private const string BaseUrl = "https://huggingface.co/api";
         private const string RepoUrl = "https://huggingface.co";
 
-        public HuggingFaceService()
+        public HuggingFaceService(AppPathService appPathService = null)
         {
             _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            _appPathService = appPathService ?? new AppPathService(); // Allow injection or create new instance
         }
 
         public async Task<List<HuggingFaceModel>> SearchModelsAsync(string query, string category = null, int limit = 10)
@@ -537,7 +539,7 @@ namespace CSimple.Services
         {
             try
             {
-                string cacheDirectory = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
+                string cacheDirectory = _appPathService.GetHFModelsPath();
                 if (!Directory.Exists(cacheDirectory))
                 {
                     Directory.CreateDirectory(cacheDirectory);
@@ -554,7 +556,7 @@ namespace CSimple.Services
         {
             try
             {
-                string cacheDirectory = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
+                string cacheDirectory = _appPathService.GetHFModelsPath();
                 var downloadedModels = new List<string>();
 
                 if (Directory.Exists(cacheDirectory))

@@ -1,7 +1,52 @@
 # Monitor-InputTypeChanges.ps1
 # PowerShell script to monitor InputType changes in huggingFaceModels.json
 
-$jsonPath = "c:\Users\tanne\Documents\CSimple\Resources\huggingFaceModels.json"
+# Get the user's Documents folder dynamically and construct the path
+$documentsPath = [Environment]::GetFolderPath("MyDocuments")
+$defaultBasePath = Join-Path $documentsPath "CSimple"
+
+# Try to read the app's base path preference if available
+# This would require reading from MAUI preferences, but for simplicity we'll use the default
+# In a more advanced version, this could read from registry or app config
+
+# Function to try reading the app's configured base path
+function Get-AppBasePath {
+    try {
+        # MAUI preferences are typically stored in the registry under HKCU for Windows
+        # The exact location depends on the app's package identity
+        # For now, we'll use the default path, but this could be enhanced
+        
+        # Example of how to read from registry if the app stores preferences there:
+        # $regPath = "HKCU:\Software\CSimple"
+        # if (Test-Path $regPath) {
+        #     $configuredPath = Get-ItemProperty -Path $regPath -Name "AppBasePath" -ErrorAction SilentlyContinue
+        #     if ($configuredPath -and $configuredPath.AppBasePath) {
+        #         return $configuredPath.AppBasePath
+        #     }
+        # }
+        
+        return $null
+    }
+    catch {
+        return $null
+    }
+}
+
+# Try to get configured path, fall back to default
+$configuredPath = Get-AppBasePath
+if ($configuredPath -and (Test-Path $configuredPath)) {
+    $basePath = $configuredPath
+    Write-Host "✅ Found configured base path: $basePath" -ForegroundColor Green
+} else {
+    $basePath = $defaultBasePath
+    Write-Host "📂 Using default base path: $basePath" -ForegroundColor Yellow
+}
+
+$jsonPath = Join-Path $basePath "Resources\huggingFaceModels.json"
+
+Write-Host "🔧 Using base path: $basePath" -ForegroundColor Cyan
+Write-Host "📁 Monitoring file: $jsonPath" -ForegroundColor Cyan
+Write-Host ""
 
 Write-Host "🔍 Monitoring InputType changes in: $jsonPath" -ForegroundColor Green
 Write-Host "📝 Press Ctrl+C to stop monitoring" -ForegroundColor Yellow

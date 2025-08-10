@@ -1,11 +1,13 @@
 using Microsoft.Maui.Storage;
 using System.Diagnostics;
+using System.IO;
 
 namespace CSimple.Services
 {
     public class SettingsService
     {
         private readonly DataService _dataService;
+        private readonly IAppPathService _appPathService;
 
         public List<string> TimeZones { get; private set; }
         public List<string> AvailableModels { get; private set; } = new List<string> { "General Assistant", "Sales Report", "Data Analysis", "Customer Support" };
@@ -41,9 +43,10 @@ namespace CSimple.Services
         private UsageStatistics _usageStats;
         private HardwareCapabilities _hardwareCapabilities;
 
-        public SettingsService(DataService dataService)
+        public SettingsService(DataService dataService, IAppPathService appPathService = null)
         {
             _dataService = dataService;
+            _appPathService = appPathService;
             TimeZones = TimeZoneInfo.GetSystemTimeZones()
                 .Select(tz => tz.DisplayName)
                 .ToList();
@@ -564,6 +567,79 @@ namespace CSimple.Services
                 default:
                     return "General Assistant";
             }
+        }
+
+        // Path Management Methods
+        /// <summary>
+        /// Gets the current application base path
+        /// </summary>
+        public string GetApplicationBasePath()
+        {
+            return _appPathService?.GetBasePath() ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple");
+        }
+
+        /// <summary>
+        /// Gets the current resources path
+        /// </summary>
+        public string GetResourcesPath()
+        {
+            return _appPathService?.GetResourcesPath() ?? Path.Combine(GetApplicationBasePath(), "Resources");
+        }
+
+        /// <summary>
+        /// Sets a new application base path
+        /// </summary>
+        public async Task<bool> SetApplicationBasePath(string newBasePath)
+        {
+            if (_appPathService == null)
+            {
+                Debug.WriteLine("AppPathService not available");
+                return false;
+            }
+
+            try
+            {
+                await _appPathService.SetBasePath(newBasePath);
+                Debug.WriteLine($"Application base path updated to: {newBasePath}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error setting application base path: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Gets all the current application paths
+        /// </summary>
+        public Dictionary<string, string> GetAllApplicationPaths()
+        {
+            if (_appPathService == null)
+            {
+                var basePath = GetApplicationBasePath();
+                return new Dictionary<string, string>
+                {
+                    { "BasePath", basePath },
+                    { "ResourcesPath", Path.Combine(basePath, "Resources") },
+                    { "WebcamImagesPath", Path.Combine(basePath, "Resources", "WebcamImages") },
+                    { "PCAudioPath", Path.Combine(basePath, "Resources", "PCAudio") },
+                    { "HFModelsPath", Path.Combine(basePath, "Resources", "HFModels") },
+                    { "PipelinesPath", Path.Combine(basePath, "Resources", "Pipelines") },
+                    { "MemoryFilesPath", Path.Combine(basePath, "Resources", "MemoryFiles") }
+                };
+            }
+
+            return new Dictionary<string, string>
+            {
+                { "BasePath", _appPathService.GetBasePath() },
+                { "ResourcesPath", _appPathService.GetResourcesPath() },
+                { "WebcamImagesPath", _appPathService.GetWebcamImagesPath() },
+                { "PCAudioPath", _appPathService.GetPCAudioPath() },
+                { "HFModelsPath", _appPathService.GetHFModelsPath() },
+                { "PipelinesPath", _appPathService.GetPipelinesPath() },
+                { "MemoryFilesPath", _appPathService.GetMemoryFilesPath() }
+            };
         }
     }
 }

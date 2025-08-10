@@ -18,7 +18,8 @@ namespace CSimple.Services
 
         public ObserveDataService()
         {
-            _fileService = new FileService();
+            var appPathService = new AppPathService();
+            _fileService = new FileService(appPathService);
             _dataService = new DataService();
         }
 

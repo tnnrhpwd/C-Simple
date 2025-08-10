@@ -29,6 +29,40 @@ namespace CSimple.Services
         {
             _pythonBootstrapper = pythonBootstrapper;
         }
+
+        /// <summary>
+        /// Gets the dynamic path to the project's run_hf_model.py script
+        /// </summary>
+        private string GetProjectScriptPath()
+        {
+            // Start from the current assembly location and walk up to find the project root
+            var currentDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+
+            // Look for the src/CSimple directory structure
+            while (currentDir != null && !string.IsNullOrEmpty(currentDir))
+            {
+                var potentialScriptPath = Path.Combine(currentDir, "Scripts", "run_hf_model.py");
+                if (File.Exists(potentialScriptPath))
+                {
+                    return potentialScriptPath;
+                }
+
+                // Also check if we're in a build output directory and need to go up to src/CSimple
+                var srcCSimplePath = Path.Combine(currentDir, "src", "CSimple", "Scripts", "run_hf_model.py");
+                if (File.Exists(srcCSimplePath))
+                {
+                    return srcCSimplePath;
+                }
+
+                // Move up one directory
+                var parentDir = Directory.GetParent(currentDir);
+                currentDir = parentDir?.FullName;
+            }
+
+            // Fallback: try relative to AppContext.BaseDirectory
+            var fallbackPath = Path.Combine(AppContext.BaseDirectory, "Scripts", "run_hf_model.py");
+            return fallbackPath;
+        }
         public async Task<bool> SetupPythonEnvironmentAsync(
             Func<string, string, string, Task> showAlert)
         {
@@ -47,7 +81,7 @@ namespace CSimple.Services
                     if (string.IsNullOrEmpty(HuggingFaceScriptPath))
                     {
                         // Re-check for script path
-                        var projectScriptPath = @"c:\Users\tanne\Documents\Github\C-Simple\src\CSimple\Scripts\run_hf_model.py";
+                        var projectScriptPath = GetProjectScriptPath();
                         if (File.Exists(projectScriptPath))
                         {
                             HuggingFaceScriptPath = projectScriptPath;
@@ -106,7 +140,7 @@ namespace CSimple.Services
                 PythonExecutablePath = _pythonBootstrapper.PythonExecutablePath;
 
                 // Use the script from the project directory first
-                var projectScriptPath = @"c:\Users\tanne\Documents\Github\C-Simple\src\CSimple\Scripts\run_hf_model.py";
+                var projectScriptPath = GetProjectScriptPath();
 
                 if (File.Exists(projectScriptPath))
                 {

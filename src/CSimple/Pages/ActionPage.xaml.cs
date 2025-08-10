@@ -302,7 +302,8 @@ namespace CSimple.Pages
             // Initialize fields
             _sortPicker = this.FindByName<Picker>("SortPicker");
             _inputActionPopup = this.FindByName<Microsoft.Maui.Controls.Grid>("InputActionPopup");
-            var fileService = new FileService();
+            var appPathService = new AppPathService();
+            var fileService = new FileService(appPathService);
             _dataService = new DataService();
             _userService = new UserService(); // Initialize the user service
             _actionService = new ActionService(_dataService, fileService);
@@ -1503,7 +1504,8 @@ namespace CSimple.Pages
 
                 // Use the file service directly to delete all identified items
                 Debug.WriteLine($"🗑️ Deleting {idsToDelete.Count} IDs and {namesToDelete.Count} action names from storage");
-                var fileService = new FileService();
+                var appPathService = new AppPathService();
+                var fileService = new FileService(appPathService);
                 await fileService.DeleteDataItemsAsync(idsToDelete, namesToDelete);
 
                 // Show result message

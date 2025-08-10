@@ -84,6 +84,7 @@ namespace CSimple.Pages
         private readonly FileService _fileService; // Add FileService for local operations
         private readonly ActionService _actionService; // Add ActionService reference
         private readonly NetPageViewModel _netPageViewModel; // Add NetPageViewModel reference for AI models
+        private readonly AppPathService _appPathService; // Add AppPathService for dynamic paths
 
         // Basic properties
         public string ActionName { get; set; }
@@ -231,7 +232,11 @@ namespace CSimple.Pages
                 _actionGroup = actionGroup;
                 _navigation = navigation;
                 _dataService = new DataService(); // Initialize DataService
-                _fileService = new FileService(); // Initialize FileService
+
+                // Create AppPathService for FileService
+                var appPathService = new AppPathService();
+                _appPathService = appPathService; // Store for later use
+                _fileService = new FileService(appPathService); // Initialize FileService with AppPathService
                 _actionService = new ActionService(_dataService, _fileService); // Initialize ActionService
 
                 // Set basic properties with null checking
@@ -1481,7 +1486,7 @@ namespace CSimple.Pages
 
             try
             {
-                string cacheDirectory = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
+                string cacheDirectory = _appPathService.GetHFModelsPath();
 
                 if (!Directory.Exists(cacheDirectory))
                     return false;

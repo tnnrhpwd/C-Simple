@@ -43,13 +43,24 @@ public partial class App : Application
     public NetPageViewModel NetPageViewModel { get; private set; }
 
     // Inject services via constructor - Change PythonDependencyManager to PythonBootstrapper
-    public App(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, IDebugConsoleService debugConsoleService, IHotkeyService hotkeyService)
+    public App(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, IDebugConsoleService debugConsoleService, IHotkeyService hotkeyService, IAppPathService appPathService)
     {
         try
         {
             // Initialize debug console first
             CSimple.Utilities.DebugConsole.Initialize(debugConsoleService);
             CSimple.Utilities.DebugConsole.Info("CSimple application starting...");
+
+            // Initialize application paths early
+            try
+            {
+                Task.Run(async () => await appPathService.InitializeDirectoriesAsync());
+                CSimple.Utilities.DebugConsole.Info("App constructor: Application paths initialized");
+            }
+            catch (Exception ex)
+            {
+                CSimple.Utilities.DebugConsole.Error($"Error initializing application paths: {ex.Message}");
+            }
 
             // Register F12 hotkey to toggle debug console
             try

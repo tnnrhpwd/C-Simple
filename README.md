@@ -32,18 +32,44 @@ Give your Windows system the intelligence to help you. It will make decisions ba
 
 This section provides recommended GitHub Copilot commands and best practices for working with this C# MAUI project.
 
+### 🧪 Testing Commands
+
+**Run All Tests:**
+
+```bash
+powershell -ExecutionPolicy Bypass -File .\run-tests.ps1
+```
+
+**Run Build Tests Only:**
+
+```bash
+cd "src\CSimple.Tests"; dotnet test --filter "FullyQualifiedName~SimpleBuildTests" --logger "console;verbosity=normal"
+```
+
+**Run Unit Tests Only:**
+
+```bash
+cd "src\CSimple.Tests"; dotnet test --filter "TestCategory=Unit" --logger "console;verbosity=normal"
+```
+
+**Build Test Project:**
+
+```bash
+cd "src"; dotnet build CSimple.Tests/CSimple.Tests.csproj
+```
+
 ### 🔧 Refactoring Commands
 
 **Extract Complex Logic to Services:**
 
 ```bash
-please reduce the size of [FileName] by refactor outsourcing similar logic to a service file. only do one the best file compatible with outsourcing so you dont over extend yourself. then do a build checking for errors with cd "c:\Users\tanne\Documents\Github\C-Simple\src\CSimple"; dotnet run --framework net8.0-windows10.0.19041.0
+please reduce the size of [FileName] by refactor outsourcing similar logic to a service file. only do one the best file compatible with outsourcing so you dont over extend yourself. then do a build checking for errors with cd "src\CSimple"; dotnet run --framework net8.0-windows10.0.19041.0
 ```
 
 **Optimize Model Execution:**
 
 ```text
-please try to optimize my run all models logic so it is faster. dont over extend yourself. then do a build checking for errors with cd "c:\Users\tanne\Documents\Github\C-Simple\src\CSimple"; dotnet run --framework net8.0-windows10.0.19041.0
+please try to optimize my run all models logic so it is faster. dont over extend yourself. then do a build checking for errors with cd "src\CSimple"; dotnet run --framework net8.0-windows10.0.19041.0
 ```
 
 **Extract Methods:**
@@ -117,13 +143,13 @@ please review this code for potential security vulnerabilities and suggest impro
 **Build and Run:**
 
 ```bash
-cd "c:\Users\tanne\Documents\Github\C-Simple\src"; dotnet run --project CSimple --framework net8.0-windows10.0.19041.0
+cd "src"; dotnet run --project CSimple --framework net8.0-windows10.0.19041.0
 ```
 
 **Clean Build:**
 
 ```bash
-cd "c:\Users\tanne\Documents\Github\C-Simple\src"; dotnet clean; dotnet restore; dotnet build --configuration Release
+cd "src"; dotnet clean; dotnet restore; dotnet build --configuration Release
 ```
 
 **Dev Cleanup & Deploy:**
@@ -365,11 +391,29 @@ C_Simple/
 ├── Views/
 │   ├── Navbar.xaml
 │   └── OtherViewFiles.xaml
+├── Tests/
+│   ├── CSimple.Tests/
+│   │   ├── BuildVerificationTests.cs
+│   │   ├── SimpleBuildTests.cs
+│   │   ├── DotNetBuildIntegrationTests.cs
+│   │   └── BasicApplicationTests.cs
+│   └── run-tests.ps1
 └── Resources/
     ├── Fonts/
     ├── Images/
     └── Styles/
 ```
+
+### Testing Infrastructure
+
+The project includes a comprehensive test suite with:
+
+- **Build Verification Tests**: Ensure the project builds correctly and meets MAUI requirements
+- **Integration Tests**: Test dotnet CLI commands and build scenarios  
+- **Unit Tests**: Basic functionality and logic tests
+- **VS Code Integration**: Test Explorer support for running tests in the IDE
+
+To run tests, use the provided PowerShell script: `.\run-tests.ps1` or use VS Code's Test Explorer.
 
 ## Data Model
 
