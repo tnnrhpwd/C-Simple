@@ -17,9 +17,24 @@ public class DotNetBuildIntegrationTests
     /// </summary>
     private static string GetProjectDirectory()
     {
+        // Start from the test project directory and navigate to the CSimple project
         var currentDirectory = Directory.GetCurrentDirectory();
-        var projectDirectory = Path.Combine(currentDirectory, "..", "CSimple");
-        return Path.GetFullPath(projectDirectory);
+
+        // Navigate to find the src directory containing both test and main projects
+        var directory = new DirectoryInfo(currentDirectory);
+        while (directory != null && !directory.GetDirectories("CSimple").Any())
+        {
+            directory = directory.Parent;
+        }
+
+        if (directory?.GetDirectories("CSimple").FirstOrDefault() is DirectoryInfo projectDir)
+        {
+            return projectDir.FullName;
+        }
+
+        // Fallback: use relative path from test project to main project
+        var projectDirectory = Path.GetFullPath(Path.Combine(currentDirectory, "..", "CSimple"));
+        return projectDirectory;
     }
 
     /// <summary>
@@ -27,9 +42,24 @@ public class DotNetBuildIntegrationTests
     /// </summary>
     private static string GetSolutionDirectory()
     {
+        // Start from the test project directory and navigate to find the solution
         var currentDirectory = Directory.GetCurrentDirectory();
-        var solutionDirectory = Path.Combine(currentDirectory, "..");
-        return Path.GetFullPath(solutionDirectory);
+
+        // Navigate to find the src directory containing the solution
+        var directory = new DirectoryInfo(currentDirectory);
+        while (directory != null && !directory.GetFiles("*.sln").Any())
+        {
+            directory = directory.Parent;
+        }
+
+        if (directory?.GetFiles("*.sln").FirstOrDefault() is FileInfo solutionFile)
+        {
+            return solutionFile.Directory!.FullName;
+        }
+
+        // Fallback: use relative path from test project to solution directory
+        var solutionDirectory = Path.GetFullPath(Path.Combine(currentDirectory, ".."));
+        return solutionDirectory;
     }
 
     [TestMethod]

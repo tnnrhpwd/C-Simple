@@ -67,13 +67,17 @@ public class PathDebugTests
             }
         }
 
-        // Show the results in the assertion message
-        Assert.Fail($"Paths Debug Info:\n" +
-                   $"Current: {currentDir}\n" +
-                   $"Assembly: {assemblyLocation}\n" +
-                   $"Test Dir: {testDirectory}\n" +
-                   $"Src Dir: {srcDirectory}\n" +
-                   $"Alt Path: {altProjectPath} (exists: {Directory.Exists(altProjectPath)})\n" +
-                   $"Found Path: {foundPath}");
+        // Show the results in the console output
+        Console.WriteLine($"Paths Debug Info:\n" +
+                         $"Current: {currentDir}\n" +
+                         $"Assembly: {assemblyLocation}\n" +
+                         $"Test Dir: {testDirectory}\n" +
+                         $"Src Dir: {srcDirectory}\n" +
+                         $"Alt Path: {altProjectPath} (exists: {Directory.Exists(altProjectPath)})\n" +
+                         $"Found Path: {foundPath}");
+
+        // Assert that we found a valid path
+        Assert.IsTrue(foundPath != "None found", "Should be able to find the CSimple project directory");
+        Assert.IsTrue(Directory.Exists(foundPath), "The found path should exist");
     }
 }
