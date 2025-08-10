@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="8d74e6fe-4539-49ee-8539-02e6f2638a53" name="tanne@STH_PC 2025-08-10 16:30:55" runUser="STH_PC\tanne" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2025-08-10T16:30:55.8825765-04:00" queuing="2025-08-10T16:30:55.8825768-04:00" start="2025-08-10T16:30:54.1135991-04:00" finish="2025-08-10T16:30:56.2220506-04:00" />
+  <TestSettings name="default" id="ce221c67-f467-4dde-898c-805aaf99cf07">
+    <Deployment runDeploymentRoot="tanne_STH_PC_2025-08-10_16_30_55" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="e48b3461-8c26-4ac7-afd9-4deb217edbb9" testId="a264404e-7a4b-9cfe-9b93-a81d5a9748e5" testName="CopilotAgent_ProjectStructureNavigation" computerName="STH_PC" duration="00:00:00.0003501" startTime="2025-08-10T16:30:54.4077233-04:00" endTime="2025-08-10T16:30:54.4081118-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e48b3461-8c26-4ac7-afd9-4deb217edbb9" />
+    <UnitTestResult executionId="960f49e4-6a9d-4931-a417-596ce8e7ea66" testId="c27b812a-2820-4591-3f99-e8e8148b66ca" testName="CopilotAgent_TestResultFormats" computerName="STH_PC" duration="00:00:01.7660647" startTime="2025-08-10T16:30:54.4100471-04:00" endTime="2025-08-10T16:30:56.1763179-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="960f49e4-6a9d-4931-a417-596ce8e7ea66" />
+    <UnitTestResult executionId="0288e41b-9fe5-457f-a702-57a59ad75386" testId="aedf6cd0-7886-1fc6-7588-d5a108398989" testName="CopilotAgent_EssentialFilesExist" computerName="STH_PC" duration="00:00:00.0022330" startTime="2025-08-10T16:30:54.3946284-04:00" endTime="2025-08-10T16:30:54.4048248-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0288e41b-9fe5-457f-a702-57a59ad75386" />
+    <UnitTestResult executionId="6d984c68-13a8-4e88-ba8a-54cf2b66fbba" testId="7a6a1841-0d50-918b-363c-f564b4023e83" testName="CopilotAgent_GitHubActionsConfigured" computerName="STH_PC" duration="00:00:00.0002940" startTime="2025-08-10T16:30:54.4097018-04:00" endTime="2025-08-10T16:30:54.4100303-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6d984c68-13a8-4e88-ba8a-54cf2b66fbba" />
+    <UnitTestResult executionId="a8f4ac46-d857-409f-97d9-3ac685e39a22" testId="d830b47c-0e9e-fdfb-38a2-c946b35a6736" testName="CopilotAgent_VSCodeTestConfiguration" computerName="STH_PC" duration="00:00:00.0004824" startTime="2025-08-10T16:30:54.4069813-04:00" endTime="2025-08-10T16:30:54.4075717-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a8f4ac46-d857-409f-97d9-3ac685e39a22" />
+    <UnitTestResult executionId="ab27ea4f-cc3c-4ab0-8b20-fbfcb8dc2b5a" testId="3e55fd01-97c1-71d6-ae63-b28b053e8116" testName="CopilotAgent_ProjectMetadataAccessible" computerName="STH_PC" duration="00:00:00.0005729" startTime="2025-08-10T16:30:56.1764367-04:00" endTime="2025-08-10T16:30:56.1771732-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ab27ea4f-cc3c-4ab0-8b20-fbfcb8dc2b5a" />
+    <UnitTestResult executionId="e6960375-cd00-49bb-b111-3f0cc0014b1e" testId="bf4fcbc6-4a02-14e4-13e6-c0ec62208226" testName="CopilotAgent_TestDocumentationExists" computerName="STH_PC" duration="00:00:00.0003446" startTime="2025-08-10T16:30:56.1772280-04:00" endTime="2025-08-10T16:30:56.1781021-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e6960375-cd00-49bb-b111-3f0cc0014b1e" />
+    <UnitTestResult executionId="d3bb78cf-6428-4964-bec8-ab2d98e0d99b" testId="ad5901a3-7493-53ee-0b77-85323492a745" testName="CopilotAgent_TestCategoriesConfigured" computerName="STH_PC" duration="00:00:00.0015120" startTime="2025-08-10T16:30:54.4081341-04:00" endTime="2025-08-10T16:30:54.4096844-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d3bb78cf-6428-4964-bec8-ab2d98e0d99b" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="CopilotAgent_ProjectMetadataAccessible" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="3e55fd01-97c1-71d6-ae63-b28b053e8116">
+      <TestCategory>
+        <TestCategoryItem TestCategory="CopilotAgent" />
+      </TestCategory>
+      <Execution id="ab27ea4f-cc3c-4ab0-8b20-fbfcb8dc2b5a" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.CopilotAgent.CopilotAgentTests" name="CopilotAgent_ProjectMetadataAccessible" />
+    </UnitTest>
+    <UnitTest name="CopilotAgent_TestCategoriesConfigured" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="ad5901a3-7493-53ee-0b77-85323492a745">
+      <TestCategory>
+        <TestCategoryItem TestCategory="CopilotAgent" />
+      </TestCategory>
+      <Execution id="d3bb78cf-6428-4964-bec8-ab2d98e0d99b" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.CopilotAgent.CopilotAgentTests" name="CopilotAgent_TestCategoriesConfigured" />
+    </UnitTest>
+    <UnitTest name="CopilotAgent_TestDocumentationExists" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="bf4fcbc6-4a02-14e4-13e6-c0ec62208226">
+      <TestCategory>
+        <TestCategoryItem TestCategory="CopilotAgent" />
+      </TestCategory>
+      <Execution id="e6960375-cd00-49bb-b111-3f0cc0014b1e" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.CopilotAgent.CopilotAgentTests" name="CopilotAgent_TestDocumentationExists" />
+    </UnitTest>
+    <UnitTest name="CopilotAgent_VSCodeTestConfiguration" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="d830b47c-0e9e-fdfb-38a2-c946b35a6736">
+      <TestCategory>
+        <TestCategoryItem TestCategory="CopilotAgent" />
+      </TestCategory>
+      <Execution id="a8f4ac46-d857-409f-97d9-3ac685e39a22" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.CopilotAgent.CopilotAgentTests" name="CopilotAgent_VSCodeTestConfiguration" />
+    </UnitTest>
+    <UnitTest name="CopilotAgent_ProjectStructureNavigation" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="a264404e-7a4b-9cfe-9b93-a81d5a9748e5">
+      <TestCategory>
+        <TestCategoryItem TestCategory="CopilotAgent" />
+      </TestCategory>
+      <Execution id="e48b3461-8c26-4ac7-afd9-4deb217edbb9" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.CopilotAgent.CopilotAgentTests" name="CopilotAgent_ProjectStructureNavigation" />
+    </UnitTest>
+    <UnitTest name="CopilotAgent_TestResultFormats" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="c27b812a-2820-4591-3f99-e8e8148b66ca">
+      <TestCategory>
+        <TestCategoryItem TestCategory="CopilotAgent" />
+      </TestCategory>
+      <Execution id="960f49e4-6a9d-4931-a417-596ce8e7ea66" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.CopilotAgent.CopilotAgentTests" name="CopilotAgent_TestResultFormats" />
+    </UnitTest>
+    <UnitTest name="CopilotAgent_EssentialFilesExist" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="aedf6cd0-7886-1fc6-7588-d5a108398989">
+      <TestCategory>
+        <TestCategoryItem TestCategory="CopilotAgent" />
+      </TestCategory>
+      <Execution id="0288e41b-9fe5-457f-a702-57a59ad75386" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.CopilotAgent.CopilotAgentTests" name="CopilotAgent_EssentialFilesExist" />
+    </UnitTest>
+    <UnitTest name="CopilotAgent_GitHubActionsConfigured" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="7a6a1841-0d50-918b-363c-f564b4023e83">
+      <TestCategory>
+        <TestCategoryItem TestCategory="CopilotAgent" />
+      </TestCategory>
+      <Execution id="6d984c68-13a8-4e88-ba8a-54cf2b66fbba" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.CopilotAgent.CopilotAgentTests" name="CopilotAgent_GitHubActionsConfigured" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="a264404e-7a4b-9cfe-9b93-a81d5a9748e5" executionId="e48b3461-8c26-4ac7-afd9-4deb217edbb9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c27b812a-2820-4591-3f99-e8e8148b66ca" executionId="960f49e4-6a9d-4931-a417-596ce8e7ea66" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="aedf6cd0-7886-1fc6-7588-d5a108398989" executionId="0288e41b-9fe5-457f-a702-57a59ad75386" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7a6a1841-0d50-918b-363c-f564b4023e83" executionId="6d984c68-13a8-4e88-ba8a-54cf2b66fbba" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d830b47c-0e9e-fdfb-38a2-c946b35a6736" executionId="a8f4ac46-d857-409f-97d9-3ac685e39a22" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3e55fd01-97c1-71d6-ae63-b28b053e8116" executionId="ab27ea4f-cc3c-4ab0-8b20-fbfcb8dc2b5a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bf4fcbc6-4a02-14e4-13e6-c0ec62208226" executionId="e6960375-cd00-49bb-b111-3f0cc0014b1e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ad5901a3-7493-53ee-0b77-85323492a745" executionId="d3bb78cf-6428-4964-bec8-ab2d98e0d99b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="8" executed="8" passed="8" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

@@ -21,11 +21,14 @@ public class BuildVerificationTests
     /// </summary>
     private static string GetProjectPath()
     {
-        // Start from the test project directory and navigate to the CSimple project
-        var currentDirectory = Directory.GetCurrentDirectory();
+        // Get the test assembly location for more reliable path resolution
+        var assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+        var testDirectory = Path.GetDirectoryName(assemblyLocation) ?? Directory.GetCurrentDirectory();
 
-        // Navigate to find the src directory containing both test and main projects
-        var directory = new DirectoryInfo(currentDirectory);
+        // Start from the test directory and navigate up to find the CSimple project
+        var directory = new DirectoryInfo(testDirectory);
+
+        // Navigate up to find the src directory containing both test and main projects
         while (directory != null && !directory.GetDirectories("CSimple").Any())
         {
             directory = directory.Parent;
@@ -38,9 +41,25 @@ public class BuildVerificationTests
                 return projectFile;
         }
 
-        // Fallback: use relative path from test project to main project
-        var projectFile2 = Path.GetFullPath(Path.Combine(currentDirectory, "..", "CSimple", "CSimple.csproj"));
-        return projectFile2;
+        // Additional fallback methods for VS Code test explorer and other contexts
+        var fallbackPaths = new[]
+        {
+            // Relative from current working directory
+            Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "CSimple", "CSimple.csproj")),
+            // Relative from test assembly location
+            Path.GetFullPath(Path.Combine(testDirectory, "..", "..", "..", "..", "CSimple", "CSimple.csproj")),
+            // Navigate from workspace root
+            Path.GetFullPath(Path.Combine(testDirectory, "..", "..", "..", "..", "..", "src", "CSimple", "CSimple.csproj"))
+        };
+
+        foreach (var fallbackPath in fallbackPaths)
+        {
+            if (File.Exists(fallbackPath))
+                return fallbackPath;
+        }
+
+        // Final fallback: return the first attempt for error reporting
+        return fallbackPaths[0];
     }
 
     /// <summary>
@@ -48,11 +67,14 @@ public class BuildVerificationTests
     /// </summary>
     private static string GetSolutionPath()
     {
-        // Start from the test project directory and navigate to find the solution
-        var currentDirectory = Directory.GetCurrentDirectory();
+        // Get the test assembly location for more reliable path resolution
+        var assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+        var testDirectory = Path.GetDirectoryName(assemblyLocation) ?? Directory.GetCurrentDirectory();
 
-        // Navigate to find the src directory containing the solution
-        var directory = new DirectoryInfo(currentDirectory);
+        // Start from the test directory and navigate up to find the solution
+        var directory = new DirectoryInfo(testDirectory);
+
+        // Navigate up to find the directory containing the solution
         while (directory != null && !directory.GetFiles("*.sln").Any())
         {
             directory = directory.Parent;
@@ -63,9 +85,25 @@ public class BuildVerificationTests
             return solutionFile.FullName;
         }
 
-        // Fallback: use relative path from test project to solution
-        var solutionFile2 = Path.GetFullPath(Path.Combine(currentDirectory, "..", "CSimple.sln"));
-        return solutionFile2;
+        // Additional fallback methods for VS Code test explorer and other contexts
+        var fallbackPaths = new[]
+        {
+            // Relative from current working directory
+            Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "CSimple.sln")),
+            // Relative from test assembly location
+            Path.GetFullPath(Path.Combine(testDirectory, "..", "..", "..", "..", "CSimple.sln")),
+            // Navigate from workspace root
+            Path.GetFullPath(Path.Combine(testDirectory, "..", "..", "..", "..", "..", "src", "CSimple.sln"))
+        };
+
+        foreach (var fallbackPath in fallbackPaths)
+        {
+            if (File.Exists(fallbackPath))
+                return fallbackPath;
+        }
+
+        // Final fallback: return the first attempt for error reporting
+        return fallbackPaths[0];
     }
 
     [TestMethod]
@@ -75,6 +113,28 @@ public class BuildVerificationTests
     {
         // Arrange & Act & Assert
         Assert.IsTrue(File.Exists(ProjectPath), $"Project file should exist at: {ProjectPath}");
+    }
+
+    [TestMethod]
+    [TestCategory("Diagnostic")]
+    [Description("Shows path resolution details for troubleshooting VS Code test explorer issues")]
+    public void PathResolution_DiagnosticInfo()
+    {
+        // This test helps diagnose path resolution issues in different execution contexts
+        var assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+        var currentDirectory = Directory.GetCurrentDirectory();
+        var testDirectory = Path.GetDirectoryName(assemblyLocation) ?? currentDirectory;
+
+        Console.WriteLine($"Assembly Location: {assemblyLocation}");
+        Console.WriteLine($"Current Directory: {currentDirectory}");
+        Console.WriteLine($"Test Directory: {testDirectory}");
+        Console.WriteLine($"Project Path: {ProjectPath}");
+        Console.WriteLine($"Solution Path: {SolutionPath}");
+        Console.WriteLine($"Project Exists: {File.Exists(ProjectPath)}");
+        Console.WriteLine($"Solution Exists: {File.Exists(SolutionPath)}");
+
+        // This test should always pass - it's just for diagnostics
+        Assert.IsTrue(true, "Diagnostic test always passes");
     }
 
     [TestMethod]

@@ -1,0 +1,44 @@
+{
+  "testConfiguration": {
+    "name": "C-Simple Test Configuration",
+    "version": "1.0.0",
+    "lastUpdated": "2025-01-10T00:00:00Z",
+    "environment": "test"
+  },
+  "copilotAgentSettings": {
+    "enableVerboseLogging": true,
+    "testTimeout": 30000,
+    "maxRetries": 3,
+    "categories": [
+      "Unit",
+      "Integration", 
+      "Build",
+      "CopilotAgent"
+    ]
+  },
+  "buildTargets": [
+    {
+      "name": "Debug",
+      "framework": "net8.0-windows10.0.19041.0",
+      "platform": "x64"
+    },
+    {
+      "name": "Release", 
+      "framework": "net8.0-windows10.0.19041.0",
+      "platform": "x64"
+    }
+  ],
+  "testData": {
+    "sampleStrings": [
+      "Hello, C-Simple!",
+      "Test string with special characters: àáâãäå",
+      "Unicode test: 🚀🤖💻"
+    ],
+    "sampleNumbers": [1, 2, 3, 42, 100, 1337],
+    "samplePaths": [
+      "C:\\Users\\TestUser\\Documents\\CSimple",
+      "/Users/TestUser/Documents/CSimple",
+      "..\\..\\relative\\path"
+    ]
+  }
+}

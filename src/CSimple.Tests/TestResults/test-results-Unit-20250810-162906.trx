@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="a642815e-7f2f-4052-ae49-4f2dc2417b1b" name="tanne@STH_PC 2025-08-10 16:29:07" runUser="STH_PC\tanne" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2025-08-10T16:29:07.9855343-04:00" queuing="2025-08-10T16:29:07.9855345-04:00" start="2025-08-10T16:29:07.5449246-04:00" finish="2025-08-10T16:29:07.9942173-04:00" />
+  <TestSettings name="default" id="06f5ad93-d7b4-4088-9d49-e82492b1130f">
+    <Deployment runDeploymentRoot="tanne_STH_PC_2025-08-10_16_29_07" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="05eee2e7-e476-40f3-9919-91510af949f1" testId="c0eaf9d8-93df-c50f-e1be-5d50795f4a15" testName="BasicMath_ShouldWorkCorrectly" computerName="STH_PC" duration="00:00:00.0015520" startTime="2025-08-10T16:29:07.8284559-04:00" endTime="2025-08-10T16:29:07.8379364-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="05eee2e7-e476-40f3-9919-91510af949f1" />
+    <UnitTestResult executionId="390d5585-e804-411e-8074-0b393a084d34" testId="099398f3-d0db-a80f-5376-3483b6d5c6f8" testName="DateTimeOperations_ShouldWorkCorrectly" computerName="STH_PC" duration="00:00:00.0001407" startTime="2025-08-10T16:29:07.8416851-04:00" endTime="2025-08-10T16:29:07.8418817-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="390d5585-e804-411e-8074-0b393a084d34" />
+    <UnitTestResult executionId="820de60b-58a6-4f38-97e5-d20b14f22b53" testId="11dd2fb7-b240-1e4c-a50d-7b9b2fcd4394" testName="Collections_ShouldWorkCorrectly" computerName="STH_PC" duration="00:00:00.0001270" startTime="2025-08-10T16:29:07.8419258-04:00" endTime="2025-08-10T16:29:07.8421071-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="820de60b-58a6-4f38-97e5-d20b14f22b53" />
+    <UnitTestResult executionId="79cae600-26da-4fc6-a761-8138699268d2" testId="b944d6cb-a65e-a16f-ea0f-bdb3509e4032" testName="ExceptionHandling_ShouldWorkCorrectly" computerName="STH_PC" duration="00:00:00.0003926" startTime="2025-08-10T16:29:07.8456445-04:00" endTime="2025-08-10T16:29:07.8460758-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="79cae600-26da-4fc6-a761-8138699268d2" />
+    <UnitTestResult executionId="3269cf56-4ba8-4145-906e-26ee0f7626f6" testId="4453a781-3c88-a99f-96d9-a02afd17c908" testName="StringOperations_ShouldWorkCorrectly" computerName="STH_PC" duration="00:00:00.0012975" startTime="2025-08-10T16:29:07.8400795-04:00" endTime="2025-08-10T16:29:07.8414722-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3269cf56-4ba8-4145-906e-26ee0f7626f6" />
+    <UnitTestResult executionId="9df59c55-e86f-4535-9b1d-84d3ccd2d4f0" testId="a08c3fdd-38ad-ce7b-6b25-01d04ac47a6e" testName="FilePathOperations_ShouldWorkCorrectly" computerName="STH_PC" duration="00:00:00.0000900" startTime="2025-08-10T16:29:07.9051155-04:00" endTime="2025-08-10T16:29:07.9057600-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9df59c55-e86f-4535-9b1d-84d3ccd2d4f0" />
+    <UnitTestResult executionId="9964a5f7-44d9-4cf3-8d31-db3a5086476f" testId="c08e87d0-3edd-71db-1302-72af10f3f494" testName="AsyncOperations_ShouldWorkCorrectly" computerName="STH_PC" duration="00:00:00.0588605" startTime="2025-08-10T16:29:07.8460959-04:00" endTime="2025-08-10T16:29:07.9050450-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9964a5f7-44d9-4cf3-8d31-db3a5086476f" />
+    <UnitTestResult executionId="87ca8447-21ef-4c60-9a6c-8c6b587f8991" testId="796807dd-9790-c390-970e-af4dbeb92769" testName="LinqOperations_ShouldWorkCorrectly" computerName="STH_PC" duration="00:00:00.0034346" startTime="2025-08-10T16:29:07.8421353-04:00" endTime="2025-08-10T16:29:07.8456141-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="87ca8447-21ef-4c60-9a6c-8c6b587f8991" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="AsyncOperations_ShouldWorkCorrectly" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="c08e87d0-3edd-71db-1302-72af10f3f494">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Unit" />
+      </TestCategory>
+      <Execution id="9964a5f7-44d9-4cf3-8d31-db3a5086476f" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.UnitTests.BasicApplicationTests" name="AsyncOperations_ShouldWorkCorrectly" />
+    </UnitTest>
+    <UnitTest name="DateTimeOperations_ShouldWorkCorrectly" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="099398f3-d0db-a80f-5376-3483b6d5c6f8">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Unit" />
+      </TestCategory>
+      <Execution id="390d5585-e804-411e-8074-0b393a084d34" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.UnitTests.BasicApplicationTests" name="DateTimeOperations_ShouldWorkCorrectly" />
+    </UnitTest>
+    <UnitTest name="BasicMath_ShouldWorkCorrectly" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="c0eaf9d8-93df-c50f-e1be-5d50795f4a15">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Unit" />
+      </TestCategory>
+      <Execution id="05eee2e7-e476-40f3-9919-91510af949f1" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.UnitTests.BasicApplicationTests" name="BasicMath_ShouldWorkCorrectly" />
+    </UnitTest>
+    <UnitTest name="ExceptionHandling_ShouldWorkCorrectly" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="b944d6cb-a65e-a16f-ea0f-bdb3509e4032">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Unit" />
+      </TestCategory>
+      <Execution id="79cae600-26da-4fc6-a761-8138699268d2" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.UnitTests.BasicApplicationTests" name="ExceptionHandling_ShouldWorkCorrectly" />
+    </UnitTest>
+    <UnitTest name="LinqOperations_ShouldWorkCorrectly" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="796807dd-9790-c390-970e-af4dbeb92769">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Unit" />
+      </TestCategory>
+      <Execution id="87ca8447-21ef-4c60-9a6c-8c6b587f8991" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.UnitTests.BasicApplicationTests" name="LinqOperations_ShouldWorkCorrectly" />
+    </UnitTest>
+    <UnitTest name="FilePathOperations_ShouldWorkCorrectly" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="a08c3fdd-38ad-ce7b-6b25-01d04ac47a6e">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Unit" />
+      </TestCategory>
+      <Execution id="9df59c55-e86f-4535-9b1d-84d3ccd2d4f0" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.UnitTests.BasicApplicationTests" name="FilePathOperations_ShouldWorkCorrectly" />
+    </UnitTest>
+    <UnitTest name="StringOperations_ShouldWorkCorrectly" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="4453a781-3c88-a99f-96d9-a02afd17c908">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Unit" />
+      </TestCategory>
+      <Execution id="3269cf56-4ba8-4145-906e-26ee0f7626f6" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.UnitTests.BasicApplicationTests" name="StringOperations_ShouldWorkCorrectly" />
+    </UnitTest>
+    <UnitTest name="Collections_ShouldWorkCorrectly" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="11dd2fb7-b240-1e4c-a50d-7b9b2fcd4394">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Unit" />
+      </TestCategory>
+      <Execution id="820de60b-58a6-4f38-97e5-d20b14f22b53" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.UnitTests.BasicApplicationTests" name="Collections_ShouldWorkCorrectly" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="c0eaf9d8-93df-c50f-e1be-5d50795f4a15" executionId="05eee2e7-e476-40f3-9919-91510af949f1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="099398f3-d0db-a80f-5376-3483b6d5c6f8" executionId="390d5585-e804-411e-8074-0b393a084d34" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="11dd2fb7-b240-1e4c-a50d-7b9b2fcd4394" executionId="820de60b-58a6-4f38-97e5-d20b14f22b53" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b944d6cb-a65e-a16f-ea0f-bdb3509e4032" executionId="79cae600-26da-4fc6-a761-8138699268d2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4453a781-3c88-a99f-96d9-a02afd17c908" executionId="3269cf56-4ba8-4145-906e-26ee0f7626f6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a08c3fdd-38ad-ce7b-6b25-01d04ac47a6e" executionId="9df59c55-e86f-4535-9b1d-84d3ccd2d4f0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c08e87d0-3edd-71db-1302-72af10f3f494" executionId="9964a5f7-44d9-4cf3-8d31-db3a5086476f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="796807dd-9790-c390-970e-af4dbeb92769" executionId="87ca8447-21ef-4c60-9a6c-8c6b587f8991" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="8" executed="8" passed="8" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

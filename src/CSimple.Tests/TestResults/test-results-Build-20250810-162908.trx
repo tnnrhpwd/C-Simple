@@ -1,0 +1,213 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="d73046d2-3fc7-46b4-bd93-ed598c63d4b8" name="tanne@STH_PC 2025-08-10 16:29:11" runUser="STH_PC\tanne" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2025-08-10T16:29:11.3109243-04:00" queuing="2025-08-10T16:29:11.3109248-04:00" start="2025-08-10T16:29:09.5436711-04:00" finish="2025-08-10T16:29:39.3968021-04:00" />
+  <TestSettings name="default" id="83490304-a031-4868-b951-38acae4e35cf">
+    <Deployment runDeploymentRoot="tanne_STH_PC_2025-08-10_16_29_11" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="b7db14b4-c52a-4eed-b1a1-fcd53cfb8644" testId="79f0dba6-0ed9-eece-2723-551d3494c8e3" testName="Project_ShouldHaveEssentialFiles" computerName="STH_PC" duration="00:00:00.0004298" startTime="2025-08-10T16:29:29.7841198-04:00" endTime="2025-08-10T16:29:29.7846675-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b7db14b4-c52a-4eed-b1a1-fcd53cfb8644" />
+    <UnitTestResult executionId="6da72aac-c521-4990-a2d0-3240ce9daaf0" testId="a4cafcb2-41f5-3361-0042-e0cd6505bc29" testName="Project_ShouldHaveRequiredMauiProperties" computerName="STH_PC" duration="00:00:00.0008002" startTime="2025-08-10T16:29:29.1086666-04:00" endTime="2025-08-10T16:29:29.1095709-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6da72aac-c521-4990-a2d0-3240ce9daaf0" />
+    <UnitTestResult executionId="335f1a86-42c1-4198-934c-f71e732f6115" testId="1c3a6821-b7ca-4143-0296-48226ea401e1" testName="DotNetBuildRelease_ShouldCompleteSuccessfully" computerName="STH_PC" duration="00:00:04.7697689" startTime="2025-08-10T16:29:15.7632073-04:00" endTime="2025-08-10T16:29:20.5334778-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="335f1a86-42c1-4198-934c-f71e732f6115" />
+    <UnitTestResult executionId="612b90a7-c845-49ab-8d1a-1b26cf6a2016" testId="12141582-7e0d-53a3-3abf-887702642af3" testName="Project_ShouldHaveWindowsConfiguration" computerName="STH_PC" duration="00:00:00.0005722" startTime="2025-08-10T16:29:29.7847192-04:00" endTime="2025-08-10T16:29:29.7853646-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="612b90a7-c845-49ab-8d1a-1b26cf6a2016" />
+    <UnitTestResult executionId="08e8d184-ac3a-4ead-850c-659704bda4e5" testId="9f897c40-58ae-9488-2b04-7916c54bc4ad" testName="DotNetBuildWindows_ShouldSucceed" computerName="STH_PC" duration="00:00:03.9629541" startTime="2025-08-10T16:29:34.3955678-04:00" endTime="2025-08-10T16:29:38.3588941-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="08e8d184-ac3a-4ead-850c-659704bda4e5" />
+    <UnitTestResult executionId="2d783bdd-bb64-4d3a-98db-7f507140e705" testId="a37cf3aa-c9c3-0bdf-a291-4b130ec7ae57" testName="Project_ShouldBuildSuccessfully" computerName="STH_PC" duration="00:00:03.9277038" startTime="2025-08-10T16:29:25.1802590-04:00" endTime="2025-08-10T16:29:29.1083051-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2d783bdd-bb64-4d3a-98db-7f507140e705" />
+    <UnitTestResult executionId="88d92896-f897-40a1-85d7-2f4b05e09939" testId="f97f30cd-4c40-cbf3-ca47-d1aad04ff76d" testName="ProjectFile_ShouldExist" computerName="STH_PC" duration="00:00:00.0021284" startTime="2025-08-10T16:29:25.1759331-04:00" endTime="2025-08-10T16:29:25.1785299-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="88d92896-f897-40a1-85d7-2f4b05e09939" />
+    <UnitTestResult executionId="bdc72c03-5ccb-48da-94e1-70d6cf86c170" testId="1afd06ba-27a6-94db-6315-fe0f7d5285d3" testName="ProjectDirectory_ShouldExist" computerName="STH_PC" duration="00:00:00.0002962" startTime="2025-08-10T16:29:29.7854013-04:00" endTime="2025-08-10T16:29:29.7858393-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bdc72c03-5ccb-48da-94e1-70d6cf86c170" />
+    <UnitTestResult executionId="17ab04aa-b4e5-4935-a147-e0aaa8ba6b34" testId="4ee6385a-04e6-c1c6-e082-a37255f33241" testName="DotNetRestore_ShouldCompleteSuccessfully" computerName="STH_PC" duration="00:00:00.6865749" startTime="2025-08-10T16:29:09.8301595-04:00" endTime="2025-08-10T16:29:10.5252595-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="17ab04aa-b4e5-4935-a147-e0aaa8ba6b34" />
+    <UnitTestResult executionId="28ac9b20-af8c-41e4-a374-96ec1d4d1db8" testId="1404d2f2-311f-57b5-729f-6afc1cf11328" testName="DotNetBuildWindows_ShouldCompleteSuccessfully" computerName="STH_PC" duration="00:00:04.6410748" startTime="2025-08-10T16:29:20.5339655-04:00" endTime="2025-08-10T16:29:25.1755506-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="28ac9b20-af8c-41e4-a374-96ec1d4d1db8" />
+    <UnitTestResult executionId="4f59ab78-f14e-4307-ad6a-7766cf1d770a" testId="a1324264-3117-39d5-531f-df31d8beb5e7" testName="DotNetBuild_ShouldSucceed" computerName="STH_PC" duration="00:00:03.9555719" startTime="2025-08-10T16:29:30.4392663-04:00" endTime="2025-08-10T16:29:34.3952334-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4f59ab78-f14e-4307-ad6a-7766cf1d770a" />
+    <UnitTestResult executionId="aa845286-7908-4d4f-a51a-6fc992030129" testId="274987fa-46d3-c761-4f09-d7171b666e34" testName="DotNetBuild_ShouldCompleteSuccessfully" computerName="STH_PC" duration="00:00:05.2339632" startTime="2025-08-10T16:29:10.5275307-04:00" endTime="2025-08-10T16:29:15.7620489-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="aa845286-7908-4d4f-a51a-6fc992030129" />
+    <UnitTestResult executionId="2751015c-1799-4150-a51f-2a74254ddd35" testId="702edb8f-2579-969b-204c-02ebcaa55d2a" testName="ResourcesDirectory_ShouldExistWithRequiredFiles" computerName="STH_PC" duration="00:00:00.0004150" startTime="2025-08-10T16:29:39.3556059-04:00" endTime="2025-08-10T16:29:39.3568374-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2751015c-1799-4150-a51f-2a74254ddd35" />
+    <UnitTestResult executionId="1ab14a72-b2b6-4fd8-a4ca-d173426837ef" testId="d9321631-c459-e01c-6a73-e4254de94db6" testName="EssentialMauiFiles_ShouldExist" computerName="STH_PC" duration="00:00:00.0003949" startTime="2025-08-10T16:29:29.7861688-04:00" endTime="2025-08-10T16:29:29.7866155-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1ab14a72-b2b6-4fd8-a4ca-d173426837ef" />
+    <UnitTestResult executionId="3ae7c62a-ab8e-48e7-8582-7038035ffd9b" testId="df8c5ef2-7af2-7b64-cbe6-86866e506558" testName="Project_ShouldRestorePackagesSuccessfully" computerName="STH_PC" duration="00:00:00.6736486" startTime="2025-08-10T16:29:29.1102449-04:00" endTime="2025-08-10T16:29:29.7840346-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3ae7c62a-ab8e-48e7-8582-7038035ffd9b" />
+    <UnitTestResult executionId="860c3451-6273-481a-bc40-c341342d8aa3" testId="53205344-499a-4f3b-4dea-f6f0bda6270a" testName="Project_ShouldLoadSuccessfully" computerName="STH_PC" duration="00:00:00.0011293" startTime="2025-08-10T16:29:25.1790189-04:00" endTime="2025-08-10T16:29:25.1802186-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="860c3451-6273-481a-bc40-c341342d8aa3" />
+    <UnitTestResult executionId="cd55ba34-6b5b-4a7b-84a3-2c6990792aa5" testId="65aebdd1-5a71-d39e-c285-8f1f3ee64643" testName="Project_ShouldHaveRequiredPackageReferences" computerName="STH_PC" duration="00:00:00.0005661" startTime="2025-08-10T16:29:29.1096079-04:00" endTime="2025-08-10T16:29:29.1102234-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cd55ba34-6b5b-4a7b-84a3-2c6990792aa5" />
+    <UnitTestResult executionId="43317eec-ad19-4b91-a251-0ecb2f276fba" testId="ac025194-4763-5a49-21ae-001a08d547cc" testName="DotNetClean_ShouldSucceed" computerName="STH_PC" duration="00:00:00.9960326" startTime="2025-08-10T16:29:38.3592545-04:00" endTime="2025-08-10T16:29:39.3555331-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="43317eec-ad19-4b91-a251-0ecb2f276fba" />
+    <UnitTestResult executionId="cf75f79f-4198-4ebe-ac93-034fb09a5e44" testId="20f0cf45-2451-0fa1-e7ec-f7a1db8285d7" testName="ProjectFile_ShouldExist" computerName="STH_PC" duration="00:00:00.0002144" startTime="2025-08-10T16:29:29.7858651-04:00" endTime="2025-08-10T16:29:29.7861339-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cf75f79f-4198-4ebe-ac93-034fb09a5e44" />
+    <UnitTestResult executionId="32064611-4067-470b-b729-48ace3231136" testId="b27c4aea-318c-f0ee-5f87-4219b8a22186" testName="DotNetRestore_ShouldSucceed" computerName="STH_PC" duration="00:00:00.6517197" startTime="2025-08-10T16:29:29.7866439-04:00" endTime="2025-08-10T16:29:30.4384857-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="32064611-4067-470b-b729-48ace3231136" />
+    <UnitTestResult executionId="9c097d21-a46e-45ec-9cca-40814d0e8c59" testId="03c8da78-f725-84fb-cec6-4ad60bfb2616" testName="SolutionFile_ShouldExist" computerName="STH_PC" duration="00:00:00.0002550" startTime="2025-08-10T16:29:25.1785925-04:00" endTime="2025-08-10T16:29:25.1789420-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9c097d21-a46e-45ec-9cca-40814d0e8c59" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="DotNetBuild_ShouldSucceed" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="a1324264-3117-39d5-531f-df31d8beb5e7">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="4f59ab78-f14e-4307-ad6a-7766cf1d770a" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.SimpleBuildTests" name="DotNetBuild_ShouldSucceed" />
+    </UnitTest>
+    <UnitTest name="SolutionFile_ShouldExist" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="03c8da78-f725-84fb-cec6-4ad60bfb2616">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="9c097d21-a46e-45ec-9cca-40814d0e8c59" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.BuildVerificationTests" name="SolutionFile_ShouldExist" />
+    </UnitTest>
+    <UnitTest name="EssentialMauiFiles_ShouldExist" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="d9321631-c459-e01c-6a73-e4254de94db6">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="1ab14a72-b2b6-4fd8-a4ca-d173426837ef" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.SimpleBuildTests" name="EssentialMauiFiles_ShouldExist" />
+    </UnitTest>
+    <UnitTest name="Project_ShouldRestorePackagesSuccessfully" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="df8c5ef2-7af2-7b64-cbe6-86866e506558">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="3ae7c62a-ab8e-48e7-8582-7038035ffd9b" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.BuildVerificationTests" name="Project_ShouldRestorePackagesSuccessfully" />
+    </UnitTest>
+    <UnitTest name="DotNetBuildWindows_ShouldSucceed" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="9f897c40-58ae-9488-2b04-7916c54bc4ad">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="08e8d184-ac3a-4ead-850c-659704bda4e5" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.SimpleBuildTests" name="DotNetBuildWindows_ShouldSucceed" />
+    </UnitTest>
+    <UnitTest name="ResourcesDirectory_ShouldExistWithRequiredFiles" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="702edb8f-2579-969b-204c-02ebcaa55d2a">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="2751015c-1799-4150-a51f-2a74254ddd35" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.SimpleBuildTests" name="ResourcesDirectory_ShouldExistWithRequiredFiles" />
+    </UnitTest>
+    <UnitTest name="DotNetRestore_ShouldSucceed" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="b27c4aea-318c-f0ee-5f87-4219b8a22186">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="32064611-4067-470b-b729-48ace3231136" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.SimpleBuildTests" name="DotNetRestore_ShouldSucceed" />
+    </UnitTest>
+    <UnitTest name="Project_ShouldHaveEssentialFiles" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="79f0dba6-0ed9-eece-2723-551d3494c8e3">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="b7db14b4-c52a-4eed-b1a1-fcd53cfb8644" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.BuildVerificationTests" name="Project_ShouldHaveEssentialFiles" />
+    </UnitTest>
+    <UnitTest name="Project_ShouldHaveRequiredMauiProperties" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="a4cafcb2-41f5-3361-0042-e0cd6505bc29">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="6da72aac-c521-4990-a2d0-3240ce9daaf0" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.BuildVerificationTests" name="Project_ShouldHaveRequiredMauiProperties" />
+    </UnitTest>
+    <UnitTest name="ProjectFile_ShouldExist" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="f97f30cd-4c40-cbf3-ca47-d1aad04ff76d">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="88d92896-f897-40a1-85d7-2f4b05e09939" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.BuildVerificationTests" name="ProjectFile_ShouldExist" />
+    </UnitTest>
+    <UnitTest name="ProjectDirectory_ShouldExist" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="1afd06ba-27a6-94db-6315-fe0f7d5285d3">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="bdc72c03-5ccb-48da-94e1-70d6cf86c170" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.SimpleBuildTests" name="ProjectDirectory_ShouldExist" />
+    </UnitTest>
+    <UnitTest name="DotNetBuildRelease_ShouldCompleteSuccessfully" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="1c3a6821-b7ca-4143-0296-48226ea401e1">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+        <TestCategoryItem TestCategory="Integration" />
+      </TestCategory>
+      <Execution id="335f1a86-42c1-4198-934c-f71e732f6115" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.IntegrationTests.DotNetBuildIntegrationTests" name="DotNetBuildRelease_ShouldCompleteSuccessfully" />
+    </UnitTest>
+    <UnitTest name="ProjectFile_ShouldExist" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="20f0cf45-2451-0fa1-e7ec-f7a1db8285d7">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="cf75f79f-4198-4ebe-ac93-034fb09a5e44" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.SimpleBuildTests" name="ProjectFile_ShouldExist" />
+    </UnitTest>
+    <UnitTest name="Project_ShouldBuildSuccessfully" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="a37cf3aa-c9c3-0bdf-a291-4b130ec7ae57">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="2d783bdd-bb64-4d3a-98db-7f507140e705" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.BuildVerificationTests" name="Project_ShouldBuildSuccessfully" />
+    </UnitTest>
+    <UnitTest name="DotNetRestore_ShouldCompleteSuccessfully" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="4ee6385a-04e6-c1c6-e082-a37255f33241">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+        <TestCategoryItem TestCategory="Integration" />
+      </TestCategory>
+      <Execution id="17ab04aa-b4e5-4935-a147-e0aaa8ba6b34" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.IntegrationTests.DotNetBuildIntegrationTests" name="DotNetRestore_ShouldCompleteSuccessfully" />
+    </UnitTest>
+    <UnitTest name="Project_ShouldHaveWindowsConfiguration" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="12141582-7e0d-53a3-3abf-887702642af3">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="612b90a7-c845-49ab-8d1a-1b26cf6a2016" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.BuildVerificationTests" name="Project_ShouldHaveWindowsConfiguration" />
+    </UnitTest>
+    <UnitTest name="DotNetBuildWindows_ShouldCompleteSuccessfully" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="1404d2f2-311f-57b5-729f-6afc1cf11328">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+        <TestCategoryItem TestCategory="Integration" />
+      </TestCategory>
+      <Execution id="28ac9b20-af8c-41e4-a374-96ec1d4d1db8" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.IntegrationTests.DotNetBuildIntegrationTests" name="DotNetBuildWindows_ShouldCompleteSuccessfully" />
+    </UnitTest>
+    <UnitTest name="Project_ShouldHaveRequiredPackageReferences" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="65aebdd1-5a71-d39e-c285-8f1f3ee64643">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="cd55ba34-6b5b-4a7b-84a3-2c6990792aa5" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.BuildVerificationTests" name="Project_ShouldHaveRequiredPackageReferences" />
+    </UnitTest>
+    <UnitTest name="DotNetClean_ShouldSucceed" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="ac025194-4763-5a49-21ae-001a08d547cc">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="43317eec-ad19-4b91-a251-0ecb2f276fba" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.SimpleBuildTests" name="DotNetClean_ShouldSucceed" />
+    </UnitTest>
+    <UnitTest name="DotNetBuild_ShouldCompleteSuccessfully" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="274987fa-46d3-c761-4f09-d7171b666e34">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+        <TestCategoryItem TestCategory="Integration" />
+      </TestCategory>
+      <Execution id="aa845286-7908-4d4f-a51a-6fc992030129" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.IntegrationTests.DotNetBuildIntegrationTests" name="DotNetBuild_ShouldCompleteSuccessfully" />
+    </UnitTest>
+    <UnitTest name="Project_ShouldLoadSuccessfully" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="53205344-499a-4f3b-4dea-f6f0bda6270a">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="860c3451-6273-481a-bc40-c341342d8aa3" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.BuildTests.BuildVerificationTests" name="Project_ShouldLoadSuccessfully" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="79f0dba6-0ed9-eece-2723-551d3494c8e3" executionId="b7db14b4-c52a-4eed-b1a1-fcd53cfb8644" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a4cafcb2-41f5-3361-0042-e0cd6505bc29" executionId="6da72aac-c521-4990-a2d0-3240ce9daaf0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1c3a6821-b7ca-4143-0296-48226ea401e1" executionId="335f1a86-42c1-4198-934c-f71e732f6115" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="12141582-7e0d-53a3-3abf-887702642af3" executionId="612b90a7-c845-49ab-8d1a-1b26cf6a2016" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9f897c40-58ae-9488-2b04-7916c54bc4ad" executionId="08e8d184-ac3a-4ead-850c-659704bda4e5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a37cf3aa-c9c3-0bdf-a291-4b130ec7ae57" executionId="2d783bdd-bb64-4d3a-98db-7f507140e705" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f97f30cd-4c40-cbf3-ca47-d1aad04ff76d" executionId="88d92896-f897-40a1-85d7-2f4b05e09939" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1afd06ba-27a6-94db-6315-fe0f7d5285d3" executionId="bdc72c03-5ccb-48da-94e1-70d6cf86c170" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4ee6385a-04e6-c1c6-e082-a37255f33241" executionId="17ab04aa-b4e5-4935-a147-e0aaa8ba6b34" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1404d2f2-311f-57b5-729f-6afc1cf11328" executionId="28ac9b20-af8c-41e4-a374-96ec1d4d1db8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a1324264-3117-39d5-531f-df31d8beb5e7" executionId="4f59ab78-f14e-4307-ad6a-7766cf1d770a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="274987fa-46d3-c761-4f09-d7171b666e34" executionId="aa845286-7908-4d4f-a51a-6fc992030129" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="702edb8f-2579-969b-204c-02ebcaa55d2a" executionId="2751015c-1799-4150-a51f-2a74254ddd35" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d9321631-c459-e01c-6a73-e4254de94db6" executionId="1ab14a72-b2b6-4fd8-a4ca-d173426837ef" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="df8c5ef2-7af2-7b64-cbe6-86866e506558" executionId="3ae7c62a-ab8e-48e7-8582-7038035ffd9b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="53205344-499a-4f3b-4dea-f6f0bda6270a" executionId="860c3451-6273-481a-bc40-c341342d8aa3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="65aebdd1-5a71-d39e-c285-8f1f3ee64643" executionId="cd55ba34-6b5b-4a7b-84a3-2c6990792aa5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ac025194-4763-5a49-21ae-001a08d547cc" executionId="43317eec-ad19-4b91-a251-0ecb2f276fba" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="20f0cf45-2451-0fa1-e7ec-f7a1db8285d7" executionId="cf75f79f-4198-4ebe-ac93-034fb09a5e44" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b27c4aea-318c-f0ee-5f87-4219b8a22186" executionId="32064611-4067-470b-b729-48ace3231136" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="03c8da78-f725-84fb-cec6-4ad60bfb2616" executionId="9c097d21-a46e-45ec-9cca-40814d0e8c59" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="21" executed="21" passed="21" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

@@ -17,11 +17,14 @@ public class DotNetBuildIntegrationTests
     /// </summary>
     private static string GetProjectDirectory()
     {
-        // Start from the test project directory and navigate to the CSimple project
-        var currentDirectory = Directory.GetCurrentDirectory();
+        // Get the test assembly location for more reliable path resolution
+        var assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+        var testDirectory = Path.GetDirectoryName(assemblyLocation) ?? Directory.GetCurrentDirectory();
 
-        // Navigate to find the src directory containing both test and main projects
-        var directory = new DirectoryInfo(currentDirectory);
+        // Start from the test directory and navigate up to find the CSimple project
+        var directory = new DirectoryInfo(testDirectory);
+
+        // Navigate up to find the src directory containing both test and main projects
         while (directory != null && !directory.GetDirectories("CSimple").Any())
         {
             directory = directory.Parent;
@@ -32,9 +35,25 @@ public class DotNetBuildIntegrationTests
             return projectDir.FullName;
         }
 
-        // Fallback: use relative path from test project to main project
-        var projectDirectory = Path.GetFullPath(Path.Combine(currentDirectory, "..", "CSimple"));
-        return projectDirectory;
+        // Additional fallback methods for VS Code test explorer and other contexts
+        var fallbackPaths = new[]
+        {
+            // Relative from current working directory
+            Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "CSimple")),
+            // Relative from test assembly location
+            Path.GetFullPath(Path.Combine(testDirectory, "..", "..", "..", "..", "CSimple")),
+            // Navigate from workspace root
+            Path.GetFullPath(Path.Combine(testDirectory, "..", "..", "..", "..", "..", "src", "CSimple"))
+        };
+
+        foreach (var fallbackPath in fallbackPaths)
+        {
+            if (Directory.Exists(fallbackPath) && File.Exists(Path.Combine(fallbackPath, "CSimple.csproj")))
+                return fallbackPath;
+        }
+
+        // Final fallback: return the first attempt for error reporting
+        return fallbackPaths[0];
     }
 
     /// <summary>
@@ -42,11 +61,14 @@ public class DotNetBuildIntegrationTests
     /// </summary>
     private static string GetSolutionDirectory()
     {
-        // Start from the test project directory and navigate to find the solution
-        var currentDirectory = Directory.GetCurrentDirectory();
+        // Get the test assembly location for more reliable path resolution
+        var assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+        var testDirectory = Path.GetDirectoryName(assemblyLocation) ?? Directory.GetCurrentDirectory();
 
-        // Navigate to find the src directory containing the solution
-        var directory = new DirectoryInfo(currentDirectory);
+        // Start from the test directory and navigate up to find the solution
+        var directory = new DirectoryInfo(testDirectory);
+
+        // Navigate up to find the directory containing the solution
         while (directory != null && !directory.GetFiles("*.sln").Any())
         {
             directory = directory.Parent;
@@ -57,9 +79,25 @@ public class DotNetBuildIntegrationTests
             return solutionFile.Directory!.FullName;
         }
 
-        // Fallback: use relative path from test project to solution directory
-        var solutionDirectory = Path.GetFullPath(Path.Combine(currentDirectory, ".."));
-        return solutionDirectory;
+        // Additional fallback methods for VS Code test explorer and other contexts
+        var fallbackPaths = new[]
+        {
+            // Relative from current working directory
+            Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..")),
+            // Relative from test assembly location
+            Path.GetFullPath(Path.Combine(testDirectory, "..", "..", "..", "..")),
+            // Navigate from workspace root
+            Path.GetFullPath(Path.Combine(testDirectory, "..", "..", "..", "..", "..", "src"))
+        };
+
+        foreach (var fallbackPath in fallbackPaths)
+        {
+            if (Directory.Exists(fallbackPath) && Directory.GetFiles(fallbackPath, "*.sln").Any())
+                return fallbackPath;
+        }
+
+        // Final fallback: return the first attempt for error reporting
+        return fallbackPaths[0];
     }
 
     [TestMethod]
@@ -94,6 +132,28 @@ public class DotNetBuildIntegrationTests
             $"dotnet restore should exit with code 0. Output: {output}. Error: {error}");
         Assert.IsTrue(string.IsNullOrEmpty(error) || !error.Contains("error"),
             $"dotnet restore should not produce errors. Error output: {error}");
+    }
+
+    [TestMethod]
+    [TestCategory("Diagnostic")]
+    [Description("Shows path resolution details for troubleshooting VS Code test explorer issues")]
+    public void PathResolution_DiagnosticInfo()
+    {
+        // This test helps diagnose path resolution issues in different execution contexts
+        var assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+        var currentDirectory = Directory.GetCurrentDirectory();
+        var testDirectory = Path.GetDirectoryName(assemblyLocation) ?? currentDirectory;
+
+        Console.WriteLine($"Assembly Location: {assemblyLocation}");
+        Console.WriteLine($"Current Directory: {currentDirectory}");
+        Console.WriteLine($"Test Directory: {testDirectory}");
+        Console.WriteLine($"Project Directory: {ProjectDirectory}");
+        Console.WriteLine($"Solution Directory: {SolutionDirectory}");
+        Console.WriteLine($"Project Directory Exists: {Directory.Exists(ProjectDirectory)}");
+        Console.WriteLine($"Solution Directory Exists: {Directory.Exists(SolutionDirectory)}");
+
+        // This test should always pass - it's just for diagnostics
+        Assert.IsTrue(true, "Diagnostic test always passes");
     }
 
     [TestMethod]

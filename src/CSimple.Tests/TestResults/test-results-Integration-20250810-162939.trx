@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="58159fb8-4e8e-4d94-b8f3-b3a76d387f2a" name="tanne@STH_PC 2025-08-10 16:29:42" runUser="STH_PC\tanne" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2025-08-10T16:29:42.6923733-04:00" queuing="2025-08-10T16:29:42.6923738-04:00" start="2025-08-10T16:29:40.9317858-04:00" finish="2025-08-10T16:30:25.0241638-04:00" />
+  <TestSettings name="default" id="85d2935b-f818-462a-ab70-29b6458e4146">
+    <Deployment runDeploymentRoot="tanne_STH_PC_2025-08-10_16_29_42" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="788d8cac-6342-409f-8df4-5942b7d2ce4f" testId="1c3a6821-b7ca-4143-0296-48226ea401e1" testName="DotNetBuildRelease_ShouldCompleteSuccessfully" computerName="STH_PC" duration="00:00:04.7069294" startTime="2025-08-10T16:29:56.1800501-04:00" endTime="2025-08-10T16:30:00.8874768-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="788d8cac-6342-409f-8df4-5942b7d2ce4f" />
+    <UnitTestResult executionId="3491a022-61ff-4c63-8f66-14a34239998f" testId="1404d2f2-311f-57b5-729f-6afc1cf11328" testName="DotNetBuildWindows_ShouldCompleteSuccessfully" computerName="STH_PC" duration="00:00:05.6537721" startTime="2025-08-10T16:30:00.8879081-04:00" endTime="2025-08-10T16:30:06.5421995-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3491a022-61ff-4c63-8f66-14a34239998f" />
+    <UnitTestResult executionId="3c98ad5b-dfb4-403a-a5c4-e1f3bbccb3ff" testId="5dedcc20-77d9-69ff-1397-62123685544e" testName="DotNetBuild_ShouldCompleteWithinTimeLimit" computerName="STH_PC" duration="00:00:05.0323428" startTime="2025-08-10T16:30:19.9532199-04:00" endTime="2025-08-10T16:30:24.9866497-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3c98ad5b-dfb4-403a-a5c4-e1f3bbccb3ff" />
+    <UnitTestResult executionId="af57e973-cf38-43cf-9625-fb077db962a1" testId="d71b47d6-90fe-6ed5-c3df-3186de67118c" testName="SolutionBuild_ShouldCompleteSuccessfully" computerName="STH_PC" duration="00:00:12.3956470" startTime="2025-08-10T16:30:07.5561841-04:00" endTime="2025-08-10T16:30:19.9527499-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="af57e973-cf38-43cf-9625-fb077db962a1" />
+    <UnitTestResult executionId="e7a127dd-9a13-4b32-8c7c-1d89ee553aa3" testId="274987fa-46d3-c761-4f09-d7171b666e34" testName="DotNetBuild_ShouldCompleteSuccessfully" computerName="STH_PC" duration="00:00:14.2917870" startTime="2025-08-10T16:29:41.8854281-04:00" endTime="2025-08-10T16:29:56.1784932-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e7a127dd-9a13-4b32-8c7c-1d89ee553aa3" />
+    <UnitTestResult executionId="c8a301b7-e8b2-4299-97b8-5a71114dccb9" testId="4ee6385a-04e6-c1c6-e082-a37255f33241" testName="DotNetRestore_ShouldCompleteSuccessfully" computerName="STH_PC" duration="00:00:00.6637890" startTime="2025-08-10T16:29:41.2102093-04:00" endTime="2025-08-10T16:29:41.8830590-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c8a301b7-e8b2-4299-97b8-5a71114dccb9" />
+    <UnitTestResult executionId="a44a95d1-0a54-4535-a54f-0359f7348772" testId="4723da18-88da-e82a-30fe-c96999a5a493" testName="DotNetClean_ShouldCompleteSuccessfully" computerName="STH_PC" duration="00:00:01.0133024" startTime="2025-08-10T16:30:06.5425479-04:00" endTime="2025-08-10T16:30:07.5560875-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a44a95d1-0a54-4535-a54f-0359f7348772" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="DotNetBuild_ShouldCompleteWithinTimeLimit" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="5dedcc20-77d9-69ff-1397-62123685544e">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Performance" />
+        <TestCategoryItem TestCategory="Integration" />
+      </TestCategory>
+      <Execution id="3c98ad5b-dfb4-403a-a5c4-e1f3bbccb3ff" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.IntegrationTests.DotNetBuildIntegrationTests" name="DotNetBuild_ShouldCompleteWithinTimeLimit" />
+    </UnitTest>
+    <UnitTest name="DotNetBuild_ShouldCompleteSuccessfully" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="274987fa-46d3-c761-4f09-d7171b666e34">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Integration" />
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="e7a127dd-9a13-4b32-8c7c-1d89ee553aa3" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.IntegrationTests.DotNetBuildIntegrationTests" name="DotNetBuild_ShouldCompleteSuccessfully" />
+    </UnitTest>
+    <UnitTest name="DotNetClean_ShouldCompleteSuccessfully" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="4723da18-88da-e82a-30fe-c96999a5a493">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Integration" />
+        <TestCategoryItem TestCategory="Clean" />
+      </TestCategory>
+      <Execution id="a44a95d1-0a54-4535-a54f-0359f7348772" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.IntegrationTests.DotNetBuildIntegrationTests" name="DotNetClean_ShouldCompleteSuccessfully" />
+    </UnitTest>
+    <UnitTest name="DotNetBuildWindows_ShouldCompleteSuccessfully" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="1404d2f2-311f-57b5-729f-6afc1cf11328">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Integration" />
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="3491a022-61ff-4c63-8f66-14a34239998f" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.IntegrationTests.DotNetBuildIntegrationTests" name="DotNetBuildWindows_ShouldCompleteSuccessfully" />
+    </UnitTest>
+    <UnitTest name="SolutionBuild_ShouldCompleteSuccessfully" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="d71b47d6-90fe-6ed5-c3df-3186de67118c">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Solution" />
+        <TestCategoryItem TestCategory="Integration" />
+      </TestCategory>
+      <Execution id="af57e973-cf38-43cf-9625-fb077db962a1" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.IntegrationTests.DotNetBuildIntegrationTests" name="SolutionBuild_ShouldCompleteSuccessfully" />
+    </UnitTest>
+    <UnitTest name="DotNetBuildRelease_ShouldCompleteSuccessfully" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="1c3a6821-b7ca-4143-0296-48226ea401e1">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Integration" />
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="788d8cac-6342-409f-8df4-5942b7d2ce4f" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.IntegrationTests.DotNetBuildIntegrationTests" name="DotNetBuildRelease_ShouldCompleteSuccessfully" />
+    </UnitTest>
+    <UnitTest name="DotNetRestore_ShouldCompleteSuccessfully" storage="c:\users\tanne\documents\github\c-simple\src\csimple.tests\bin\release\net8.0-windows10.0.19041.0\csimple.tests.dll" id="4ee6385a-04e6-c1c6-e082-a37255f33241">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Integration" />
+        <TestCategoryItem TestCategory="Build" />
+      </TestCategory>
+      <Execution id="c8a301b7-e8b2-4299-97b8-5a71114dccb9" />
+      <TestMethod codeBase="C:\Users\tanne\Documents\Github\C-Simple\src\CSimple.Tests\bin\Release\net8.0-windows10.0.19041.0\CSimple.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="CSimple.Tests.IntegrationTests.DotNetBuildIntegrationTests" name="DotNetRestore_ShouldCompleteSuccessfully" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="1c3a6821-b7ca-4143-0296-48226ea401e1" executionId="788d8cac-6342-409f-8df4-5942b7d2ce4f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1404d2f2-311f-57b5-729f-6afc1cf11328" executionId="3491a022-61ff-4c63-8f66-14a34239998f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5dedcc20-77d9-69ff-1397-62123685544e" executionId="3c98ad5b-dfb4-403a-a5c4-e1f3bbccb3ff" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d71b47d6-90fe-6ed5-c3df-3186de67118c" executionId="af57e973-cf38-43cf-9625-fb077db962a1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="274987fa-46d3-c761-4f09-d7171b666e34" executionId="e7a127dd-9a13-4b32-8c7c-1d89ee553aa3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4ee6385a-04e6-c1c6-e082-a37255f33241" executionId="c8a301b7-e8b2-4299-97b8-5a71114dccb9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4723da18-88da-e82a-30fe-c96999a5a493" executionId="a44a95d1-0a54-4535-a54f-0359f7348772" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="7" executed="7" passed="7" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

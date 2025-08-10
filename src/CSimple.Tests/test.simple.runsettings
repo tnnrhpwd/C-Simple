@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+    <!-- Simple RunSettings for VS Code C# Dev Kit compatibility -->
+    <RunConfiguration>
+        <!-- Maximum time allowed for a test run (in milliseconds) -->
+        <TestSessionTimeout>120000</TestSessionTimeout>
+        <!-- Target platform -->
+        <TargetPlatform>x64</TargetPlatform>
+        <TargetFrameworkVersion>net8.0</TargetFrameworkVersion>
+        <!-- Collect source information -->
+        <CollectSourceInformation>true</CollectSourceInformation>
+        <!-- Results Directory -->
+        <ResultsDirectory>.\TestResults</ResultsDirectory>
+        <!-- Treat No Tests As Error -->
+        <TreatNoTestsAsError>false</TreatNoTestsAsError>
+        <!-- Disable App Domains for .NET Core -->
+        <DisableAppDomain>true</DisableAppDomain>
+    </RunConfiguration>
+    <!-- MSTest Configuration -->
+    <MSTest>
+        <Parallelize>
+            <Workers>2</Workers>
+            <Scope>MethodLevel</Scope>
+        </Parallelize>
+    </MSTest>
+    <!-- Test Run Parameters -->
+    <TestRunParameters>
+        <Parameter name="WorkspaceRoot"
+                   value="" />
+        <Parameter name="SourceDirectory"
+                   value="src" />
+    </TestRunParameters>
+    <!-- Logger Configuration -->
+    <LoggerRunSettings>
+        <Loggers>
+            <Logger friendlyName="console"
+                    enabled="True">
+                <Configuration>
+                    <Verbosity>normal</Verbosity>
+                </Configuration>
+            </Logger>
+        </Loggers>
+    </LoggerRunSettings>
+</RunSettings>

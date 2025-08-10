@@ -4,8 +4,13 @@ Write-Host "C-Simple Test Runner" -ForegroundColor Cyan
 Write-Host "===================" -ForegroundColor Cyan
 Write-Host ""
 
-# Change to the test directory
-Set-Location "src\CSimple.Tests"
+# Get the current script directory and navigate to the test project
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+$testProjectPath = Split-Path -Parent $scriptPath
+Set-Location $testProjectPath
+
+Write-Host "📁 Test project path: $testProjectPath" -ForegroundColor Blue
+Write-Host ""
 
 Write-Host "Running Build Verification Tests..." -ForegroundColor Yellow
 dotnet test --filter "FullyQualifiedName~SimpleBuildTests" --logger "console;verbosity=minimal"

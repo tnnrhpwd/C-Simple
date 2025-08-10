@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+    <!-- Configuration for Data Collectors -->
+    <DataCollectionRunSettings>
+        <DataCollectors>
+            <DataCollector friendlyName="Code Coverage"
+                           uri="datacollector://Microsoft/CodeCoverage/2.0"
+                           assemblyQualifiedName="Microsoft.VisualStudio.Coverage.DynamicCoverageDataCollector, Microsoft.VisualStudio.TraceCollector, Version=11.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+                <Configuration>
+                    <CodeCoverage>
+                        <!-- Match assembly file paths: -->
+                        <ModulePaths>
+                            <Include>
+                                <ModulePath>.*CSimple\.dll$</ModulePath>
+                            </Include>
+                            <Exclude>
+                                <ModulePath>.*test.*</ModulePath>
+                                <ModulePath>.*Tests\.dll$</ModulePath>
+                            </Exclude>
+                        </ModulePaths>
+                        <!-- Match attributes on any code element: -->
+                        <Attributes>
+                            <Exclude>
+                                <Attribute>^System\.Diagnostics\.DebuggerHiddenAttribute$</Attribute>
+                                <Attribute>^System\.Diagnostics\.DebuggerNonUserCodeAttribute$</Attribute>
+                                <Attribute>^System\.Runtime\.CompilerServices\.CompilerGeneratedAttribute$</Attribute>
+                                <Attribute>^System\.CodeDom\.Compiler\.GeneratedCodeAttribute$</Attribute>
+                                <Attribute>^System\.Diagnostics\.CodeAnalysis\.ExcludeFromCodeCoverageAttribute$</Attribute>
+                            </Exclude>
+                        </Attributes>
+                        <!-- Match functions using their names: -->
+                        <Functions>
+                            <Exclude>
+                                <Function>^Microsoft\..*</Function>
+                                <Function>^System\..*</Function>
+                            </Exclude>
+                        </Functions>
+                        <!-- Match sources and output directories -->
+                        <Sources>
+                            <Exclude>
+                                <Source>.*\\bin\\.*</Source>
+                                <Source>.*\\obj\\.*</Source>
+                                <Source>.*\\packages\\.*</Source>
+                            </Exclude>
+                        </Sources>
+                    </CodeCoverage>
+                </Configuration>
+            </DataCollector>
+        </DataCollectors>
+    </DataCollectionRunSettings>
+    <!-- MSTest Configuration -->
+    <MSTest>
+        <Parallelize>
+            <Workers>4</Workers>
+            <Scope>MethodLevel</Scope>
+        </Parallelize>
+        <AssemblyResolution>
+            <Directory path="%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\Extensions\Microsoft\IntelliCode\CLI"
+                       includeSubDirectories="false" />
+        </AssemblyResolution>
+    </MSTest>
+    <!-- Test Run Parameters -->
+    <TestRunParameters>
+        <Parameter name="WorkspaceRoot"
+                   value="" />
+        <Parameter name="SourceDirectory"
+                   value="src" />
+        <Parameter name="TestCategory"
+                   value="All" />
+        <Parameter name="CopilotAgentMode"
+                   value="true" />
+    </TestRunParameters>
+    <!-- Run Configuration -->
+    <RunConfiguration>
+        <!-- Path to Test Adapters -->
+        <TestAdaptersPaths>%UserProfile%\.nuget\packages</TestAdaptersPaths>
+        <!-- Maximum time allowed for a test run (in milliseconds) -->
+        <TestSessionTimeout>1800000</TestSessionTimeout>
+        <!-- Host process for running tests -->
+        <TargetPlatform>x64</TargetPlatform>
+        <TargetFrameworkVersion>net8.0</TargetFrameworkVersion>
+        <!-- Treat Test Adapter Errors As Warnings -->
+        <TreatTestAdapterErrorsAsWarnings>false</TreatTestAdapterErrorsAsWarnings>
+        <!-- Collect Execution Information -->
+        <CollectSourceInformation>true</CollectSourceInformation>
+        <!-- Disable App Domains -->
+        <DisableAppDomain>false</DisableAppDomain>
+        <!-- Disable parallelization across assemblies -->
+        <DisableParallelization>false</DisableParallelization>
+        <!-- Maximum CPU count for parallel test execution -->
+        <MaxCpuCount>0</MaxCpuCount>
+        <!-- Batch Size -->
+        <BatchSize>10</BatchSize>
+        <!-- Results Directory -->
+        <ResultsDirectory>.\TestResults</ResultsDirectory>
+        <!-- Treat No Tests As Error -->
+        <TreatNoTestsAsError>false</TreatNoTestsAsError>
+    </RunConfiguration>
+    <!-- Logger Configuration -->
+    <LoggerRunSettings>
+        <Loggers>
+            <Logger friendlyName="console"
+                    enabled="True">
+                <Configuration>
+                    <Verbosity>normal</Verbosity>
+                </Configuration>
+            </Logger>
+            <Logger friendlyName="trx"
+                    enabled="True">
+                <Configuration>
+                    <LogFileName>CSimple-TestResults.trx</LogFileName>
+                </Configuration>
+            </Logger>
+            <Logger friendlyName="html"
+                    enabled="True">
+                <Configuration>
+                    <LogFileName>CSimple-TestResults.html</LogFileName>
+                </Configuration>
+            </Logger>
+        </Loggers>
+    </LoggerRunSettings>
+</RunSettings>
