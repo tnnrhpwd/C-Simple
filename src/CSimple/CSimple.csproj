@@ -72,13 +72,13 @@
         <MauiFont Include="Resources\Fonts\*" />
         <MauiAsset Include="Resources\Raw\**"
                    LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+        <!-- Exclude the foreground file from automatic processing to avoid conflicts -->
+        <MauiImage Remove="Resources\appiconfg.svg" />
+        <MauiIcon Remove="Resources\appiconfg.svg" />
     </ItemGroup>
     <!-- Windows-specific Logo Assets for Store -->
     <ItemGroup Condition="$(TargetFramework.Contains('-windows'))">
         <!-- These will be generated from the main app icon but can be customized -->
-        <None Include="Resources\appicon.svg">
-            <LogicalName>StoreLogo.png</LogicalName>
-        </None>
     </ItemGroup>
     <ItemGroup Condition="$(TargetFramework.Contains('-windows'))">
         <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications"

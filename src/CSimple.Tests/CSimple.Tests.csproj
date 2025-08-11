@@ -29,6 +29,7 @@
         <PackageReference Include="Microsoft.TestPlatform.TestHost"
                           Version="17.10.0" />
     </ItemGroup>
+    <!-- <ProjectReference Include="..\CSimple\CSimple.csproj" /> -->
     <ItemGroup>
         <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
     </ItemGroup>

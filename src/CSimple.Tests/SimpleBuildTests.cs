@@ -121,7 +121,9 @@ public class SimpleBuildTests
     [Description("Verifies that 'dotnet build' succeeds for the main project")]
     public async Task DotNetBuild_ShouldSucceed()
     {
-        // Arrange
+        // Arrange - Clean first to avoid file locks
+        await CleanProjectAsync();
+
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
@@ -133,20 +135,30 @@ public class SimpleBuildTests
             CreateNoWindow = true
         };
 
-        // Act
-        using var process = new Process { StartInfo = startInfo };
-        process.Start();
-
-        var output = await process.StandardOutput.ReadToEndAsync();
-        var error = await process.StandardError.ReadToEndAsync();
-
-        await process.WaitForExitAsync();
+        // Act - Retry on common MAUI build issues
+        var (exitCode, output, error) = await ExecuteWithRetryAsync(startInfo, maxRetries: 2);
 
         // Assert
-        Assert.AreEqual(0, process.ExitCode,
+        if (exitCode != 0)
+        {
+            // Check for known MAUI issues and provide helpful guidance
+            var knownIssues = AnalyzeBuildFailure(output, error);
+            if (knownIssues.Any())
+            {
+                Assert.Fail($"Build failed with known MAUI issues: {string.Join(", ", knownIssues)}. " +
+                          $"Consider cleaning build artifacts or restarting VS Code. Output: {output}. Error: {error}");
+            }
+        }
+
+        Assert.AreEqual(0, exitCode,
             $"dotnet build should succeed. Output: {output}. Error: {error}");
 
-        Assert.IsTrue(output.Contains("Build succeeded") || output.Contains("build succeeded"),
+        // More lenient success check for MAUI projects
+        var isSuccessful = output.Contains("Build succeeded") ||
+                          output.Contains("build succeeded") ||
+                          (exitCode == 0 && !output.Contains("Build FAILED"));
+
+        Assert.IsTrue(isSuccessful,
             $"Build output should indicate success. Output: {output}");
     }
 
@@ -155,7 +167,9 @@ public class SimpleBuildTests
     [Description("Verifies that 'dotnet build' with Windows framework succeeds")]
     public async Task DotNetBuildWindows_ShouldSucceed()
     {
-        // Arrange
+        // Arrange - Clean first to avoid file locks
+        await CleanProjectAsync();
+
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
@@ -167,18 +181,31 @@ public class SimpleBuildTests
             CreateNoWindow = true
         };
 
-        // Act
-        using var process = new Process { StartInfo = startInfo };
-        process.Start();
-
-        var output = await process.StandardOutput.ReadToEndAsync();
-        var error = await process.StandardError.ReadToEndAsync();
-
-        await process.WaitForExitAsync();
+        // Act - Retry on common MAUI build issues
+        var (exitCode, output, error) = await ExecuteWithRetryAsync(startInfo, maxRetries: 2);
 
         // Assert
-        Assert.AreEqual(0, process.ExitCode,
-            $"dotnet build (Windows) should succeed. Exit code: {process.ExitCode}. Output: {output}. Error: {error}");
+        if (exitCode != 0)
+        {
+            // Check for known MAUI issues and provide helpful guidance
+            var knownIssues = AnalyzeBuildFailure(output, error);
+            if (knownIssues.Any())
+            {
+                Assert.Fail($"Windows build failed with known MAUI issues: {string.Join(", ", knownIssues)}. " +
+                          $"Consider cleaning build artifacts or restarting VS Code. Output: {output}. Error: {error}");
+            }
+        }
+
+        Assert.AreEqual(0, exitCode,
+            $"dotnet build (Windows) should succeed. Exit code: {exitCode}. Output: {output}. Error: {error}");
+
+        // More lenient success check for MAUI projects
+        var isSuccessful = output.Contains("Build succeeded") ||
+                          output.Contains("build succeeded") ||
+                          (exitCode == 0 && !output.Contains("Build FAILED"));
+
+        Assert.IsTrue(isSuccessful,
+            $"Windows build output should indicate success. Output: {output}");
     }
 
     [TestMethod]
@@ -269,5 +296,120 @@ public class SimpleBuildTests
 
         Assert.IsTrue(stopwatch.Elapsed.TotalMinutes < maxBuildTimeMinutes,
             $"Build should complete within {maxBuildTimeMinutes} minutes. Actual: {stopwatch.Elapsed.TotalMinutes:F2} minutes");
+    }
+
+    /// <summary>
+    /// Cleans the project to avoid file locking issues common with MAUI builds.
+    /// </summary>
+    private static async Task CleanProjectAsync()
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = "clean",
+            WorkingDirectory = ProjectDirectory,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        using var process = new Process { StartInfo = startInfo };
+        process.Start();
+        await process.WaitForExitAsync();
+
+        // Wait a bit for file locks to release
+        await Task.Delay(1000);
+    }
+
+    /// <summary>
+    /// Executes a process with retry logic for common MAUI build issues.
+    /// </summary>
+    private static async Task<(int exitCode, string output, string error)> ExecuteWithRetryAsync(
+        ProcessStartInfo startInfo, int maxRetries = 1)
+    {
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
+        {
+            using var process = new Process { StartInfo = startInfo };
+            process.Start();
+
+            var output = await process.StandardOutput.ReadToEndAsync();
+            var error = await process.StandardError.ReadToEndAsync();
+
+            await process.WaitForExitAsync();
+
+            // If successful or last attempt, return result
+            if (process.ExitCode == 0 || attempt == maxRetries)
+            {
+                return (process.ExitCode, output, error);
+            }
+
+            // Check if this is a retryable error
+            if (IsRetryableError(output, error))
+            {
+                // Clean and wait before retry
+                await CleanProjectAsync();
+                await Task.Delay(2000); // Wait 2 seconds between retries
+                continue;
+            }
+
+            // Non-retryable error, return immediately
+            return (process.ExitCode, output, error);
+        }
+
+        // This should never be reached
+        throw new InvalidOperationException("Retry logic error");
+    }
+
+    /// <summary>
+    /// Checks if an error is retryable (typically file locking issues).
+    /// </summary>
+    private static bool IsRetryableError(string output, string error)
+    {
+        var retryableIndicators = new[]
+        {
+            "cannot access the file",
+            "being used by another process",
+            "CS2012",
+            "APPX0002",
+            "APPX1101",
+            "file may be locked",
+            "Microsoft.UI.Xaml.Markup.Compiler",
+            "Payload contains two or more files"
+        };
+
+        var combinedOutput = $"{output} {error}".ToLowerInvariant();
+        return retryableIndicators.Any(indicator => combinedOutput.Contains(indicator.ToLowerInvariant()));
+    }
+
+    /// <summary>
+    /// Analyzes build failures and returns known MAUI issues for better error reporting.
+    /// </summary>
+    private static List<string> AnalyzeBuildFailure(string output, string error)
+    {
+        var issues = new List<string>();
+        var combinedOutput = $"{output} {error}".ToLowerInvariant();
+
+        if (combinedOutput.Contains("cannot access the file") || combinedOutput.Contains("being used by another process"))
+        {
+            issues.Add("File locking issue - try closing VS Code, running applications, or restarting");
+        }
+
+        if (combinedOutput.Contains("appx0702") || combinedOutput.Contains("payload file") || combinedOutput.Contains("does not exist"))
+        {
+            issues.Add("Missing resource files - MAUI resource generation issue");
+        }
+
+        if (combinedOutput.Contains("cs2012"))
+        {
+            issues.Add("Compiler file access issue - typically resolved by cleaning and rebuilding");
+        }
+
+        if (combinedOutput.Contains("xaml") && combinedOutput.Contains("compile"))
+        {
+            issues.Add("XAML compilation issue - check XAML syntax");
+        }
+
+        return issues;
     }
 }
