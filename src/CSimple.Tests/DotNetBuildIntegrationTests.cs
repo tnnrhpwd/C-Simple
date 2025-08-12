@@ -151,28 +151,6 @@ public class DotNetBuildIntegrationTests
     }
 
     [TestMethod]
-    [TestCategory("Diagnostic")]
-    [Description("Shows path resolution details for troubleshooting VS Code test explorer issues")]
-    public void PathResolution_DiagnosticInfo()
-    {
-        // This test helps diagnose path resolution issues in different execution contexts
-        var assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
-        var currentDirectory = Directory.GetCurrentDirectory();
-        var testDirectory = Path.GetDirectoryName(assemblyLocation) ?? currentDirectory;
-
-        Console.WriteLine($"Assembly Location: {assemblyLocation}");
-        Console.WriteLine($"Current Directory: {currentDirectory}");
-        Console.WriteLine($"Test Directory: {testDirectory}");
-        Console.WriteLine($"Project Directory: {ProjectDirectory}");
-        Console.WriteLine($"Solution Directory: {SolutionDirectory}");
-        Console.WriteLine($"Project Directory Exists: {Directory.Exists(ProjectDirectory)}");
-        Console.WriteLine($"Solution Directory Exists: {Directory.Exists(SolutionDirectory)}");
-
-        // This test should always pass - it's just for diagnostics
-        Assert.IsTrue(true, "Diagnostic test always passes");
-    }
-
-    [TestMethod]
     [TestCategory("Integration")]
     [TestCategory("Build")]
     [Description("Verifies that 'dotnet build' completes successfully")]

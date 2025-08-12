@@ -135,6 +135,196 @@ public class VSCodeTestExplorerDiagnostics
         Console.WriteLine("All basic assertions passed successfully.");
     }
 
+    [TestMethod]
+    [TestCategory("Diagnostic")]
+    [Description("Shows current working directory and calculated paths for debugging")]
+    public void VSCodeTestExplorer_PathResolutionDiagnostics()
+    {
+        Console.WriteLine("=== Path Resolution Diagnostics ===");
+
+        // Current working directory when tests run
+        var currentDir = Directory.GetCurrentDirectory();
+        Console.WriteLine($"Current Directory: {currentDir}");
+
+        // Assembly location
+        var assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+        Console.WriteLine($"Assembly Location: {assemblyLocation}");
+
+        // Test directory
+        var testDirectory = Path.GetDirectoryName(assemblyLocation)!;
+        Console.WriteLine($"Test Directory: {testDirectory}");
+
+        // Try to find src directory
+        var srcDirectory = testDirectory;
+        while (srcDirectory != null && !Path.GetFileName(srcDirectory).Equals("src"))
+        {
+            srcDirectory = Directory.GetParent(srcDirectory)?.FullName;
+            Console.WriteLine($"Checking directory: {srcDirectory}");
+            if (srcDirectory != null && Path.GetFileName(srcDirectory) == "src")
+                break;
+        }
+        Console.WriteLine($"Found src directory: {srcDirectory}");
+
+        // Expected CSimple directory
+        if (srcDirectory != null)
+        {
+            var csimpleDir = Path.Combine(srcDirectory, "CSimple");
+            Console.WriteLine($"Expected CSimple directory: {csimpleDir}");
+            Console.WriteLine($"CSimple directory exists: {Directory.Exists(csimpleDir)}");
+        }
+
+        // Alternative approach - navigate from current directory
+        var altProjectPath = Path.GetFullPath(Path.Combine(currentDir, "..", "..", "..", "..", "CSimple"));
+        Console.WriteLine($"Alternative CSimple path: {altProjectPath}");
+        Console.WriteLine($"Alternative path exists: {Directory.Exists(altProjectPath)}");
+
+        // Try a simpler approach - just look for the project file in known locations
+        var possiblePaths = new[]
+        {
+            Path.GetFullPath(Path.Combine(currentDir, "..", "CSimple")),
+            Path.GetFullPath(Path.Combine(currentDir, "..", "..", "CSimple")),
+            Path.GetFullPath(Path.Combine(currentDir, "..", "..", "..", "CSimple")),
+            Path.GetFullPath(Path.Combine(currentDir, "..", "..", "..", "..", "CSimple")),
+            @"c:\Users\tanne\Documents\Github\C-Simple\src\CSimple"
+        };
+
+        string foundPath = "None found";
+        foreach (var path in possiblePaths)
+        {
+            if (Directory.Exists(path))
+            {
+                foundPath = path;
+                break;
+            }
+        }
+
+        // Show the results in the console output
+        Console.WriteLine($"Paths Debug Info:\n" +
+                         $"Current: {currentDir}\n" +
+                         $"Assembly: {assemblyLocation}\n" +
+                         $"Test Dir: {testDirectory}\n" +
+                         $"Src Dir: {srcDirectory}\n" +
+                         $"Alt Path: {altProjectPath} (exists: {Directory.Exists(altProjectPath)})\n" +
+                         $"Found Path: {foundPath}");
+
+        // Assert that we found a valid path
+        Assert.IsTrue(foundPath != "None found", "Should be able to find the CSimple project directory");
+        Assert.IsTrue(Directory.Exists(foundPath), "The found path should exist");
+    }
+
+    [TestMethod]
+    [TestCategory("Diagnostic")]
+    [Description("Shows build-related path resolution details for troubleshooting")]
+    public void VSCodeTestExplorer_BuildPathDiagnostics()
+    {
+        Console.WriteLine("=== Build Path Diagnostics ===");
+
+        // Project path resolution similar to BuildVerificationTests
+        var assemblyLocation = Assembly.GetExecutingAssembly().Location;
+        var testDirectory = Path.GetDirectoryName(assemblyLocation) ?? Directory.GetCurrentDirectory();
+
+        Console.WriteLine($"Assembly Location: {assemblyLocation}");
+        Console.WriteLine($"Test Directory: {testDirectory}");
+
+        // Start from the test directory and navigate up to find the CSimple project
+        var directory = new DirectoryInfo(testDirectory);
+
+        // Navigate up to find the src directory containing both test and main projects
+        while (directory != null && !directory.GetDirectories("CSimple").Any())
+        {
+            Console.WriteLine($"Checking directory: {directory.FullName}");
+            directory = directory.Parent;
+        }
+
+        if (directory?.GetDirectories("CSimple").FirstOrDefault() is DirectoryInfo projectDir)
+        {
+            var projectFile = Path.Combine(projectDir.FullName, "CSimple.csproj");
+            Console.WriteLine($"Found Project File: {projectFile}");
+            Console.WriteLine($"Project File Exists: {File.Exists(projectFile)}");
+
+            if (File.Exists(projectFile))
+            {
+                var projectContent = File.ReadAllText(projectFile);
+                Console.WriteLine($"Project contains MAUI: {projectContent.Contains("Microsoft.Maui") || projectContent.Contains("UseMaui")}");
+                Console.WriteLine($"Project targets Windows: {projectContent.Contains("net8.0-windows")}");
+            }
+        }
+
+        // Solution path resolution
+        directory = new DirectoryInfo(testDirectory);
+        while (directory != null && !directory.GetFiles("*.sln").Any())
+        {
+            directory = directory.Parent;
+        }
+
+        if (directory?.GetFiles("*.sln").FirstOrDefault() is FileInfo solutionFile)
+        {
+            Console.WriteLine($"Found Solution File: {solutionFile.FullName}");
+            Console.WriteLine($"Solution File Exists: {File.Exists(solutionFile.FullName)}");
+        }
+
+        Assert.IsTrue(true, "Build path diagnostic test always passes");
+    }
+
+    [TestMethod]
+    [TestCategory("Diagnostic")]
+    [Description("Shows integration test path resolution details for troubleshooting")]
+    public void VSCodeTestExplorer_IntegrationTestPathDiagnostics()
+    {
+        Console.WriteLine("=== Integration Test Path Diagnostics ===");
+
+        // Get project and solution directories using the same logic as DotNetBuildIntegrationTests
+        var assemblyLocation = Assembly.GetExecutingAssembly().Location;
+        var testDirectory = Path.GetDirectoryName(assemblyLocation) ?? Directory.GetCurrentDirectory();
+        var directory = new DirectoryInfo(testDirectory);
+
+        Console.WriteLine($"Starting from test directory: {testDirectory}");
+
+        // Navigate up to find the src directory containing both test and main projects
+        while (directory != null && !directory.GetDirectories("CSimple").Any())
+        {
+            Console.WriteLine($"Looking for CSimple directory in: {directory.FullName}");
+            directory = directory.Parent;
+        }
+
+        string projectDirectory = "Not found";
+        if (directory?.GetDirectories("CSimple").FirstOrDefault() is DirectoryInfo projectDir)
+        {
+            projectDirectory = projectDir.FullName;
+            Console.WriteLine($"Found Project Directory: {projectDirectory}");
+            Console.WriteLine($"Project Directory Exists: {Directory.Exists(projectDirectory)}");
+
+            // Check for essential project files
+            var projectFile = Path.Combine(projectDirectory, "CSimple.csproj");
+            var appXaml = Path.Combine(projectDirectory, "App.xaml");
+            var mauiProgram = Path.Combine(projectDirectory, "MauiProgram.cs");
+
+            Console.WriteLine($"CSimple.csproj exists: {File.Exists(projectFile)}");
+            Console.WriteLine($"App.xaml exists: {File.Exists(appXaml)}");
+            Console.WriteLine($"MauiProgram.cs exists: {File.Exists(mauiProgram)}");
+        }
+
+        // Find solution directory
+        directory = new DirectoryInfo(testDirectory);
+        while (directory != null && !directory.GetFiles("*.sln").Any())
+        {
+            directory = directory.Parent;
+        }
+
+        string solutionDirectory = "Not found";
+        if (directory?.GetFiles("*.sln").FirstOrDefault() is FileInfo solutionFile)
+        {
+            solutionDirectory = directory.FullName;
+            Console.WriteLine($"Found Solution Directory: {solutionDirectory}");
+            Console.WriteLine($"Solution File: {solutionFile.FullName}");
+            Console.WriteLine($"Solution File Exists: {File.Exists(solutionFile.FullName)}");
+        }
+
+        Console.WriteLine($"Summary - Project: {projectDirectory}, Solution: {solutionDirectory}");
+
+        Assert.IsTrue(true, "Integration test path diagnostic always passes");
+    }
+
     private static string FindProjectPath()
     {
         var assemblyLocation = Assembly.GetExecutingAssembly().Location;
