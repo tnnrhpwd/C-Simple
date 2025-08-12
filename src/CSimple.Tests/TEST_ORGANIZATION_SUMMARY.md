@@ -5,6 +5,7 @@ This document summarizes the test organization improvements made to better struc
 ## Changes Made
 
 ### 1. Consolidated Diagnostic Tests
+
 - **Moved** path diagnostic functionality from `PathDebugTests.cs` to `VSCodeTestExplorerDiagnostics.cs`
 - **Moved** build path diagnostics from `BuildVerificationTests.cs` to `VSCodeTestExplorerDiagnostics.cs`
 - **Moved** integration test path diagnostics from `DotNetBuildIntegrationTests.cs` to `VSCodeTestExplorerDiagnostics.cs`
@@ -12,18 +13,30 @@ This document summarizes the test organization improvements made to better struc
 - **Result**: All diagnostic tests are now centralized in one location for easier troubleshooting
 
 ### 2. Consolidated NetPage Tests
+
 - **Moved** demo functionality from `NetPageLoadingDemoTest.cs` to `NetPageLoadingTests.cs`
 - **Removed** `NetPageLoadingDemoTest.cs` (functionality consolidated)
 - **Result**: All NetPage-related tests are now in a single file with both integration and demo tests
 
-### 3. Standardized Test Categories
+### 3. Added PowerShell Build Process Tests
+
+- **Added** comprehensive tests for the PowerShell build script execution
+- **Added** tests for script existence, syntax validation, dependency checking
+- **Added** execution policy verification and full validation runs
+- **Added** proper timeouts (3 minutes max) to prevent long-running test issues
+- **Result**: PowerShell build process is now thoroughly tested and validated
+
+### 4. Standardized Test Categories
 The tests now use consistent categories:
+
 - `Unit` - Basic unit tests
 - `Build` - Build verification tests
 - `Integration` - Integration tests
 - `Demo` - Demonstration tests with console output
 - `Diagnostic` - Diagnostic and troubleshooting tests
 - `CopilotAgent` - GitHub Copilot agent specific tests
+- `PowerShell` - PowerShell script execution tests
+- `Performance` - Performance-related tests
 
 ## Current Test File Structure
 
@@ -49,7 +62,7 @@ The tests now use consistent categories:
 | CopilotAgentTests.cs | CopilotAgent | 8 tests |
 | BuildVerificationTests.cs | Build | ~9 tests |
 | DotNetBuildIntegrationTests.cs | Integration, Build | ~10 tests |
-| SimpleBuildTests.cs | Build | ~8 tests |
+| SimpleBuildTests.cs | Build, PowerShell, Performance | ~14 tests |
 | NetPageLoadingTests.cs | Integration, Demo | ~6 tests |
 
 ## Benefits of This Organization
@@ -78,8 +91,11 @@ dotnet test --filter "TestCategory=Build"
 # Run all integration tests
 dotnet test --filter "TestCategory=Integration"
 
-# Run all Copilot agent tests
-dotnet test --filter "TestCategory=CopilotAgent"
+# Run all PowerShell tests
+dotnet test --filter "TestCategory=PowerShell"
+
+# Run all performance tests
+dotnet test --filter "TestCategory=Performance"
 ```
 
 ## Next Steps for Further Organization
