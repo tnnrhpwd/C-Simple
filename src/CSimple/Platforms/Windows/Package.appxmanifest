@@ -4,7 +4,7 @@
          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
          IgnorableNamespaces="uap rescap">
     <Identity Name="CSimple-App"
-              Version="1.0.100.0"
+              Version="1.0.105.0"
               Publisher="CN=Simple Inc, O=Simple Inc, C=US" />
     <Properties>
         <DisplayName>CSimple</DisplayName>
@@ -51,3 +51,4 @@
         <uap:Capability Name="documentsLibrary" />
     </Capabilities>
 </Package>
+
