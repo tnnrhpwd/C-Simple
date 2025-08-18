@@ -106,7 +106,7 @@
                                FontAttributes="Bold" />
                         <Frame BackgroundColor="{StaticResource BackgroundSecondary}"
                                CornerRadius="{StaticResource CornerRadiusSmall}"
-                               Padding="{StaticResource CardContentPadding}"
+                               Padding="{StaticResource CardMargin}"
                                HeightRequest="300">
                             <ScrollView x:Name="PipelineChatScrollView"
                                         VerticalScrollBarVisibility="Always"
@@ -116,12 +116,11 @@
                                                 x:Name="PipelineChatCollectionView">
                                     <CollectionView.ItemTemplate>
                                         <DataTemplate x:DataType="models:ChatMessage">
-                                            <Grid Padding="{StaticResource SpacingSmall}"
-                                                  Margin="{StaticResource MarginBottomTiny}">
+                                            <Grid Margin="{StaticResource MarginBottomTiny}">
                                                 <!-- User Message (Right-aligned) -->
                                                 <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource BoolConverter}}"
                                                        BackgroundColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
-                                                       Padding="{StaticResource CardContentPadding}"
+                                                       Padding="{StaticResource CardMargin}"
                                                        CornerRadius="8"
                                                        Margin="50,0,0,0"
                                                        HorizontalOptions="End">
@@ -144,25 +143,27 @@
                                                 <!-- AI Response (Left-aligned) -->
                                                 <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource InverseBoolConverter}}"
                                                        BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundPrimary}, Dark={StaticResource Gray600}}"
-                                                       Padding="{StaticResource CardContentPadding}"
+                                                       Padding="{StaticResource CardMargin}"
                                                        CornerRadius="8"
-                                                       Margin="0,0,50,0"
+                                                       Margin="0,0,5,0"
                                                        HorizontalOptions="Start"
                                                        BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}">
                                                     <VerticalStackLayout>
-                                                        <Label Text="Pipeline Assistant"
-                                                               FontSize="{StaticResource FontSizeCaption}"
-                                                               FontAttributes="Bold"
-                                                               TextColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
-                                                               HorizontalOptions="Start" />
+                                                        <HorizontalStackLayout Spacing="{StaticResource SpacingSmall}">
+                                                            <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
+                                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                                   TextColor="{StaticResource TextPrimary}"
+                                                                   HorizontalOptions="Start" />
+                                                            <Label Text="Pipeline Assistant"
+                                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                                   FontAttributes="Bold"
+                                                                   TextColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
+                                                                   HorizontalOptions="Start" />
+                                                        </HorizontalStackLayout>
                                                         <Label Text="{Binding Content}"
+                                                               FontSize="{StaticResource FontSizeSmall}"
                                                                TextColor="{StaticResource TextPrimary}"
                                                                LineBreakMode="WordWrap" />
-                                                        <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
-                                                               FontSize="{StaticResource FontSizeCaption}"
-                                                               TextColor="{StaticResource TextSecondary}"
-                                                               Opacity="0.7"
-                                                               HorizontalOptions="Start" />
                                                     </VerticalStackLayout>
                                                 </Frame>
                                             </Grid>
