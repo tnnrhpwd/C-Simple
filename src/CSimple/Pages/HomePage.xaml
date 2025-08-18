@@ -191,13 +191,13 @@
                                    HorizontalOptions="Center" />
                         </VerticalStackLayout>
                     </Frame>
-                    <!-- Success Rate -->
+                    <!-- Utilization -->
                     <Frame Grid.Column="2"
                            BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryExtraLight}, Dark={StaticResource SecondaryDark}}"
                            Padding="10"
                            CornerRadius="5">
                         <VerticalStackLayout HorizontalOptions="Center">
-                            <Label Text="Success Rate"
+                            <Label Text="Utilization"
                                    FontSize="Caption"
                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
                                    HorizontalOptions="Center" />
@@ -205,48 +205,6 @@
                                    FontSize="Title"
                                    TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource AccentLight}}"
                                    HorizontalOptions="Center" />
-                        </VerticalStackLayout>
-                    </Frame>
-                    <!-- System Health -->
-                    <Frame Grid.Row="1"
-                           Grid.Column="0"
-                           Grid.ColumnSpan="2"
-                           BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
-                           Padding="10"
-                           CornerRadius="5">
-                        <Grid ColumnDefinitions="*,Auto"
-                              RowDefinitions="Auto,Auto">
-                            <Label Text="System Health"
-                                   FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
-                            <Label Grid.Row="1"
-                                   Text="{Binding SystemHealthStatus}"
-                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
-                                   FontSize="Caption" />
-                            <Label Grid.Column="1"
-                                   Text="{Binding SystemHealthPercentage, StringFormat='{0:P0}'}"
-                                   TextColor="{Binding SystemHealthColor}"
-                                   FontSize="Title"
-                                   VerticalOptions="Center" />
-                        </Grid>
-                    </Frame>
-                    <!-- AI Accuracy -->
-                    <Frame Grid.Row="1"
-                           Grid.Column="2"
-                           BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundTertiary}}"
-                           Padding="10"
-                           CornerRadius="5">
-                        <VerticalStackLayout>
-                            <Label Text="AI Accuracy"
-                                   FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
-                                   HorizontalOptions="Center" />
-                            <ProgressBar Progress="{Binding AverageAIAccuracy}"
-                                         ProgressColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}" />
-                            <Label Text="{Binding AverageAIAccuracy, StringFormat='{0:P0}'}"
-                                   HorizontalOptions="Center"
-                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
-                                   FontSize="Caption" />
                         </VerticalStackLayout>
                     </Frame>
                 </Grid>
