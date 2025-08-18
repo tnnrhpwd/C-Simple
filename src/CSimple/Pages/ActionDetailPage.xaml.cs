@@ -975,9 +975,6 @@ namespace CSimple.Pages
 
                 // Re-initialize the steps to reflect the changes
                 InitializeSteps();
-
-                // Notify the user that the changes have been saved
-                await Application.Current.MainPage.DisplayAlert("Success", "Action steps have been saved and persisted to file.", "OK");
             }
             catch (Exception ex)
             {
