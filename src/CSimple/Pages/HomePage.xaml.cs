@@ -15,6 +15,9 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
     private readonly VoiceAssistantService _voiceAssistantService;
     private bool _isVoiceAssistantActive = false;
     private float _voiceLevel = 0;
+    private DateTime _sessionStartTime = DateTime.Now;
+    private DateTime _lastAIStateChangeTime = DateTime.Now;
+    private TimeSpan _totalActiveTime = TimeSpan.Zero;
     static bool isSetup = false;
     public ICommand NavigateCommand { get; set; }
     public ICommand LogoutCommand { get; }
@@ -61,6 +64,9 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
         {
             if (_isAIEnabled != value)
             {
+                // Track utilization when AI state changes
+                UpdateUtilizationTracking(value);
+
                 _isAIEnabled = value;
                 OnPropertyChanged(nameof(IsAIEnabled));
 
@@ -80,7 +86,7 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
     public string AIStatusDetail { get; set; } = "AI Assistant ready to start";
     public int ActiveModelsCount { get; set; } = 2;
     public int TodayActionsCount { get; set; } = 15;
-    public double SuccessRate { get; set; } = 0.92;
+    public double Utilization { get; set; } = 0.0; // Represents percentage of time AI assistant is active
     public double SystemHealthPercentage { get; set; } = 0.87;
     public string SystemHealthStatus { get; set; } = "Systems nominal, resources optimized";
     public Color SystemHealthColor => SystemHealthPercentage > 0.7 ? Colors.Green : SystemHealthPercentage > 0.4 ? Colors.Orange : Colors.Red;
@@ -247,6 +253,12 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
         _isAIEnabled = savedIsAIEnabled; // Set backing field directly to avoid triggering save
         OnPropertyChanged(nameof(IsAIEnabled));
 
+        // Initialize utilization tracking based on loaded state
+        _sessionStartTime = DateTime.Now;
+        _lastAIStateChangeTime = DateTime.Now;
+        _totalActiveTime = TimeSpan.Zero;
+        CalculateUtilization(); // Initialize utilization display
+
         // Update initial status based on loaded state
         ActiveAIStatus = _isAIEnabled ? "AI Assistant Active" : "AI Assistant Inactive";
         AIStatusDetail = _isAIEnabled ? "Monitoring inputs and providing assistance" : "AI Assistant ready to start";
@@ -289,16 +301,59 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
         SystemHealthPercentage = new Random().NextDouble() * 0.3 + 0.7; // Between 0.7 and 1.0
         ActiveModelsCount = new Random().Next(1, 5);
         TodayActionsCount = new Random().Next(10, 30);
-        SuccessRate = new Random().NextDouble() * 0.2 + 0.8; // Between 0.8 and 1.0
+        // Calculate actual utilization based on tracking
+        CalculateUtilization();
         AverageAIAccuracy = new Random().NextDouble() * 0.15 + 0.85; // Between 0.85 and 1.0
 
         // Update bindings
         OnPropertyChanged(nameof(SystemHealthPercentage));
         OnPropertyChanged(nameof(ActiveModelsCount));
         OnPropertyChanged(nameof(TodayActionsCount));
-        OnPropertyChanged(nameof(SuccessRate));
+        // Utilization is updated in CalculateUtilization()
         OnPropertyChanged(nameof(AverageAIAccuracy));
         OnPropertyChanged(nameof(SystemHealthColor));
+    }
+
+    private void UpdateUtilizationTracking(bool isEnabled)
+    {
+        var now = DateTime.Now;
+
+        // If AI was previously enabled, add to the total active time
+        if (_isAIEnabled)
+        {
+            _totalActiveTime += now - _lastAIStateChangeTime;
+        }
+
+        _lastAIStateChangeTime = now;
+
+        // Recalculate and update utilization
+        CalculateUtilization();
+    }
+
+    private void CalculateUtilization()
+    {
+        var now = DateTime.Now;
+        var totalSessionTime = now - _sessionStartTime;
+
+        // Add current active time if AI is currently enabled
+        var currentActiveTime = _totalActiveTime;
+        if (_isAIEnabled)
+        {
+            currentActiveTime += now - _lastAIStateChangeTime;
+        }
+
+        // Calculate utilization as percentage
+        if (totalSessionTime.TotalSeconds > 0)
+        {
+            Utilization = currentActiveTime.TotalSeconds / totalSessionTime.TotalSeconds;
+        }
+        else
+        {
+            Utilization = 0.0;
+        }
+
+        OnPropertyChanged(nameof(Utilization));
+        Debug.WriteLine($"Utilization updated: {Utilization:P2} (Active: {currentActiveTime.TotalMinutes:F1}min / Total: {totalSessionTime.TotalMinutes:F1}min)");
     }
 
     private async Task PreloadNetPageAsync()

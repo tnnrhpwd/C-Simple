@@ -201,7 +201,7 @@
                                    FontSize="Caption"
                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
                                    HorizontalOptions="Center" />
-                            <Label Text="{Binding SuccessRate, StringFormat='{0:P0}'}"
+                            <Label Text="{Binding Utilization, StringFormat='{0:P0}'}"
                                    FontSize="Title"
                                    TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource AccentLight}}"
                                    HorizontalOptions="Center" />
