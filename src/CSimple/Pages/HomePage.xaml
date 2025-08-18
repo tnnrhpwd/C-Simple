@@ -104,7 +104,7 @@
                                         IsToggled="{Binding IsOnlineMode}"
                                         OnColor="{StaticResource Accent}"
                                         ThumbColor="White"
-                                        Scale="0.7" />
+                                        Scale="0.8" />
                                 <Label Grid.Column="1"
                                        Text="{Binding AppModeLabel}"
                                        FontSize="11"
@@ -197,7 +197,7 @@
                            Padding="10"
                            CornerRadius="5">
                         <VerticalStackLayout HorizontalOptions="Center">
-                            <Label Text="Utilization"
+                            <Label Text="Assistant Utilization"
                                    FontSize="Caption"
                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
                                    HorizontalOptions="Center" />
