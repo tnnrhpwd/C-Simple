@@ -5,7 +5,8 @@
 # Supported Platforms:
 # - Windows: MSIX packages with code signing
 # - Linux: Self-contained executables with .tar.gz packaging
-# - Future: Android APK, iOS IPA
+# - Android: APK packages with optional signing
+# - Future: iOS IPA
 # 
 # Version: 3.0 (Cross-platform support)
 
@@ -14,12 +15,17 @@ param(
     [switch]$AllPlatforms,
     [switch]$WindowsOnly,
     [switch]$LinuxOnly,
-    [string]$Architecture = "x64"  # Supported: x64, arm64
+    [switch]$AndroidOnly,
+    [string]$Architecture = "x64",  # Supported: x64, arm64
+    [string]$AndroidKeyStore = "",
+    [string]$AndroidKeyAlias = "csimple",
+    [SecureString]$AndroidStorePassword = $null,
+    [SecureString]$AndroidKeyPassword = $null
 )
 
 # Process platform selection
 if ($AllPlatforms) {
-    $Platforms = @("windows", "linux")
+    $Platforms = @("windows", "linux", "android")
     Write-Host "Selected: All platforms" -ForegroundColor Yellow
 }
 elseif ($WindowsOnly) {
@@ -29,6 +35,10 @@ elseif ($WindowsOnly) {
 elseif ($LinuxOnly) {
     $Platforms = @("linux")
     Write-Host "Selected: Linux only" -ForegroundColor Yellow
+}
+elseif ($AndroidOnly) {
+    $Platforms = @("android")
+    Write-Host "Selected: Android only" -ForegroundColor Yellow
 }
 
 Write-Host "Building for platforms: $($Platforms -join ', ')" -ForegroundColor Cyan
@@ -68,6 +78,14 @@ $platformConfigs = @{
         RequiresSigning          = $false
         RequiresSpecialPackaging = $true
         OutputDir                = Join-Path $ScriptBaseDir "..\..\..\published\linux"
+    }
+    "android" = @{
+        Framework                = "net8.0-android"
+        RuntimeId                = $null
+        Extension                = "apk"
+        RequiresSigning          = $true
+        RequiresSpecialPackaging = $true
+        OutputDir                = Join-Path $ScriptBaseDir "..\..\..\published\android"
     }
 }
 
@@ -229,6 +247,10 @@ function Invoke-PlatformPackaging {
             # Handle Linux .tar.gz packaging
             return Invoke-LinuxPackaging -config $config -version $version -versionDir $versionDir
         }
+        elseif ($platform -eq "android") {
+            # Handle Android APK packaging
+            return Invoke-AndroidPackaging -config $config -version $version -versionDir $versionDir
+        }
         
         return $false
         
@@ -373,6 +395,106 @@ cd "`$SCRIPT_DIR"
     Write-Host "Package: $tarFilePath" -ForegroundColor Green
     
     return $true
+}
+
+# Android-specific packaging
+function Invoke-AndroidPackaging {
+    param (
+        [hashtable]$config,
+        [string]$version,
+        [string]$versionDir
+    )
+    
+    Write-Host "Creating Android package..." -ForegroundColor Yellow
+    
+    # Validate Android keystore configuration
+    if (-not $AndroidKeyStore -or -not (Test-Path $AndroidKeyStore)) {
+        Write-Host "Error: Android keystore not found at: $AndroidKeyStore" -ForegroundColor Red
+        return $false
+    }
+    
+    if (-not $AndroidKeyAlias) {
+        Write-Host "Error: Android key alias not specified" -ForegroundColor Red
+        return $false
+    }
+    
+    # Convert SecureString passwords to plain text for dotnet command
+    $keystorePassword = $null
+    $keyPassword = $null
+    
+    if ($AndroidKeystorePassword) {
+        $keystorePassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($AndroidKeystorePassword))
+    }
+    
+    if ($AndroidKeyPassword) {
+        $keyPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($AndroidKeyPassword))
+    }
+    
+    $androidOutputDir = $config.OutputDir
+    $androidPlatformDir = Join-Path $versionDir "android"
+    New-Item -ItemType Directory -Path $androidPlatformDir -Force | Out-Null
+    
+    try {
+        # Build Android APK with signing
+        $buildArgs = @(
+            "publish"
+            "-f", $config.Framework
+            "-c", "Release"
+            "--no-restore"
+            "-p:AndroidSigningKeyStore=$AndroidKeyStore"
+            "-p:AndroidSigningKeyAlias=$AndroidKeyAlias"
+        )
+        
+        if ($keystorePassword) {
+            $buildArgs += "-p:AndroidSigningStorePass=$keystorePassword"
+        }
+        
+        if ($keyPassword) {
+            $buildArgs += "-p:AndroidSigningKeyPass=$keyPassword"
+        }
+        
+        Write-Host "Building Android APK..." -ForegroundColor Yellow
+        $buildResult = & dotnet @buildArgs 2>&1
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Android build failed:" -ForegroundColor Red
+            Write-Host $buildResult -ForegroundColor Red
+            return $false
+        }
+        
+        # Find the generated APK
+        $apkFiles = Get-ChildItem -Path $androidOutputDir -Filter "*.apk" -Recurse
+        if (-not $apkFiles) {
+            Write-Host "Error: No APK file found in output directory" -ForegroundColor Red
+            return $false
+        }
+        
+        # Copy APK to versioned directory
+        $sourceApk = $apkFiles[0].FullName
+        $targetApk = Join-Path $androidPlatformDir "$APP_NAME-v$version-android.apk"
+        Copy-Item -Path $sourceApk -Destination $targetApk -Force
+        
+        # Create Android-specific documentation
+        New-AndroidInstallationDocumentation -platformDir $androidPlatformDir -appVersion $version -apkFileName (Split-Path $targetApk -Leaf)
+        
+        Write-Host "Android packaging completed!" -ForegroundColor Green
+        Write-Host "APK: $targetApk" -ForegroundColor Green
+        
+        return $true
+    }
+    catch {
+        Write-Host "Android packaging failed: $_" -ForegroundColor Red
+        return $false
+    }
+    finally {
+        # Clear sensitive data from memory
+        if ($keystorePassword) {
+            $keystorePassword = $null
+        }
+        if ($keyPassword) {
+            $keyPassword = $null
+        }
+    }
 }
 
 # Function to get release date

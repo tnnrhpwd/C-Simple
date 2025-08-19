@@ -18,13 +18,15 @@
 # Version: 3.0 (Now supports cross-platform builds)
 # 
 # ENHANCED FEATURES:
-# - Cross-platform support (Windows, Linux, and future platforms)
+# - Cross-platform support (Windows, Linux, Android)
 # - Use -LinuxOnly to build Linux packages
+# - Use -AndroidOnly to build Android APK packages  
 # - Use -AllPlatforms to build for all supported platforms
 # - Maintains full backward compatibility for Windows-only builds
 
 param(
     [switch]$LinuxOnly,
+    [switch]$AndroidOnly,
     [switch]$AllPlatforms,
     [string]$Architecture = "x64"
 )
@@ -36,6 +38,9 @@ $splattingArgs = @{}
 if ($LinuxOnly) {
     $splattingArgs['LinuxOnly'] = $true
     Write-Host "Building for Linux only..." -ForegroundColor Yellow
+} elseif ($AndroidOnly) {
+    $splattingArgs['AndroidOnly'] = $true
+    Write-Host "Building for Android only..." -ForegroundColor Yellow
 } elseif ($AllPlatforms) {
     $splattingArgs['AllPlatforms'] = $true
     Write-Host "Building for all platforms..." -ForegroundColor Yellow
