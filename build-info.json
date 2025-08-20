@@ -1,10 +1,6 @@
 ﻿{
-    "platforms":  [
-                      "windows",
-                      "linux"
-                  ],
-    "revision":  105,
-    "buildCount":  105,
-    "version":  "1.0.105.0",
-    "lastBuild":  "2025-08-18T19:43:40.6071972-04:00"
+    "revision":  100,
+    "buildCount":  100,
+    "version":  "1.0.100.0",
+    "lastBuild":  "2025-08-09T09:25:36.6884026-04:00"
 }
