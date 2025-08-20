@@ -251,6 +251,26 @@ namespace CSimple.ViewModels
 
         public ObservableCollection<ExecutionGroupInfo> ExecutionGroups => _executionStatusTrackingService.ExecutionGroups;
 
+        // Actions enabled/disabled toggle state
+        private bool _actionsEnabled = false;
+        public bool ActionsEnabled
+        {
+            get => _actionsEnabled;
+            set
+            {
+                if (SetProperty(ref _actionsEnabled, value))
+                {
+                    OnPropertyChanged(nameof(ActionsEnabledText));
+                    OnPropertyChanged(nameof(ActionsEnabledColor));
+                    // Update all action commands' CanExecute state
+                    RefreshActionCommandsCanExecute();
+                }
+            }
+        }
+
+        public string ActionsEnabledText => ActionsEnabled ? "Actions Enabled" : "Actions Disabled";
+        public string ActionsEnabledColor => ActionsEnabled ? "#4CAF50" : "#333333"; // Green when enabled, dark when disabled
+
         private List<string> _executionResults = new List<string>();
         public ObservableCollection<string> ExecutionResults { get; } = new ObservableCollection<string>();        // Add these properties and fields for Action Review functionality
         private ObservableCollection<string> _availableActionNames;
@@ -325,6 +345,7 @@ namespace CSimple.ViewModels
         public ICommand RunAllModelsCommand { get; private set; }
         public ICommand RunAllNodesCommand { get; private set; }
         public ICommand SleepMemoryCompressionCommand { get; private set; }
+        public ICommand ToggleActionsEnabledCommand { get; private set; }
         public ICommand SelectSaveFileCommand { get; private set; }
         public ICommand CreateNewMemoryFileCommand { get; private set; }
 
@@ -389,8 +410,8 @@ namespace CSimple.ViewModels
         public void InitializeCommands()
         {
             // Initialize Commands
-            AddModelNodeCommand = new Command<HuggingFaceModel>(async (model) => await AddModelNode(model));
-            DeleteSelectedNodeCommand = new Command(async () => await DeleteSelectedNode());
+            AddModelNodeCommand = new Command<HuggingFaceModel>(async (model) => await AddModelNode(model), (model) => ActionsEnabled);
+            DeleteSelectedNodeCommand = new Command(async () => await DeleteSelectedNode(), () => ActionsEnabled);
             // Modify CreateNewPipelineCommand to handle save and select sequence
             CreateNewPipelineCommand = new Command(async () =>
             {
@@ -413,7 +434,7 @@ namespace CSimple.ViewModels
                         (StepForwardCommand as Command)?.ChangeCanExecute();
                         (StepBackwardCommand as Command)?.ChangeCanExecute();
                     }),
-                () => _actionStepNavigationService.CanStepForward(SelectedReviewActionName, _currentActionItems, CurrentActionStep));
+                () => ActionsEnabled && _actionStepNavigationService.CanStepForward(SelectedReviewActionName, _currentActionItems, CurrentActionStep));
 
             StepBackwardCommand = new Command(async () =>
                 await _actionStepNavigationService.ExecuteStepBackwardAsync(
@@ -424,7 +445,7 @@ namespace CSimple.ViewModels
                         (StepForwardCommand as Command)?.ChangeCanExecute();
                         (StepBackwardCommand as Command)?.ChangeCanExecute();
                     }),
-                () => _actionStepNavigationService.CanStepBackward(SelectedReviewActionName, CurrentActionStep));
+                () => ActionsEnabled && _actionStepNavigationService.CanStepBackward(SelectedReviewActionName, CurrentActionStep));
 
             ResetActionCommand = new Command(async () =>
                 await _actionStepNavigationService.ExecuteResetActionAsync(
@@ -435,8 +456,8 @@ namespace CSimple.ViewModels
                         (StepForwardCommand as Command)?.ChangeCanExecute();
                         (StepBackwardCommand as Command)?.ChangeCanExecute();
                     }),
-                () => _actionStepNavigationService.CanResetAction(SelectedReviewActionName));
-            GenerateCommand = new Command(async () => await ExecuteGenerateAsync(), () => SelectedNode != null && SelectedNode.Type == NodeType.Model && SelectedNode.EnsembleInputCount > 1);
+                () => ActionsEnabled && _actionStepNavigationService.CanResetAction(SelectedReviewActionName));
+            GenerateCommand = new Command(async () => await ExecuteGenerateAsync(), () => ActionsEnabled && SelectedNode != null && SelectedNode.Type == NodeType.Model && SelectedNode.EnsembleInputCount > 1);
 
             // Initialize RunAllModelsCommand with debug logging
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔧 [OrientPageViewModel.InitializeCommands] Initializing RunAllModelsCommand");
@@ -446,8 +467,8 @@ namespace CSimple.ViewModels
                 await ExecuteRunAllModelsAsync();
             }, () =>
             {
-                bool canExecute = HasModelNodes();
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllModelsCommand.CanExecute] Checking: {canExecute} (Model nodes count: {GetModelNodesCount()})");
+                bool canExecute = ActionsEnabled && HasModelNodes();
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllModelsCommand.CanExecute] Checking: {canExecute} (ActionsEnabled: {ActionsEnabled}, Model nodes count: {GetModelNodesCount()})");
                 return canExecute;
             });
 
@@ -459,13 +480,16 @@ namespace CSimple.ViewModels
                 await ExecuteRunAllNodesAsync();
             }, () =>
             {
-                bool canExecute = HasModelNodes() && !string.IsNullOrEmpty(SelectedReviewActionName);
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllNodesCommand.CanExecute] Checking: {canExecute} (Model nodes: {GetModelNodesCount()}, Selected action: {SelectedReviewActionName ?? "none"})");
+                bool canExecute = ActionsEnabled && HasModelNodes() && !string.IsNullOrEmpty(SelectedReviewActionName);
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllNodesCommand.CanExecute] Checking: {canExecute} (ActionsEnabled: {ActionsEnabled}, Model nodes: {GetModelNodesCount()}, Selected action: {SelectedReviewActionName ?? "none"})");
                 return canExecute;
             });
 
             // Initialize SleepMemoryCompressionCommand
             SleepMemoryCompressionCommand = new Command(async () => await ExecuteSleepMemoryCompressionAsync(), () => true);
+
+            // Initialize ToggleActionsEnabledCommand
+            ToggleActionsEnabledCommand = new Command(() => ActionsEnabled = !ActionsEnabled);
 
             // Initialize SelectSaveFileCommand
             SelectSaveFileCommand = new Command(async () =>
@@ -1490,6 +1514,19 @@ namespace CSimple.ViewModels
         private void SetSelectedPipelineName(string name)
         {
             SelectedPipelineName = name;
+        }
+
+        private void RefreshActionCommandsCanExecute()
+        {
+            // Update the CanExecute state of all action-related commands when ActionsEnabled changes
+            (StepForwardCommand as Command)?.ChangeCanExecute();
+            (StepBackwardCommand as Command)?.ChangeCanExecute();
+            (ResetActionCommand as Command)?.ChangeCanExecute();
+            (RunAllModelsCommand as Command)?.ChangeCanExecute();
+            (RunAllNodesCommand as Command)?.ChangeCanExecute();
+            (GenerateCommand as Command)?.ChangeCanExecute();
+            (AddModelNodeCommand as Command)?.ChangeCanExecute();
+            (DeleteSelectedNodeCommand as Command)?.ChangeCanExecute();
         }
 
         // --- Cached data for performance ---

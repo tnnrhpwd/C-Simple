@@ -1,9 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">net8.0-windows10.0.19041.0</TargetFrameworks>
+        <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">net8.0-windows10.0.19041.0;net8.0</TargetFrameworks>
         <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('ios'))">net8.0-ios</TargetFrameworks>
         <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('android'))">net8.0-android</TargetFrameworks>
         <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('maccatalyst'))">net8.0-maccatalyst</TargetFrameworks>
+        <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('linux'))">net8.0</TargetFrameworks>
+        <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('osx'))">net8.0</TargetFrameworks>
         <!-- Note for MacCatalyst:
 			The default runtime is maccatalyst-x64, except in Release config, in which case the default is maccatalyst-x64;maccatalyst-arm64.
 			When specifying both architectures, use the plural <RuntimeIdentifiers> instead of the singular <RuntimeIdentifier>.
@@ -16,8 +18,8 @@
         <RootNamespace>CSimple</RootNamespace>
         <ApplicationTitle>CSimple</ApplicationTitle>
         <ApplicationId>com.simpleinc.csimple</ApplicationId>
-        <ApplicationDisplayVersion>1.0.100</ApplicationDisplayVersion>
-        <ApplicationVersion>100</ApplicationVersion>
+        <ApplicationDisplayVersion>1.0.105</ApplicationDisplayVersion>
+        <ApplicationVersion>105</ApplicationVersion>
         <!-- Microsoft Store Configuration -->
         <ApplicationPublisher>Simple Inc</ApplicationPublisher>
         <ApplicationDescription>CSimple - Streamlined productivity and automation tools</ApplicationDescription>
@@ -58,6 +60,17 @@
         <!-- <CodesignKey>iPhone Distribution: John Smith (AY2GDE9QM7)</CodesignKey>
 		<CodesignProvision>MyMauiApp</CodesignProvision> -->
         <ArchiveOnBuild>true</ArchiveOnBuild>
+    </PropertyGroup>
+    <!-- For Android publish -->
+    <PropertyGroup Condition="$(TargetFramework.Contains('-android')) and '$(Configuration)' == 'Release'">
+        <RuntimeIdentifier>android-arm64</RuntimeIdentifier>
+        <PublishTrimmed>true</PublishTrimmed>
+        <AndroidSigningKeyStore Condition="'$(AndroidSigningKeyStore)' == ''">csimple-release.keystore</AndroidSigningKeyStore>
+        <AndroidSigningKeyAlias Condition="'$(AndroidSigningKeyAlias)' == ''">csimple</AndroidSigningKeyAlias>
+        <!-- AndroidSigningKeyPass and AndroidSigningStorePass should be set via environment variables or command line -->
+        <AndroidCreatePackagePerAbi>false</AndroidCreatePackagePerAbi>
+        <AndroidUseAapt2>true</AndroidUseAapt2>
+        <AndroidLinkMode>SdkOnly</AndroidLinkMode>
     </PropertyGroup>
     <ItemGroup>
         <!-- Main App Icon with Enhanced Microsoft Store Support -->
