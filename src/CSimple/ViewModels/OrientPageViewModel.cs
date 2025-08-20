@@ -251,7 +251,7 @@ namespace CSimple.ViewModels
 
         public ObservableCollection<ExecutionGroupInfo> ExecutionGroups => _executionStatusTrackingService.ExecutionGroups;
 
-        // Actions enabled/disabled toggle state
+        // Automated action simulation toggle state (for Action-classified model nodes)
         private bool _actionsEnabled = false;
         public bool ActionsEnabled
         {
@@ -262,8 +262,9 @@ namespace CSimple.ViewModels
                 {
                     OnPropertyChanged(nameof(ActionsEnabledText));
                     OnPropertyChanged(nameof(ActionsEnabledColor));
-                    // Update all action commands' CanExecute state
-                    RefreshActionCommandsCanExecute();
+                    // Only refresh commands that actually need action simulation control
+                    // Don't disable UI operation buttons
+                    RefreshActionSimulationCommandsCanExecute();
                 }
             }
         }
@@ -409,9 +410,10 @@ namespace CSimple.ViewModels
         /// Initialize all commands - extracted for better organization
         public void InitializeCommands()
         {
-            // Initialize Commands
-            AddModelNodeCommand = new Command<HuggingFaceModel>(async (model) => await AddModelNode(model), (model) => ActionsEnabled);
-            DeleteSelectedNodeCommand = new Command(async () => await DeleteSelectedNode(), () => ActionsEnabled);
+            // Initialize Commands - Remove ActionsEnabled from basic UI operations
+            // AddModelNodeCommand and DeleteSelectedNodeCommand should always be available
+            AddModelNodeCommand = new Command<HuggingFaceModel>(async (model) => await AddModelNode(model), (model) => model != null);
+            DeleteSelectedNodeCommand = new Command(async () => await DeleteSelectedNode(), () => SelectedNode != null);
             // Modify CreateNewPipelineCommand to handle save and select sequence
             CreateNewPipelineCommand = new Command(async () =>
             {
@@ -424,6 +426,7 @@ namespace CSimple.ViewModels
             DeletePipelineCommand = new Command(async () => await DeleteCurrentPipeline());
 
             // Initialize Review Action commands using the service
+            // Remove ActionsEnabled from step navigation - these are for reviewing recorded actions, not triggering automation
             StepForwardCommand = new Command(async () =>
                 await _actionStepNavigationService.ExecuteStepForwardAsync(
                     CurrentActionStep,
@@ -434,7 +437,7 @@ namespace CSimple.ViewModels
                         (StepForwardCommand as Command)?.ChangeCanExecute();
                         (StepBackwardCommand as Command)?.ChangeCanExecute();
                     }),
-                () => ActionsEnabled && _actionStepNavigationService.CanStepForward(SelectedReviewActionName, _currentActionItems, CurrentActionStep));
+                () => _actionStepNavigationService.CanStepForward(SelectedReviewActionName, _currentActionItems, CurrentActionStep));
 
             StepBackwardCommand = new Command(async () =>
                 await _actionStepNavigationService.ExecuteStepBackwardAsync(
@@ -445,7 +448,7 @@ namespace CSimple.ViewModels
                         (StepForwardCommand as Command)?.ChangeCanExecute();
                         (StepBackwardCommand as Command)?.ChangeCanExecute();
                     }),
-                () => ActionsEnabled && _actionStepNavigationService.CanStepBackward(SelectedReviewActionName, CurrentActionStep));
+                () => _actionStepNavigationService.CanStepBackward(SelectedReviewActionName, CurrentActionStep));
 
             ResetActionCommand = new Command(async () =>
                 await _actionStepNavigationService.ExecuteResetActionAsync(
@@ -456,10 +459,12 @@ namespace CSimple.ViewModels
                         (StepForwardCommand as Command)?.ChangeCanExecute();
                         (StepBackwardCommand as Command)?.ChangeCanExecute();
                     }),
-                () => ActionsEnabled && _actionStepNavigationService.CanResetAction(SelectedReviewActionName));
-            GenerateCommand = new Command(async () => await ExecuteGenerateAsync(), () => ActionsEnabled && SelectedNode != null && SelectedNode.Type == NodeType.Model && SelectedNode.EnsembleInputCount > 1);
+                () => _actionStepNavigationService.CanResetAction(SelectedReviewActionName));
 
-            // Initialize RunAllModelsCommand with debug logging
+            // Remove ActionsEnabled from GenerateCommand - this should always be available for generating content
+            GenerateCommand = new Command(async () => await ExecuteGenerateAsync(), () => SelectedNode != null && SelectedNode.Type == NodeType.Model && SelectedNode.EnsembleInputCount > 1);
+
+            // Initialize RunAllModelsCommand - Remove ActionsEnabled since this executes models, not computer actions
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔧 [OrientPageViewModel.InitializeCommands] Initializing RunAllModelsCommand");
             RunAllModelsCommand = new Command(async () =>
             {
@@ -467,12 +472,12 @@ namespace CSimple.ViewModels
                 await ExecuteRunAllModelsAsync();
             }, () =>
             {
-                bool canExecute = ActionsEnabled && HasModelNodes();
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllModelsCommand.CanExecute] Checking: {canExecute} (ActionsEnabled: {ActionsEnabled}, Model nodes count: {GetModelNodesCount()})");
+                bool canExecute = HasModelNodes();
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllModelsCommand.CanExecute] Checking: {canExecute} (Model nodes count: {GetModelNodesCount()})");
                 return canExecute;
             });
 
-            // Initialize RunAllNodesCommand with debug logging
+            // Initialize RunAllNodesCommand - Remove ActionsEnabled since this executes models, not computer actions
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔧 [OrientPageViewModel.InitializeCommands] Initializing RunAllNodesCommand");
             RunAllNodesCommand = new Command(async () =>
             {
@@ -480,8 +485,8 @@ namespace CSimple.ViewModels
                 await ExecuteRunAllNodesAsync();
             }, () =>
             {
-                bool canExecute = ActionsEnabled && HasModelNodes() && !string.IsNullOrEmpty(SelectedReviewActionName);
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllNodesCommand.CanExecute] Checking: {canExecute} (ActionsEnabled: {ActionsEnabled}, Model nodes: {GetModelNodesCount()}, Selected action: {SelectedReviewActionName ?? "none"})");
+                bool canExecute = HasModelNodes() && !string.IsNullOrEmpty(SelectedReviewActionName);
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 [RunAllNodesCommand.CanExecute] Checking: {canExecute} (Model nodes: {GetModelNodesCount()}, Selected action: {SelectedReviewActionName ?? "none"})");
                 return canExecute;
             });
 
@@ -1516,17 +1521,21 @@ namespace CSimple.ViewModels
             SelectedPipelineName = name;
         }
 
+        private void RefreshActionSimulationCommandsCanExecute()
+        {
+            // Only update commands that should be controlled by action simulation toggle
+            // These are commands related to automated action execution, not regular UI operations
+            // No commands currently need to be disabled by ActionsEnabled
+            // The ActionsEnabled flag is only used for controlling automated simulation behavior
+            // in the actual execution logic, not for disabling UI buttons
+        }
+
         private void RefreshActionCommandsCanExecute()
         {
-            // Update the CanExecute state of all action-related commands when ActionsEnabled changes
-            (StepForwardCommand as Command)?.ChangeCanExecute();
-            (StepBackwardCommand as Command)?.ChangeCanExecute();
-            (ResetActionCommand as Command)?.ChangeCanExecute();
-            (RunAllModelsCommand as Command)?.ChangeCanExecute();
-            (RunAllNodesCommand as Command)?.ChangeCanExecute();
-            (GenerateCommand as Command)?.ChangeCanExecute();
-            (AddModelNodeCommand as Command)?.ChangeCanExecute();
-            (DeleteSelectedNodeCommand as Command)?.ChangeCanExecute();
+            // Currently no commands are controlled by ActionsEnabled
+            // ActionsEnabled now only controls automated simulation behavior in ExecuteModelForStepAsync
+            // Step navigation commands (StepForwardCommand, StepBackwardCommand, ResetActionCommand) are always available
+            // when their underlying service conditions are met
         }
 
         // --- Cached data for performance ---
@@ -2593,6 +2602,24 @@ namespace CSimple.ViewModels
 
                 // Route output to connected file nodes
                 await RouteOutputToConnectedFileNodesAsync(modelNode, resultContentType, result, currentStep);
+
+                // Check if this is an Action-classified model and handle automated action simulation
+                if (modelNode.Classification == "Action")
+                {
+                    if (ActionsEnabled)
+                    {
+                        Debug.WriteLine($"🎯 [ExecuteModelForStepAsync] Action-classified model '{modelNode.Name}' produced output. ActionsEnabled=true, proceeding with automated simulation (if applicable).");
+                        // TODO: Here you would implement the logic to trigger automated action simulation based on the model output
+                        // This could involve parsing the model output to extract actionable commands and then
+                        // calling ActionService.ToggleSimulateActionGroupAsync() or similar methods
+                        // For now, this serves as the control point for automated action simulation
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"🚫 [ExecuteModelForStepAsync] Action-classified model '{modelNode.Name}' produced output, but ActionsEnabled=false. Skipping automated simulation.");
+                        // Model output is still saved and processed normally, but no automated actions are triggered
+                    }
+                }
 
                 // Save individual result to file
                 await SaveStepResultAsync(runDir, modelNode.Name, stepIndex, input, result, resultContentType, actionItems);
