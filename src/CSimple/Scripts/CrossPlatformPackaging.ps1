@@ -130,95 +130,6 @@ Categories=Productivity;Office;Utility;
     Write-Host "Linux documentation and desktop entry created" -ForegroundColor Green
 }
 
-# Function to create Android-specific installation documentation
-function New-AndroidInstallationDocumentation {
-    param (
-        [string]$platformDir,
-        [string]$appVersion,
-        [string]$apkFileName
-    )
-    
-    # Create Android-specific README
-    $readmeContent = @"
-# CSimple for Android (v$appVersion)
-
-## Installation
-
-### Direct Installation
-1. Enable "Unknown sources" in Android Settings > Security
-2. Download and install: `$apkFileName`
-3. Grant necessary permissions when prompted
-
-### ADB Installation (Developer/Testing)
-\`\`\`bash
-# Install via ADB
-adb install $apkFileName
-
-# Uninstall (if needed)
-adb uninstall com.csimple.app
-\`\`\`
-
-## System Requirements
-- Android 7.0 (API level 24) or higher
-- ARM64 or x86_64 architecture
-- Minimum 50MB free storage space
-- Internet connection for initial setup
-
-## Permissions
-The app may request the following permissions:
-- **Storage Access** - For file operations and data storage
-- **Network Access** - For synchronization and updates
-- **Camera** (Optional) - For QR code scanning features
-- **Notifications** - For background task notifications
-
-## First Launch
-1. Open CSimple from your app drawer
-2. Complete the initial setup wizard
-3. Configure your preferences
-4. Start using the app!
-
-## Files Included
-- `$apkFileName` - Android application package
-- `README.md` - This installation guide
-
-## Troubleshooting
-
-### Installation Issues
-- **"App not installed"**: Enable "Unknown sources" in Settings
-- **"Parse error"**: Download the APK again, file may be corrupted
-- **"Insufficient storage"**: Clear space and try again
-
-### Runtime Issues
-- **App crashes on startup**: Clear app data in Settings > Apps > CSimple
-- **Slow performance**: Restart the app or reboot device
-- **Sync issues**: Check internet connection and app permissions
-
-### Compatibility
-- Minimum: Android 7.0 (API 24)
-- Recommended: Android 10+ for best experience
-- Architecture: ARM64 (most modern devices) or x86_64
-
-## Uninstallation
-1. Go to Settings > Apps > CSimple
-2. Tap "Uninstall"
-3. Confirm removal
-
-Or use ADB:
-\`\`\`bash
-adb uninstall com.csimple.app
-\`\`\`
-
-## Developer Notes
-- Package Name: com.csimple.app
-- Target SDK: Android 14 (API 34)
-- Min SDK: Android 7.0 (API 24)
-- Signed with release keystore
-"@
-    
-    Set-Content -Path (Join-Path $platformDir "README.md") -Value $readmeContent -Encoding UTF8
-    Write-Host "Android documentation created" -ForegroundColor Green
-}
-
 # Function to create cross-platform documentation
 function New-CrossPlatformDocumentation {
     param (
@@ -268,11 +179,6 @@ See the `$platform/README.md` file for platform-specific installation instructio
 - Most modern Linux distributions (Ubuntu 18.04+, CentOS 8+, etc.)
 - X11 or Wayland display server
 - Self-contained .NET runtime included
-
-### Android
-- Android 7.0 (API level 24) or higher
-- ARM64 or x86_64 architecture
-- Minimum 50MB storage space
 
 ## Getting Started
 1. Choose your platform directory

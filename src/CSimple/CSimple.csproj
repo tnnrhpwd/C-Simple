@@ -61,17 +61,6 @@
 		<CodesignProvision>MyMauiApp</CodesignProvision> -->
         <ArchiveOnBuild>true</ArchiveOnBuild>
     </PropertyGroup>
-    <!-- For Android publish -->
-    <PropertyGroup Condition="$(TargetFramework.Contains('-android')) and '$(Configuration)' == 'Release'">
-        <RuntimeIdentifier>android-arm64</RuntimeIdentifier>
-        <PublishTrimmed>true</PublishTrimmed>
-        <AndroidSigningKeyStore Condition="'$(AndroidSigningKeyStore)' == ''">csimple-release.keystore</AndroidSigningKeyStore>
-        <AndroidSigningKeyAlias Condition="'$(AndroidSigningKeyAlias)' == ''">csimple</AndroidSigningKeyAlias>
-        <!-- AndroidSigningKeyPass and AndroidSigningStorePass should be set via environment variables or command line -->
-        <AndroidCreatePackagePerAbi>false</AndroidCreatePackagePerAbi>
-        <AndroidUseAapt2>true</AndroidUseAapt2>
-        <AndroidLinkMode>SdkOnly</AndroidLinkMode>
-    </PropertyGroup>
     <ItemGroup>
         <!-- Main App Icon with Enhanced Microsoft Store Support -->
         <MauiIcon Include="Resources\appicon.svg"
