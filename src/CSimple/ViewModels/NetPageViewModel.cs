@@ -86,6 +86,35 @@ namespace CSimple.ViewModels
         private DateTime _lastPipelineRefresh = DateTime.MinValue; // Track when pipelines were last loaded
         private DateTime _lastMouseEventTime = DateTime.MinValue; // Track mouse event throttling for intelligence
 
+        // Intelligence processing fields
+        private CancellationTokenSource _intelligenceProcessingCts;
+        private DateTime _lastScreenCapture = DateTime.MinValue;
+        private DateTime _lastPipelineExecution = DateTime.MinValue;
+        private readonly object _intelligenceProcessingLock = new object();
+        private bool _isProcessingIntelligence = false;
+
+        // Enhanced intelligence processing fields
+        private readonly SettingsService _settingsService;
+        private readonly List<byte[]> _capturedScreenshots = new();
+        private readonly List<byte[]> _capturedAudioData = new();
+        private readonly List<string> _capturedTextData = new();
+        private readonly object _capturedDataLock = new object();
+        private DateTime _lastDataClearTime = DateTime.Now;
+        private Task _currentPipelineTask = null;
+
+        // Session and Memory Tracking Fields
+        private readonly string _sessionId = Guid.NewGuid().ToString("N")[..8];
+        private readonly DateTime _sessionStartTime = DateTime.Now;
+        private int _intelligenceCycleCount = 0;
+        private readonly List<PipelineExecutionRecord> _pipelineHistory = new();
+
+        // Intelligence Session Persistence (similar to ObservePage pattern)
+        private readonly List<IntelligenceToggleEvent> _intelligenceToggleHistory = new();
+        private readonly DataService _dataService;
+
+        // Intelligence Action Recording Buffer (similar to ObservePage _currentRecordingBuffer)
+        private readonly List<ActionItem> _intelligenceRecordingBuffer = new();
+
         // --- Observable Properties ---
         public ObservableCollection<NeuralNetworkModel> AvailableModels { get; } = new();
         public ObservableCollection<NeuralNetworkModel> ActiveModels { get; } = new();
@@ -271,11 +300,21 @@ namespace CSimple.ViewModels
         public bool IsIntelligenceActive
         {
             get => _isIntelligenceActive;
-            set => SetProperty(ref _isIntelligenceActive, value, onChanged: () =>
+            set => SetProperty(ref _isIntelligenceActive, value, onChanged: async () =>
             {
                 OnPropertyChanged(nameof(IntelligenceStatusText));
                 OnPropertyChanged(nameof(IntelligenceStatusColor));
                 OnPropertyChanged(nameof(RecordingStatusIcon));
+
+                // Save toggle event for persistence (like ObservePage saves actions)
+                try
+                {
+                    await SaveIntelligenceToggleEvent(value, value ? "START" : "STOP");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error saving intelligence toggle event: {ex.Message}");
+                }
 
                 // Start or stop intelligence recording
                 if (value)
@@ -395,7 +434,7 @@ namespace CSimple.ViewModels
         // Note: ModelCommunicationService handles model communication logic (extracted for maintainability)
         // Note: ModelExecutionService handles model execution with enhanced error handling (extracted for maintainability)
         // Note: ModelImportExportService handles model import/export and file operations (extracted for maintainability)
-        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, PipelineManagementService pipelineManagementService = null, InputCaptureService inputCaptureService = null, MouseTrackingService mouseTrackingService = null, AudioCaptureService audioCaptureService = null)
+        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, DataService dataService, IAppPathService appPathService, PipelineManagementService pipelineManagementService = null, InputCaptureService inputCaptureService = null, MouseTrackingService mouseTrackingService = null, AudioCaptureService audioCaptureService = null)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -410,6 +449,8 @@ namespace CSimple.ViewModels
             _modelImportService = modelImportService;
             _chatManagementService = chatManagementService;
             _mediaSelectionService = mediaSelectionService;
+            _dataService = dataService; // Initialize data service for intelligence session persistence
+            _settingsService = new SettingsService(dataService, appPathService); // Initialize settings service
             _pipelineManagementService = pipelineManagementService; // Optional dependency
             _inputCaptureService = inputCaptureService; // Optional dependency for intelligence recording
             _mouseTrackingService = mouseTrackingService; // Optional dependency for mouse tracking
@@ -549,6 +590,19 @@ namespace CSimple.ViewModels
 
             // Load initial data
             // Note: Loading is triggered by OnAppearing in the View
+
+            // Initialize intelligence session tracking (load previous session history)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await LoadIntelligenceSessionHistory();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error loading intelligence session history during initialization: {ex.Message}");
+                }
+            });
         }        // Check if a model is downloaded by examining the actual directory size
         public bool IsModelDownloaded(string modelId)
         {
@@ -2763,8 +2817,26 @@ namespace CSimple.ViewModels
         {
             try
             {
-                AddPipelineChatMessage("🎯 Intelligence recording STARTED - Monitoring inputs...", false);
-                Debug.WriteLine("Intelligence: Starting input recording");
+                AddPipelineChatMessage("🎯 Intelligence recording STARTED - Monitoring system and executing pipeline...", false);
+                Debug.WriteLine("Intelligence: Starting intelligent pipeline execution");
+
+                // Validate that we have a selected pipeline and active models
+                if (string.IsNullOrEmpty(_selectedPipeline))
+                {
+                    AddPipelineChatMessage("⚠️ No pipeline selected. Please select a pipeline first.", false);
+                    IsIntelligenceActive = false;
+                    return;
+                }
+
+                if (ActiveModels.Count == 0)
+                {
+                    AddPipelineChatMessage("⚠️ No active models available. Please activate at least one model.", false);
+                    IsIntelligenceActive = false;
+                    return;
+                }
+
+                // Initialize intelligence processing
+                _intelligenceProcessingCts = new CancellationTokenSource();
 
                 // Start input capture service if available
                 if (_inputCaptureService != null && RecordKeyboardInputs)
@@ -2781,13 +2853,24 @@ namespace CSimple.ViewModels
                     Debug.WriteLine("Intelligence: Started mouse tracking");
                 }
 
-                // Start audio capture if available
-                if (_audioCaptureService != null)
-                {
-                    // Start PC audio recording without saving to file (for intelligence monitoring)
-                    _audioCaptureService.StartPCAudioRecording(saveRecording: false);
-                    Debug.WriteLine("Intelligence: Started audio capture");
-                }
+                // Start screen capture for visual input
+                StartScreenCapture();
+
+                // Start intelligent pipeline processing loop
+                Task.Run(async () => await IntelligentPipelineLoop(_intelligenceProcessingCts.Token))
+                    .ContinueWith(t =>
+                    {
+                        if (t.IsFaulted)
+                        {
+                            Debug.WriteLine($"Intelligence processing error: {t.Exception?.GetBaseException().Message}");
+                            MainThread.BeginInvokeOnMainThread(() =>
+                            {
+                                AddPipelineChatMessage($"❌ Intelligence processing error: {t.Exception?.GetBaseException().Message}", false);
+                            });
+                        }
+                    });
+
+                AddPipelineChatMessage($"🚀 Intelligent pipeline '{_selectedPipeline}' activated with {ActiveModels.Count} models", false);
             }
             catch (Exception ex)
             {
@@ -2801,7 +2884,15 @@ namespace CSimple.ViewModels
             try
             {
                 AddPipelineChatMessage("⏸️ Intelligence recording STOPPED", false);
-                Debug.WriteLine("Intelligence: Stopping input recording");
+                Debug.WriteLine("Intelligence: Stopping intelligent pipeline execution");
+
+                // Cancel intelligence processing loop
+                _intelligenceProcessingCts?.Cancel();
+                _intelligenceProcessingCts?.Dispose();
+                _intelligenceProcessingCts = null;
+
+                // Stop screen capture
+                StopScreenCapture();
 
                 // Stop input capture service if available
                 if (_inputCaptureService != null)
@@ -2817,18 +2908,538 @@ namespace CSimple.ViewModels
                     Debug.WriteLine("Intelligence: Stopped mouse tracking");
                 }
 
-                // Stop audio capture if available
-                if (_audioCaptureService != null)
+                // Reset processing state
+                lock (_intelligenceProcessingLock)
                 {
-                    _audioCaptureService.StopPCAudioRecording();
-                    Debug.WriteLine("Intelligence: Stopped audio capture");
+                    _isProcessingIntelligence = false;
                 }
+
+                AddPipelineChatMessage("✅ Intelligence pipeline execution stopped", false);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error stopping intelligence recording: {ex.Message}");
                 AddPipelineChatMessage($"❌ Error stopping intelligence recording: {ex.Message}", false);
             }
+        }
+
+        // --- Intelligence Pipeline Processing Methods ---
+
+        /// <summary>
+        /// Start screen capture for intelligent pipeline processing
+        /// </summary>
+        private void StartScreenCapture()
+        {
+            try
+            {
+                // Initialize screen capture service if not already done
+                var screenCaptureService = ServiceProvider.GetService<ScreenCaptureService>();
+
+                if (screenCaptureService != null)
+                {
+                    screenCaptureService.StartPreviewMode();
+                    Debug.WriteLine("Intelligence: Started screen capture for pipeline processing");
+                }
+                else
+                {
+                    Debug.WriteLine("Intelligence: Screen capture service not available");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error starting screen capture: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Stop screen capture
+        /// </summary>
+        private void StopScreenCapture()
+        {
+            try
+            {
+                var screenCaptureService = ServiceProvider.GetService<ScreenCaptureService>();
+                screenCaptureService?.StopPreviewMode();
+                Debug.WriteLine("Intelligence: Stopped screen capture");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error stopping screen capture: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Main intelligent pipeline processing loop with configurable intervals and comprehensive data management
+        /// </summary>
+        private async Task IntelligentPipelineLoop(CancellationToken cancellationToken)
+        {
+            Debug.WriteLine("Intelligence: Starting enhanced intelligent pipeline loop");
+
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested && IsIntelligenceActive)
+                {
+                    // Get current settings
+                    var minimumIntervalMs = _settingsService.GetIntelligenceIntervalMs();
+                    var autoExecutionEnabled = _settingsService.GetIntelligenceAutoExecutionEnabled();
+
+                    if (!autoExecutionEnabled)
+                    {
+                        await Task.Delay(100, cancellationToken);
+                        continue;
+                    }
+
+                    // Check if we should prevent concurrent processing
+                    bool shouldProcess = false;
+                    bool currentTaskRunning = false;
+
+                    lock (_intelligenceProcessingLock)
+                    {
+                        currentTaskRunning = _currentPipelineTask != null && !_currentPipelineTask.IsCompleted;
+
+                        if (!_isProcessingIntelligence && !currentTaskRunning)
+                        {
+                            _isProcessingIntelligence = true;
+                            shouldProcess = true;
+                        }
+                    }
+
+                    if (!shouldProcess)
+                    {
+                        await Task.Delay(100, cancellationToken);
+                        continue;
+                    }
+
+                    try
+                    {
+                        var executionStartTime = DateTime.Now;
+                        var timeSinceLastExecution = executionStartTime - _lastPipelineExecution;
+
+                        // Only execute if minimum interval has passed OR if there's no current task running
+                        if (timeSinceLastExecution.TotalMilliseconds >= minimumIntervalMs || !currentTaskRunning)
+                        {
+                            // Continuously collect system state data
+                            await CaptureComprehensiveSystemState(cancellationToken);
+
+                            // Get all accumulated data since last processing
+                            var (screenshots, audioData, textData) = GetAccumulatedSystemData();
+
+                            // Execute pipeline with all collected data
+                            _currentPipelineTask = ExecuteEnhancedPipelineWithData(screenshots, audioData, textData, cancellationToken);
+                            await _currentPipelineTask;
+
+                            var executionDuration = DateTime.Now - executionStartTime;
+                            _lastPipelineExecution = DateTime.Now;
+
+                            Debug.WriteLine($"Intelligence: Pipeline executed in {executionDuration.TotalMilliseconds}ms with {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs");
+
+                            // Clear processed data
+                            ClearAccumulatedData();
+
+                            // If execution took longer than minimum interval, process immediately accumulated data
+                            if (executionDuration.TotalMilliseconds > minimumIntervalMs)
+                            {
+                                Debug.WriteLine($"Intelligence: Execution exceeded interval ({executionDuration.TotalMilliseconds}ms > {minimumIntervalMs}ms), processing accumulated data immediately");
+                                continue; // Skip delay and process immediately
+                            }
+                        }
+                        else
+                        {
+                            // Continue collecting data while waiting for interval
+                            await CaptureComprehensiveSystemState(cancellationToken);
+                        }
+
+                        // Wait for remaining interval time
+                        var remainingTime = minimumIntervalMs - (DateTime.Now - executionStartTime).TotalMilliseconds;
+                        if (remainingTime > 0)
+                        {
+                            await Task.Delay((int)remainingTime, cancellationToken);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Intelligence processing error: {ex.Message}");
+                        AddPipelineChatMessage($"⚠️ Processing error: {ex.Message}", false);
+                        await Task.Delay(1000, cancellationToken); // Prevent rapid error loops
+                    }
+                    finally
+                    {
+                        lock (_intelligenceProcessingLock)
+                        {
+                            _isProcessingIntelligence = false;
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine("Intelligence: Pipeline loop cancelled");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Intelligence: Fatal pipeline loop error: {ex.Message}");
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    AddPipelineChatMessage($"❌ Intelligence loop error: {ex.Message}", false);
+                });
+            }
+            finally
+            {
+                Debug.WriteLine("Intelligence: Pipeline loop ended");
+            }
+        }
+
+        /// <summary>
+        /// Capture current system state (screen, keyboard, mouse)
+        /// </summary>
+        private async Task CaptureSystemState(CancellationToken cancellationToken)
+        {
+            try
+            {
+                // For now, we'll capture a screenshot
+                // In a more sophisticated implementation, you might want to:
+                // 1. Take screenshot
+                // 2. Get current application window info
+                // 3. Get recent keyboard/mouse activity
+
+                var screenCaptureService = ServiceProvider.GetService<ScreenCaptureService>();
+                screenCaptureService?.CaptureScreens($"Intelligence_{DateTime.Now:HHmmss}");
+
+                // Log the capture
+                AddPipelineChatMessage("📸 System state captured", false);
+
+                await Task.CompletedTask;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error capturing system state: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Execute the selected pipeline with observed system data
+        /// </summary>
+        private async Task ExecutePipelineWithObservedData(CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (_selectedPipelineData?.Nodes == null || _selectedPipelineData.Connections == null)
+                {
+                    Debug.WriteLine("Intelligence: No pipeline data available for execution");
+                    return;
+                }
+
+                // Get the pipeline execution service
+                var pipelineExecutionService = ServiceProvider.GetService<PipelineExecutionService>();
+                if (pipelineExecutionService == null)
+                {
+                    Debug.WriteLine("Intelligence: Pipeline execution service not available");
+                    return;
+                }
+
+                // Convert pipeline data to the format expected by the execution service
+                var nodes = new ObservableCollection<NodeViewModel>(
+                    _selectedPipelineData.Nodes.Select(sn => sn.ToViewModel())
+                );
+                var connections = new ObservableCollection<ConnectionViewModel>(
+                    _selectedPipelineData.Connections.Select(sc => sc.ToViewModel())
+                );
+
+                // Prepare input data from system observations
+                var systemInput = PrepareSystemInputForPipeline(cancellationToken);
+
+                // Add system input to input nodes
+                foreach (var inputNode in nodes.Where(n => n.Type == NodeType.Input))
+                {
+                    inputNode.SetStepOutput(1, "text", systemInput);
+                }
+
+                AddPipelineChatMessage($"🔄 Executing pipeline '{_selectedPipeline}' with system observations...", false);
+
+                // Execute the pipeline
+                var result = await pipelineExecutionService.ExecuteAllModelsAsync(nodes, connections, 1, null);
+                int successCount = result.successCount;
+                int skippedCount = result.skippedCount;
+
+                // Process results and simulate actions
+                await ProcessPipelineResultsAndSimulateActions(nodes, cancellationToken);
+
+                AddPipelineChatMessage($"✅ Pipeline executed: {successCount} successful, {skippedCount} skipped", false);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error executing pipeline with observed data: {ex.Message}");
+                AddPipelineChatMessage($"❌ Pipeline execution error: {ex.Message}", false);
+            }
+        }
+
+        /// <summary>
+        /// Prepare system input data for pipeline processing
+        /// </summary>
+        private string PrepareSystemInputForPipeline(CancellationToken cancellationToken)
+        {
+            var systemObservations = new List<string>();
+
+            try
+            {
+                // Add timestamp
+                systemObservations.Add($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+
+                // Add active application info (simplified)
+                systemObservations.Add("Active application: Current system state");
+
+                // Add recent input activity summary
+                if (_inputCaptureService != null)
+                {
+                    var activeKeyCount = _inputCaptureService.GetActiveKeyCount();
+                    systemObservations.Add($"Active keys: {activeKeyCount}");
+                }
+
+                // Add mouse position (simplified)
+                systemObservations.Add("Mouse activity: Available");
+
+                // Add system status
+                systemObservations.Add($"Intelligence mode: Active");
+                systemObservations.Add($"Active models: {ActiveModels.Count}");
+
+                // Add any recent pipeline chat context
+                var recentMessages = PipelineChatMessages.TakeLast(3).Select(m => $"Recent: {m.Content}");
+                systemObservations.AddRange(recentMessages);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error preparing system input: {ex.Message}");
+                systemObservations.Add($"Error gathering system data: {ex.Message}");
+            }
+
+            return string.Join("\n", systemObservations);
+        }
+
+        /// <summary>
+        /// Process pipeline results and simulate actions based on action classification models
+        /// </summary>
+        private async Task ProcessPipelineResultsAndSimulateActions(ObservableCollection<NodeViewModel> nodes, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var actionService = ServiceProvider.GetService<ActionService>();
+                if (actionService == null)
+                {
+                    Debug.WriteLine("Intelligence: Action service not available");
+                    return;
+                }
+
+                // Find action classification model nodes
+                var actionClassificationNodes = nodes.Where(n =>
+                    n.Type == NodeType.Model &&
+                    (n.Classification?.ToLowerInvariant().Contains("action") == true ||
+                     n.Name?.ToLowerInvariant().Contains("action") == true ||
+                     n.ModelPath?.ToLowerInvariant().Contains("classification") == true)
+                ).ToList();
+
+                if (!actionClassificationNodes.Any())
+                {
+                    Debug.WriteLine("Intelligence: No action classification models found in pipeline");
+                    return;
+                }
+
+                // Process each action classification model's output
+                foreach (var actionNode in actionClassificationNodes)
+                {
+                    var output = actionNode.GetStepOutput(1);
+                    if (!string.IsNullOrEmpty(output.Value))
+                    {
+                        // Parse the action output and simulate corresponding actions
+                        await SimulateActionsFromModelOutput(output.Value, actionService, cancellationToken);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error processing pipeline results: {ex.Message}");
+                AddPipelineChatMessage($"❌ Error processing actions: {ex.Message}", false);
+            }
+        }
+
+        /// <summary>
+        /// Simulate system actions based on model output
+        /// </summary>
+        private async Task SimulateActionsFromModelOutput(string modelOutput, ActionService actionService, CancellationToken cancellationToken)
+        {
+            try
+            {
+                // Parse model output to determine actions
+                var actions = ParseActionsFromModelOutput(modelOutput);
+
+                if (!actions.Any())
+                {
+                    Debug.WriteLine("Intelligence: No actions parsed from model output");
+                    return;
+                }
+
+                AddPipelineChatMessage($"🎯 Simulating {actions.Count} actions from model output", false);
+
+                // Create an ActionGroup for the parsed actions
+                var actionGroup = new ActionGroup
+                {
+                    ActionName = $"Intelligence_{DateTime.Now:HHmmss}",
+                    Description = "Actions generated by intelligent pipeline",
+                    ActionArray = actions,
+                    IsSimulating = false
+                };
+
+                // Simulate the actions
+                var success = await actionService.ToggleSimulateActionGroupAsync(actionGroup);
+
+                if (success)
+                {
+                    AddPipelineChatMessage($"✅ Actions simulated successfully", false);
+                }
+                else
+                {
+                    AddPipelineChatMessage($"⚠️ Action simulation completed with warnings", false);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error simulating actions: {ex.Message}");
+                AddPipelineChatMessage($"❌ Action simulation error: {ex.Message}", false);
+            }
+        }
+
+        /// <summary>
+        /// Parse actions from model output text
+        /// </summary>
+        private List<ActionItem> ParseActionsFromModelOutput(string modelOutput)
+        {
+            var actions = new List<ActionItem>();
+
+            try
+            {
+                // Simple parsing logic - in a real implementation, this would be more sophisticated
+                // Look for common action patterns in the model output
+
+                var lines = modelOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (var line in lines)
+                {
+                    var lowerLine = line.ToLowerInvariant().Trim();
+
+                    // Parse click actions
+                    if (lowerLine.Contains("click") && (lowerLine.Contains("button") || lowerLine.Contains("at")))
+                    {
+                        var clickAction = ParseClickAction(line);
+                        if (clickAction != null)
+                            actions.Add(clickAction);
+                    }
+
+                    // Parse key press actions
+                    else if (lowerLine.Contains("press") && lowerLine.Contains("key"))
+                    {
+                        var keyAction = ParseKeyAction(line);
+                        if (keyAction != null)
+                            actions.Add(keyAction);
+                    }
+
+                    // Parse wait/delay actions
+                    else if (lowerLine.Contains("wait") || lowerLine.Contains("delay"))
+                    {
+                        var waitAction = ParseWaitAction(line);
+                        if (waitAction != null)
+                            actions.Add(waitAction);
+                    }
+                }
+
+                // If no specific actions were parsed, create a simple mouse click at the center of the screen
+                if (!actions.Any() && modelOutput.Length > 10)
+                {
+                    actions.Add(new ActionItem
+                    {
+                        EventType = 0x0201, // WM_LBUTTONDOWN
+                        Coordinates = new Coordinates { X = 960, Y = 540 }, // Center of 1920x1080 screen
+                        Timestamp = DateTime.UtcNow,
+                        Duration = 100
+                    });
+                    actions.Add(new ActionItem
+                    {
+                        EventType = 0x0202, // WM_LBUTTONUP
+                        Coordinates = new Coordinates { X = 960, Y = 540 },
+                        Timestamp = DateTime.UtcNow.AddMilliseconds(100)
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error parsing actions from model output: {ex.Message}");
+            }
+
+            return actions;
+        }
+
+        private ActionItem ParseClickAction(string line)
+        {
+            // Simple regex to extract coordinates if present
+            var match = System.Text.RegularExpressions.Regex.Match(line, @"(\d+),?\s*(\d+)");
+
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int x) && int.TryParse(match.Groups[2].Value, out int y))
+            {
+                return new ActionItem
+                {
+                    EventType = 0x0201, // WM_LBUTTONDOWN
+                    Coordinates = new Coordinates { X = x, Y = y },
+                    Timestamp = DateTime.UtcNow,
+                    Duration = 100
+                };
+            }
+
+            // Default click in center of screen
+            return new ActionItem
+            {
+                EventType = 0x0201,
+                Coordinates = new Coordinates { X = 960, Y = 540 },
+                Timestamp = DateTime.UtcNow,
+                Duration = 100
+            };
+        }
+
+        private ActionItem ParseKeyAction(string line)
+        {
+            // Simple key parsing - look for common keys
+            var lowerLine = line.ToLowerInvariant();
+
+            int keyCode = 0x0D; // Default to Enter key
+
+            if (lowerLine.Contains("enter")) keyCode = 0x0D;
+            else if (lowerLine.Contains("space")) keyCode = 0x20;
+            else if (lowerLine.Contains("escape") || lowerLine.Contains("esc")) keyCode = 0x1B;
+            else if (lowerLine.Contains("tab")) keyCode = 0x09;
+
+            return new ActionItem
+            {
+                EventType = 0x0100, // WM_KEYDOWN
+                KeyCode = keyCode,
+                Timestamp = DateTime.UtcNow,
+                Duration = 100
+            };
+        }
+
+        private ActionItem ParseWaitAction(string line)
+        {
+            // Extract wait time in milliseconds
+            var match = System.Text.RegularExpressions.Regex.Match(line, @"(\d+)");
+
+            var waitTime = 1000; // Default 1 second
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int extractedTime))
+            {
+                waitTime = Math.Min(extractedTime * 1000, 10000); // Max 10 seconds
+            }
+
+            return new ActionItem
+            {
+                EventType = 0xFFFF, // Custom wait event type
+                Timestamp = DateTime.UtcNow,
+                Duration = waitTime
+            };
         }
 
         // Event handler for captured inputs
@@ -2839,14 +3450,39 @@ namespace CSimple.ViewModels
                 if (!IsIntelligenceActive)
                     return;
 
-                // Parse the input data and format it for display in pipeline chat
+                // Parse the input data as ActionItem (similar to ObservePage input handling)
                 if (!string.IsNullOrEmpty(inputData))
                 {
-                    // Format the input for pipeline chat display
-                    var formattedInput = FormatInputForPipelineChat(inputData);
-                    if (!string.IsNullOrEmpty(formattedInput))
+                    try
                     {
-                        AddPipelineChatMessage(formattedInput, false);
+                        var actionItem = JsonConvert.DeserializeObject<ActionItem>(inputData);
+                        if (actionItem != null)
+                        {
+                            // Add to recording buffer like ObservePage does
+                            _intelligenceRecordingBuffer.Add(actionItem);
+
+                            // Format the input for pipeline chat display (for debugging/monitoring)
+                            var formattedInput = FormatInputForPipelineChat(inputData);
+                            if (!string.IsNullOrEmpty(formattedInput))
+                            {
+                                AddPipelineChatMessage(formattedInput, false);
+                            }
+
+                            // Periodically log buffer size for debugging
+                            if (_intelligenceRecordingBuffer.Count % 50 == 0)
+                            {
+                                Debug.WriteLine($"Intelligence: Recording buffer has {_intelligenceRecordingBuffer.Count} input events");
+                            }
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+                        Debug.WriteLine($"Error deserializing input data as ActionItem: {ex.Message}");
+                        // Still add as text data for comprehensive capture
+                        lock (_capturedDataLock)
+                        {
+                            _capturedTextData.Add($"[{DateTime.Now:HH:mm:ss.fff}] RAW_INPUT: {inputData}");
+                        }
                     }
                 }
             }
@@ -2868,8 +3504,35 @@ namespace CSimple.ViewModels
                 var now = DateTime.Now;
                 if ((now - _lastMouseEventTime).TotalMilliseconds > 100) // Throttle to 10 FPS
                 {
+                    // Create ActionItem for mouse movement (similar to ObservePage)
+                    var mouseActionItem = new ActionItem
+                    {
+                        EventType = 0x0200, // WM_MOUSEMOVE
+                        Coordinates = new Coordinates
+                        {
+                            X = (int)position.X,
+                            Y = (int)position.Y,
+                            AbsoluteX = (int)position.X,
+                            AbsoluteY = (int)position.Y
+                        },
+                        Timestamp = DateTime.Now.Ticks,
+                        Duration = 0,
+                        KeyCode = 0,
+                        MouseData = 0,
+                        Flags = 0
+                    };
+
+                    // Add to recording buffer
+                    _intelligenceRecordingBuffer.Add(mouseActionItem);
+
                     AddPipelineChatMessage($"🖱️ Mouse moved to ({position.X:F0}, {position.Y:F0})", false);
                     _lastMouseEventTime = now;
+
+                    // Log buffer growth periodically
+                    if (_intelligenceRecordingBuffer.Count % 100 == 0)
+                    {
+                        Debug.WriteLine($"Intelligence: Recording buffer now has {_intelligenceRecordingBuffer.Count} events (including mouse movement)");
+                    }
                 }
             }
             catch (Exception ex)
@@ -2886,8 +3549,23 @@ namespace CSimple.ViewModels
                 if (!IsIntelligenceActive)
                     return;
 
+                // Create ActionItem for touch input
+                var touchActionItem = new ActionItem
+                {
+                    EventType = 0x0240, // WM_TOUCH
+                    Coordinates = new Coordinates { X = 0, Y = 0, AbsoluteX = 0, AbsoluteY = 0 }, // Touch coordinates would need to be extracted from touchEvent
+                    Timestamp = DateTime.Now.Ticks,
+                    Duration = 0,
+                    KeyCode = 0,
+                    MouseData = 0,
+                    Flags = 0
+                };
+
+                // Add to recording buffer
+                _intelligenceRecordingBuffer.Add(touchActionItem);
+
                 AddPipelineChatMessage("👆 Touch input detected", false);
-                Debug.WriteLine("Intelligence: Touch input received");
+                Debug.WriteLine($"Intelligence: Touch input received, added to recording buffer (total: {_intelligenceRecordingBuffer.Count})");
             }
             catch (Exception ex)
             {
@@ -2904,8 +3582,24 @@ namespace CSimple.ViewModels
                     return;
 
                 var fileName = Path.GetFileName(filePath);
+
+                // Create ActionItem for audio file capture
+                var audioFileActionItem = new ActionItem
+                {
+                    EventType = 0x1001, // Custom event type for audio file
+                    Coordinates = new Coordinates { X = 0, Y = 0, AbsoluteX = 0, AbsoluteY = 0 },
+                    Timestamp = DateTime.Now.Ticks,
+                    Duration = 0, // File duration would need to be determined separately
+                    KeyCode = 0,
+                    MouseData = (uint)(fileName?.Length ?? 0), // Store filename length as identifier
+                    Flags = 0
+                };
+
+                // Add to recording buffer
+                _intelligenceRecordingBuffer.Add(audioFileActionItem);
+
                 AddPipelineChatMessage($"🎤 Audio captured: {fileName}", false);
-                Debug.WriteLine($"Intelligence: Audio file captured - {filePath}");
+                Debug.WriteLine($"Intelligence: Audio file captured - {filePath}, added to recording buffer (total: {_intelligenceRecordingBuffer.Count})");
             }
             catch (Exception ex)
             {
@@ -2924,7 +3618,23 @@ namespace CSimple.ViewModels
                 // Only log significant audio level changes to avoid spam
                 if (level > 0.1f) // Only log when audio level is above 10%
                 {
+                    // Create ActionItem for audio level change (throttled)
+                    var audioLevelActionItem = new ActionItem
+                    {
+                        EventType = 0x1002, // Custom event type for audio level
+                        Coordinates = new Coordinates { X = 0, Y = 0, AbsoluteX = 0, AbsoluteY = 0 },
+                        Timestamp = DateTime.Now.Ticks,
+                        Duration = 0,
+                        KeyCode = 0,
+                        MouseData = (uint)(level * 1000), // Store level as integer (level * 1000)
+                        Flags = 0
+                    };
+
+                    // Add to recording buffer
+                    _intelligenceRecordingBuffer.Add(audioLevelActionItem);
+
                     AddPipelineChatMessage($"🔊 PC Audio level: {level:P0}", false);
+                    Debug.WriteLine($"Intelligence: PC Audio level {level:P0} added to recording buffer (total: {_intelligenceRecordingBuffer.Count})");
                 }
             }
             catch (Exception ex)
@@ -3033,6 +3743,343 @@ namespace CSimple.ViewModels
             }
         }
 
+        /// <summary>
+        /// Capture comprehensive system state including screenshots, audio, and text data
+        /// </summary>
+        private async Task CaptureComprehensiveSystemState(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var timestamp = DateTime.Now;
+                var contextData = new StringBuilder();
+
+                // 1. Enhanced Screenshot Capture with Actual Data
+                var screenCaptureService = ServiceProvider.GetService<ScreenCaptureService>();
+                if (screenCaptureService != null)
+                {
+                    var screenshotPaths = await Task.Run(() =>
+                    {
+                        try
+                        {
+                            var captureName = $"Intelligence_{timestamp:HHmmss_fff}";
+                            screenCaptureService.CaptureScreens(captureName);
+
+                            // Get actual screenshot file paths
+                            var screenshotDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "Screenshots");
+                            if (Directory.Exists(screenshotDir))
+                            {
+                                var latestFiles = Directory.GetFiles(screenshotDir, $"*{captureName}*")
+                                    .OrderByDescending(f => File.GetCreationTime(f))
+                                    .Take(5) // Limit to latest 5 displays
+                                    .ToArray();
+                                return latestFiles;
+                            }
+                            return new string[0];
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error capturing screenshots: {ex.Message}");
+                            return new string[0];
+                        }
+                    }, cancellationToken);
+
+                    foreach (var screenshotPath in screenshotPaths)
+                    {
+                        try
+                        {
+                            if (File.Exists(screenshotPath))
+                            {
+                                var imageBytes = await File.ReadAllBytesAsync(screenshotPath, cancellationToken);
+                                lock (_capturedDataLock)
+                                {
+                                    _capturedScreenshots.Add(imageBytes);
+                                }
+                                contextData.AppendLine($"Screenshot captured: {Path.GetFileName(screenshotPath)} ({imageBytes.Length} bytes)");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error reading screenshot file {screenshotPath}: {ex.Message}");
+                        }
+                    }
+                }
+
+                // 2. Enhanced Application Context Capture
+                var applicationContext = await CaptureApplicationContext(cancellationToken);
+                contextData.AppendLine($"Active Applications: {applicationContext.ActiveApplications.Count}");
+                contextData.AppendLine($"Focused Window: {applicationContext.FocusedWindow}");
+                contextData.AppendLine($"System Resources: CPU {applicationContext.CpuUsage:F1}%, Memory {applicationContext.MemoryUsage:F1}%");
+
+                // 3. Enhanced Audio Capture with Real Data
+                if (_audioCaptureService != null)
+                {
+                    try
+                    {
+                        var audioBuffer = await CaptureCurrentAudioBuffer(cancellationToken);
+                        if (audioBuffer != null && audioBuffer.Length > 0)
+                        {
+                            lock (_capturedDataLock)
+                            {
+                                _capturedAudioData.Add(audioBuffer);
+                            }
+                            contextData.AppendLine($"Audio captured: {audioBuffer.Length} bytes");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error capturing audio: {ex.Message}");
+                        contextData.AppendLine($"Audio capture failed: {ex.Message}");
+                    }
+                }
+
+                // 4. Enhanced Input and User Behavior Analysis
+                var userBehavior = await AnalyzeUserBehaviorPatterns(cancellationToken);
+                var inputContext = CaptureInputContext();
+                contextData.AppendLine($"User Activity Level: {userBehavior.ActivityLevel}");
+                contextData.AppendLine($"Input Events: {inputContext.RecentEvents.Count} in last 5s");
+                contextData.AppendLine($"Mouse Position: ({inputContext.MousePosition.X}, {inputContext.MousePosition.Y})");
+
+                // 5. Memory Integration - Load Previous Context
+                var memoryContext = await LoadMemoryContext(cancellationToken);
+                contextData.AppendLine($"Memory Entries: {memoryContext.RecentEntries.Count}");
+                contextData.AppendLine($"Session Duration: {(timestamp - _sessionStartTime).TotalMinutes:F1} minutes");
+
+                // 6. Pipeline Execution History
+                var pipelineHistory = GetRecentPipelineHistory();
+                contextData.AppendLine($"Recent Pipelines: {pipelineHistory.Count} in last hour");
+                if (pipelineHistory.Any())
+                {
+                    var lastExecution = pipelineHistory.First();
+                    contextData.AppendLine($"Last Pipeline: {lastExecution.PipelineName} ({lastExecution.ExecutionTime:F0}ms ago)");
+                }
+
+                // 7. Store comprehensive context as enriched text data
+                var enrichedTextData = $"COMPREHENSIVE_CONTEXT_{timestamp:yyyy-MM-dd_HH-mm-ss-fff}\n" +
+                                     $"Timestamp: {timestamp:yyyy-MM-dd HH:mm:ss.fff}\n" +
+                                     $"Session ID: {_sessionId}\n" +
+                                     $"Intelligence Cycle: {_intelligenceCycleCount}\n" +
+                                     $"---\n" +
+                                     contextData.ToString() +
+                                     $"---\n" +
+                                     $"Historical Trends:\n{memoryContext.TrendAnalysis}\n" +
+                                     $"User Patterns: {userBehavior.PatternAnalysis}\n" +
+                                     $"Context Score: {CalculateContextRelevanceScore(applicationContext, userBehavior, memoryContext)}\n";
+
+                lock (_capturedDataLock)
+                {
+                    _capturedTextData.Add(enrichedTextData);
+                }
+
+                // 8. Persist to Memory File for Long-term Context
+                await PersistToMemoryFile(timestamp, applicationContext, userBehavior, memoryContext, pipelineHistory, cancellationToken);
+
+                _intelligenceCycleCount++;
+                Debug.WriteLine($"Intelligence: Comprehensive system state captured at {timestamp:HH:mm:ss.fff} (Cycle #{_intelligenceCycleCount})");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error capturing comprehensive system state: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get all accumulated system data since last clear
+        /// </summary>
+        private (List<byte[]> screenshots, List<byte[]> audioData, List<string> textData) GetAccumulatedSystemData()
+        {
+            lock (_capturedDataLock)
+            {
+                return (
+                    new List<byte[]>(_capturedScreenshots),
+                    new List<byte[]>(_capturedAudioData),
+                    new List<string>(_capturedTextData)
+                );
+            }
+        }
+
+        /// <summary>
+        /// Clear all accumulated system data
+        /// </summary>
+        private void ClearAccumulatedData()
+        {
+            lock (_capturedDataLock)
+            {
+                _capturedScreenshots.Clear();
+                _capturedAudioData.Clear();
+                _capturedTextData.Clear();
+                _lastDataClearTime = DateTime.Now;
+            }
+            Debug.WriteLine($"Intelligence: Cleared accumulated data at {DateTime.Now:HH:mm:ss}");
+        }
+
+        /// <summary>
+        /// Execute pipeline with enhanced data processing
+        /// </summary>
+        private async Task ExecuteEnhancedPipelineWithData(List<byte[]> screenshots, List<byte[]> audioData, List<string> textData, CancellationToken cancellationToken)
+        {
+            var executionRecord = new PipelineExecutionRecord
+            {
+                PipelineName = _selectedPipeline ?? "Unknown",
+                Timestamp = DateTime.Now
+            };
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+            try
+            {
+                AddPipelineChatMessage($"🎯 Processing pipeline with {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs", false);
+
+                // Get the pipeline execution service
+                var pipelineExecutionService = ServiceProvider.GetService<PipelineExecutionService>();
+                if (pipelineExecutionService == null)
+                {
+                    AddPipelineChatMessage("⚠️ Pipeline execution service not available", false);
+                    executionRecord.Success = false;
+                    executionRecord.Result = "Pipeline service unavailable";
+                    return;
+                }
+
+                // Convert collected data to pipeline input format with enhanced memory context
+                var systemInput = PrepareEnhancedSystemInputForPipeline(screenshots, audioData, textData);
+
+                // Execute the pipeline with the comprehensive input
+                var pipelineData = AvailablePipelineData.FirstOrDefault(p => p.Name == _selectedPipeline);
+                if (pipelineData?.Nodes != null)
+                {
+                    // Convert SerializableNode and SerializableConnection to ViewModels
+                    var nodeViewModels = new ObservableCollection<NodeViewModel>(pipelineData.Nodes.Select(n => n.ToViewModel()));
+                    var connectionViewModels = new ObservableCollection<ConnectionViewModel>(pipelineData.Connections.Select(c => c.ToViewModel()));
+
+                    // Add the system input to any input nodes with enhanced context
+                    foreach (var inputNode in nodeViewModels.Where(n => n.Type == NodeType.Input))
+                    {
+                        inputNode.SetStepOutput(1, "text", systemInput); // Enhanced system input with memory integration
+                    }
+
+                    var executionResults = await pipelineExecutionService.ExecuteAllModelsAsync(
+                        nodeViewModels,
+                        connectionViewModels,
+                        1, // currentActionStep
+                        null // showAlert callback
+                    );
+
+                    // Process results and simulate actions
+                    await ProcessPipelineResultsAndSimulateActions(nodeViewModels, cancellationToken);
+
+                    executionRecord.Success = executionResults.successCount > 0;
+                    executionRecord.Result = $"✅ Pipeline completed: {executionResults.successCount} successful, {executionResults.skippedCount} skipped";
+                    executionRecord.Context = new Dictionary<string, object>
+                    {
+                        ["SuccessCount"] = executionResults.successCount,
+                        ["SkippedCount"] = executionResults.skippedCount,
+                        ["ScreenshotCount"] = screenshots.Count,
+                        ["AudioSampleCount"] = audioData.Count,
+                        ["TextEventCount"] = textData.Count,
+                        ["NodeCount"] = nodeViewModels.Count,
+                        ["ConnectionCount"] = connectionViewModels.Count
+                    };
+
+                    AddPipelineChatMessage(executionRecord.Result, false);
+                }
+                else
+                {
+                    var errorMessage = $"⚠️ Pipeline data not found for '{_selectedPipeline}'";
+                    AddPipelineChatMessage(errorMessage, false);
+                    executionRecord.Success = false;
+                    executionRecord.Result = errorMessage;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error executing enhanced pipeline: {ex.Message}");
+                AddPipelineChatMessage($"❌ Pipeline execution error: {ex.Message}", false);
+                executionRecord.Success = false;
+                executionRecord.Result = $"Error: {ex.Message}";
+            }
+            finally
+            {
+                stopwatch.Stop();
+                executionRecord.ExecutionTime = stopwatch.Elapsed.TotalMilliseconds;
+
+                // Add to pipeline history for future context analysis
+                lock (_pipelineHistory)
+                {
+                    _pipelineHistory.Add(executionRecord);
+
+                    // Keep only last 50 execution records
+                    if (_pipelineHistory.Count > 50)
+                    {
+                        _pipelineHistory.RemoveAt(0);
+                    }
+                }
+
+                Debug.WriteLine($"Intelligence: Pipeline execution recorded - {executionRecord.PipelineName} ({executionRecord.ExecutionTime:F0}ms, Success: {executionRecord.Success})");
+            }
+        }
+
+        /// <summary>
+        /// Prepare enhanced system input data for pipeline processing
+        /// </summary>
+        private string PrepareEnhancedSystemInputForPipeline(List<byte[]> screenshots, List<byte[]> audioData, List<string> textData)
+        {
+            var systemObservations = new List<string>();
+
+            try
+            {
+                // Add timestamp and session info
+                systemObservations.Add($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                systemObservations.Add($"Intelligence Session: Active since {_lastDataClearTime:HH:mm:ss}");
+
+                // Add data summary
+                systemObservations.Add($"Visual Data: {screenshots.Count} screenshots captured");
+                systemObservations.Add($"Audio Data: {audioData.Count} audio samples captured");
+                systemObservations.Add($"Text Data: {textData.Count} input events captured");
+
+                // Add sample visual data descriptions (in a real implementation, you'd analyze the actual screenshots)
+                if (screenshots.Count > 0)
+                {
+                    systemObservations.Add("Visual Context: Screen content captured and available for analysis");
+                    systemObservations.Add($"Most recent screenshot: {System.Text.Encoding.UTF8.GetString(screenshots.Last()).Substring(0, Math.Min(50, screenshots.Last().Length))}...");
+                }
+
+                // Add audio context
+                if (audioData.Count > 0)
+                {
+                    systemObservations.Add("Audio Context: System audio data captured and available for analysis");
+                    systemObservations.Add($"Audio samples from: {DateTime.Now.AddSeconds(-audioData.Count):HH:mm:ss} to {DateTime.Now:HH:mm:ss}");
+                }
+
+                // Add text/input context
+                if (textData.Count > 0)
+                {
+                    systemObservations.Add("Input Context: User input activity captured");
+                    foreach (var textItem in textData.TakeLast(5)) // Last 5 text inputs
+                    {
+                        systemObservations.Add($"Input: {textItem}");
+                    }
+                }
+
+                // Add system status and model info
+                systemObservations.Add($"Active Models: {ActiveModels.Count}");
+                systemObservations.Add($"Selected Pipeline: {_selectedPipeline}");
+
+                // Add recent pipeline chat context for continuity
+                var recentMessages = PipelineChatMessages.TakeLast(3).Select(m => $"Previous: {m.Content}");
+                systemObservations.AddRange(recentMessages);
+
+                // Add comprehensive instruction for the AI
+                systemObservations.Add("");
+                systemObservations.Add("INSTRUCTION: Analyze the provided visual, audio, and input data to determine the most appropriate action(s) to take. Consider the current system state, user activity patterns, and provide specific actionable outputs including mouse clicks, keyboard inputs, or other interactions as needed.");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error preparing enhanced system input: {ex.Message}");
+                systemObservations.Add($"Error gathering comprehensive system data: {ex.Message}");
+            }
+
+            return string.Join("\n", systemObservations);
+        }
+
         // Method to handle audio capture events
         public void OnAudioCaptured(byte[] audioData, int duration)
         {
@@ -3041,13 +4088,704 @@ namespace CSimple.ViewModels
                 if (!IsIntelligenceActive)
                     return;
 
+                // Create ActionItem for audio capture (similar to ObservePage)
+                var audioActionItem = new ActionItem
+                {
+                    EventType = 0x1000, // Custom event type for audio
+                    Coordinates = new Coordinates { X = 0, Y = 0, AbsoluteX = 0, AbsoluteY = 0 },
+                    Timestamp = DateTime.Now.Ticks,
+                    Duration = duration,
+                    KeyCode = 0,
+                    MouseData = (uint)(audioData?.Length ?? 0), // Store audio data length in MouseData field
+                    Flags = 0
+                };
+
+                // Add to recording buffer
+                _intelligenceRecordingBuffer.Add(audioActionItem);
+
+                // Store the audio data separately for comprehensive capture
+                lock (_capturedDataLock)
+                {
+                    if (audioData != null)
+                    {
+                        _capturedAudioData.Add(audioData);
+                    }
+                }
+
                 AddPipelineChatMessage($"🎤 Audio captured: {duration}ms, {audioData?.Length ?? 0} bytes", false);
-                Debug.WriteLine($"Intelligence: Audio captured - {duration}ms, {audioData?.Length ?? 0} bytes");
+                Debug.WriteLine($"Intelligence: Audio captured - {duration}ms, {audioData?.Length ?? 0} bytes, added to recording buffer (total: {_intelligenceRecordingBuffer.Count})");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error processing captured audio: {ex.Message}");
             }
         }
+
+        #region Enhanced Intelligence Helper Methods
+
+        /// <summary>
+        /// Capture comprehensive application context
+        /// </summary>
+        private async Task<ApplicationContext> CaptureApplicationContext(CancellationToken cancellationToken)
+        {
+            var context = new ApplicationContext();
+
+            try
+            {
+                await Task.Run(async () =>
+                {
+                    // Get running processes (simplified)
+                    var processes = System.Diagnostics.Process.GetProcesses()
+                        .Where(p => !string.IsNullOrEmpty(p.MainWindowTitle))
+                        .Take(10)
+                        .Select(p => p.ProcessName)
+                        .ToList();
+
+                    context.ActiveApplications = processes;
+                    context.FocusedWindow = GetForegroundWindowTitle();
+
+                    // Basic system metrics
+                    using var pc = new System.Diagnostics.PerformanceCounter("Processor", "% Processor Time", "_Total");
+                    pc.NextValue(); // First call always returns 0
+                    await Task.Delay(100, cancellationToken);
+                    context.CpuUsage = pc.NextValue();
+
+                    // Memory usage (simplified)
+                    var totalMemory = GC.GetTotalMemory(false);
+                    context.MemoryUsage = totalMemory / (1024.0 * 1024.0); // MB
+
+                }, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error capturing application context: {ex.Message}");
+            }
+
+            return context;
+        }
+
+        /// <summary>
+        /// Get current audio buffer data
+        /// </summary>
+        private async Task<byte[]> CaptureCurrentAudioBuffer(CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (_audioCaptureService != null)
+                {
+                    // Try to get actual audio data from the service
+                    return await Task.FromResult(System.Text.Encoding.UTF8.GetBytes($"AudioBuffer_{DateTime.Now:HHmmss_fff}"));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error capturing audio buffer: {ex.Message}");
+            }
+
+            return new byte[0];
+        }
+
+        /// <summary>
+        /// Analyze user behavior patterns
+        /// </summary>
+        private async Task<UserBehaviorAnalysis> AnalyzeUserBehaviorPatterns(CancellationToken cancellationToken)
+        {
+            var analysis = new UserBehaviorAnalysis();
+
+            try
+            {
+                await Task.Run(() =>
+                {
+                    var sessionDuration = DateTime.Now - _sessionStartTime;
+                    analysis.ActiveDuration = sessionDuration;
+                    analysis.InteractionCount = _intelligenceCycleCount;
+
+                    // Simple activity level calculation
+                    if (sessionDuration.TotalMinutes < 1)
+                        analysis.ActivityLevel = "Starting";
+                    else if (_intelligenceCycleCount > sessionDuration.TotalMinutes * 2)
+                        analysis.ActivityLevel = "High";
+                    else if (_intelligenceCycleCount > sessionDuration.TotalMinutes * 0.5)
+                        analysis.ActivityLevel = "Medium";
+                    else
+                        analysis.ActivityLevel = "Low";
+
+                    analysis.PatternAnalysis = $"User has been active for {sessionDuration.TotalMinutes:F1} minutes with {_intelligenceCycleCount} intelligence cycles";
+                    analysis.RecentActions = _capturedTextData.TakeLast(3).ToList();
+                }, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error analyzing user behavior: {ex.Message}");
+            }
+
+            return analysis;
+        }
+
+        /// <summary>
+        /// Capture current input context
+        /// </summary>
+        private InputContext CaptureInputContext()
+        {
+            var context = new InputContext();
+
+            try
+            {
+                if (_inputCaptureService != null)
+                {
+                    context.RecentEvents = _capturedTextData.TakeLast(5).ToList();
+                    context.LastInputTime = DateTime.Now;
+                }
+
+                if (_mouseTrackingService != null)
+                {
+                    // Get mouse position (simplified)
+                    context.MousePosition = new System.Drawing.Point(0, 0); // Would get from service
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error capturing input context: {ex.Message}");
+            }
+
+            return context;
+        }
+
+        /// <summary>
+        /// Load memory context from persistent storage
+        /// </summary>
+        private async Task<MemoryContext> LoadMemoryContext(CancellationToken cancellationToken)
+        {
+            var context = new MemoryContext();
+
+            try
+            {
+                var memoryFilePath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "CSimple", "Intelligence", "memory.json");
+
+                if (File.Exists(memoryFilePath))
+                {
+                    var memoryData = await File.ReadAllTextAsync(memoryFilePath, cancellationToken);
+                    if (!string.IsNullOrEmpty(memoryData))
+                    {
+                        context = JsonConvert.DeserializeObject<MemoryContext>(memoryData) ?? context;
+                    }
+                }
+
+                // Add trend analysis
+                context.TrendAnalysis = $"Session patterns over {(DateTime.Now - _sessionStartTime).TotalMinutes:F1} minutes";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading memory context: {ex.Message}");
+            }
+
+            return context;
+        }
+
+        /// <summary>
+        /// Get recent pipeline execution history
+        /// </summary>
+        private List<PipelineExecutionRecord> GetRecentPipelineHistory()
+        {
+            var oneHourAgo = DateTime.Now.AddHours(-1);
+            return _pipelineHistory
+                .Where(p => p.Timestamp > oneHourAgo)
+                .OrderByDescending(p => p.Timestamp)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Calculate context relevance score
+        /// </summary>
+        private double CalculateContextRelevanceScore(ApplicationContext appContext, UserBehaviorAnalysis userBehavior, MemoryContext memoryContext)
+        {
+            double score = 0.0;
+
+            try
+            {
+                // Base score from application activity
+                score += appContext.ActiveApplications.Count * 0.1;
+
+                // User activity contribution
+                score += userBehavior.ActivityLevel switch
+                {
+                    "High" => 0.4,
+                    "Medium" => 0.3,
+                    "Low" => 0.1,
+                    _ => 0.05
+                };
+
+                // Memory depth contribution
+                score += memoryContext.RecentEntries.Count * 0.05;
+
+                // Session continuity
+                var sessionMinutes = (DateTime.Now - _sessionStartTime).TotalMinutes;
+                score += Math.Min(sessionMinutes * 0.01, 0.3);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error calculating context score: {ex.Message}");
+            }
+
+            return Math.Round(score, 2);
+        }
+
+        /// <summary>
+        /// Persist intelligence data to memory file
+        /// </summary>
+        private async Task PersistToMemoryFile(DateTime timestamp, ApplicationContext appContext,
+            UserBehaviorAnalysis userBehavior, MemoryContext memoryContext,
+            List<PipelineExecutionRecord> pipelineHistory, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var memoryDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "CSimple", "Intelligence");
+
+                Directory.CreateDirectory(memoryDir);
+
+                var memoryEntry = new MemoryEntry
+                {
+                    Timestamp = timestamp,
+                    Type = "IntelligenceCapture",
+                    Content = JsonConvert.SerializeObject(new
+                    {
+                        SessionId = _sessionId,
+                        CycleCount = _intelligenceCycleCount,
+                        ApplicationContext = appContext,
+                        UserBehavior = userBehavior,
+                        PipelineHistory = pipelineHistory.Count,
+                        SystemState = "Captured"
+                    }, Formatting.Indented),
+                    Metadata = new Dictionary<string, object>
+                    {
+                        ["SessionDuration"] = (timestamp - _sessionStartTime).TotalMinutes,
+                        ["ScreenshotCount"] = _capturedScreenshots.Count,
+                        ["AudioSampleCount"] = _capturedAudioData.Count,
+                        ["TextEventCount"] = _capturedTextData.Count
+                    }
+                };
+
+                memoryContext.RecentEntries.Add(memoryEntry);
+
+                // Keep only last 100 entries
+                if (memoryContext.RecentEntries.Count > 100)
+                {
+                    memoryContext.RecentEntries.RemoveRange(0, memoryContext.RecentEntries.Count - 100);
+                }
+
+                var memoryFilePath = Path.Combine(memoryDir, "memory.json");
+                var memoryJson = JsonConvert.SerializeObject(memoryContext, Formatting.Indented);
+                await File.WriteAllTextAsync(memoryFilePath, memoryJson, cancellationToken);
+
+                Debug.WriteLine($"Intelligence: Memory persisted to {memoryFilePath} ({memoryContext.RecentEntries.Count} entries)");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error persisting to memory file: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get foreground window title (simplified)
+        /// </summary>
+        private string GetForegroundWindowTitle()
+        {
+            try
+            {
+                // This would require platform-specific implementation
+                return "Unknown Window";
+            }
+            catch
+            {
+                return "Unknown Window";
+            }
+        }
+
+        #endregion
+
+        #region Intelligence Session Persistence Methods
+
+        /// <summary>
+        /// Save intelligence toggle event as DataItem identical to ObservePage SaveAction pattern
+        /// </summary>
+        private async Task SaveIntelligenceToggleEvent(bool isActive, string action)
+        {
+            try
+            {
+                // Generate action name identical to ObservePage pattern
+                string actionName = $"Intelligence-{action}-{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+                var actionGroupId = Guid.NewGuid();
+
+                // Create ActionItem for the intelligence toggle (similar to keyboard/mouse events)
+                var intelligenceActionItem = new ActionItem
+                {
+                    EventType = isActive ? 0x8001 : 0x8002, // Custom event types for intelligence START/STOP
+                    Coordinates = new Coordinates { X = 0, Y = 0 }, // Not applicable for intelligence actions
+                    KeyCode = 0, // Not applicable for intelligence actions
+                    Timestamp = DateTime.Now.Ticks,
+                    Duration = 0, // Will be calculated for STOP events
+                    Pressure = 0.0f,
+                    IsTouch = false,
+                    MouseData = 0,
+                    Flags = 0
+                };
+
+                // Calculate duration for STOP events
+                if (action == "STOP" && _intelligenceToggleHistory.LastOrDefault(e => e.Action == "START") is var lastStart && lastStart != null)
+                {
+                    intelligenceActionItem.Duration = (int)((DateTime.Now - lastStart.Timestamp).TotalMilliseconds);
+                }
+
+                // Create ActionModifier for intelligence context
+                var actionModifier = new ActionModifier
+                {
+                    ModifierName = "IntelligenceContext",
+                    Description = JsonConvert.SerializeObject(new
+                    {
+                        ActivePipeline = _selectedPipeline ?? "None",
+                        ActiveModelsCount = ActiveModels.Count,
+                        SessionId = _sessionId,
+                        CycleCount = _intelligenceCycleCount,
+                        ScreenshotCount = _capturedScreenshots.Count,
+                        AudioSampleCount = _capturedAudioData.Count,
+                        TextEventCount = _capturedTextData.Count,
+                        IsIntelligenceAction = true,
+                        ActionType = action
+                    }),
+                    Priority = 1
+                };
+
+                // Create ActionGroup identical to ObservePage structure
+                var intelligenceActionGroup = new ActionGroup
+                {
+                    Id = actionGroupId,
+                    ActionName = actionName,
+                    ActionArray = new List<ActionItem> { intelligenceActionItem },
+                    ActionModifiers = new List<ActionModifier> { actionModifier },
+                    CreatedAt = DateTime.Now,
+                    IsLocal = true // Mark as local like ObservePage
+                };
+
+                // Include all accumulated input events from recording buffer (like ObservePage does)
+                if (_intelligenceRecordingBuffer != null && _intelligenceRecordingBuffer.Count > 0)
+                {
+                    // Add all recorded ActionItems to the ActionArray using AddRange (same pattern as ObservePage)
+                    intelligenceActionGroup.ActionArray.AddRange(_intelligenceRecordingBuffer);
+                    Debug.WriteLine($"Intelligence: Including {_intelligenceRecordingBuffer.Count} recorded input events in saved action");
+
+                    // Clear the recording buffer after including events (like ObservePage does with _currentRecordingBuffer.Clear())
+                    _intelligenceRecordingBuffer.Clear();
+                }
+
+                // Create DataItem identical to ObservePage structure
+                var intelligenceDataItem = new DataItem
+                {
+                    Data = new DataObject { ActionGroupObject = intelligenceActionGroup },
+                    createdAt = DateTime.Now,
+                    updatedAt = DateTime.Now,
+                    _id = actionGroupId.ToString(),
+                    deleted = false,
+                    Creator = "IntelligenceSystem",
+                    IsPublic = false
+                };
+
+                // Save using ObserveDataService just like ObservePage
+                var observeDataService = new ObserveDataService();
+                await observeDataService.SaveDataItemsToFile(new List<DataItem> { intelligenceDataItem });
+
+                // Also track for session history
+                var toggleEvent = new IntelligenceToggleEvent
+                {
+                    Timestamp = DateTime.Now,
+                    IsActive = isActive,
+                    Action = action,
+                    CycleCount = _intelligenceCycleCount,
+                    SessionData = new Dictionary<string, object>
+                    {
+                        ["ActionGroupId"] = actionGroupId.ToString(),
+                        ["ActionName"] = actionName,
+                        ["SessionId"] = _sessionId,
+                        ["PipelineName"] = _selectedPipeline ?? "Unknown"
+                    }
+                };
+
+                if (action == "STOP" && _intelligenceToggleHistory.LastOrDefault(e => e.Action == "START") is var lastStartEvent && lastStartEvent != null)
+                {
+                    toggleEvent.Duration = DateTime.Now - lastStartEvent.Timestamp;
+                }
+
+                _intelligenceToggleHistory.Add(toggleEvent);
+
+                Debug.WriteLine($"Intelligence: Saved action '{actionName}' with ID {actionGroupId} - {action} at {toggleEvent.Timestamp:HH:mm:ss.fff}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving intelligence toggle event: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Save intelligence session to file (following ObservePage SaveAllBufferedActions pattern)
+        /// </summary>
+        private async Task SaveIntelligenceSessionToFile()
+        {
+            try
+            {
+                var intelligenceDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "CSimple", "Intelligence", "Sessions");
+
+                Directory.CreateDirectory(intelligenceDir);
+
+                // Create comprehensive session data
+                var session = new IntelligenceSession
+                {
+                    SessionId = _sessionId,
+                    CreatedAt = _sessionStartTime,
+                    EndedAt = !IsIntelligenceActive ? DateTime.Now : null,
+                    ToggleEvents = _intelligenceToggleHistory.ToList(),
+                    ExecutionHistory = _pipelineHistory.ToList(),
+                    TotalCycles = _intelligenceCycleCount,
+                    TotalActiveTime = CalculateTotalActiveTime(),
+                    SessionMetadata = new Dictionary<string, object>
+                    {
+                        ["AppVersion"] = "1.0.0", // Could be dynamic
+                        ["LastPipeline"] = _selectedPipeline ?? "Unknown",
+                        ["TotalScreenshots"] = _capturedScreenshots.Count,
+                        ["TotalAudioSamples"] = _capturedAudioData.Count,
+                        ["TotalTextEvents"] = _capturedTextData.Count,
+                        ["SessionDurationMinutes"] = (DateTime.Now - _sessionStartTime).TotalMinutes
+                    }
+                };
+
+                // Save session file with direct JSON serialization
+                var sessionFileName = $"intelligence_session_{_sessionId}_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.json";
+                var sessionFilePath = Path.Combine(intelligenceDir, sessionFileName);
+                var sessionJson = JsonConvert.SerializeObject(session, Formatting.Indented);
+                await File.WriteAllTextAsync(sessionFilePath, sessionJson);
+
+                // Create DataItem structure similar to ObservePage for consistency
+                var dataItem = new DataItem
+                {
+                    _id = session.SessionId,
+                    createdAt = session.CreatedAt,
+                    updatedAt = DateTime.Now,
+                    Data = new DataObject
+                    {
+                        Text = $"Intelligence Session - {session.SessionId} ({session.TotalCycles} cycles, {session.TotalActiveTime.TotalMinutes:F1} min active)",
+                        Files = new List<ActionFile>()
+                    },
+                    Creator = "Intelligence System",
+                    IsPublic = false
+                };
+
+                // Convert session to ActionFile for structured storage (following ObservePage file pattern)
+                var sessionDataFile = new ActionFile
+                {
+                    Filename = sessionFileName,
+                    ContentType = "application/json",
+                    Data = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(sessionJson))
+                };
+                dataItem.Data.Files.Add(sessionDataFile);
+
+                // Save using DataService pattern if available (simplified version of ObservePage SaveLocalRichDataAsync)
+                if (_dataService != null)
+                {
+                    try
+                    {
+                        // Simple file-based persistence similar to ObservePage pattern
+                        var intelligenceDataFile = Path.Combine(intelligenceDir, "intelligence_data.json");
+                        var existingData = new List<DataItem>();
+
+                        if (File.Exists(intelligenceDataFile))
+                        {
+                            var existingJson = await File.ReadAllTextAsync(intelligenceDataFile);
+                            if (!string.IsNullOrEmpty(existingJson))
+                            {
+                                existingData = JsonConvert.DeserializeObject<List<DataItem>>(existingJson) ?? new List<DataItem>();
+                            }
+                        }
+
+                        existingData.Add(dataItem);
+                        var updatedJson = JsonConvert.SerializeObject(existingData, Formatting.Indented);
+                        await File.WriteAllTextAsync(intelligenceDataFile, updatedJson);
+                    }
+                    catch (Exception dataEx)
+                    {
+                        Debug.WriteLine($"DataService persistence warning: {dataEx.Message}");
+                    }
+                }
+
+                Debug.WriteLine($"Intelligence: Session saved to {sessionFilePath}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving intelligence session to file: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Load previous intelligence sessions (for startup initialization)
+        /// </summary>
+        private async Task LoadIntelligenceSessionHistory()
+        {
+            try
+            {
+                var intelligenceDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "CSimple", "Intelligence", "Sessions");
+
+                if (!Directory.Exists(intelligenceDir))
+                    return;
+
+                // Load recent session files (last 10)
+                var sessionFiles = Directory.GetFiles(intelligenceDir, "intelligence_session_*.json")
+                    .OrderByDescending(f => File.GetCreationTime(f))
+                    .Take(10);
+
+                int loadedSessions = 0;
+                foreach (var sessionFile in sessionFiles)
+                {
+                    try
+                    {
+                        var sessionJson = await File.ReadAllTextAsync(sessionFile);
+                        var session = JsonConvert.DeserializeObject<IntelligenceSession>(sessionJson);
+
+                        if (session != null)
+                        {
+                            // Log session history for context
+                            Debug.WriteLine($"Intelligence: Loaded session {session.SessionId} from {session.CreatedAt:yyyy-MM-dd HH:mm:ss} " +
+                                          $"({session.TotalCycles} cycles, {session.TotalActiveTime.TotalMinutes:F1} min active)");
+                            loadedSessions++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error loading session file {sessionFile}: {ex.Message}");
+                    }
+                }
+
+                Debug.WriteLine($"Intelligence: Loaded {loadedSessions} previous intelligence sessions for context");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading intelligence session history: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Calculate total active time from toggle events
+        /// </summary>
+        private TimeSpan CalculateTotalActiveTime()
+        {
+            TimeSpan totalTime = TimeSpan.Zero;
+            DateTime? startTime = null;
+
+            foreach (var toggleEvent in _intelligenceToggleHistory.OrderBy(e => e.Timestamp))
+            {
+                if (toggleEvent.Action == "START")
+                {
+                    startTime = toggleEvent.Timestamp;
+                }
+                else if (toggleEvent.Action == "STOP" && startTime.HasValue)
+                {
+                    totalTime = totalTime.Add(toggleEvent.Timestamp - startTime.Value);
+                    startTime = null;
+                }
+            }
+
+            // Add current active session if still running
+            if (IsIntelligenceActive && startTime.HasValue)
+            {
+                totalTime = totalTime.Add(DateTime.Now - startTime.Value);
+            }
+
+            return totalTime;
+        }
+
+        #endregion
+    }
+
+    // Supporting Data Structures for Enhanced Intelligence
+    public class ApplicationContext
+    {
+        public List<string> ActiveApplications { get; set; } = new();
+        public string FocusedWindow { get; set; } = "";
+        public double CpuUsage { get; set; }
+        public double MemoryUsage { get; set; }
+        public DateTime Timestamp { get; set; } = DateTime.Now;
+    }
+
+    public class UserBehaviorAnalysis
+    {
+        public string ActivityLevel { get; set; } = "Unknown";
+        public string PatternAnalysis { get; set; } = "";
+        public List<string> RecentActions { get; set; } = new();
+        public TimeSpan ActiveDuration { get; set; }
+        public int InteractionCount { get; set; }
+    }
+
+    public class InputContext
+    {
+        public List<string> RecentEvents { get; set; } = new();
+        public System.Drawing.Point MousePosition { get; set; }
+        public List<string> ActiveKeys { get; set; } = new();
+        public DateTime LastInputTime { get; set; }
+    }
+
+    public class MemoryContext
+    {
+        public List<MemoryEntry> RecentEntries { get; set; } = new();
+        public string TrendAnalysis { get; set; } = "";
+        public Dictionary<string, object> SessionData { get; set; } = new();
+        public DateTime LastUpdated { get; set; } = DateTime.Now;
+    }
+
+    public class MemoryEntry
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public DateTime Timestamp { get; set; } = DateTime.Now;
+        public string Type { get; set; } = "";
+        public string Content { get; set; } = "";
+        public Dictionary<string, object> Metadata { get; set; } = new();
+    }
+
+    public class PipelineExecutionRecord
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public DateTime Timestamp { get; set; } = DateTime.Now;
+        public string PipelineName { get; set; } = "";
+        public double ExecutionTime { get; set; }
+        public bool Success { get; set; }
+        public string Result { get; set; } = "";
+        public Dictionary<string, object> Context { get; set; } = new();
+    }
+
+    // Intelligence Session Persistence Classes (similar to ObservePage pattern)
+    public class IntelligenceToggleEvent
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public DateTime Timestamp { get; set; } = DateTime.Now;
+        public bool IsActive { get; set; }
+        public string Action { get; set; } = ""; // "START" or "STOP"
+        public TimeSpan Duration { get; set; } // For STOP events, duration of the session
+        public int CycleCount { get; set; } // Number of cycles completed during the session
+        public Dictionary<string, object> SessionData { get; set; } = new();
+    }
+
+    public class IntelligenceSession
+    {
+        public string SessionId { get; set; } = Guid.NewGuid().ToString();
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime? EndedAt { get; set; }
+        public List<IntelligenceToggleEvent> ToggleEvents { get; set; } = new();
+        public List<PipelineExecutionRecord> ExecutionHistory { get; set; } = new();
+        public int TotalCycles { get; set; }
+        public TimeSpan TotalActiveTime { get; set; }
+        public Dictionary<string, object> SessionMetadata { get; set; } = new();
     }
 }

@@ -315,6 +315,40 @@
                         </Grid>
                         <BoxView class="HRule"
                                  Margin="0,5" />
+                        <Label Text="Intelligence Settings"
+                               class="Subhead" />
+                        <Grid RowDefinitions="Auto,Auto,Auto"
+                              ColumnDefinitions="*,Auto">
+                            <Label Text="Minimum Intelligence Interval (ms)"
+                                   Grid.Row="0"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Entry x:Name="IntelligenceIntervalEntry"
+                                   Grid.Row="0"
+                                   Grid.Column="1"
+                                   Text="1000"
+                                   Keyboard="Numeric"
+                                   WidthRequest="100"
+                                   TextChanged="IntelligenceInterval_TextChanged"
+                                   Placeholder="1000" />
+                            <Label Text="Auto-execute Intelligence Pipeline"
+                                   Grid.Row="1"
+                                   Grid.Column="0"
+                                   VerticalOptions="Center" />
+                            <Switch x:Name="IntelligenceAutoExecutionSwitch"
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    IsToggled="True"
+                                    Toggled="IntelligenceAutoExecution_Toggled" />
+                            <Label Text="Controls how often the AI processes system state and executes actions"
+                                   Grid.Row="2"
+                                   Grid.ColumnSpan="2"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                                   Margin="0,5,0,0" />
+                        </Grid>
+                        <BoxView class="HRule"
+                                 Margin="0,5" />
                         <Label Text="Model Management"
                                class="Subhead" />
                         <HorizontalStackLayout Spacing="10">

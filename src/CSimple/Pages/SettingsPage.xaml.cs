@@ -102,6 +102,9 @@ public partial class SettingsPage : ContentPage
         bool debugConsoleEnabled = Preferences.Get("DebugConsoleEnabled", false);
         DebugConsoleSwitch.IsToggled = debugConsoleEnabled;
 
+        // Initialize intelligence settings
+        LoadIntelligenceSettings();
+
         // Load and display current application paths
         await LoadApplicationPaths();
     }
@@ -661,6 +664,64 @@ public partial class SettingsPage : ContentPage
         catch (Exception ex)
         {
             CSimple.Utilities.DebugConsole.Error($"Error toggling debug console: {ex.Message}");
+        }
+    }
+
+    private void LoadIntelligenceSettings()
+    {
+        try
+        {
+            // Load intelligence interval setting
+            int intervalMs = _settingsService.GetIntelligenceIntervalMs();
+            IntelligenceIntervalEntry.Text = intervalMs.ToString();
+
+            // Load auto-execution setting
+            bool autoExecutionEnabled = _settingsService.GetIntelligenceAutoExecutionEnabled();
+            IntelligenceAutoExecutionSwitch.IsToggled = autoExecutionEnabled;
+
+            Debug.WriteLine($"Loaded intelligence settings: interval={intervalMs}ms, auto-execution={autoExecutionEnabled}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error loading intelligence settings: {ex.Message}");
+        }
+    }
+
+    private void IntelligenceInterval_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(e.NewTextValue))
+                return;
+
+            if (int.TryParse(e.NewTextValue, out int intervalMs))
+            {
+                _settingsService.SetIntelligenceIntervalMs(intervalMs);
+                Debug.WriteLine($"Intelligence interval updated to: {intervalMs}ms");
+            }
+            else
+            {
+                // Reset to default if invalid input
+                IntelligenceIntervalEntry.Text = "1000";
+                _settingsService.SetIntelligenceIntervalMs(1000);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error updating intelligence interval: {ex.Message}");
+        }
+    }
+
+    private void IntelligenceAutoExecution_Toggled(object sender, ToggledEventArgs e)
+    {
+        try
+        {
+            _settingsService.SetIntelligenceAutoExecutionEnabled(e.Value);
+            Debug.WriteLine($"Intelligence auto-execution toggled to: {e.Value}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error toggling intelligence auto-execution: {ex.Message}");
         }
     }
 }

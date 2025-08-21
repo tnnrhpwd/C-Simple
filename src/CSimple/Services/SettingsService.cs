@@ -641,5 +641,42 @@ namespace CSimple.Services
                 { "MemoryFilesPath", _appPathService.GetMemoryFilesPath() }
             };
         }
+
+        /// <summary>
+        /// Gets the minimum assistant intelligence time interval in milliseconds
+        /// </summary>
+        public int GetIntelligenceIntervalMs()
+        {
+            return Preferences.Get("IntelligenceIntervalMs", 1000);
+        }
+
+        /// <summary>
+        /// Sets the minimum assistant intelligence time interval in milliseconds
+        /// </summary>
+        public void SetIntelligenceIntervalMs(int intervalMs)
+        {
+            if (intervalMs < 100) intervalMs = 100; // Minimum 100ms to prevent system overload
+            if (intervalMs > 60000) intervalMs = 60000; // Maximum 60 seconds
+
+            Preferences.Set("IntelligenceIntervalMs", intervalMs);
+            Debug.WriteLine($"Intelligence interval set to: {intervalMs}ms");
+        }
+
+        /// <summary>
+        /// Gets whether intelligence auto-execution is enabled
+        /// </summary>
+        public bool GetIntelligenceAutoExecutionEnabled()
+        {
+            return Preferences.Get("IntelligenceAutoExecutionEnabled", true);
+        }
+
+        /// <summary>
+        /// Sets whether intelligence auto-execution is enabled
+        /// </summary>
+        public void SetIntelligenceAutoExecutionEnabled(bool enabled)
+        {
+            Preferences.Set("IntelligenceAutoExecutionEnabled", enabled);
+            Debug.WriteLine($"Intelligence auto-execution set to: {enabled}");
+        }
     }
 }
