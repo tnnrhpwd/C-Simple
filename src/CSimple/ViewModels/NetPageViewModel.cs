@@ -115,6 +115,11 @@ namespace CSimple.ViewModels
         // Intelligence Action Recording Buffer (similar to ObservePage _currentRecordingBuffer)
         private readonly List<ActionItem> _intelligenceRecordingBuffer = new();
 
+        // Track the current intelligence session for proper START/STOP grouping
+        private Guid? _currentIntelligenceSessionId;
+        private DateTime _currentSessionStartTime;
+        private ActionGroup _currentIntelligenceSession;
+
         // --- Observable Properties ---
         public ObservableCollection<NeuralNetworkModel> AvailableModels { get; } = new();
         public ObservableCollection<NeuralNetworkModel> ActiveModels { get; } = new();
@@ -2058,6 +2063,12 @@ namespace CSimple.ViewModels
 
                 // Check if there are active image models and provide feedback
                 await _mediaSelectionService.CheckModelCompatibilityForMediaAsync("image", imageName, ActiveModels);
+
+                // If intelligence is active, attach the new media to the current session
+                if (IsIntelligenceActive && _currentIntelligenceSession != null)
+                {
+                    AttachMediaFilesToSession();
+                }
             }
         }
 
@@ -2084,6 +2095,12 @@ namespace CSimple.ViewModels
 
                 // Check if there are active audio models and provide feedback
                 await _mediaSelectionService.CheckModelCompatibilityForMediaAsync("audio", audioName, ActiveModels);
+
+                // If intelligence is active, attach the new media to the current session
+                if (IsIntelligenceActive && _currentIntelligenceSession != null)
+                {
+                    AttachMediaFilesToSession();
+                }
             }
         }
 
@@ -2124,6 +2141,12 @@ namespace CSimple.ViewModels
                 OnPropertyChanged(nameof(HasCompatibleMediaSelected));
                 OnPropertyChanged(nameof(CanSendMessage));
                 OnPropertyChanged(nameof(CurrentInputModeDescription));
+
+                // If intelligence is active, attach the new media to the current session
+                if (IsIntelligenceActive && _currentIntelligenceSession != null)
+                {
+                    AttachMediaFilesToSession();
+                }
             }
         }
 
@@ -2149,6 +2172,13 @@ namespace CSimple.ViewModels
             OnPropertyChanged(nameof(HasCompatibleMediaSelected));
             OnPropertyChanged(nameof(CanSendMessage));
             OnPropertyChanged(nameof(CurrentInputModeDescription));
+
+            // If intelligence is active, clear media from the current session
+            if (IsIntelligenceActive && _currentIntelligenceSession != null)
+            {
+                _currentIntelligenceSession.Files.Clear();
+                Debug.WriteLine("Intelligence: Cleared media files from current session");
+            }
         }        // Action to scroll chat to bottom (to be set by view)
         public Action ScrollToBottom { get; set; }
 
@@ -4411,120 +4441,255 @@ namespace CSimple.ViewModels
 
         /// <summary>
         /// Save intelligence toggle event as DataItem identical to ObservePage SaveAction pattern
+        /// Fixed to save as one session instead of separate START/STOP actions
         /// </summary>
         private async Task SaveIntelligenceToggleEvent(bool isActive, string action)
         {
             try
             {
-                // Generate action name identical to ObservePage pattern
-                string actionName = $"Intelligence-{action}-{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
-                var actionGroupId = Guid.NewGuid();
-
-                // Create ActionItem for the intelligence toggle (similar to keyboard/mouse events)
-                var intelligenceActionItem = new ActionItem
+                if (action == "START")
                 {
-                    EventType = isActive ? 0x8001 : 0x8002, // Custom event types for intelligence START/STOP
-                    Coordinates = new Coordinates { X = 0, Y = 0 }, // Not applicable for intelligence actions
-                    KeyCode = 0, // Not applicable for intelligence actions
-                    Timestamp = DateTime.Now.Ticks,
-                    Duration = 0, // Will be calculated for STOP events
-                    Pressure = 0.0f,
-                    IsTouch = false,
-                    MouseData = 0,
-                    Flags = 0
-                };
-
-                // Calculate duration for STOP events
-                if (action == "STOP" && _intelligenceToggleHistory.LastOrDefault(e => e.Action == "START") is var lastStart && lastStart != null)
-                {
-                    intelligenceActionItem.Duration = (int)((DateTime.Now - lastStart.Timestamp).TotalMilliseconds);
+                    // Start a new intelligence session
+                    await StartIntelligenceSession();
                 }
-
-                // Create ActionModifier for intelligence context
-                var actionModifier = new ActionModifier
+                else if (action == "STOP")
                 {
-                    ModifierName = "IntelligenceContext",
-                    Description = JsonConvert.SerializeObject(new
-                    {
-                        ActivePipeline = _selectedPipeline ?? "None",
-                        ActiveModelsCount = ActiveModels.Count,
-                        SessionId = _sessionId,
-                        CycleCount = _intelligenceCycleCount,
-                        ScreenshotCount = _capturedScreenshots.Count,
-                        AudioSampleCount = _capturedAudioData.Count,
-                        TextEventCount = _capturedTextData.Count,
-                        IsIntelligenceAction = true,
-                        ActionType = action
-                    }),
-                    Priority = 1
-                };
-
-                // Create ActionGroup identical to ObservePage structure
-                var intelligenceActionGroup = new ActionGroup
-                {
-                    Id = actionGroupId,
-                    ActionName = actionName,
-                    ActionArray = new List<ActionItem> { intelligenceActionItem },
-                    ActionModifiers = new List<ActionModifier> { actionModifier },
-                    CreatedAt = DateTime.Now,
-                    IsLocal = true // Mark as local like ObservePage
-                };
-
-                // Include all accumulated input events from recording buffer (like ObservePage does)
-                if (_intelligenceRecordingBuffer != null && _intelligenceRecordingBuffer.Count > 0)
-                {
-                    // Add all recorded ActionItems to the ActionArray using AddRange (same pattern as ObservePage)
-                    intelligenceActionGroup.ActionArray.AddRange(_intelligenceRecordingBuffer);
-                    Debug.WriteLine($"Intelligence: Including {_intelligenceRecordingBuffer.Count} recorded input events in saved action");
-
-                    // Clear the recording buffer after including events (like ObservePage does with _currentRecordingBuffer.Clear())
-                    _intelligenceRecordingBuffer.Clear();
+                    // Complete and save the current intelligence session
+                    await CompleteIntelligenceSession();
                 }
-
-                // Create DataItem identical to ObservePage structure
-                var intelligenceDataItem = new DataItem
-                {
-                    Data = new DataObject { ActionGroupObject = intelligenceActionGroup },
-                    createdAt = DateTime.Now,
-                    updatedAt = DateTime.Now,
-                    _id = actionGroupId.ToString(),
-                    deleted = false,
-                    Creator = "IntelligenceSystem",
-                    IsPublic = false
-                };
-
-                // Save using ObserveDataService just like ObservePage
-                var observeDataService = new ObserveDataService();
-                await observeDataService.SaveDataItemsToFile(new List<DataItem> { intelligenceDataItem });
-
-                // Also track for session history
-                var toggleEvent = new IntelligenceToggleEvent
-                {
-                    Timestamp = DateTime.Now,
-                    IsActive = isActive,
-                    Action = action,
-                    CycleCount = _intelligenceCycleCount,
-                    SessionData = new Dictionary<string, object>
-                    {
-                        ["ActionGroupId"] = actionGroupId.ToString(),
-                        ["ActionName"] = actionName,
-                        ["SessionId"] = _sessionId,
-                        ["PipelineName"] = _selectedPipeline ?? "Unknown"
-                    }
-                };
-
-                if (action == "STOP" && _intelligenceToggleHistory.LastOrDefault(e => e.Action == "START") is var lastStartEvent && lastStartEvent != null)
-                {
-                    toggleEvent.Duration = DateTime.Now - lastStartEvent.Timestamp;
-                }
-
-                _intelligenceToggleHistory.Add(toggleEvent);
-
-                Debug.WriteLine($"Intelligence: Saved action '{actionName}' with ID {actionGroupId} - {action} at {toggleEvent.Timestamp:HH:mm:ss.fff}");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error saving intelligence toggle event: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Start a new intelligence session
+        /// </summary>
+        private async Task StartIntelligenceSession()
+        {
+            _currentIntelligenceSessionId = Guid.NewGuid();
+            _currentSessionStartTime = DateTime.Now;
+
+            // Create session name
+            string sessionName = $"Intelligence-Session-{_currentSessionStartTime:yyyy-MM-dd HH:mm:ss}";
+
+            // Create initial ActionItem for session start
+            var startActionItem = new ActionItem
+            {
+                EventType = 0x8001, // Custom event type for intelligence START
+                Coordinates = new Coordinates { X = 0, Y = 0 },
+                KeyCode = 0,
+                Timestamp = _currentSessionStartTime.Ticks,
+                Duration = 0, // Will be set when session completes
+                Pressure = 0.0f,
+                IsTouch = false,
+                MouseData = 0,
+                Flags = 0
+            };
+
+            // Create ActionModifier for intelligence context
+            var actionModifier = new ActionModifier
+            {
+                ModifierName = "IntelligenceSession",
+                Description = JsonConvert.SerializeObject(new
+                {
+                    ActivePipeline = _selectedPipeline ?? "None",
+                    ActiveModelsCount = ActiveModels.Count,
+                    SessionId = _sessionId,
+                    StartTime = _currentSessionStartTime,
+                    IsIntelligenceAction = true,
+                    ActionType = "SESSION"
+                }),
+                Priority = 1
+            };
+
+            // Create ActionGroup for the intelligence session
+            _currentIntelligenceSession = new ActionGroup
+            {
+                Id = _currentIntelligenceSessionId.Value,
+                ActionName = sessionName,
+                ActionArray = new List<ActionItem> { startActionItem },
+                ActionModifiers = new List<ActionModifier> { actionModifier },
+                CreatedAt = _currentSessionStartTime,
+                IsLocal = true,
+                Files = new List<ActionFile>() // Initialize Files collection
+            };
+
+            // Attach any selected media files to the session
+            AttachMediaFilesToSession();
+
+            Debug.WriteLine($"Intelligence: Started session '{sessionName}' with ID {_currentIntelligenceSessionId} at {_currentSessionStartTime:HH:mm:ss.fff}");
+
+            // Track for session history
+            var toggleEvent = new IntelligenceToggleEvent
+            {
+                Timestamp = _currentSessionStartTime,
+                IsActive = true,
+                Action = "START",
+                CycleCount = 0,
+                SessionData = new Dictionary<string, object>
+                {
+                    ["ActionGroupId"] = _currentIntelligenceSessionId.ToString(),
+                    ["ActionName"] = sessionName,
+                    ["SessionId"] = _sessionId,
+                    ["PipelineName"] = _selectedPipeline ?? "Unknown"
+                }
+            };
+
+            _intelligenceToggleHistory.Add(toggleEvent);
+        }
+
+        /// <summary>
+        /// Complete and save the current intelligence session
+        /// </summary>
+        private async Task CompleteIntelligenceSession()
+        {
+            if (_currentIntelligenceSession == null || !_currentIntelligenceSessionId.HasValue)
+            {
+                Debug.WriteLine("Intelligence: No active session to complete");
+                return;
+            }
+
+            var sessionEndTime = DateTime.Now;
+            var sessionDuration = (int)((sessionEndTime - _currentSessionStartTime).TotalMilliseconds);
+
+            // Update the start action item with duration
+            if (_currentIntelligenceSession.ActionArray.Count > 0)
+            {
+                _currentIntelligenceSession.ActionArray[0].Duration = sessionDuration;
+            }
+
+            // Add stop action item
+            var stopActionItem = new ActionItem
+            {
+                EventType = 0x8002, // Custom event type for intelligence STOP
+                Coordinates = new Coordinates { X = 0, Y = 0 },
+                KeyCode = 0,
+                Timestamp = sessionEndTime.Ticks,
+                Duration = sessionDuration,
+                Pressure = 0.0f,
+                IsTouch = false,
+                MouseData = 0,
+                Flags = 0
+            };
+
+            _currentIntelligenceSession.ActionArray.Add(stopActionItem);
+
+            // Include all accumulated input events from recording buffer
+            if (_intelligenceRecordingBuffer != null && _intelligenceRecordingBuffer.Count > 0)
+            {
+                _currentIntelligenceSession.ActionArray.AddRange(_intelligenceRecordingBuffer);
+                Debug.WriteLine($"Intelligence: Including {_intelligenceRecordingBuffer.Count} recorded input events in session");
+                _intelligenceRecordingBuffer.Clear();
+            }
+
+            // Update session metadata
+            var sessionModifier = _currentIntelligenceSession.ActionModifiers[0];
+            var updatedContext = JsonConvert.DeserializeObject<Dictionary<string, object>>(sessionModifier.Description);
+            updatedContext["EndTime"] = sessionEndTime;
+            updatedContext["Duration"] = sessionDuration;
+            updatedContext["CycleCount"] = _intelligenceCycleCount;
+            updatedContext["ScreenshotCount"] = _capturedScreenshots.Count;
+            updatedContext["AudioSampleCount"] = _capturedAudioData.Count;
+            updatedContext["TextEventCount"] = _capturedTextData.Count;
+            sessionModifier.Description = JsonConvert.SerializeObject(updatedContext);
+
+            // Create DataItem for the completed session
+            var sessionDataItem = new DataItem
+            {
+                Data = new DataObject { ActionGroupObject = _currentIntelligenceSession },
+                createdAt = _currentSessionStartTime,
+                updatedAt = sessionEndTime,
+                _id = _currentIntelligenceSessionId.ToString(),
+                deleted = false,
+                Creator = "IntelligenceSystem",
+                IsPublic = false
+            };
+
+            // Save the completed session using ObserveDataService
+            var observeDataService = new ObserveDataService();
+            await observeDataService.SaveDataItemsToFile(new List<DataItem> { sessionDataItem });
+
+            // Update session history
+            var toggleEvent = new IntelligenceToggleEvent
+            {
+                Timestamp = sessionEndTime,
+                IsActive = false,
+                Action = "STOP",
+                CycleCount = _intelligenceCycleCount,
+                Duration = sessionEndTime - _currentSessionStartTime,
+                SessionData = new Dictionary<string, object>
+                {
+                    ["ActionGroupId"] = _currentIntelligenceSessionId.ToString(),
+                    ["ActionName"] = _currentIntelligenceSession.ActionName,
+                    ["SessionId"] = _sessionId,
+                    ["PipelineName"] = _selectedPipeline ?? "Unknown",
+                    ["Duration"] = sessionDuration
+                }
+            };
+
+            _intelligenceToggleHistory.Add(toggleEvent);
+
+            Debug.WriteLine($"Intelligence: Completed session '{_currentIntelligenceSession.ActionName}' with ID {_currentIntelligenceSessionId} - Duration: {sessionDuration}ms");
+
+            // Clear current session
+            _currentIntelligenceSession = null;
+            _currentIntelligenceSessionId = null;
+        }
+
+        /// <summary>
+        /// Attach selected media files to the current intelligence session
+        /// </summary>
+        private void AttachMediaFilesToSession()
+        {
+            if (_currentIntelligenceSession == null) return;
+
+            // Attach selected image
+            if (HasSelectedImage && !string.IsNullOrEmpty(SelectedImagePath))
+            {
+                try
+                {
+                    var imageFile = new ActionFile
+                    {
+                        Filename = SelectedImageName ?? Path.GetFileName(SelectedImagePath),
+                        ContentType = "Image",
+                        Data = SelectedImagePath, // Store file path
+                        AddedAt = DateTime.Now,
+                        IsProcessed = false
+                    };
+
+                    _currentIntelligenceSession.Files.Add(imageFile);
+                    Debug.WriteLine($"Intelligence: Attached image file '{imageFile.Filename}' to session");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error attaching image file to intelligence session: {ex.Message}");
+                }
+            }
+
+            // Attach selected audio
+            if (HasSelectedAudio && !string.IsNullOrEmpty(SelectedAudioPath))
+            {
+                try
+                {
+                    var audioFile = new ActionFile
+                    {
+                        Filename = SelectedAudioName ?? Path.GetFileName(SelectedAudioPath),
+                        ContentType = "Audio",
+                        Data = SelectedAudioPath, // Store file path
+                        AddedAt = DateTime.Now,
+                        IsProcessed = false
+                    };
+
+                    _currentIntelligenceSession.Files.Add(audioFile);
+                    Debug.WriteLine($"Intelligence: Attached audio file '{audioFile.Filename}' to session");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error attaching audio file to intelligence session: {ex.Message}");
+                }
             }
         }
 

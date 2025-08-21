@@ -167,6 +167,26 @@ namespace CSimple.Services
             if (lowerName.Contains("memory"))
                 return "text"; // Default to text for memory nodes, can be changed via UI
 
+            // Input nodes - these should be straightforward data type assignments
+            if (lowerName.Contains("input") || lowerName.Contains("webcam") || lowerName.Contains("screen") ||
+                lowerName.Contains("keyboard") || lowerName.Contains("mouse") || lowerName.Contains("pc audio"))
+            {
+                // Image input nodes
+                if (lowerName.Contains("image") || lowerName.Contains("webcam image") || lowerName.Contains("screen image") ||
+                    lowerName.Contains("webcam") && !lowerName.Contains("audio") || lowerName.Contains("screen") && !lowerName.Contains("audio") ||
+                    lowerName.Contains("camera") || lowerName.Contains("screenshot"))
+                    return "image";
+
+                // Audio input nodes  
+                if (lowerName.Contains("audio") || lowerName.Contains("sound") || lowerName.Contains("mic") ||
+                    lowerName.Contains("microphone") || lowerName.Contains("voice") || lowerName.Contains("speech"))
+                    return "audio";
+
+                // Text input nodes
+                if (lowerName.Contains("text") || lowerName.Contains("keyboard") || lowerName.Contains("mouse"))
+                    return "text";
+            }
+
             // Text models
             if (lowerName.Contains("text") ||
                 lowerName.Contains("gpt") ||
