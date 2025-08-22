@@ -49,6 +49,16 @@ namespace CSimple.ViewModels
         public ObservableCollection<ConnectionViewModel> Connections { get; } = new ObservableCollection<ConnectionViewModel>();
         public ObservableCollection<CSimple.Models.HuggingFaceModel> AvailableModels { get; } = new ObservableCollection<CSimple.Models.HuggingFaceModel>(); // Keep for adding models
 
+        // File node properties
+        public ObservableCollection<FileNodeInfo> AvailableFileNodes { get; } = new ObservableCollection<FileNodeInfo>();
+
+        private FileNodeInfo _selectedFileNode;
+        public FileNodeInfo SelectedFileNode
+        {
+            get => _selectedFileNode;
+            set => SetProperty(ref _selectedFileNode, value);
+        }
+
         private NodeViewModel _selectedNode;
         public NodeViewModel SelectedNode
         {
@@ -166,6 +176,7 @@ namespace CSimple.ViewModels
 
         // --- Commands ---
         public ICommand AddModelNodeCommand { get; private set; }
+        public ICommand AddFileNodeCommand { get; private set; }
         public ICommand DeleteSelectedNodeCommand { get; private set; }
         public ICommand CreateNewPipelineCommand { get; private set; }
         public ICommand RenamePipelineCommand { get; private set; }
@@ -398,6 +409,9 @@ namespace CSimple.ViewModels
             // Initialize Commands using the command management service
             _commandManagementService.InitializeCommands(this);
 
+            // Initialize available file nodes
+            InitializeFileNodes();
+
             // Load available pipelines on initialization
             _ = LoadAvailablePipelinesAsync();
 
@@ -407,12 +421,48 @@ namespace CSimple.ViewModels
             StartBackgroundWarmup();
         }
 
+        /// <summary>
+        /// Initialize available file nodes that can be added to pipelines
+        /// </summary>
+        private void InitializeFileNodes()
+        {
+            Debug.WriteLine($"[OrientPageViewModel] Initializing file nodes...");
+            AvailableFileNodes.Clear();
+
+            // Add Goals file node
+            AvailableFileNodes.Add(new FileNodeInfo(
+                name: "Goals",
+                dataType: "text",
+                fileName: "goals.json",
+                description: "User goals and objectives from the Goal Page"
+            ));
+
+            // Add Memory file node placeholder
+            AvailableFileNodes.Add(new FileNodeInfo(
+                name: "Memory",
+                dataType: "text",
+                fileName: "memory.txt",
+                description: "Persistent memory content"
+            ));
+
+            // Add custom file node placeholder
+            AvailableFileNodes.Add(new FileNodeInfo(
+                name: "Custom",
+                dataType: "text",
+                fileName: null,
+                description: "Custom file input"
+            ));
+
+            Debug.WriteLine($"[OrientPageViewModel] Added {AvailableFileNodes.Count} file nodes: {string.Join(", ", AvailableFileNodes.Select(fn => fn.Name))}");
+        }
+
         /// Initialize all commands - extracted for better organization
         public void InitializeCommands()
         {
             // Initialize Commands - Remove ActionsEnabled from basic UI operations
             // AddModelNodeCommand and DeleteSelectedNodeCommand should always be available
             AddModelNodeCommand = new Command<HuggingFaceModel>(async (model) => await AddModelNode(model), (model) => model != null);
+            AddFileNodeCommand = new Command<FileNodeInfo>(async (fileInfo) => await AddFileNode(fileInfo), (fileInfo) => fileInfo != null);
             DeleteSelectedNodeCommand = new Command(async () => await DeleteSelectedNode(), () => SelectedNode != null);
             // Modify CreateNewPipelineCommand to handle save and select sequence
             CreateNewPipelineCommand = new Command(async () =>
@@ -817,6 +867,44 @@ namespace CSimple.ViewModels
                 () => (RunAllNodesCommand as Command)?.ChangeCanExecute(),
                 SaveCurrentPipelineAsync,
                 UpdateExecutionStatusFromPipeline);
+        }
+
+        public async Task AddFileNode(FileNodeInfo fileInfo)
+        {
+            if (fileInfo == null) return;
+
+            try
+            {
+                // Calculate position for new node (offset from center or last node)
+                var position = new PointF(100, 100); // Default position
+                if (Nodes.Count > 0)
+                {
+                    var lastNode = Nodes.Last();
+                    position = new PointF(lastNode.Position.X + 200, lastNode.Position.Y);
+                }
+
+                // Add the file node using the NodeManagementService
+                await _nodeManagementService.AddModelNodeAsync(
+                    Nodes,
+                    fileInfo.FileName ?? fileInfo.Name, // modelId
+                    fileInfo.Name, // modelName
+                    NodeType.File, // modelType
+                    position
+                );
+
+                // Update UI and save pipeline
+                InvalidatePipelineStateCache();
+                UpdateEnsembleCounts();
+                (RunAllModelsCommand as Command)?.ChangeCanExecute();
+                (RunAllNodesCommand as Command)?.ChangeCanExecute();
+                await SaveCurrentPipelineAsync();
+                UpdateExecutionStatusFromPipeline();
+                InvalidateCanvas?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                await ShowAlert?.Invoke("Error", $"Failed to add file node: {ex.Message}", "OK");
+            }
         }
 
         public async Task DeleteSelectedNode()

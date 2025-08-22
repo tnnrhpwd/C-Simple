@@ -150,6 +150,7 @@ namespace CSimple.Services
             availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "webcam_audio", ModelId = "Webcam Audio (Input)" });
             availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "keyboard_text", ModelId = "Keyboard Text (Input)" });
             availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "mouse_text", ModelId = "Mouse Text (Input)" });
+            availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "goals_node", ModelId = "Goals (File)" });
             availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "memory_node", ModelId = "Memory (File)" });
         }
 

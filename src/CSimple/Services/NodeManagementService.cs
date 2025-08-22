@@ -4,6 +4,7 @@ using Microsoft.Maui.Graphics;
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Maui.Controls;
@@ -21,8 +22,28 @@ namespace CSimple.Services
 
         public async Task AddModelNodeAsync(ObservableCollection<NodeViewModel> nodes, string modelId, string modelName, NodeType modelType, PointF position)
         {
-            // Determine if this is a file node to pass appropriate saveFilePath
-            string saveFilePath = modelType == NodeType.File ? null : null; // File nodes start with no file selected
+            // Determine if this is a file node and set appropriate default saveFilePath
+            string saveFilePath = null;
+            if (modelType == NodeType.File)
+            {
+                // Set default file paths for specific file nodes
+                if (modelId == "goals_node" || modelName.ToLower().Contains("goals"))
+                {
+                    // Default path for goals.json in CSimple documents folder
+                    var csimpleDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple");
+                    saveFilePath = Path.Combine(csimpleDir, "goals.json");
+
+                    // Ensure the directory exists
+                    Directory.CreateDirectory(csimpleDir);
+
+                    // Create an empty goals.json if it doesn't exist
+                    if (!File.Exists(saveFilePath))
+                    {
+                        await File.WriteAllTextAsync(saveFilePath, "{\n  \"goals\": [],\n  \"objectives\": [],\n  \"priorities\": []\n}");
+                    }
+                }
+                // Other file nodes can have their defaults added here in the future
+            }
 
             var newNode = new NodeViewModel(
                 Guid.NewGuid().ToString(),
@@ -34,7 +55,7 @@ namespace CSimple.Services
                 modelId, // modelPath
                 null, // classification
                 null, // originalName
-                saveFilePath // saveFilePath for file nodes
+                saveFilePath // saveFilePath for file nodes - now includes default paths
             )
             {
                 Size = new SizeF(180, 60)
@@ -143,7 +164,7 @@ namespace CSimple.Services
                 return NodeType.Output;
 
             // Memory node detection - now classified as File type
-            if (lowerName.Contains("memory") || lowerName.Contains("file"))
+            if (lowerName.Contains("memory") || lowerName.Contains("file") || lowerName.Contains("goals"))
                 return NodeType.File;
 
             return NodeType.Model; // Default to Model

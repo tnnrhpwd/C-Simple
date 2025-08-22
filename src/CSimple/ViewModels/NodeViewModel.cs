@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq; // Added for LINQ
 using System.Runtime.CompilerServices;
+using System.Text; // Added for StringBuilder
 using CSimple.Models; // Ensure Models namespace is included for NodeType
 using Microsoft.Maui.Graphics; // For PointF
 
@@ -305,11 +306,17 @@ namespace CSimple.ViewModels
                 return (null, null);
             }
 
-            // Allow both Input and Model nodes to have step content
-            if (Type != NodeType.Input && Type != NodeType.Model)
+            // Allow Input, Model, and File nodes to have step content
+            if (Type != NodeType.Input && Type != NodeType.Model && Type != NodeType.File)
             {
-                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Condition not met: Node is not of Input or Model type (Type: {Type}). Returning null content.");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Condition not met: Node is not of Input, Model, or File type (Type: {Type}). Returning null content.");
                 return (null, null);
+            }
+
+            // Special handling for File nodes - read content from file
+            if (Type == NodeType.File)
+            {
+                return GetFileNodeContent();
             }
 
             if (step <= 0)
@@ -828,6 +835,160 @@ namespace CSimple.ViewModels
             }
 
             return closestFile;
+        }
+
+        /// <summary>
+        /// Reads content from file for File nodes
+        /// </summary>
+        private (string Type, string Value) GetFileNodeContent()
+        {
+            try
+            {
+                string filePath = null;
+
+                // Check if this is a special Goals node
+                if (this.Name.ToLowerInvariant().Contains("goals"))
+                {
+                    // Use the goals.json file path
+                    var resourcesDir = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                        "CSimple",
+                        "Resources"
+                    );
+                    filePath = Path.Combine(resourcesDir, "goals.json");
+                }
+                else if (!string.IsNullOrEmpty(this.ModelPath))
+                {
+                    // Use ModelPath as file path if specified
+                    filePath = this.ModelPath;
+                }
+                else if (!string.IsNullOrEmpty(this.Name))
+                {
+                    // Try to construct file path from node name
+                    if (Path.HasExtension(this.Name))
+                    {
+                        // If the node name has an extension, use it in Memory folder
+                        var memoryDir = Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                            "CSimple",
+                            "Resources",
+                            "Memory"
+                        );
+                        filePath = Path.Combine(memoryDir, this.Name);
+                    }
+                    else
+                    {
+                        // Add .txt extension if no extension provided
+                        var memoryDir = Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                            "CSimple",
+                            "Resources",
+                            "Memory"
+                        );
+                        filePath = Path.Combine(memoryDir, $"{this.Name}.txt");
+                    }
+                }
+
+                if (string.IsNullOrEmpty(filePath))
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [GetFileNodeContent] No file path determined for File node '{this.Name}'");
+                    return ("text", "");
+                }
+
+                if (!File.Exists(filePath))
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [GetFileNodeContent] File not found: {filePath}");
+                    return ("text", "");
+                }
+
+                // Read file content
+                string fileContent = File.ReadAllText(filePath);
+
+                // Determine content type based on file extension
+                string contentType = "text"; // Default to text
+                string fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
+
+                if (fileExtension == ".json")
+                {
+                    // For JSON files like goals.json, return as formatted text
+                    contentType = "text";
+
+                    // For goals.json, format the JSON in a more readable way for models
+                    if (this.Name.ToLowerInvariant().Contains("goals"))
+                    {
+                        fileContent = FormatGoalsContent(fileContent);
+                    }
+                }
+
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [GetFileNodeContent] Successfully read {fileContent.Length} characters from {filePath}");
+                return (contentType, fileContent);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [GetFileNodeContent] Error reading file content for node '{this.Name}': {ex.Message}");
+                return ("text", "");
+            }
+        }
+
+        /// <summary>
+        /// Formats goals JSON content for better model consumption
+        /// </summary>
+        private string FormatGoalsContent(string jsonContent)
+        {
+            try
+            {
+                var goals = System.Text.Json.JsonSerializer.Deserialize<List<dynamic>>(jsonContent);
+                if (goals == null || goals.Count == 0)
+                {
+                    return "No goals currently defined.";
+                }
+
+                var formattedGoals = new StringBuilder();
+                formattedGoals.AppendLine("Current User Goals:");
+                formattedGoals.AppendLine();
+
+                foreach (var goal in goals)
+                {
+                    // Extract properties from the dynamic object
+                    var goalObj = (System.Text.Json.JsonElement)goal;
+
+                    if (goalObj.TryGetProperty("Title", out var titleProp))
+                    {
+                        formattedGoals.AppendLine($"Goal: {titleProp.GetString()}");
+                    }
+
+                    if (goalObj.TryGetProperty("Description", out var descProp) && !string.IsNullOrWhiteSpace(descProp.GetString()))
+                    {
+                        formattedGoals.AppendLine($"Description: {descProp.GetString()}");
+                    }
+
+                    if (goalObj.TryGetProperty("Priority", out var priorityProp))
+                    {
+                        formattedGoals.AppendLine($"Priority: {priorityProp.GetInt32()}/5");
+                    }
+
+                    if (goalObj.TryGetProperty("Deadline", out var deadlineProp))
+                    {
+                        var deadline = DateTime.Parse(deadlineProp.GetString());
+                        formattedGoals.AppendLine($"Deadline: {deadline:yyyy-MM-dd}");
+                    }
+
+                    if (goalObj.TryGetProperty("GoalType", out var typeProp) && typeProp.ValueKind != System.Text.Json.JsonValueKind.Null)
+                    {
+                        formattedGoals.AppendLine($"Type: {typeProp.GetString()}");
+                    }
+
+                    formattedGoals.AppendLine();
+                }
+
+                return formattedGoals.ToString();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [FormatGoalsContent] Error formatting goals content: {ex.Message}");
+                // Return raw JSON if formatting fails
+                return jsonContent;
+            }
         }
 
         /// <summary>
