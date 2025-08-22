@@ -12,6 +12,26 @@ using Microsoft.Maui.Graphics; // For PointF
 
 namespace CSimple.ViewModels
 {
+    /// <summary>
+    /// Represents the execution state of a node during pipeline execution
+    /// </summary>
+    public enum ExecutionState
+    {
+        /// <summary>
+        /// Node is waiting to be executed (default state)
+        /// </summary>
+        Pending,
+
+        /// <summary>
+        /// Node is currently being executed
+        /// </summary>
+        Running,
+
+        /// <summary>
+        /// Node has completed execution
+        /// </summary>
+        Completed
+    }
     public class NodeViewModel : INotifyPropertyChanged
     {
         // Static property to hold current ActionItems for access across nodes
@@ -33,6 +53,7 @@ namespace CSimple.ViewModels
         private string _modelPath; // Added for model path storage
         private string _originalName; // Added to store name before classification suffix
         private string _saveFilePath; // Added for file node save path
+        private ExecutionState _executionState = ExecutionState.Pending; // Added for execution state tracking
 
         public string Id { get; }
         public string Name { get; set; } // Allow setting name if needed
@@ -71,6 +92,38 @@ namespace CSimple.ViewModels
         {
             get => _isSelected;
             set => SetProperty(ref _isSelected, value);
+        }
+
+        /// <summary>
+        /// Current execution state of the node during pipeline execution
+        /// </summary>
+        public ExecutionState ExecutionState
+        {
+            get => _executionState;
+            set
+            {
+                if (SetProperty(ref _executionState, value))
+                {
+                    OnPropertyChanged(nameof(ExecutionBorderColor));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets the border color based on execution state for visual feedback during pipeline execution
+        /// </summary>
+        public Color ExecutionBorderColor
+        {
+            get
+            {
+                return ExecutionState switch
+                {
+                    ExecutionState.Pending => Colors.Gray,      // Default state - gray border
+                    ExecutionState.Running => Colors.Orange,    // Currently executing - orange border
+                    ExecutionState.Completed => Colors.Green,   // Completed - green border
+                    _ => Colors.Gray
+                };
+            }
         }
 
         // Property to determine the data type (e.g., "text", "image", "audio")

@@ -2076,6 +2076,17 @@ namespace CSimple.ViewModels
                 ExecutionProgress = 0;
                 ExecutionResults.Clear();
 
+                // Reset all model nodes to Pending state for visual feedback
+                var allModelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
+                foreach (var modelNode in allModelNodes)
+                {
+                    modelNode.ExecutionState = ViewModels.ExecutionState.Pending;
+                }
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔄 [ExecuteRunAllModelsAsync] Reset {allModelNodes.Count} model nodes to Pending state");
+
+                // Force canvas redraw to show initial pending states
+                InvalidateCanvas?.Invoke();
+
                 // Start execution timer
                 _executionStatusTrackingService.StartExecutionTimer();
 
@@ -2201,6 +2212,9 @@ namespace CSimple.ViewModels
                     Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]    └── Execution: {executionStopwatch.ElapsedMilliseconds}ms");
                     Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]    └── Avg: {executionStopwatch.ElapsedMilliseconds / successCount:F0}ms/model");
                 }
+
+                // Force canvas redraw to show final execution states (completed nodes with green borders)
+                InvalidateCanvas?.Invoke();
 
                 // Defer pipeline saving to avoid blocking execution - only save if there were successful executions
                 if (successCount > 0)

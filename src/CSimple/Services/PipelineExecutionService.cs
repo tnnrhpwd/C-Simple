@@ -272,7 +272,7 @@ namespace CSimple.Services
                 var level = kvp.Value;
                 var node = kvp.Key;
                 Debug.WriteLine($"   🔗 [{DateTime.Now:HH:mm:ss.fff}] Model '{node.Name}' assigned to dependency level {level}");
-                
+
                 if (!levelDict.ContainsKey(level))
                 {
                     levelDict[level] = new List<NodeViewModel>();
@@ -288,7 +288,7 @@ namespace CSimple.Services
             }
 
             Debug.WriteLine($"📊 [{DateTime.Now:HH:mm:ss.fff}] [BuildOptimizedExecutionGroups] Created {levelGroups.Count} execution groups with dependencies");
-            
+
             // Enhanced logging to show group composition
             for (int i = 0; i < levelGroups.Count; i++)
             {
@@ -296,7 +296,7 @@ namespace CSimple.Services
                 var modelNames = string.Join(", ", group.Select(n => n.Name));
                 Debug.WriteLine($"   📋 Group {i + 1}: {group.Count} models - [{modelNames}]");
             }
-            
+
             return levelGroups;
         }
 
@@ -858,6 +858,16 @@ namespace CSimple.Services
                     // Notify group started
                     onGroupStarted?.Invoke(currentGroupNumber, group.Count);
 
+                    // Set all nodes in the group to Running state for visual feedback on UI thread
+                    Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
+                    {
+                        foreach (var modelNode in group)
+                        {
+                            modelNode.ExecutionState = ViewModels.ExecutionState.Running;
+                        }
+                    });
+                    Debug.WriteLine($"🔶 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Group {currentGroupNumber}: Set {group.Count} nodes to Running state");
+
                     // Create execution tasks for all models in the group
                     var executionTasks = new List<Task<bool>>();
 
@@ -890,6 +900,8 @@ namespace CSimple.Services
                                 {
                                     await semaphore.WaitAsync();
 
+                                    // Note: Node is already set to Running state at group level
+
                                     // Try to find the model using the available models in NetPageViewModel
                                     var netPageVM = ((App)Application.Current).NetPageViewModel;
                                     if (netPageVM?.AvailableModels != null)
@@ -920,10 +932,11 @@ namespace CSimple.Services
                                             if (!string.IsNullOrEmpty(result))
                                             {
                                                 modelNode.SetStepOutput(currentActionStep + 1, "text", result);
-                                                
+
                                                 // Propagate output to connected File nodes for memory saving
                                                 await PropagateOutputToConnectedFileNodesAsync(modelNode, result, currentActionStep, connections, nodes);
-                                                
+
+                                                // Note: Node will be set to Completed state at group level
                                                 Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Fallback execution successful for {modelNode.Name}");
                                                 return true;
                                             }
@@ -951,9 +964,30 @@ namespace CSimple.Services
                         // Execute all models in the group concurrently
                         var results = await Task.WhenAll(executionTasks).ConfigureAwait(false);
 
+                        // Update execution states based on results on UI thread
+                        Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
+                        {
+                            for (int i = 0; i < group.Count && i < results.Length; i++)
+                            {
+                                var modelNode = group[i];
+                                var success = results[i];
+
+                                if (success)
+                                {
+                                    modelNode.ExecutionState = ViewModels.ExecutionState.Completed;
+                                }
+                                else
+                                {
+                                    modelNode.ExecutionState = ViewModels.ExecutionState.Pending; // Reset failed nodes
+                                }
+                            }
+                        });
+
                         // Count successful executions
                         successCount += results.Count(r => r);
                         skippedCount += results.Count(r => !r);
+
+                        Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Group {currentGroupNumber} completed: {results.Count(r => r)} successful, {results.Count(r => !r)} failed");
                     }
 
                     // Notify group completed
@@ -989,6 +1023,8 @@ namespace CSimple.Services
 
             try
             {
+                // Note: Node execution state is managed at group level for proper visual feedback
+
                 Debug.WriteLine($"🤖 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithPrecomputedInputAsync] Executing {modelNode.Name} with pre-computed input ({precomputedInput?.Length ?? 0} chars)");
 
                 // Execute the model directly with pre-computed input
@@ -1039,6 +1075,8 @@ namespace CSimple.Services
 
             try
             {
+                // Note: Node execution state is managed at group level for proper visual feedback coordination
+
                 Debug.WriteLine($"🔄 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Computing input for {modelNode.Name} dynamically");
 
                 // Get connected input nodes (both input nodes and model nodes)
@@ -1046,6 +1084,7 @@ namespace CSimple.Services
 
                 if (connectedInputNodes.Count == 0)
                 {
+
                     Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] No connected inputs for {modelNode.Name}");
                     return false;
                 }
@@ -1148,7 +1187,7 @@ namespace CSimple.Services
             }
 
             string classificationText = modelNode.CurrentClassificationText;
-            
+
             if (string.IsNullOrEmpty(classificationText))
             {
                 return originalInput;
@@ -1156,9 +1195,9 @@ namespace CSimple.Services
 
             // Append classification text with appropriate formatting
             string appendedInput = $"{originalInput}\n\n{modelNode.Classification}: {classificationText}"; // Use safe formatting without brackets
-            
+
             Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [AppendClassificationText] Appended {modelNode.Classification} text to input for node '{modelNode.Name}': '{classificationText}'");
-            
+
             return appendedInput;
         }
 
@@ -1175,8 +1214,8 @@ namespace CSimple.Services
             try
             {
                 // Find all connections where this model node is the source and target is a File node
-                var fileConnections = connections.Where(c => 
-                    c.SourceNodeId == modelNode.Id && 
+                var fileConnections = connections.Where(c =>
+                    c.SourceNodeId == modelNode.Id &&
                     nodes.Any(n => n.Id == c.TargetNodeId && n.Type == NodeType.File)).ToList();
 
                 if (fileConnections.Count == 0)
@@ -1214,7 +1253,7 @@ namespace CSimple.Services
             {
                 // Determine the file path for the File node
                 string filePath = null;
-                
+
                 // Try to get the file path from the node's name or properties
                 if (!string.IsNullOrEmpty(fileNode.Name))
                 {
