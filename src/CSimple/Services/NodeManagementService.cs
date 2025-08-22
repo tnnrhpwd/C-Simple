@@ -42,6 +42,21 @@ namespace CSimple.Services
                         await File.WriteAllTextAsync(saveFilePath, "{\n  \"goals\": [],\n  \"objectives\": [],\n  \"priorities\": []\n}");
                     }
                 }
+                else if (modelId == "plans_node" || modelName.ToLower().Contains("plans"))
+                {
+                    // Default path for plans.json in CSimple documents folder
+                    var csimpleDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple");
+                    saveFilePath = Path.Combine(csimpleDir, "plans.json");
+
+                    // Ensure the directory exists
+                    Directory.CreateDirectory(csimpleDir);
+
+                    // Create an empty plans.json if it doesn't exist
+                    if (!File.Exists(saveFilePath))
+                    {
+                        await File.WriteAllTextAsync(saveFilePath, "{\n  \"plans\": [],\n  \"strategies\": [],\n  \"timelines\": []\n}");
+                    }
+                }
                 // Other file nodes can have their defaults added here in the future
             }
 

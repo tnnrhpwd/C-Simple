@@ -910,6 +910,17 @@ namespace CSimple.ViewModels
                     );
                     filePath = Path.Combine(resourcesDir, "goals.json");
                 }
+                // Check if this is a special Plans node
+                else if (this.Name.ToLowerInvariant().Contains("plans"))
+                {
+                    // Use the plans.json file path
+                    var resourcesDir = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                        "CSimple",
+                        "Resources"
+                    );
+                    filePath = Path.Combine(resourcesDir, "plans.json");
+                }
                 else if (!string.IsNullOrEmpty(this.ModelPath))
                 {
                     // Use ModelPath as file path if specified
@@ -970,6 +981,11 @@ namespace CSimple.ViewModels
                     if (this.Name.ToLowerInvariant().Contains("goals"))
                     {
                         fileContent = FormatGoalsContent(fileContent);
+                    }
+                    // For plans.json, format the JSON in a more readable way for models
+                    else if (this.Name.ToLowerInvariant().Contains("plans"))
+                    {
+                        fileContent = FormatPlansContent(fileContent);
                     }
                 }
 
@@ -1040,6 +1056,69 @@ namespace CSimple.ViewModels
             {
                 Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [FormatGoalsContent] Error formatting goals content: {ex.Message}");
                 // Return raw JSON if formatting fails
+                return jsonContent;
+            }
+        }
+
+        private string FormatPlansContent(string jsonContent)
+        {
+            try
+            {
+                var plans = System.Text.Json.JsonSerializer.Deserialize<List<dynamic>>(jsonContent);
+                if (plans == null || plans.Count == 0)
+                {
+                    return "No plans currently defined.";
+                }
+
+                var formattedPlans = new StringBuilder();
+                formattedPlans.AppendLine("Current User Plans:");
+                formattedPlans.AppendLine();
+
+                foreach (var plan in plans)
+                {
+                    // Extract properties from the dynamic object
+                    var planObj = (System.Text.Json.JsonElement)plan;
+
+                    if (planObj.TryGetProperty("Title", out var titleProp))
+                    {
+                        formattedPlans.AppendLine($"Plan: {titleProp.GetString()}");
+                    }
+
+                    if (planObj.TryGetProperty("Description", out var descProp) && !string.IsNullOrWhiteSpace(descProp.GetString()))
+                    {
+                        formattedPlans.AppendLine($"Description: {descProp.GetString()}");
+                    }
+
+                    if (planObj.TryGetProperty("Priority", out var priorityProp))
+                    {
+                        formattedPlans.AppendLine($"Priority: {priorityProp.GetInt32()}/5");
+                    }
+
+                    if (planObj.TryGetProperty("Deadline", out var deadlineProp))
+                    {
+                        var deadline = DateTime.Parse(deadlineProp.GetString());
+                        formattedPlans.AppendLine($"Deadline: {deadline:yyyy-MM-dd}");
+                    }
+
+                    if (planObj.TryGetProperty("PlanType", out var typeProp) && typeProp.ValueKind != System.Text.Json.JsonValueKind.Null)
+                    {
+                        formattedPlans.AppendLine($"Type: {typeProp.GetString()}");
+                    }
+
+                    if (planObj.TryGetProperty("Status", out var statusProp) && statusProp.ValueKind != System.Text.Json.JsonValueKind.Null)
+                    {
+                        formattedPlans.AppendLine($"Status: {statusProp.GetString()}");
+                    }
+
+                    formattedPlans.AppendLine();
+                }
+
+                return formattedPlans.ToString();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [FormatPlansContent] Error formatting plans content: {ex.Message}");
+                // Return raw JSON if formatting plans content
                 return jsonContent;
             }
         }

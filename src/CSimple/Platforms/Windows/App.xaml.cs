@@ -56,6 +56,22 @@ public partial class App : MauiWinUIApplication
     {
         try
         {
+            // Detect if we're in debug mode for more aggressive cleanup
+            bool isDebugMode = System.Diagnostics.Debugger.IsAttached ||
+                              File.Exists(Path.Combine(AppContext.BaseDirectory, "CSimple.pdb"));
+
+#if DEBUG
+            isDebugMode = true;
+#endif
+
+            if (isDebugMode)
+            {
+                Debug.WriteLine("Debug mode detected - using aggressive instance cleanup");
+                // In debug mode, be more aggressive about closing existing instances
+                ForceCloseExistingInstances();
+                Thread.Sleep(3000); // Give more time for cleanup in debug mode
+            }
+
             // Try to create or open the mutex
             bool createdNew;
             _mutex = new Mutex(true, MUTEX_NAME, out createdNew);
@@ -63,13 +79,15 @@ public partial class App : MauiWinUIApplication
             if (!createdNew)
             {
                 // Another instance is running, so let's close it
+                Debug.WriteLine("Existing instance detected, attempting graceful close...");
                 CloseExistingInstances();
 
-                // Wait a moment for the other instance to close
-                Thread.Sleep(2000);
+                // Wait longer in debug mode
+                int waitTime = isDebugMode ? 5000 : 2000;
+                Thread.Sleep(waitTime);
 
                 // Try to acquire the mutex again
-                if (_mutex.WaitOne(5000, false))
+                if (_mutex.WaitOne(isDebugMode ? 10000 : 5000, false))
                 {
                     // Successfully acquired the mutex after closing the other instance
                     Debug.WriteLine("Successfully acquired mutex after closing existing instance");
@@ -77,11 +95,12 @@ public partial class App : MauiWinUIApplication
                 else
                 {
                     // Still couldn't acquire the mutex, force close any remaining processes
+                    Debug.WriteLine("Graceful close failed, forcing close of remaining instances...");
                     ForceCloseExistingInstances();
-                    Thread.Sleep(1000);
+                    Thread.Sleep(isDebugMode ? 2000 : 1000);
 
                     // Try one more time
-                    if (!_mutex.WaitOne(1000, false))
+                    if (!_mutex.WaitOne(isDebugMode ? 3000 : 1000, false))
                     {
                         Debug.WriteLine("Warning: Could not acquire single instance mutex");
                     }

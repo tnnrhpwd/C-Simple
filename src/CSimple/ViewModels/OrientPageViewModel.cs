@@ -437,6 +437,14 @@ namespace CSimple.ViewModels
                 description: "User goals and objectives from the Goal Page"
             ));
 
+            // Add Plans file node
+            AvailableFileNodes.Add(new FileNodeInfo(
+                name: "Plans",
+                dataType: "text",
+                fileName: "plans.json",
+                description: "User plans and strategies from the Plan Page"
+            ));
+
             // Add Memory file node placeholder
             AvailableFileNodes.Add(new FileNodeInfo(
                 name: "Memory",
