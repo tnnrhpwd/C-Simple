@@ -1181,7 +1181,7 @@ namespace CSimple.Pages
         {
             if (source == null)
             {
-                Debug.WriteLine("[ObservePage] OnScreenPreviewFrameReady - ImageSource is null"); // Added debug print
+                Debug.WriteLine("[ObservePage] OnScreenPreviewFrameReady - ImageSource is null");
                 return;
             }
 
@@ -1206,7 +1206,7 @@ namespace CSimple.Pages
         {
             if (source == null)
             {
-                Debug.WriteLine("[ObservePage] OnWebcamPreviewFrameReady - ImageSource is null"); // Added debug print
+                Debug.WriteLine("[ObservePage] OnWebcamPreviewFrameReady - ImageSource is null");
                 return;
             }
 

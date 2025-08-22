@@ -167,6 +167,57 @@ namespace CSimple.Services
 #endif
         }
 
+        // New method to capture screen for preview without saving
+        private ImageSource CaptureScreenForPreview()
+        {
+#if WINDOWS
+            try
+            {
+                // Just capture the primary screen for preview to avoid performance issues
+                var screen = Screen.PrimaryScreen;
+                var bounds = screen.Bounds;
+
+                using (var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb))
+                {
+                    using (var g = Graphics.FromImage(bitmap))
+                    {
+                        g.CopyFromScreen(bounds.Location, System.Drawing.Point.Empty, bounds.Size, CopyPixelOperation.SourceCopy);
+                    }
+
+                    // Convert to ImageSource for preview - resize for better performance
+                    using (MemoryStream memoryStream = new MemoryStream())
+                    {
+                        // Resize the bitmap for preview (maintain aspect ratio)
+                        double aspectRatio = (double)bitmap.Width / bitmap.Height;
+                        int targetHeight = 240;
+                        int targetWidth = (int)(targetHeight * aspectRatio);
+
+                        using (var resizedBitmap = new Bitmap(targetWidth, targetHeight))
+                        {
+                            using (var resizeGraphics = Graphics.FromImage(resizedBitmap))
+                            {
+                                resizeGraphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                                resizeGraphics.DrawImage(bitmap, 0, 0, targetWidth, targetHeight);
+                            }
+
+                            resizedBitmap.Save(memoryStream, ImageFormat.Jpeg);
+                            memoryStream.Position = 0;
+                            byte[] data = memoryStream.ToArray();
+                            return ImageSource.FromStream(() => new MemoryStream(data));
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.Print($"Error capturing screen for preview: {ex.Message}");
+                return null;
+            }
+#else
+            return null;
+#endif
+        }
+
         public Task StartScreenCapture(CancellationToken cancellationToken, string actionName)
         {
             return Task.Run(() =>
@@ -311,6 +362,7 @@ namespace CSimple.Services
         public void StartPreviewMode()
         {
             _previewModeActive = true;
+            IsPreviewEnabled = true; // Set this property to true
             _previewCts = new CancellationTokenSource();
 
             // Start sending preview frames
@@ -322,6 +374,7 @@ namespace CSimple.Services
         public void StopPreviewMode()
         {
             _previewModeActive = false;
+            IsPreviewEnabled = false; // Set this property to false
             Debug.WriteLine("[ScreenCaptureService] StopPreviewMode - Calling _previewCts?.Cancel()");
             _previewCts?.Cancel();
             _previewCts = null;
@@ -357,6 +410,13 @@ namespace CSimple.Services
 
                     try
                     {
+                        // 1. Capture screen preview
+                        var screenImage = CaptureScreenForPreview();
+                        if (screenImage != null)
+                        {
+                            ScreenPreviewFrameReady?.Invoke(screenImage);
+                        }
+
                         // 2. Get the webcam preview
                         if (webcamCapture.IsOpened())
                         {
@@ -420,12 +480,8 @@ namespace CSimple.Services
                 byte[] imageBytes = resizedFrame.ToBytes(".jpg", new ImageEncodingParam(ImwriteFlags.JpegQuality, 95));
                 Debug.Print($"[ScreenCaptureService] ConvertMatToImageSource - Image converted to byte array, size: {imageBytes.Length}");
 
-                // Create a MemoryStream from the byte array
-                MemoryStream memoryStream = new MemoryStream(imageBytes);
-                Debug.Print($"[ScreenCaptureService] ConvertMatToImageSource - MemoryStream created from byte array");
-
-                // Create an ImageSource from the MemoryStream
-                ImageSource imageSource = ImageSource.FromStream(() => memoryStream);
+                // Create an ImageSource from the byte array using a proper stream factory
+                ImageSource imageSource = ImageSource.FromStream(() => new MemoryStream(imageBytes));
                 Debug.Print($"[ScreenCaptureService] ConvertMatToImageSource - ImageSource created from MemoryStream");
 
                 return imageSource;

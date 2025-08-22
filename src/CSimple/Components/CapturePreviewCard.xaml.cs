@@ -192,7 +192,7 @@ namespace CSimple.Components
                 // Use Dispatcher instead of Device.BeginInvokeOnMainThread
                 Dispatcher.Dispatch(() =>
                 {
-                    ScreenCaptureSource = null;
+                    // Don't set to null first - just update directly
                     ScreenCaptureSource = source;
 
                     // Update visibility states
@@ -217,7 +217,7 @@ namespace CSimple.Components
                 // Use Dispatcher instead of Device.BeginInvokeOnMainThread
                 Dispatcher.Dispatch(() =>
                 {
-                    WebcamCaptureSource = null;
+                    // Don't set to null first - just update directly
                     WebcamCaptureSource = source;
 
                     // Update visibility states
