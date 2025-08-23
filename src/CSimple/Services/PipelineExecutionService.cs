@@ -1280,7 +1280,17 @@ namespace CSimple.Services
                             "Memory"
                         );
                         Directory.CreateDirectory(memoryDir);
-                        filePath = Path.Combine(memoryDir, $"{fileNode.Name}.txt");
+                        
+                        // Use appropriate extension based on node name
+                        if (fileNode.Name.ToLowerInvariant().Contains("goals") || 
+                            fileNode.Name.ToLowerInvariant().Contains("plans"))
+                        {
+                            filePath = Path.Combine(memoryDir, $"{fileNode.Name}.json");
+                        }
+                        else
+                        {
+                            filePath = Path.Combine(memoryDir, $"{fileNode.Name}.txt");
+                        }
                     }
                 }
                 else

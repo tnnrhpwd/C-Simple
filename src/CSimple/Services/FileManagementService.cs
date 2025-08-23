@@ -50,10 +50,10 @@ namespace CSimple.Services
                     PickerTitle = "Select save file for text output",
                     FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
                     {
-                        { DevicePlatform.WinUI, new[] { ".txt", ".md", ".log" } },
-                        { DevicePlatform.Android, new[] { "text/*" } },
-                        { DevicePlatform.iOS, new[] { "public.text" } },
-                        { DevicePlatform.macOS, new[] { "txt", "md", "log" } }
+                        { DevicePlatform.WinUI, new[] { ".txt", ".md", ".log", ".json" } },
+                        { DevicePlatform.Android, new[] { "text/*", "application/json" } },
+                        { DevicePlatform.iOS, new[] { "public.text", "public.json" } },
+                        { DevicePlatform.macOS, new[] { "txt", "md", "log", "json" } }
                     })
                 });
 
@@ -127,10 +127,24 @@ namespace CSimple.Services
                     fileName = fileName.Replace(c, '_');
                 }
 
-                // Ensure .txt extension
-                if (!fileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+                // Ensure appropriate extension based on node type
+                if (selectedNode.Name.ToLowerInvariant().Contains("goals") || 
+                    selectedNode.Name.ToLowerInvariant().Contains("plans"))
                 {
-                    fileName += ".txt";
+                    // For Goals and Plans nodes, ensure .json extension
+                    if (!fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        fileName += ".json";
+                    }
+                }
+                else
+                {
+                    // For other memory files, use .txt extension
+                    if (!fileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) && 
+                        !fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        fileName += ".txt";
+                    }
                 }
 
                 string fullFilePath = Path.Combine(memoryFilesDir, fileName);

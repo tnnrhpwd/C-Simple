@@ -942,14 +942,24 @@ namespace CSimple.ViewModels
                     }
                     else
                     {
-                        // Add .txt extension if no extension provided
+                        // Add appropriate extension if no extension provided
                         var memoryDir = Path.Combine(
                             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                             "CSimple",
                             "Resources",
                             "Memory"
                         );
-                        filePath = Path.Combine(memoryDir, $"{this.Name}.txt");
+                        
+                        // Use .json extension for Goals and Plans nodes
+                        if (this.Name.ToLowerInvariant().Contains("goals") || 
+                            this.Name.ToLowerInvariant().Contains("plans"))
+                        {
+                            filePath = Path.Combine(memoryDir, $"{this.Name}.json");
+                        }
+                        else
+                        {
+                            filePath = Path.Combine(memoryDir, $"{this.Name}.txt");
+                        }
                     }
                 }
 
