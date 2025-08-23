@@ -949,9 +949,9 @@ namespace CSimple.ViewModels
                             "Resources",
                             "Memory"
                         );
-                        
+
                         // Use .json extension for Goals and Plans nodes
-                        if (this.Name.ToLowerInvariant().Contains("goals") || 
+                        if (this.Name.ToLowerInvariant().Contains("goals") ||
                             this.Name.ToLowerInvariant().Contains("plans"))
                         {
                             filePath = Path.Combine(memoryDir, $"{this.Name}.json");

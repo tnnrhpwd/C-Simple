@@ -128,7 +128,7 @@ namespace CSimple.Services
                 }
 
                 // Ensure appropriate extension based on node type
-                if (selectedNode.Name.ToLowerInvariant().Contains("goals") || 
+                if (selectedNode.Name.ToLowerInvariant().Contains("goals") ||
                     selectedNode.Name.ToLowerInvariant().Contains("plans"))
                 {
                     // For Goals and Plans nodes, ensure .json extension
@@ -140,7 +140,7 @@ namespace CSimple.Services
                 else
                 {
                     // For other memory files, use .txt extension
-                    if (!fileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) && 
+                    if (!fileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) &&
                         !fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
                     {
                         fileName += ".txt";
