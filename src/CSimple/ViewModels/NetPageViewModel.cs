@@ -1366,39 +1366,39 @@ namespace CSimple.ViewModels
         }        // FIXED: Async method to update model input type with IMMEDIATE save
         private async Task UpdateModelInputTypeAsync(NeuralNetworkModel model, ModelInputType inputType)
         {
-            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔥🔥🔥 UpdateModelInputTypeAsync CALLED - Model: '{model?.Name}', InputType: {inputType}");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔥🔥🔥 UpdateModelInputTypeAsync CALLED - Model: '{model?.Name}', InputType: {inputType}");
 
             if (model == null)
             {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ Model is null, returning");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ Model is null, returning");
                 return;
             }
 
             try
             {
                 // Log current model state for debugging
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📊 CURRENT MODEL STATE: Name='{model.Name}', CurrentInputType={model.InputType}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📊 CURRENT MODEL STATE: Name='{model.Name}', CurrentInputType={model.InputType}");
 
                 // Check if the input type is actually changing
                 bool isChanged = model.InputType != inputType;
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 InputType changing? {isChanged} (from {model.InputType} to {inputType})");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 InputType changing? {isChanged} (from {model.InputType} to {inputType})");
 
                 // FORCE SAVE - Let's bypass the no-change check temporarily to test the save chain
                 if (!isChanged)
                 {
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚠️ NO CHANGE DETECTED - but forcing save anyway to test the save chain");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ⚠️ NO CHANGE DETECTED - but forcing save anyway to test the save chain");
                     // Don't return - continue with save to test the chain
                 }
                 else
                 {
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔄 CHANGE DETECTED - continuing with save");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔄 CHANGE DETECTED - continuing with save");
                 }
 
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔄 STARTING InputType change for '{model.Name}' from {model.InputType} to {inputType}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔄 STARTING InputType change for '{model.Name}' from {model.InputType} to {inputType}");
                 Debug.WriteLine($"🔄 STARTING InputType change for '{model.Name}' from {model.InputType} to {inputType}");
 
                 model.InputType = inputType;
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✏️ Model.InputType updated to: {model.InputType}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✏️ Model.InputType updated to: {model.InputType}");
 
                 // IMMEDIATE save for InputType changes - NO DEBOUNCING
                 CurrentModelStatus = $"Saving '{model.Name}' InputType = {inputType} to file...";
@@ -1406,19 +1406,19 @@ namespace CSimple.ViewModels
 
                 try
                 {
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 💾 CALLING SavePersistedModelsAsync for '{model.Name}' InputType change");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 💾 CALLING SavePersistedModelsAsync for '{model.Name}' InputType change");
                     Debug.WriteLine($"💾 CALLING SavePersistedModelsAsync for '{model.Name}' InputType change");
 
                     await SavePersistedModelsAsync();
 
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ SUCCESSFULLY SAVED InputType change for '{model.Name}' to huggingFaceModels.json");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ SUCCESSFULLY SAVED InputType change for '{model.Name}' to huggingFaceModels.json");
                     Debug.WriteLine($"✅ SUCCESSFULLY SAVED InputType change for '{model.Name}' to huggingFaceModels.json");
                     CurrentModelStatus = $"✅ Saved '{model.Name}' InputType = {inputType} to file";
                 }
                 catch (Exception saveEx)
                 {
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ ERROR saving InputType change: {saveEx.Message}");
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ Stack trace: {saveEx.StackTrace}");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ ERROR saving InputType change: {saveEx.Message}");
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ Stack trace: {saveEx.StackTrace}");
                     Debug.WriteLine($"❌ ERROR saving InputType change: {saveEx.Message}");
                     Debug.WriteLine($"❌ Stack trace: {saveEx.StackTrace}");
                     CurrentModelStatus = $"❌ Error saving InputType: {saveEx.Message}";
@@ -1427,8 +1427,8 @@ namespace CSimple.ViewModels
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ ERROR in UpdateModelInputTypeAsync: {ex.Message}");
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ Stack trace: {ex.StackTrace}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ ERROR in UpdateModelInputTypeAsync: {ex.Message}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ Stack trace: {ex.StackTrace}");
                 Debug.WriteLine($"❌ ERROR in UpdateModelInputTypeAsync: {ex.Message}");
                 HandleError($"Error updating input type for model: {model?.Name}", ex);
             }
@@ -1754,19 +1754,19 @@ namespace CSimple.ViewModels
                 .Where(m => m.IsHuggingFaceReference || !string.IsNullOrEmpty(m.HuggingFaceModelId))
                 .ToList();
 
-            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 SavePersistedModelsAsync: Found {modelsToSave.Count} models to save out of {AvailableModels?.Count ?? 0} available models");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🔍 SavePersistedModelsAsync: Found {modelsToSave.Count} models to save out of {AvailableModels?.Count ?? 0} available models");
             Debug.WriteLine($"🔍 SavePersistedModelsAsync: Found {modelsToSave.Count} models to save out of {AvailableModels?.Count ?? 0} available models");
 
             // Log InputType values before saving
             foreach (var model in modelsToSave)
             {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📋 Model '{model.Name}' - InputType: {model.InputType}, IsHuggingFaceReference: {model.IsHuggingFaceReference}, HuggingFaceModelId: '{model.HuggingFaceModelId}'");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 📋 Model '{model.Name}' - InputType: {model.InputType}, IsHuggingFaceReference: {model.IsHuggingFaceReference}, HuggingFaceModelId: '{model.HuggingFaceModelId}'");
                 Debug.WriteLine($"📋 Model '{model.Name}' - InputType: {model.InputType}, IsHuggingFaceReference: {model.IsHuggingFaceReference}, HuggingFaceModelId: '{model.HuggingFaceModelId}'");
             }
 
-            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 💾 Calling SavePersistedModelsAsync overload with {modelsToSave.Count} models");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 💾 Calling SavePersistedModelsAsync overload with {modelsToSave.Count} models");
             await SavePersistedModelsAsync(modelsToSave); // Call the overload
-            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ SavePersistedModelsAsync overload completed");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ SavePersistedModelsAsync overload completed");
         }
 
         // Debounced save method to prevent excessive saves
@@ -2553,7 +2553,7 @@ namespace CSimple.ViewModels
         // Public method to execute a model from OrientPageViewModel
         public async Task<string> ExecuteModelAsync(string modelId, string inputText)
         {
-            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
             Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
 
             try
@@ -2574,14 +2574,14 @@ namespace CSimple.ViewModels
                 var result = await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(
                     modelId, inputText, model, _pythonExecutablePath, _huggingFaceScriptPath, localModelPath);
 
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [NetPageViewModel.ExecuteModelAsync] Model execution successful, result length: {result?.Length ?? 0}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [NetPageViewModel.ExecuteModelAsync] Model execution successful, result length: {result?.Length ?? 0}");
                 Debug.WriteLine($"✅ [NetPageViewModel.ExecuteModelAsync] Model execution successful, result length: {result?.Length ?? 0}");
 
                 return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [NetPageViewModel.ExecuteModelAsync] Model execution failed: {ex.Message}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [NetPageViewModel.ExecuteModelAsync] Model execution failed: {ex.Message}");
                 Debug.WriteLine($"❌ [NetPageViewModel.ExecuteModelAsync] Model execution failed: {ex.Message}");
                 throw;
             }
@@ -3204,11 +3204,15 @@ namespace CSimple.ViewModels
         /// </summary>
         private async Task ExecutePipelineWithObservedData(CancellationToken cancellationToken)
         {
+            Debug.WriteLine($"[NetPage Pipeline] ===== EXECUTING PIPELINE WITH OBSERVED DATA =====");
+            Debug.WriteLine($"[NetPage Pipeline] Selected Pipeline: '{_selectedPipeline ?? "None"}'");
+
             try
             {
                 if (_selectedPipelineData?.Nodes == null || _selectedPipelineData.Connections == null)
                 {
                     Debug.WriteLine("Intelligence: No pipeline data available for execution");
+                    Debug.WriteLine("[NetPage Pipeline] No pipeline data available for execution");
                     return;
                 }
 
@@ -3217,6 +3221,7 @@ namespace CSimple.ViewModels
                 if (pipelineExecutionService == null)
                 {
                     Debug.WriteLine("Intelligence: Pipeline execution service not available");
+                    Debug.WriteLine("[NetPage Pipeline] Pipeline execution service not available");
                     return;
                 }
 
@@ -3228,13 +3233,17 @@ namespace CSimple.ViewModels
                     _selectedPipelineData.Connections.Select(sc => sc.ToViewModel())
                 );
 
+                Debug.WriteLine($"[NetPage Pipeline] Converted {nodes.Count} nodes and {connections.Count} connections");
+
                 // Prepare input data from system observations
                 var systemInput = PrepareSystemInputForPipeline(cancellationToken);
+                Debug.WriteLine($"[NetPage Pipeline] Prepared system input: '{systemInput}'");
 
                 // Add system input to input nodes
                 foreach (var inputNode in nodes.Where(n => n.Type == NodeType.Input))
                 {
                     inputNode.SetStepOutput(1, "text", systemInput);
+                    Debug.WriteLine($"[NetPage Pipeline] Set input for node '{inputNode.Name}': '{systemInput}'");
                 }
 
                 AddPipelineChatMessage($"🔄 Executing pipeline '{_selectedPipeline}' with system observations...", false);
@@ -3243,6 +3252,8 @@ namespace CSimple.ViewModels
                 var result = await pipelineExecutionService.ExecuteAllModelsAsync(nodes, connections, 1, null);
                 int successCount = result.successCount;
                 int skippedCount = result.skippedCount;
+
+                Debug.WriteLine($"[NetPage Pipeline] Execution result: {successCount} successful, {skippedCount} skipped");
 
                 // Process results and simulate actions
                 await ProcessPipelineResultsAndSimulateActions(nodes, cancellationToken);
@@ -3305,10 +3316,42 @@ namespace CSimple.ViewModels
         {
             try
             {
+                // Console log all model node outputs for validation
+                Debug.WriteLine($"[NetPage Pipeline] ===== PIPELINE EXECUTION RESULTS =====");
+                Debug.WriteLine($"[NetPage Pipeline] Processing {nodes.Count} nodes:");
+
+                foreach (var node in nodes)
+                {
+                    Debug.WriteLine($"[NetPage Pipeline] Node: '{node.Name}' (Type: {node.Type})");
+
+                    if (node.Type == NodeType.Model)
+                    {
+                        var output = node.GetStepOutput(1);
+                        Debug.WriteLine($"[NetPage Pipeline] Model Node Output: '{output.Value ?? "NULL"}'");
+                        Debug.WriteLine($"[NetPage Pipeline] Output Type: {output.Type}");
+                        Debug.WriteLine($"[NetPage Pipeline] Model Path: '{node.ModelPath ?? "N/A"}'");
+                        Debug.WriteLine($"[NetPage Pipeline] Classification: '{node.Classification ?? "N/A"}'");
+                    }
+                    else if (node.Type == NodeType.Input)
+                    {
+                        var output = node.GetStepOutput(1);
+                        Debug.WriteLine($"[NetPage Pipeline] Input Node Output: '{output.Value ?? "NULL"}'");
+                    }
+                    else if (node.Type == NodeType.Output)
+                    {
+                        var output = node.GetStepOutput(1);
+                        Debug.WriteLine($"[NetPage Pipeline] Output Node: '{output.Value ?? "NULL"}'");
+                    }
+
+                    Debug.WriteLine($"[NetPage Pipeline] ---");
+                }
+                Debug.WriteLine($"[NetPage Pipeline] ===== END PIPELINE RESULTS =====");
+
                 var actionService = ServiceProvider.GetService<ActionService>();
                 if (actionService == null)
                 {
                     Debug.WriteLine("Intelligence: Action service not available");
+                    Debug.WriteLine("[NetPage Pipeline] Action service not available");
                     return;
                 }
 
@@ -3320,9 +3363,12 @@ namespace CSimple.ViewModels
                      n.ModelPath?.ToLowerInvariant().Contains("classification") == true)
                 ).ToList();
 
+                Debug.WriteLine($"[NetPage Pipeline] Found {actionClassificationNodes.Count} action classification nodes");
+
                 if (!actionClassificationNodes.Any())
                 {
                     Debug.WriteLine("Intelligence: No action classification models found in pipeline");
+                    Debug.WriteLine("[NetPage Pipeline] No action classification models found in pipeline");
                     return;
                 }
 
@@ -3330,10 +3376,16 @@ namespace CSimple.ViewModels
                 foreach (var actionNode in actionClassificationNodes)
                 {
                     var output = actionNode.GetStepOutput(1);
+                    Debug.WriteLine($"[NetPage Pipeline] Processing action node '{actionNode.Name}' with output: '{output.Value ?? "NULL"}'");
+
                     if (!string.IsNullOrEmpty(output.Value))
                     {
                         // Parse the action output and simulate corresponding actions
                         await SimulateActionsFromModelOutput(output.Value, actionService, cancellationToken);
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[NetPage Pipeline] Skipping action node '{actionNode.Name}' - no output");
                     }
                 }
             }
@@ -3349,18 +3401,31 @@ namespace CSimple.ViewModels
         /// </summary>
         private async Task SimulateActionsFromModelOutput(string modelOutput, ActionService actionService, CancellationToken cancellationToken)
         {
+            Debug.WriteLine($"[NetPage Pipeline] ===== SIMULATING ACTIONS FROM MODEL OUTPUT =====");
+            Debug.WriteLine($"[NetPage Pipeline] Model Output: '{modelOutput}'");
+
             try
             {
                 // Parse model output to determine actions
                 var actions = ParseActionsFromModelOutput(modelOutput);
 
+                Debug.WriteLine($"[NetPage Pipeline] Parsed {actions.Count} actions from model output");
+
                 if (!actions.Any())
                 {
                     Debug.WriteLine("Intelligence: No actions parsed from model output");
+                    Debug.WriteLine("[NetPage Pipeline] No actions parsed from model output");
                     return;
                 }
 
                 AddPipelineChatMessage($"🎯 Simulating {actions.Count} actions from model output", false);
+
+                // Log each action
+                for (int i = 0; i < actions.Count; i++)
+                {
+                    var action = actions[i];
+                    Debug.WriteLine($"[NetPage Pipeline] Action {i + 1}: EventType={action.EventType}, KeyCode={action.KeyCode}, DeltaX={action.DeltaX}, DeltaY={action.DeltaY}");
+                }
 
                 // Create an ActionGroup for the parsed actions
                 var actionGroup = new ActionGroup
@@ -3371,8 +3436,12 @@ namespace CSimple.ViewModels
                     IsSimulating = false
                 };
 
+                Debug.WriteLine($"[NetPage Pipeline] Created ActionGroup '{actionGroup.ActionName}' with {actionGroup.ActionArray.Count} actions");
+
                 // Simulate the actions
                 var success = await actionService.ToggleSimulateActionGroupAsync(actionGroup);
+
+                Debug.WriteLine($"[NetPage Pipeline] Action simulation result: {success}");
 
                 if (success)
                 {
@@ -4090,6 +4159,10 @@ namespace CSimple.ViewModels
         /// </summary>
         private async Task ExecuteEnhancedPipelineWithData(List<byte[]> screenshots, List<byte[]> audioData, List<string> textData, CancellationToken cancellationToken)
         {
+            Debug.WriteLine($"[NetPage Pipeline] ===== STARTING PIPELINE EXECUTION =====");
+            Debug.WriteLine($"[NetPage Pipeline] Pipeline: '{_selectedPipeline ?? "Unknown"}'");
+            Debug.WriteLine($"[NetPage Pipeline] Input Data: {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs");
+
             var executionRecord = new PipelineExecutionRecord
             {
                 PipelineName = _selectedPipeline ?? "Unknown",
@@ -4100,13 +4173,14 @@ namespace CSimple.ViewModels
 
             try
             {
-                // AddPipelineChatMessage($"🎯 Processing pipeline with {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs", false);
+                AddPipelineChatMessage($"🎯 Processing pipeline with {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs", false);
 
                 // Get the pipeline execution service
                 var pipelineExecutionService = ServiceProvider.GetService<PipelineExecutionService>();
                 if (pipelineExecutionService == null)
                 {
                     AddPipelineChatMessage("⚠️ Pipeline execution service not available", false);
+                    Debug.WriteLine($"[NetPage Pipeline] ERROR: Pipeline execution service not available");
                     executionRecord.Success = false;
                     executionRecord.Result = "Pipeline service unavailable";
                     return;
@@ -4127,7 +4201,10 @@ namespace CSimple.ViewModels
                     foreach (var inputNode in nodeViewModels.Where(n => n.Type == NodeType.Input))
                     {
                         inputNode.SetStepOutput(1, "text", systemInput); // Enhanced system input with memory integration
+                        Debug.WriteLine($"[NetPage Pipeline] Set input for node '{inputNode.Name}': '{systemInput}'");
                     }
+
+                    Debug.WriteLine($"[NetPage Pipeline] Executing pipeline with {nodeViewModels.Count} nodes and {connectionViewModels.Count} connections");
 
                     var executionResults = await pipelineExecutionService.ExecuteAllModelsAsync(
                         nodeViewModels,
@@ -4135,6 +4212,8 @@ namespace CSimple.ViewModels
                         1, // currentActionStep
                         null // showAlert callback
                     );
+
+                    Debug.WriteLine($"[NetPage Pipeline] Pipeline execution completed: {executionResults.successCount} successful, {executionResults.skippedCount} skipped");
 
                     // Process results and simulate actions
                     await ProcessPipelineResultsAndSimulateActions(nodeViewModels, cancellationToken);
