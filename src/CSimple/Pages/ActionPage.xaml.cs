@@ -1391,9 +1391,6 @@ namespace CSimple.Pages
                     // Update UI
                     OnPropertyChanged(nameof(ShowEmptyMessage));
                     OnPropertyChanged(nameof(HasSelectedActions));
-
-                    await DisplayAlert("Action Deleted",
-                        "The action was successfully deleted.", "OK");
                 }
             }
             catch (Exception ex)
@@ -1510,12 +1507,6 @@ namespace CSimple.Pages
 
                 // Show result message
                 Debug.WriteLine($"🏁 Deletion complete: {successCount} action(s) deleted");
-                if (successCount > 0)
-                {
-                    await DisplayAlert("Delete Complete",
-                        $"Successfully deleted {successCount} action{(successCount > 1 ? "s" : "")}.",
-                        "OK");
-                }
 
                 // Force update of collections
                 UpdateActionGroupsFromDataItems();

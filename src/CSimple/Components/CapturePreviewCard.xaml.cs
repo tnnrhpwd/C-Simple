@@ -201,12 +201,12 @@ namespace CSimple.Components
                         ScreenCaptureStatus.Text = "Screen feed active";
                         IsLoadingScreenPreview = false;
                     }
-                    System.Diagnostics.Debug.WriteLine("Screen capture updated");
+                    // System.Diagnostics.Debug.WriteLine("Screen capture updated");
                 });
             }
             else
             {
-                System.Diagnostics.Debug.WriteLine($"Screen capture update skipped: _isPreviewActive={_isPreviewActive}, IsPreviewEnabled={IsPreviewEnabled}");
+                // System.Diagnostics.Debug.WriteLine($"Screen capture update skipped: _isPreviewActive={_isPreviewActive}, IsPreviewEnabled={IsPreviewEnabled}");
             }
         }
 
@@ -226,12 +226,12 @@ namespace CSimple.Components
                         WebcamCaptureStatus.Text = "Webcam feed active";
                         IsLoadingWebcamPreview = false;
                     }
-                    System.Diagnostics.Debug.WriteLine("Webcam capture updated");
+                    // System.Diagnostics.Debug.WriteLine("Webcam capture updated");
                 });
             }
             else
             {
-                System.Diagnostics.Debug.WriteLine($"Webcam capture update skipped: _isPreviewActive={_isPreviewActive}, IsPreviewEnabled={IsPreviewEnabled}");
+                // System.Diagnostics.Debug.WriteLine($"Webcam capture update skipped: _isPreviewActive={_isPreviewActive}, IsPreviewEnabled={IsPreviewEnabled}");
             }
         }
 

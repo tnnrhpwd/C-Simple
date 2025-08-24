@@ -785,11 +785,11 @@ namespace CSimple.Services
                     if (actionNeeded)
                     {
                         AddToInputQueue(actionItem);
-                        Debug.Print($"Adding to queue: Mouse EventType={wParamInt}, ActionNeeded={actionNeeded}");
+                        // Debug.Print($"Adding to queue: Mouse EventType={wParamInt}, ActionNeeded={actionNeeded}");
                     }
                     else
                     {
-                        Debug.Print($"Skipping queue add: Mouse EventType={wParamInt}, ActionNeeded={actionNeeded}");
+                        // Debug.Print($"Skipping queue add: Mouse EventType={wParamInt}, ActionNeeded={actionNeeded}");
                     }
                 }
                 catch (Exception ex)

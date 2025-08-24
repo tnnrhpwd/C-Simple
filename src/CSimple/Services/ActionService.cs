@@ -312,7 +312,7 @@ namespace CSimple.Services
                         DateTime currentActionTime;
                         if (!DateTime.TryParse(action.Timestamp.ToString(), null, System.Globalization.DateTimeStyles.RoundtripKind, out currentActionTime))
                         {
-                            Debug.WriteLine($"Failed to parse Timestamp: {action.Timestamp}");
+                            // Debug.WriteLine($"Failed to parse Timestamp: {action.Timestamp}");
                             continue;
                         }
 

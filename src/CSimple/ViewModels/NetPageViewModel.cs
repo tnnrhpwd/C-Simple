@@ -40,6 +40,7 @@ namespace CSimple.ViewModels
         private readonly InputCaptureService _inputCaptureService; // Add input capture service for intelligence recording
         private readonly MouseTrackingService _mouseTrackingService; // Add mouse tracking service
         private readonly AudioCaptureService _audioCaptureService; // Add audio capture service
+        private readonly ScreenCaptureService _screenCaptureService; // Add screen capture service for webcam image capture
         // Consider injecting navigation and dialog services for better testability
 
         // Debounce mechanism for saving to prevent excessive saves
@@ -88,6 +89,7 @@ namespace CSimple.ViewModels
 
         // Intelligence processing fields
         private CancellationTokenSource _intelligenceProcessingCts;
+        private CancellationTokenSource _intelligenceWebcamCts; // For webcam image capture
         private DateTime _lastScreenCapture = DateTime.MinValue;
         private DateTime _lastPipelineExecution = DateTime.MinValue;
         private readonly object _intelligenceProcessingLock = new object();
@@ -439,7 +441,7 @@ namespace CSimple.ViewModels
         // Note: ModelCommunicationService handles model communication logic (extracted for maintainability)
         // Note: ModelExecutionService handles model execution with enhanced error handling (extracted for maintainability)
         // Note: ModelImportExportService handles model import/export and file operations (extracted for maintainability)
-        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, DataService dataService, IAppPathService appPathService, PipelineManagementService pipelineManagementService = null, InputCaptureService inputCaptureService = null, MouseTrackingService mouseTrackingService = null, AudioCaptureService audioCaptureService = null)
+        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, DataService dataService, IAppPathService appPathService, PipelineManagementService pipelineManagementService = null, InputCaptureService inputCaptureService = null, MouseTrackingService mouseTrackingService = null, AudioCaptureService audioCaptureService = null, ScreenCaptureService screenCaptureService = null)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -460,6 +462,7 @@ namespace CSimple.ViewModels
             _inputCaptureService = inputCaptureService; // Optional dependency for intelligence recording
             _mouseTrackingService = mouseTrackingService; // Optional dependency for mouse tracking
             _audioCaptureService = audioCaptureService; // Optional dependency for audio capture
+            _screenCaptureService = screenCaptureService; // Optional dependency for webcam image capture
 
             // Configure the media selection service UI delegates
             _mediaSelectionService.ShowAlert = ShowAlert;
@@ -2836,6 +2839,13 @@ namespace CSimple.ViewModels
                     _audioCaptureService.WebcamLevelChanged += OnWebcamLevelChanged;
                     Debug.WriteLine("Intelligence: AudioCaptureService events subscribed");
                 }
+
+                // Setup screen capture service event handlers if available
+                if (_screenCaptureService != null)
+                {
+                    _screenCaptureService.FileCaptured += OnImageFileCaptured;
+                    Debug.WriteLine("Intelligence: ScreenCaptureService events subscribed");
+                }
             }
             catch (Exception ex)
             {
@@ -2883,6 +2893,28 @@ namespace CSimple.ViewModels
                     Debug.WriteLine("Intelligence: Started mouse tracking");
                 }
 
+                // Start audio recording just like ObservePage
+                if (_audioCaptureService != null)
+                {
+                    // Start PC audio recording (system audio)
+                    _audioCaptureService.StartPCAudioRecording(true);
+                    Debug.WriteLine("Intelligence: Started PC audio recording");
+
+                    // Start webcam audio recording (microphone)
+                    _audioCaptureService.StartWebcamAudioRecording(true);
+                    Debug.WriteLine("Intelligence: Started webcam audio recording");
+                }
+
+                // Start webcam image recording just like ObservePage
+                if (_screenCaptureService != null)
+                {
+                    _intelligenceWebcamCts = new CancellationTokenSource();
+                    string actionName = $"Intelligence_{DateTime.Now:HHmmss}"; // Action name for file saving
+                    int intelligenceIntervalMs = _settingsService.GetIntelligenceIntervalMs();
+                    Task.Run(() => _screenCaptureService.StartWebcamCapture(_intelligenceWebcamCts.Token, actionName, intelligenceIntervalMs), _intelligenceWebcamCts.Token);
+                    Debug.WriteLine($"Intelligence: Started webcam image recording with interval {intelligenceIntervalMs}ms");
+                }
+
                 // Start screen capture for visual input
                 StartScreenCapture();
 
@@ -2923,6 +2955,27 @@ namespace CSimple.ViewModels
 
                 // Stop screen capture
                 StopScreenCapture();
+
+                // Stop audio recording just like ObservePage
+                if (_audioCaptureService != null)
+                {
+                    // Stop PC audio recording (system audio)
+                    _audioCaptureService.StopPCAudioRecording();
+                    Debug.WriteLine("Intelligence: Stopped PC audio recording");
+
+                    // Stop webcam audio recording (microphone)
+                    _audioCaptureService.StopWebcamAudioRecording();
+                    Debug.WriteLine("Intelligence: Stopped webcam audio recording");
+                }
+
+                // Stop webcam image recording just like ObservePage
+                if (_intelligenceWebcamCts != null)
+                {
+                    _intelligenceWebcamCts.Cancel();
+                    _intelligenceWebcamCts.Dispose();
+                    _intelligenceWebcamCts = null;
+                    Debug.WriteLine("Intelligence: Stopped webcam image recording");
+                }
 
                 // Stop input capture service if available
                 if (_inputCaptureService != null)
@@ -3061,7 +3114,7 @@ namespace CSimple.ViewModels
                             var executionDuration = DateTime.Now - executionStartTime;
                             _lastPipelineExecution = DateTime.Now;
 
-                            Debug.WriteLine($"Intelligence: Pipeline executed in {executionDuration.TotalMilliseconds}ms with {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs");
+                            // Debug.WriteLine($"Intelligence: Pipeline executed in {executionDuration.TotalMilliseconds}ms with {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs");
 
                             // Clear processed data
                             ClearAccumulatedData();
@@ -3069,7 +3122,7 @@ namespace CSimple.ViewModels
                             // If execution took longer than minimum interval, process immediately accumulated data
                             if (executionDuration.TotalMilliseconds > minimumIntervalMs)
                             {
-                                Debug.WriteLine($"Intelligence: Execution exceeded interval ({executionDuration.TotalMilliseconds}ms > {minimumIntervalMs}ms), processing accumulated data immediately");
+                                // Debug.WriteLine($"Intelligence: Execution exceeded interval ({executionDuration.TotalMilliseconds}ms > {minimumIntervalMs}ms), processing accumulated data immediately");
                                 continue; // Skip delay and process immediately
                             }
                         }
@@ -3492,11 +3545,11 @@ namespace CSimple.ViewModels
                             _intelligenceRecordingBuffer.Add(actionItem);
 
                             // Format the input for pipeline chat display (for debugging/monitoring)
-                            var formattedInput = FormatInputForPipelineChat(inputData);
-                            if (!string.IsNullOrEmpty(formattedInput))
-                            {
-                                AddPipelineChatMessage(formattedInput, false);
-                            }
+                            // var formattedInput = FormatInputForPipelineChat(inputData);
+                            // if (!string.IsNullOrEmpty(formattedInput))
+                            // {
+                            //     AddPipelineChatMessage(formattedInput, false);
+                            // }
 
                             // Periodically log buffer size for debugging
                             if (_intelligenceRecordingBuffer.Count % 50 == 0)
@@ -3628,6 +3681,22 @@ namespace CSimple.ViewModels
                 // Add to recording buffer
                 _intelligenceRecordingBuffer.Add(audioFileActionItem);
 
+                // Attach the audio file to the current intelligence session (like ObservePage does)
+                if (_currentIntelligenceSession != null)
+                {
+                    var audioFile = new ActionFile
+                    {
+                        Filename = fileName,
+                        ContentType = GetAudioContentType(filePath),
+                        Data = filePath, // Store the file path as the data
+                        AddedAt = DateTime.Now,
+                        IsProcessed = false
+                    };
+
+                    _currentIntelligenceSession.Files.Add(audioFile);
+                    Debug.WriteLine($"Intelligence: Attached audio file '{fileName}' to intelligence session");
+                }
+
                 AddPipelineChatMessage($"🎤 Audio captured: {fileName}", false);
                 Debug.WriteLine($"Intelligence: Audio file captured - {filePath}, added to recording buffer (total: {_intelligenceRecordingBuffer.Count})");
             }
@@ -3635,6 +3704,80 @@ namespace CSimple.ViewModels
             {
                 Debug.WriteLine($"Error processing audio file capture: {ex.Message}");
             }
+        }
+
+        // Event handler for image file capture (webcam images)
+        private void OnImageFileCaptured(string filePath)
+        {
+            try
+            {
+                if (!IsIntelligenceActive)
+                    return;
+
+                var fileName = Path.GetFileName(filePath);
+
+                // Create ActionItem for image file capture
+                var imageFileActionItem = new ActionItem
+                {
+                    EventType = 0x1002, // Custom event type for image file
+                    Coordinates = new Coordinates { X = 0, Y = 0, AbsoluteX = 0, AbsoluteY = 0 },
+                    Timestamp = DateTime.Now.Ticks,
+                    Duration = 0,
+                    KeyCode = 0,
+                    MouseData = (uint)(fileName?.Length ?? 0), // Store filename length as identifier
+                    Flags = 0
+                };
+
+                // Add to recording buffer
+                _intelligenceRecordingBuffer.Add(imageFileActionItem);
+
+                // Attach the image file to the current intelligence session (like ObservePage does)
+                if (_currentIntelligenceSession != null)
+                {
+                    var imageFile = new ActionFile
+                    {
+                        Filename = fileName,
+                        ContentType = GetImageContentType(filePath),
+                        Data = filePath, // Store the file path as the data
+                        AddedAt = DateTime.Now,
+                        IsProcessed = false
+                    };
+
+                    _currentIntelligenceSession.Files.Add(imageFile);
+                    // Debug.WriteLine($"Intelligence: Attached image file '{fileName}' to intelligence session");
+                }
+
+                // AddPipelineChatMessage($"📷 Image captured: {fileName}", false);
+                // Debug.WriteLine($"Intelligence: Image file captured - {filePath}, added to recording buffer (total: {_intelligenceRecordingBuffer.Count})");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error processing image file capture: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get content type for image files
+        /// </summary>
+        private string GetImageContentType(string filePath)
+        {
+            if (filePath.EndsWith(".png") || filePath.EndsWith(".jpg") || filePath.EndsWith(".jpeg"))
+                return "Image";
+            return "Image"; // Default to Image for webcam captures
+        }
+
+        /// <summary>
+        /// Get content type for audio files (similar to ObservePage GetFileContentType)
+        /// </summary>
+        private string GetAudioContentType(string filePath)
+        {
+            if (filePath.EndsWith(".mp3") || filePath.EndsWith(".wav"))
+                return "Audio";
+            if (filePath.EndsWith(".png") || filePath.EndsWith(".jpg"))
+                return "Image";
+            if (filePath.EndsWith(".txt"))
+                return "Text";
+            return "Audio"; // Default to Audio for intelligence session files
         }
 
         // Event handler for PC audio level changes
@@ -3663,8 +3806,8 @@ namespace CSimple.ViewModels
                     // Add to recording buffer
                     _intelligenceRecordingBuffer.Add(audioLevelActionItem);
 
-                    AddPipelineChatMessage($"🔊 PC Audio level: {level:P0}", false);
-                    Debug.WriteLine($"Intelligence: PC Audio level {level:P0} added to recording buffer (total: {_intelligenceRecordingBuffer.Count})");
+                    // AddPipelineChatMessage($"🔊 PC Audio level: {level:P0}", false);
+                    // Debug.WriteLine($"Intelligence: PC Audio level {level:P0} added to recording buffer (total: {_intelligenceRecordingBuffer.Count})");
                 }
             }
             catch (Exception ex)
@@ -3694,66 +3837,66 @@ namespace CSimple.ViewModels
         }
 
         // Format input data for display in pipeline chat
-        private string FormatInputForPipelineChat(string inputData)
-        {
-            try
-            {
-                // Try to parse as JSON first (many input services use JSON format)
-                if (inputData.StartsWith("{") && inputData.EndsWith("}"))
-                {
-                    try
-                    {
-                        var inputObj = JsonConvert.DeserializeObject<dynamic>(inputData);
+        // private string FormatInputForPipelineChat(string inputData)
+        // {
+        //     try
+        //     {
+        //         // Try to parse as JSON first (many input services use JSON format)
+        //         if (inputData.StartsWith("{") && inputData.EndsWith("}"))
+        //         {
+        //             try
+        //             {
+        //                 var inputObj = JsonConvert.DeserializeObject<dynamic>(inputData);
 
-                        // Check for different input types
-                        if (inputObj.Type != null)
-                        {
-                            string type = inputObj.Type.ToString();
-                            switch (type.ToLower())
-                            {
-                                case "keypress":
-                                case "keydown":
-                                case "keyup":
-                                    return $"⌨️ Key: {inputObj.Key} ({type})";
+        //                 // Check for different input types
+        //                 if (inputObj.Type != null)
+        //                 {
+        //                     string type = inputObj.Type.ToString();
+        //                     switch (type.ToLower())
+        //                     {
+        //                         case "keypress":
+        //                         case "keydown":
+        //                         case "keyup":
+        //                             return $"⌨️ Key: {inputObj.Key} ({type})";
 
-                                case "mousemove":
-                                    return $"🖱️ Mouse: ({inputObj.X}, {inputObj.Y})";
+        //                         case "mousemove":
+        //                             return $"🖱️ Mouse: ({inputObj.X}, {inputObj.Y})";
 
-                                case "mouseclick":
-                                case "mousedown":
-                                case "mouseup":
-                                    return $"🖱️ Click: {inputObj.Button} at ({inputObj.X}, {inputObj.Y})";
+        //                         case "mouseclick":
+        //                         case "mousedown":
+        //                         case "mouseup":
+        //                             return $"🖱️ Click: {inputObj.Button} at ({inputObj.X}, {inputObj.Y})";
 
-                                case "scroll":
-                                    return $"🖱️ Scroll: {inputObj.Direction} at ({inputObj.X}, {inputObj.Y})";
+        //                         case "scroll":
+        //                             return $"🖱️ Scroll: {inputObj.Direction} at ({inputObj.X}, {inputObj.Y})";
 
-                                case "audio":
-                                    return $"🎤 Audio captured: {inputObj.Duration}ms";
+        //                         case "audio":
+        //                             return $"🎤 Audio captured: {inputObj.Duration}ms";
 
-                                case "image":
-                                case "screenshot":
-                                    return $"📸 Image captured: {inputObj.Width}x{inputObj.Height}";
+        //                         case "image":
+        //                         case "screenshot":
+        //                             return $"📸 Image captured: {inputObj.Width}x{inputObj.Height}";
 
-                                default:
-                                    return $"📝 Input: {type} - {inputData}";
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        // If JSON parsing fails, treat as plain text
-                    }
-                }
+        //                         default:
+        //                             return $"📝 Input: {type} - {inputData}";
+        //                     }
+        //                 }
+        //             }
+        //             catch
+        //             {
+        //                 // If JSON parsing fails, treat as plain text
+        //             }
+        //         }
 
-                // For non-JSON input data, format as plain text
-                return $"📝 Input: {inputData}";
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error formatting input for pipeline chat: {ex.Message}");
-                return $"📝 Input: {inputData}";
-            }
-        }
+        //         // For non-JSON input data, format as plain text
+        //         return $"📝 Input: {inputData}";
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Debug.WriteLine($"Error formatting input for pipeline chat: {ex.Message}");
+        //         return $"📝 Input: {inputData}";
+        //     }
+        // }
 
         // Method to handle image capture (called when intelligence is active)
         public void CaptureCurrentImage()
@@ -3764,8 +3907,8 @@ namespace CSimple.ViewModels
                     return;
 
                 // This would typically capture a screenshot or current image
-                AddPipelineChatMessage("📸 Image captured and processed", false);
-                Debug.WriteLine("Intelligence: Image captured");
+                // AddPipelineChatMessage("📸 Image captured and processed", false);
+                // Debug.WriteLine("Intelligence: Image captured");
             }
             catch (Exception ex)
             {
@@ -3904,7 +4047,7 @@ namespace CSimple.ViewModels
                 await PersistToMemoryFile(timestamp, applicationContext, userBehavior, memoryContext, pipelineHistory, cancellationToken);
 
                 _intelligenceCycleCount++;
-                Debug.WriteLine($"Intelligence: Comprehensive system state captured at {timestamp:HH:mm:ss.fff} (Cycle #{_intelligenceCycleCount})");
+                // Debug.WriteLine($"Intelligence: Comprehensive system state captured at {timestamp:HH:mm:ss.fff} (Cycle #{_intelligenceCycleCount})");
             }
             catch (Exception ex)
             {
@@ -3939,7 +4082,7 @@ namespace CSimple.ViewModels
                 _capturedTextData.Clear();
                 _lastDataClearTime = DateTime.Now;
             }
-            Debug.WriteLine($"Intelligence: Cleared accumulated data at {DateTime.Now:HH:mm:ss}");
+            // Debug.WriteLine($"Intelligence: Cleared accumulated data at {DateTime.Now:HH:mm:ss}");
         }
 
         /// <summary>
@@ -3957,7 +4100,7 @@ namespace CSimple.ViewModels
 
             try
             {
-                AddPipelineChatMessage($"🎯 Processing pipeline with {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs", false);
+                // AddPipelineChatMessage($"🎯 Processing pipeline with {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs", false);
 
                 // Get the pipeline execution service
                 var pipelineExecutionService = ServiceProvider.GetService<PipelineExecutionService>();
@@ -4043,7 +4186,7 @@ namespace CSimple.ViewModels
                     }
                 }
 
-                Debug.WriteLine($"Intelligence: Pipeline execution recorded - {executionRecord.PipelineName} ({executionRecord.ExecutionTime:F0}ms, Success: {executionRecord.Success})");
+                // Debug.WriteLine($"Intelligence: Pipeline execution recorded - {executionRecord.PipelineName} ({executionRecord.ExecutionTime:F0}ms, Success: {executionRecord.Success})");
             }
         }
 
@@ -4411,7 +4554,7 @@ namespace CSimple.ViewModels
                 var memoryJson = JsonConvert.SerializeObject(memoryContext, Formatting.Indented);
                 await File.WriteAllTextAsync(memoryFilePath, memoryJson, cancellationToken);
 
-                Debug.WriteLine($"Intelligence: Memory persisted to {memoryFilePath} ({memoryContext.RecentEntries.Count} entries)");
+                // Debug.WriteLine($"Intelligence: Memory persisted to {memoryFilePath} ({memoryContext.RecentEntries.Count} entries)");
             }
             catch (Exception ex)
             {
@@ -4450,7 +4593,7 @@ namespace CSimple.ViewModels
                 if (action == "START")
                 {
                     // Start a new intelligence session
-                    await StartIntelligenceSession();
+                    StartIntelligenceSession();
                 }
                 else if (action == "STOP")
                 {
@@ -4467,7 +4610,7 @@ namespace CSimple.ViewModels
         /// <summary>
         /// Start a new intelligence session
         /// </summary>
-        private async Task StartIntelligenceSession()
+        private void StartIntelligenceSession()
         {
             _currentIntelligenceSessionId = Guid.NewGuid();
             _currentSessionStartTime = DateTime.Now;
@@ -4581,7 +4724,7 @@ namespace CSimple.ViewModels
             if (_intelligenceRecordingBuffer != null && _intelligenceRecordingBuffer.Count > 0)
             {
                 _currentIntelligenceSession.ActionArray.AddRange(_intelligenceRecordingBuffer);
-                Debug.WriteLine($"Intelligence: Including {_intelligenceRecordingBuffer.Count} recorded input events in session");
+                // Debug.WriteLine($"Intelligence: Including {_intelligenceRecordingBuffer.Count} recorded input events in session");
                 _intelligenceRecordingBuffer.Clear();
             }
 

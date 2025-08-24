@@ -312,11 +312,12 @@ namespace CSimple.Pages
                     // Ensure preview is disabled by default
                     CapturePreviewCard.IsPreviewEnabled = false;
                     CapturePreviewCard.IsUserToggledOff = true;
+
+                    // Initialize the preview card as active but don't start the preview service yet
+                    CapturePreviewCard.SetPreviewActive(true);
                 }
 
-                // Start preview sources with a slight delay to ensure UI is ready
-                await Task.Delay(500);
-                UpdatePreviewSources(true);
+                // Note: Preview service will be started only when recording begins
             }
             catch (Exception ex)
             {
@@ -387,12 +388,16 @@ namespace CSimple.Pages
                     UserVisualLevel = 1.0f;
                     // Enable previews when starting screen capture
                     EnablePreviewIfNeeded();
+                    // Start preview service when recording begins
+                    UpdatePreviewSources(true);
                 }
                 else if (startAction == StartPCVisual)
                 {
                     PCVisualLevel = 1.0f;
                     // Enable previews when starting webcam capture
                     EnablePreviewIfNeeded();
+                    // Start preview service when recording begins
+                    UpdatePreviewSources(true);
                 }
                 else if (startAction == StartUserTouch)
                 {
@@ -412,12 +417,22 @@ namespace CSimple.Pages
                     UserVisualLevel = 0.0f;
                     // Check if we should disable previews
                     CheckAndDisablePreviewIfNeeded();
+                    // Stop preview service if no recording is active
+                    if (!IsRecordingActive)
+                    {
+                        UpdatePreviewSources(false);
+                    }
                 }
                 else if (stopAction == StopPCVisual)
                 {
                     PCVisualLevel = 0.0f;
                     // Check if we should disable previews
                     CheckAndDisablePreviewIfNeeded();
+                    // Stop preview service if no recording is active
+                    if (!IsRecordingActive)
+                    {
+                        UpdatePreviewSources(false);
+                    }
                 }
                 else if (stopAction == StopUserTouch)
                 {
@@ -468,7 +483,8 @@ namespace CSimple.Pages
         {
             _pcVisualCts = new CancellationTokenSource();
             Debug.WriteLine("[ObservePage] StartPCVisual - Calling _screenService.StartWebcamCapture");
-            Task.Run(() => _screenService.StartWebcamCapture(_pcVisualCts.Token, ActionConfigCard?.ActionName), _pcVisualCts.Token);
+            const int DEFAULT_INTELLIGENCE_INTERVAL_MS = 1000; // Default 1 second interval for ObservePage
+            Task.Run(() => _screenService.StartWebcamCapture(_pcVisualCts.Token, ActionConfigCard?.ActionName, DEFAULT_INTELLIGENCE_INTERVAL_MS), _pcVisualCts.Token);
             Debug.WriteLine("[ObservePage] StartPCVisual - _screenService.StartWebcamCapture task started"); // Added debug print
         }
 
@@ -863,11 +879,11 @@ namespace CSimple.Pages
                     Debug.WriteLine($"CapturePreviewCard.IsPreviewEnabled not changed");
                 }
 
-                // Start the capture service - it will always run, but preview updates depend on IsPreviewEnabled
-                if (isActive)
+                // Only start the capture service when recording is actually active
+                if (isActive && IsRecordingActive)
                 {
                     _screenService.StartPreviewMode();
-                    Debug.WriteLine("Started screen and webcam preview service");
+                    Debug.WriteLine("Started screen and webcam preview service (recording active)");
                 }
                 else
                 {
@@ -1070,11 +1086,11 @@ namespace CSimple.Pages
         {
             Dispatcher.Dispatch(() =>
             {
-                Debug.WriteLine($"OnFileCaptured: FilePath={filePath}");
+                // Debug.WriteLine($"OnFileCaptured: FilePath={filePath}");
 
                 if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
                 {
-                    Debug.WriteLine($"OnFileCaptured: File exists at {filePath}");
+                    // Debug.WriteLine($"OnFileCaptured: File exists at {filePath}");
                 }
                 else
                 {
@@ -1185,6 +1201,12 @@ namespace CSimple.Pages
                 return;
             }
 
+            // Only process preview frames when recording is active
+            if (!IsRecordingActive)
+            {
+                return;
+            }
+
             // Use Dispatcher to update UI from background thread
             Dispatcher.Dispatch(() =>
             {
@@ -1207,6 +1229,12 @@ namespace CSimple.Pages
             if (source == null)
             {
                 Debug.WriteLine("[ObservePage] OnWebcamPreviewFrameReady - ImageSource is null");
+                return;
+            }
+
+            // Only process preview frames when recording is active
+            if (!IsRecordingActive)
+            {
                 return;
             }
 

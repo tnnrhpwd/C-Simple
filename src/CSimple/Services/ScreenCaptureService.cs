@@ -30,6 +30,12 @@ namespace CSimple.Services
         private bool _previewModeActive = false;
         private CancellationTokenSource _previewCts;
 
+        // CRITICAL FIX: Single shared webcam instance to prevent conflicts
+        private static VideoCapture _sharedWebcamCapture = null;
+        private static readonly object _webcamLock = new object();
+        private static int _webcamUserCount = 0;
+        private static bool _isWebcamInitialized = false;
+
         // Reduced capture interval to reduce overhead
         private const int CaptureIntervalMs = 250; // Capture every 250ms (4 times per second)
         #endregion
@@ -123,7 +129,7 @@ namespace CSimple.Services
 #if WINDOWS
             try
             {
-                Debug.Print("[ScreenCaptureService] CaptureScreens called");
+                // Debug.Print("[ScreenCaptureService] CaptureScreens called");
                 if (string.IsNullOrEmpty(actionName))
                     return;
 
@@ -142,10 +148,10 @@ namespace CSimple.Services
                         }
 
                         string filePath = Path.Combine(_screenshotsDirectory, $"ScreenCapture_{captureTime:yyyyMMdd_HHmmss_fff}_{screen.DeviceName.Replace("\\", "").Replace(":", "")}.png");
-                        Debug.Print($"[ScreenCaptureService] CaptureScreens - About to save screenshot to: {filePath}"); // Added debug print
+                        // Debug.Print($"[ScreenCaptureService] CaptureScreens - About to save screenshot to: {filePath}"); // Added debug print
                         bitmap.Save(filePath, ImageFormat.Png);
 
-                        Debug.Print($"[ScreenCaptureService] CaptureScreens - Screenshot saved to: {filePath}");
+                        // Debug.Print($"[ScreenCaptureService] CaptureScreens - Screenshot saved to: {filePath}");
                         FileCaptured?.Invoke(filePath);
 
                         // Convert the captured bitmap to ImageSource for preview
@@ -230,41 +236,70 @@ namespace CSimple.Services
             }, cancellationToken);
         }
 
-        public Task StartWebcamCapture(CancellationToken cancellationToken, string actionName)
+        public Task StartWebcamCapture(CancellationToken cancellationToken, string actionName, int intelligenceIntervalMs = 1000)
         {
             Debug.WriteLine("[ScreenCaptureService] StartWebcamCapture called");
+            Console.WriteLine("[WEBCAM SAVE] StartWebcamCapture called");
             if (!string.IsNullOrEmpty(actionName))
             {
                 Debug.Print("[ScreenCaptureService] Starting webcam capture with action or user input");
+                Console.WriteLine($"[WEBCAM SAVE] Starting webcam capture with actionName: '{actionName}'");
             }
             else
             {
                 Debug.Print("Webcam capture started without action or user input");
+                Console.WriteLine("[WEBCAM SAVE] Starting webcam capture without actionName");
             }
+
             return Task.Run(() =>
             {
                 Debug.WriteLine("[ScreenCaptureService] Webcam capture task started");
-                using var capture = new VideoCapture(0);
+                Console.WriteLine("[WEBCAM SAVE] Webcam capture task started - using SHARED VideoCapture to prevent conflicts");
+
+                // CRITICAL FIX: Use shared webcam instance to prevent multiple access conflicts
+                lock (_webcamLock)
+                {
+                    if (_sharedWebcamCapture == null || !_sharedWebcamCapture.IsOpened())
+                    {
+                        Console.WriteLine("[WEBCAM SAVE] Initializing shared webcam capture...");
+                        _sharedWebcamCapture?.Dispose();
+                        _sharedWebcamCapture = new VideoCapture(0);
+                        _isWebcamInitialized = _sharedWebcamCapture.IsOpened();
+
+                        if (!_isWebcamInitialized)
+                        {
+                            Console.WriteLine("[WEBCAM SAVE] FAILED to initialize shared webcam!");
+                            Debug.Print("Failed to open shared webcam.");
+                            return;
+                        }
+                        else
+                        {
+                            Console.WriteLine("[WEBCAM SAVE] Shared webcam initialized successfully.");
+                            Debug.Print("Shared webcam opened successfully.");
+                        }
+                    }
+
+                    _webcamUserCount++;
+                    Console.WriteLine($"[WEBCAM SAVE] Webcam user count: {_webcamUserCount}");
+                }
+
                 using var frame = new Mat();
 
-                if (!capture.IsOpened())
+                // Test initial frame read
+                lock (_webcamLock)
                 {
-                    Debug.Print("Failed to open webcam.");
-                    return;
-                }
-                else
-                {
-                    Debug.Print("Webcam opened successfully.");
-                }
-                // Ensure the webcam is ready
-                if (!capture.Read(frame) || frame.Empty())
-                {
-                    Debug.Print("Failed to read initial frame from webcam.");
-                    return;
-                }
-                else
-                {
-                    Debug.Print("Initial webcam frame read successfully.");
+                    if (!_sharedWebcamCapture.Read(frame) || frame.Empty())
+                    {
+                        Console.WriteLine("[WEBCAM SAVE] FAILED to read initial frame from shared webcam.");
+                        Debug.Print("Failed to read initial frame from shared webcam.");
+                        _webcamUserCount--;
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine("[WEBCAM SAVE] Initial frame read successfully from shared webcam.");
+                        Debug.Print("Initial webcam frame read successfully.");
+                    }
                 }
 
                 Debug.WriteLine($"[ScreenCaptureService] Webcam capture loop - CancellationToken.IsCancellationRequested: {cancellationToken.IsCancellationRequested}");
@@ -273,9 +308,20 @@ namespace CSimple.Services
                 {
                     try
                     {
-                        Debug.Print("[ScreenCaptureService] Webcam capture loop - Attempting to read frame");
-                        if (!capture.Read(frame))
+                        // Debug.Print("[ScreenCaptureService] Webcam capture loop - Attempting to read frame");
+
+                        bool frameReadSuccess = false;
+                        lock (_webcamLock)
                         {
+                            if (_sharedWebcamCapture != null && _sharedWebcamCapture.IsOpened())
+                            {
+                                frameReadSuccess = _sharedWebcamCapture.Read(frame);
+                            }
+                        }
+
+                        if (!frameReadSuccess)
+                        {
+                            Console.WriteLine("[WEBCAM SAVE] Failed to read frame from shared webcam.");
                             Debug.Print("Failed to read frame from webcam.");
                             continue;
                         }
@@ -316,7 +362,7 @@ namespace CSimple.Services
                         }
                         else
                         {
-                            Debug.Print("Webcam frame captured successfully.");
+                            // Debug.Print("Webcam frame captured successfully.");
                         }
 
                         if (frame.Empty())
@@ -325,15 +371,49 @@ namespace CSimple.Services
                             continue;
                         }
 
-                        if (!string.IsNullOrEmpty(actionName))
+                        // Only save webcam images when intelligence/recording is actually active (actionName provided)
+                        if (!string.IsNullOrEmpty(actionName) && !actionName.StartsWith("TEST"))
                         {
-                            string filePath = Path.Combine(_webcamImagesDirectory, $"WebcamImage_{DateTime.Now:yyyyMMdd_HHmmss}.jpg");
+                            string effectiveActionName = actionName;
+                            string filePath = Path.Combine(_webcamImagesDirectory, $"WebcamImage_{DateTime.Now:yyyyMMdd_HHmmss_fff}.jpg");
+
                             try
                             {
-                                Debug.WriteLine($"[ScreenCaptureService] Attempting to save webcam image to: {filePath}, _previewModeActive: {_previewModeActive}");
-                                Cv2.ImWrite(filePath, frame);
-                                Debug.Print($"[ScreenCaptureService] StartWebcamCapture - Webcam image saved to: {filePath}");
-                                FileCaptured?.Invoke(filePath);
+                                // Debug.WriteLine($"[ScreenCaptureService] Saving webcam image for active session: {filePath}");
+                                // Console.WriteLine($"[WEBCAM SAVE] Attempting to save webcam image to: {filePath}");
+                                // Debug.WriteLine($"[ScreenCaptureService] ActionName: '{actionName}', Effective actionName: '{effectiveActionName}'");
+                                // Debug.WriteLine($"[ScreenCaptureService] Frame info - Width: {frame.Width}, Height: {frame.Height}, Empty: {frame.Empty()}, Type: {frame.Type()}");
+
+                                // Ensure directory exists before saving
+                                if (!Directory.Exists(_webcamImagesDirectory))
+                                {
+                                    Directory.CreateDirectory(_webcamImagesDirectory);
+                                    // Debug.WriteLine($"[ScreenCaptureService] Created directory: {_webcamImagesDirectory}");
+                                    // Console.WriteLine($"[WEBCAM SAVE] Created directory: {_webcamImagesDirectory}");
+                                }
+
+                                // Save the image with more detailed error checking
+                                bool saveResult = Cv2.ImWrite(filePath, frame);
+                                // Debug.WriteLine($"[ScreenCaptureService] ImWrite result: {saveResult}");
+                                // Console.WriteLine($"[WEBCAM SAVE] ImWrite result: {saveResult}");
+
+                                // Verify file was actually created and has content
+                                if (saveResult && File.Exists(filePath))
+                                {
+                                    var fileInfo = new FileInfo(filePath);
+                                    // Debug.WriteLine($"[ScreenCaptureService] SUCCESS! Webcam image saved: {filePath} (Size: {fileInfo.Length} bytes)");
+                                    // Console.WriteLine($"[WEBCAM SAVE] SUCCESS! Webcam image saved: {filePath} (Size: {fileInfo.Length} bytes)");
+                                    FileCaptured?.Invoke(filePath);
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($"[ScreenCaptureService] FAILED to save webcam image!");
+                                    Console.WriteLine($"[WEBCAM SAVE] FAILED to save webcam image to: {filePath}");
+                                    Debug.WriteLine($"[ScreenCaptureService] SaveResult: {saveResult}, FileExists: {File.Exists(filePath)}");
+                                    Console.WriteLine($"[WEBCAM SAVE] SaveResult: {saveResult}, FileExists: {File.Exists(filePath)}");
+                                    Debug.WriteLine($"[ScreenCaptureService] Directory writable: {IsDirectoryWritable(_webcamImagesDirectory)}");
+                                    Console.WriteLine($"[WEBCAM SAVE] Directory writable: {IsDirectoryWritable(_webcamImagesDirectory)}");
+                                }
 
                                 // Convert the captured frame to ImageSource for preview
                                 ImageSource webcamImage = ConvertMatToImageSource(frame);
@@ -341,24 +421,48 @@ namespace CSimple.Services
                             }
                             catch (Exception ex)
                             {
-                                Debug.Print($"Error saving webcam image: {ex.Message}");
+                                Debug.WriteLine($"[ScreenCaptureService] EXCEPTION saving webcam image: {ex.Message}");
+                                Console.WriteLine($"[WEBCAM SAVE] EXCEPTION saving webcam image: {ex.Message}");
+                                Debug.WriteLine($"[ScreenCaptureService] Exception details: {ex}");
+                                Debug.WriteLine($"[ScreenCaptureService] Stack trace: {ex.StackTrace}");
                             }
                         }
                         else
                         {
-                            Debug.Print($"No action or user input provided, skipping webcam image save. values - actionName: {actionName}");
+                            // Still provide preview frames even when not saving
+                            ImageSource webcamImage = ConvertMatToImageSource(frame);
+                            WebcamPreviewFrameReady?.Invoke(webcamImage);
+                            Console.WriteLine($"[WEBCAM SAVE] Skipping save - no active intelligence session (actionName: '{actionName ?? "null"}')");
                         }
-                        Thread.Sleep(CaptureIntervalMs);
+
+                        Thread.Sleep(intelligenceIntervalMs); // Use intelligence interval instead of fixed interval
                     }
                     catch (Exception ex)
                     {
                         Debug.Print($"Exception in webcam capture loop: {ex.Message}");
+                        Console.WriteLine($"[WEBCAM SAVE] Exception in webcam capture loop: {ex.Message}");
                     }
                 }
+
+                // Cleanup when cancellation is requested
+                lock (_webcamLock)
+                {
+                    _webcamUserCount--;
+                    Console.WriteLine($"[WEBCAM SAVE] Webcam user count decreased to: {_webcamUserCount}");
+                    if (_webcamUserCount <= 0)
+                    {
+                        Console.WriteLine("[WEBCAM SAVE] Disposing shared webcam capture...");
+                        _sharedWebcamCapture?.Dispose();
+                        _sharedWebcamCapture = null;
+                        _isWebcamInitialized = false;
+                        _webcamUserCount = 0;
+                    }
+                }
+
                 Debug.Print("Webcam capture stopped by cancellation request.");
+                Console.WriteLine("[WEBCAM SAVE] Webcam capture stopped by cancellation request.");
             }, cancellationToken);
         }
-
         public void StartPreviewMode()
         {
             _previewModeActive = true;
@@ -386,18 +490,36 @@ namespace CSimple.Services
         {
             try
             {
-                // Set up webcam for preview
-                using var webcamCapture = new VideoCapture(0);
-                using var webcamFrame = new Mat();
+                Console.WriteLine("[WEBCAM SAVE] GeneratePreviewFrames - Using SHARED webcam to prevent conflicts");
 
-                if (!webcamCapture.IsOpened())
+                // CRITICAL FIX: Use shared webcam instance instead of creating a new one
+                lock (_webcamLock)
                 {
-                    Debug.Print("Failed to open webcam for preview.");
+                    if (_sharedWebcamCapture == null || !_sharedWebcamCapture.IsOpened())
+                    {
+                        Console.WriteLine("[WEBCAM SAVE] GeneratePreviewFrames - Initializing shared webcam for preview...");
+                        _sharedWebcamCapture?.Dispose();
+                        _sharedWebcamCapture = new VideoCapture(0);
+                        _isWebcamInitialized = _sharedWebcamCapture.IsOpened();
+
+                        if (!_isWebcamInitialized)
+                        {
+                            Console.WriteLine("[WEBCAM SAVE] GeneratePreviewFrames - FAILED to initialize shared webcam for preview!");
+                            Debug.Print("Failed to open webcam for preview.");
+                            return;
+                        }
+                        else
+                        {
+                            Console.WriteLine("[WEBCAM SAVE] GeneratePreviewFrames - Shared webcam initialized successfully for preview.");
+                            Debug.Print("Webcam opened successfully for preview.");
+                        }
+                    }
+
+                    _webcamUserCount++;
+                    Console.WriteLine($"[WEBCAM SAVE] GeneratePreviewFrames - Webcam user count: {_webcamUserCount}");
                 }
-                else
-                {
-                    Debug.Print("Webcam opened successfully for preview.");
-                }
+
+                using var webcamFrame = new Mat();
 
                 while (!token.IsCancellationRequested && _previewModeActive)
                 {
@@ -417,23 +539,29 @@ namespace CSimple.Services
                             ScreenPreviewFrameReady?.Invoke(screenImage);
                         }
 
-                        // 2. Get the webcam preview
-                        if (webcamCapture.IsOpened())
+                        // 2. Get the webcam preview using shared instance
+                        bool frameReadSuccess = false;
+                        lock (_webcamLock)
                         {
-                            Debug.Print("[ScreenCaptureService] GeneratePreviewFrames - Attempting to read webcam frame");
-                            if (webcamCapture.Read(webcamFrame) && !webcamFrame.Empty())
+                            if (_sharedWebcamCapture != null && _sharedWebcamCapture.IsOpened())
                             {
-                                Debug.WriteLine("[ScreenCaptureService] GeneratePreviewFrames - Webcam frame read successfully");
-                                var webcamImage = ConvertMatToImageSource(webcamFrame);
-                                if (webcamImage != null)
-                                {
-                                    WebcamPreviewFrameReady?.Invoke(webcamImage);
-                                }
+                                // Debug.Print("[ScreenCaptureService] GeneratePreviewFrames - Attempting to read webcam frame");
+                                frameReadSuccess = _sharedWebcamCapture.Read(webcamFrame) && !webcamFrame.Empty();
                             }
-                            else
+                        }
+
+                        if (frameReadSuccess)
+                        {
+                            // Debug.WriteLine("[ScreenCaptureService] GeneratePreviewFrames - Webcam frame read successfully");
+                            var webcamImage = ConvertMatToImageSource(webcamFrame);
+                            if (webcamImage != null)
                             {
-                                Debug.WriteLine("[ScreenCaptureService] GeneratePreviewFrames - Failed to read webcam frame");
+                                WebcamPreviewFrameReady?.Invoke(webcamImage);
                             }
+                        }
+                        else
+                        {
+                            Debug.WriteLine("[ScreenCaptureService] GeneratePreviewFrames - Failed to read webcam frame");
                         }
 
                         // Short delay for next frame
@@ -447,6 +575,21 @@ namespace CSimple.Services
                     {
                         Debug.Print($"Frame capture error: {ex.Message}");
                         await Task.Delay(1000, token); // Longer delay on error
+                    }
+                }
+
+                // Cleanup when preview stops
+                lock (_webcamLock)
+                {
+                    _webcamUserCount--;
+                    Console.WriteLine($"[WEBCAM SAVE] GeneratePreviewFrames - Webcam user count decreased to: {_webcamUserCount}");
+                    if (_webcamUserCount <= 0)
+                    {
+                        Console.WriteLine("[WEBCAM SAVE] GeneratePreviewFrames - Disposing shared webcam capture...");
+                        _sharedWebcamCapture?.Dispose();
+                        _sharedWebcamCapture = null;
+                        _isWebcamInitialized = false;
+                        _webcamUserCount = 0;
                     }
                 }
             }
@@ -465,7 +608,7 @@ namespace CSimple.Services
         {
             try
             {
-                Debug.Print("[ScreenCaptureService] ConvertMatToImageSource called");
+                // Debug.Print("[ScreenCaptureService] ConvertMatToImageSource called");
 
                 // Calculate aspect ratio to maintain proportions
                 double aspectRatio = (double)frame.Width / frame.Height;
@@ -478,11 +621,11 @@ namespace CSimple.Services
 
                 // Convert the resized frame to a byte array
                 byte[] imageBytes = resizedFrame.ToBytes(".jpg", new ImageEncodingParam(ImwriteFlags.JpegQuality, 95));
-                Debug.Print($"[ScreenCaptureService] ConvertMatToImageSource - Image converted to byte array, size: {imageBytes.Length}");
+                // Debug.Print($"[ScreenCaptureService] ConvertMatToImageSource - Image converted to byte array, size: {imageBytes.Length}");
 
                 // Create an ImageSource from the byte array using a proper stream factory
                 ImageSource imageSource = ImageSource.FromStream(() => new MemoryStream(imageBytes));
-                Debug.Print($"[ScreenCaptureService] ConvertMatToImageSource - ImageSource created from MemoryStream");
+                // Debug.Print($"[ScreenCaptureService] ConvertMatToImageSource - ImageSource created from MemoryStream");
 
                 return imageSource;
             }
@@ -603,6 +746,27 @@ namespace CSimple.Services
             {
                 Debug.Print($"Error parsing DateTime from filename: {ex.Message}");
                 return DateTime.MinValue;
+            }
+        }
+
+        /// <summary>
+        /// Check if a directory is writable by attempting to create a temporary file
+        /// </summary>
+        private bool IsDirectoryWritable(string directoryPath)
+        {
+            try
+            {
+                if (!Directory.Exists(directoryPath))
+                    return false;
+
+                string tempFile = Path.Combine(directoryPath, Guid.NewGuid().ToString() + ".tmp");
+                File.WriteAllText(tempFile, "test");
+                File.Delete(tempFile);
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
     }
