@@ -43,7 +43,7 @@ public partial class App : Application
     public NetPageViewModel NetPageViewModel { get; private set; }
 
     // Inject services via constructor - Change PythonDependencyManager to PythonBootstrapper
-    public App(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, DataService dataService, IDebugConsoleService debugConsoleService, IHotkeyService hotkeyService, IAppPathService appPathService)
+    public App(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, DataService dataService, IDebugConsoleService debugConsoleService, IHotkeyService hotkeyService, IAppPathService appPathService, PipelineExecutionService pipelineExecutionService)
     {
         try
         {
@@ -104,7 +104,7 @@ public partial class App : Application
 #endif
 
             // Instantiate NetPageViewModel using injected services - Pass pythonBootstrapper
-            NetPageViewModel = new NetPageViewModel(fileService, huggingFaceService, pythonBootstrapper, appModeService, pythonEnvironmentService, modelCommunicationService, modelExecutionService, modelImportExportService, trayService, modelDownloadService, modelImportService, chatManagementService, mediaSelectionService, dataService, appPathService);
+            NetPageViewModel = new NetPageViewModel(fileService, huggingFaceService, pythonBootstrapper, appModeService, pythonEnvironmentService, modelCommunicationService, modelExecutionService, modelImportExportService, trayService, modelDownloadService, modelImportService, chatManagementService, mediaSelectionService, dataService, appPathService, pipelineExecutionService);
             CSimple.Utilities.DebugConsole.Info("App constructor: NetPageViewModel instantiated");
 
             // Extract bundled scripts to app data directory

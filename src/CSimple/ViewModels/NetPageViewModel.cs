@@ -41,6 +41,7 @@ namespace CSimple.ViewModels
         private readonly MouseTrackingService _mouseTrackingService; // Add mouse tracking service
         private readonly AudioCaptureService _audioCaptureService; // Add audio capture service
         private readonly ScreenCaptureService _screenCaptureService; // Add screen capture service for webcam image capture
+        private readonly PipelineExecutionService _pipelineExecutionService; // Add pipeline execution service
         // Consider injecting navigation and dialog services for better testability
 
         // Debounce mechanism for saving to prevent excessive saves
@@ -441,7 +442,7 @@ namespace CSimple.ViewModels
         // Note: ModelCommunicationService handles model communication logic (extracted for maintainability)
         // Note: ModelExecutionService handles model execution with enhanced error handling (extracted for maintainability)
         // Note: ModelImportExportService handles model import/export and file operations (extracted for maintainability)
-        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, DataService dataService, IAppPathService appPathService, PipelineManagementService pipelineManagementService = null, InputCaptureService inputCaptureService = null, MouseTrackingService mouseTrackingService = null, AudioCaptureService audioCaptureService = null, ScreenCaptureService screenCaptureService = null)
+        public NetPageViewModel(FileService fileService, HuggingFaceService huggingFaceService, PythonBootstrapper pythonBootstrapper, AppModeService appModeService, PythonEnvironmentService pythonEnvironmentService, ModelCommunicationService modelCommunicationService, ModelExecutionService modelExecutionService, ModelImportExportService modelImportExportService, ITrayService trayService, IModelDownloadService modelDownloadService, IModelImportService modelImportService, IChatManagementService chatManagementService, IMediaSelectionService mediaSelectionService, DataService dataService, IAppPathService appPathService, PipelineExecutionService pipelineExecutionService, PipelineManagementService pipelineManagementService = null, InputCaptureService inputCaptureService = null, MouseTrackingService mouseTrackingService = null, AudioCaptureService audioCaptureService = null, ScreenCaptureService screenCaptureService = null)
         {
             _fileService = fileService;
             _huggingFaceService = huggingFaceService;
@@ -458,6 +459,7 @@ namespace CSimple.ViewModels
             _mediaSelectionService = mediaSelectionService;
             _dataService = dataService; // Initialize data service for intelligence session persistence
             _settingsService = new SettingsService(dataService, appPathService); // Initialize settings service
+            _pipelineExecutionService = pipelineExecutionService; // Initialize pipeline execution service
             _pipelineManagementService = pipelineManagementService; // Optional dependency
             _inputCaptureService = inputCaptureService; // Optional dependency for intelligence recording
             _mouseTrackingService = mouseTrackingService; // Optional dependency for mouse tracking
@@ -611,6 +613,17 @@ namespace CSimple.ViewModels
                     Debug.WriteLine($"Error loading intelligence session history during initialization: {ex.Message}");
                 }
             });
+        }
+
+        /// <summary>
+        /// Helper method to find corresponding model for pipeline execution
+        /// </summary>
+        private NeuralNetworkModel FindCorrespondingModel(NodeViewModel node)
+        {
+            // Use this instance's AvailableModels directly since we're already in NetPageViewModel
+            return AvailableModels?.FirstOrDefault(m =>
+                m.Name.Equals(node.Name, StringComparison.OrdinalIgnoreCase) ||
+                m.HuggingFaceModelId.Contains(node.Name, StringComparison.OrdinalIgnoreCase));
         }        // Check if a model is downloaded by examining the actual directory size
         public bool IsModelDownloaded(string modelId)
         {
@@ -3217,8 +3230,7 @@ namespace CSimple.ViewModels
                 }
 
                 // Get the pipeline execution service
-                var pipelineExecutionService = ServiceProvider.GetService<PipelineExecutionService>();
-                if (pipelineExecutionService == null)
+                if (_pipelineExecutionService == null)
                 {
                     Debug.WriteLine("Intelligence: Pipeline execution service not available");
                     Debug.WriteLine("[NetPage Pipeline] Pipeline execution service not available");
@@ -3249,7 +3261,7 @@ namespace CSimple.ViewModels
                 AddPipelineChatMessage($"🔄 Executing pipeline '{_selectedPipeline}' with system observations...", false);
 
                 // Execute the pipeline
-                var result = await pipelineExecutionService.ExecuteAllModelsAsync(nodes, connections, 1, null);
+                var result = await _pipelineExecutionService.ExecuteAllModelsAsync(nodes, connections, 1, null);
                 int successCount = result.successCount;
                 int skippedCount = result.skippedCount;
 
@@ -4176,8 +4188,7 @@ namespace CSimple.ViewModels
                 AddPipelineChatMessage($"🎯 Processing pipeline with {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs", false);
 
                 // Get the pipeline execution service
-                var pipelineExecutionService = ServiceProvider.GetService<PipelineExecutionService>();
-                if (pipelineExecutionService == null)
+                if (_pipelineExecutionService == null)
                 {
                     AddPipelineChatMessage("⚠️ Pipeline execution service not available", false);
                     Debug.WriteLine($"[NetPage Pipeline] ERROR: Pipeline execution service not available");
@@ -4206,7 +4217,7 @@ namespace CSimple.ViewModels
 
                     Debug.WriteLine($"[NetPage Pipeline] Executing pipeline with {nodeViewModels.Count} nodes and {connectionViewModels.Count} connections");
 
-                    var executionResults = await pipelineExecutionService.ExecuteAllModelsAsync(
+                    var executionResults = await _pipelineExecutionService.ExecuteAllModelsAsync(
                         nodeViewModels,
                         connectionViewModels,
                         1, // currentActionStep

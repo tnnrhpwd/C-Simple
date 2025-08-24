@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CSimple.Models;
 using CSimple.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CSimple.Services
 {
@@ -16,6 +17,7 @@ namespace CSimple.Services
     public class EnsembleModelService
     {
         private readonly NetPageViewModel _netPageViewModel;
+        private readonly IServiceProvider _serviceProvider;
         private readonly Dictionary<string, NodeViewModel> _nodeCache = new Dictionary<string, NodeViewModel>();
         private readonly object _nodeCacheLock = new object(); // Thread safety for node cache
 
@@ -27,9 +29,35 @@ namespace CSimple.Services
         private readonly Dictionary<string, List<(NodeViewModel node, string input)>> _batchedExecutions = new Dictionary<string, List<(NodeViewModel, string)>>();
         private readonly object _batchedExecutionsLock = new object(); // Thread safety for batched executions
 
-        public EnsembleModelService(NetPageViewModel netPageViewModel)
+        public EnsembleModelService(NetPageViewModel netPageViewModel = null)
         {
-            _netPageViewModel = netPageViewModel ?? throw new ArgumentNullException(nameof(netPageViewModel));
+            _netPageViewModel = netPageViewModel; // Allow null to break circular dependency
+        }
+
+        public EnsembleModelService(IServiceProvider serviceProvider)
+        {
+            _serviceProvider = serviceProvider; // Use service provider to get NetPageViewModel when needed
+        }
+
+        private NetPageViewModel GetNetPageViewModel()
+        {
+            if (_netPageViewModel != null)
+                return _netPageViewModel;
+
+            if (_serviceProvider != null)
+            {
+                try
+                {
+                    return _serviceProvider.GetRequiredService<NetPageViewModel>();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Could not get NetPageViewModel from service provider: {ex.Message}");
+                    return null;
+                }
+            }
+
+            return null;
         }
 
         public void ClearStepContentCache()
@@ -260,7 +288,14 @@ namespace CSimple.Services
                     }
                 }
 
-                var result = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, processedInput);
+                var netPageViewModel = GetNetPageViewModel();
+                if (netPageViewModel == null)
+                {
+                    Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] NetPageViewModel is null, returning empty result");
+                    return "NetPageViewModel not available";
+                }
+
+                var result = await netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, processedInput);
                 return result ?? "No output generated";
             }
             catch (Exception ex)
@@ -645,8 +680,16 @@ namespace CSimple.Services
 
                     try
                     {
+                        var netPageViewModel = GetNetPageViewModel();
+                        if (netPageViewModel == null)
+                        {
+                            Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedImageInput] NetPageViewModel is null, skipping image processing");
+                            imageResults.Add($"Image {i + 1}: NetPageViewModel not available");
+                            continue;
+                        }
+
                         // Execute model on individual image
-                        var individualResult = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, imagePath);
+                        var individualResult = await netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, imagePath);
                         if (!string.IsNullOrEmpty(individualResult))
                         {
                             // Clean up the result - remove duplicate filename references and format properly
@@ -866,8 +909,16 @@ namespace CSimple.Services
 
                     try
                     {
+                        var netPageViewModel = GetNetPageViewModel();
+                        if (netPageViewModel == null)
+                        {
+                            Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] NetPageViewModel is null, skipping audio processing");
+                            audioResults.Add($"Audio {i + 1}: NetPageViewModel not available");
+                            continue;
+                        }
+
                         // Execute model on individual audio
-                        var individualResult = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, audioPath);
+                        var individualResult = await netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, audioPath);
                         if (!string.IsNullOrEmpty(individualResult))
                         {
                             // Clean up the result - remove duplicate filename references and format properly

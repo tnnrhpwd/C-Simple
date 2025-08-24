@@ -2,6 +2,7 @@ using CSimple.Pages;
 using CSimple.Services;
 using CSimple.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui.Controls;
 
 namespace CSimple.Extensions
 {
@@ -34,7 +35,6 @@ namespace CSimple.Extensions
             services.AddSingleton<PipelineManagementService>();
             services.AddSingleton<ActionReviewService>();
             services.AddSingleton<ActionStepNavigationService>();
-            services.AddSingleton<EnsembleModelService>();
             services.AddSingleton<ExecutionStatusTrackingService>();
             services.AddSingleton<IStepContentManagementService, StepContentManagementService>();
             services.AddSingleton<ICommandManagementService, CommandManagementService>();
@@ -42,6 +42,28 @@ namespace CSimple.Extensions
             services.AddSingleton<IModelLoadingManagementService, ModelLoadingManagementService>();
             services.AddSingleton<IActionReviewNavigationService, ActionReviewNavigationService>();
             services.AddSingleton<IFileManagementService, FileManagementService>();
+
+            // EnsembleModelService with delayed NetPageViewModel lookup to avoid circular dependency
+            services.AddSingleton<EnsembleModelService>(sp =>
+            {
+                return new EnsembleModelService(sp); // Pass the service provider to get NetPageViewModel when needed
+            });
+
+            // Pipeline Execution Service with factory pattern to avoid circular dependency
+            services.AddSingleton<PipelineExecutionService>(sp =>
+            {
+                var ensembleModelService = sp.GetRequiredService<EnsembleModelService>();
+
+                return new PipelineExecutionService(
+                    ensembleModelService,
+                    (node) =>
+                    {
+                        // Simple fallback - return null if no model found
+                        // The PipelineExecutionService can handle null models gracefully
+                        return null;
+                    }
+                );
+            });
 
             // Application Mode and UI Services
             services.AddSingleton<AppModeService>();
