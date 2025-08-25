@@ -178,7 +178,11 @@ coverage.xml
 .huggingface/
 .transformers_cache/
 huggingface_cache/
-models/
+# Exclude AI/ML model directories but not C# Models directory
+[Mm]odels/downloaded/
+[Mm]odels/cache/
+[Mm]odels/pretrained/
+# Add specific patterns for common AI model storage locations
 *.onnx
 *.tflite
 *.pb
