@@ -3255,7 +3255,7 @@ namespace CSimple.ViewModels
                 foreach (var inputNode in nodes.Where(n => n.Type == NodeType.Input))
                 {
                     inputNode.SetStepOutput(1, "text", systemInput);
-                    Debug.WriteLine($"[NetPage Pipeline] Set input for node '{inputNode.Name}': '{systemInput}'");
+                    // Debug.WriteLine($"[NetPage Pipeline] Set input for node '{inputNode.Name}': '{systemInput}'");
                 }
 
                 AddPipelineChatMessage($"🔄 Executing pipeline '{_selectedPipeline}' with system observations...", false);
@@ -3334,20 +3334,20 @@ namespace CSimple.ViewModels
 
                 foreach (var node in nodes)
                 {
-                    Debug.WriteLine($"[NetPage Pipeline] Node: '{node.Name}' (Type: {node.Type})");
+                    // Debug.WriteLine($"[NetPage Pipeline] Node: '{node.Name}' (Type: {node.Type})");
 
                     if (node.Type == NodeType.Model)
                     {
                         var output = node.GetStepOutput(1);
-                        Debug.WriteLine($"[NetPage Pipeline] Model Node Output: '{output.Value ?? "NULL"}'");
-                        Debug.WriteLine($"[NetPage Pipeline] Output Type: {output.Type}");
-                        Debug.WriteLine($"[NetPage Pipeline] Model Path: '{node.ModelPath ?? "N/A"}'");
-                        Debug.WriteLine($"[NetPage Pipeline] Classification: '{node.Classification ?? "N/A"}'");
+                        // Debug.WriteLine($"[NetPage Pipeline] Model Node Output: '{output.Value ?? "NULL"}'");
+                        // Debug.WriteLine($"[NetPage Pipeline] Output Type: {output.Type}");
+                        // Debug.WriteLine($"[NetPage Pipeline] Model Path: '{node.ModelPath ?? "N/A"}'");
+                        // Debug.WriteLine($"[NetPage Pipeline] Classification: '{node.Classification ?? "N/A"}'");
                     }
                     else if (node.Type == NodeType.Input)
                     {
                         var output = node.GetStepOutput(1);
-                        Debug.WriteLine($"[NetPage Pipeline] Input Node Output: '{output.Value ?? "NULL"}'");
+                        // Debug.WriteLine($"[NetPage Pipeline] Input Node Output: '{output.Value ?? "NULL"}'");
                     }
                     else if (node.Type == NodeType.Output)
                     {
@@ -4060,9 +4060,9 @@ namespace CSimple.ViewModels
 
                 // 2. Enhanced Application Context Capture
                 var applicationContext = await CaptureApplicationContext(cancellationToken);
-                contextData.AppendLine($"Active Applications: {applicationContext.ActiveApplications.Count}");
-                contextData.AppendLine($"Focused Window: {applicationContext.FocusedWindow}");
-                contextData.AppendLine($"System Resources: CPU {applicationContext.CpuUsage:F1}%, Memory {applicationContext.MemoryUsage:F1}%");
+                // contextData.AppendLine($"Active Applications: {applicationContext.ActiveApplications.Count}");
+                // contextData.AppendLine($"Focused Window: {applicationContext.FocusedWindow}");
+                // contextData.AppendLine($"System Resources: CPU {applicationContext.CpuUsage:F1}%, Memory {applicationContext.MemoryUsage:F1}%");
 
                 // 3. Enhanced Audio Capture with Real Data
                 if (_audioCaptureService != null)
@@ -4076,7 +4076,7 @@ namespace CSimple.ViewModels
                             {
                                 _capturedAudioData.Add(audioBuffer);
                             }
-                            contextData.AppendLine($"Audio captured: {audioBuffer.Length} bytes");
+                            // contextData.AppendLine($"Audio captured: {audioBuffer.Length} bytes");
                         }
                     }
                     catch (Exception ex)
@@ -4108,21 +4108,21 @@ namespace CSimple.ViewModels
                 }
 
                 // 7. Store comprehensive context as enriched text data
-                var enrichedTextData = $"COMPREHENSIVE_CONTEXT_{timestamp:yyyy-MM-dd_HH-mm-ss-fff}\n" +
-                                     $"Timestamp: {timestamp:yyyy-MM-dd HH:mm:ss.fff}\n" +
-                                     $"Session ID: {_sessionId}\n" +
-                                     $"Intelligence Cycle: {_intelligenceCycleCount}\n" +
-                                     $"---\n" +
-                                     contextData.ToString() +
-                                     $"---\n" +
-                                     $"Historical Trends:\n{memoryContext.TrendAnalysis}\n" +
-                                     $"User Patterns: {userBehavior.PatternAnalysis}\n" +
-                                     $"Context Score: {CalculateContextRelevanceScore(applicationContext, userBehavior, memoryContext)}\n";
+                // var enrichedTextData = $"COMPREHENSIVE_CONTEXT_{timestamp:yyyy-MM-dd_HH-mm-ss-fff}\n" +
+                //                      $"Timestamp: {timestamp:yyyy-MM-dd HH:mm:ss.fff}\n" +
+                //                      $"Session ID: {_sessionId}\n" +
+                //                      $"Intelligence Cycle: {_intelligenceCycleCount}\n" +
+                //                      $"---\n" +
+                //                      contextData.ToString() +
+                //                      $"---\n" +
+                //                      $"Historical Trends:\n{memoryContext.TrendAnalysis}\n" +
+                //                      $"User Patterns: {userBehavior.PatternAnalysis}\n" +
+                //                      $"Context Score: {CalculateContextRelevanceScore(applicationContext, userBehavior, memoryContext)}\n";
 
-                lock (_capturedDataLock)
-                {
-                    _capturedTextData.Add(enrichedTextData);
-                }
+                // lock (_capturedDataLock)
+                // {
+                //     _capturedTextData.Add(enrichedTextData);
+                // }
 
                 // 8. Persist to Memory File for Long-term Context
                 await PersistToMemoryFile(timestamp, applicationContext, userBehavior, memoryContext, pipelineHistory, cancellationToken);
@@ -4212,10 +4212,10 @@ namespace CSimple.ViewModels
                     foreach (var inputNode in nodeViewModels.Where(n => n.Type == NodeType.Input))
                     {
                         inputNode.SetStepOutput(1, "text", systemInput); // Enhanced system input with memory integration
-                        Debug.WriteLine($"[NetPage Pipeline] Set input for node '{inputNode.Name}': '{systemInput}'");
+                        // Debug.WriteLine($"[NetPage Pipeline] Set input for node '{inputNode.Name}': '{systemInput}'");
                     }
 
-                    Debug.WriteLine($"[NetPage Pipeline] Executing pipeline with {nodeViewModels.Count} nodes and {connectionViewModels.Count} connections");
+                    // Debug.WriteLine($"[NetPage Pipeline] Executing pipeline with {nodeViewModels.Count} nodes and {connectionViewModels.Count} connections");
 
                     var executionResults = await _pipelineExecutionService.ExecuteAllModelsAsync(
                         nodeViewModels,
@@ -4290,49 +4290,49 @@ namespace CSimple.ViewModels
             try
             {
                 // Add timestamp and session info
-                systemObservations.Add($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-                systemObservations.Add($"Intelligence Session: Active since {_lastDataClearTime:HH:mm:ss}");
+                // systemObservations.Add($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                // systemObservations.Add($"Intelligence Session: Active since {_lastDataClearTime:HH:mm:ss}");
 
                 // Add data summary
-                systemObservations.Add($"Visual Data: {screenshots.Count} screenshots captured");
-                systemObservations.Add($"Audio Data: {audioData.Count} audio samples captured");
-                systemObservations.Add($"Text Data: {textData.Count} input events captured");
+                // systemObservations.Add($"Visual Data: {screenshots.Count} screenshots captured");
+                // systemObservations.Add($"Audio Data: {audioData.Count} audio samples captured");
+                // systemObservations.Add($"Text Data: {textData.Count} input events captured");
 
                 // Add sample visual data descriptions (in a real implementation, you'd analyze the actual screenshots)
                 if (screenshots.Count > 0)
                 {
-                    systemObservations.Add("Visual Context: Screen content captured and available for analysis");
-                    systemObservations.Add($"Most recent screenshot: {System.Text.Encoding.UTF8.GetString(screenshots.Last()).Substring(0, Math.Min(50, screenshots.Last().Length))}...");
+                    // systemObservations.Add("Visual Context: Screen content captured and available for analysis");
+                    // systemObservations.Add($"Most recent screenshot: {System.Text.Encoding.UTF8.GetString(screenshots.Last()).Substring(0, Math.Min(50, screenshots.Last().Length))}...");
                 }
 
                 // Add audio context
                 if (audioData.Count > 0)
                 {
                     // systemObservations.Add("Audio Context: System audio data captured and available for analysis");
-                    systemObservations.Add($"Audio samples from: {DateTime.Now.AddSeconds(-audioData.Count):HH:mm:ss} to {DateTime.Now:HH:mm:ss}");
+                    // systemObservations.Add($"Audio samples from: {DateTime.Now.AddSeconds(-audioData.Count):HH:mm:ss} to {DateTime.Now:HH:mm:ss}");
                 }
 
                 // Add text/input context
                 if (textData.Count > 0)
                 {
                     // systemObservations.Add("Input Context: User input activity captured");
-                    foreach (var textItem in textData.TakeLast(5)) // Last 5 text inputs
-                    {
-                        systemObservations.Add($"Input: {textItem}");
-                    }
+                    // foreach (var textItem in textData.TakeLast(5)) // Last 5 text inputs
+                    // {
+                    //     systemObservations.Add($"Input: {textItem}");
+                    // }
                 }
 
                 // Add system status and model info
-                systemObservations.Add($"Active Models: {ActiveModels.Count}");
-                systemObservations.Add($"Selected Pipeline: {_selectedPipeline}");
+                // systemObservations.Add($"Active Models: {ActiveModels.Count}");
+                // systemObservations.Add($"Selected Pipeline: {_selectedPipeline}");
 
                 // Add recent pipeline chat context for continuity
-                var recentMessages = PipelineChatMessages.TakeLast(3).Select(m => $"Previous: {m.Content}");
-                systemObservations.AddRange(recentMessages);
+                // var recentMessages = PipelineChatMessages.TakeLast(3).Select(m => $"Previous: {m.Content}");
+                // systemObservations.AddRange(recentMessages);
 
                 // Add comprehensive instruction for the AI
-                systemObservations.Add("");
-                systemObservations.Add("INSTRUCTION: Analyze the provided visual, audio, and input data to determine the most appropriate action(s) to take. Consider the current system state, user activity patterns, and provide specific actionable outputs including mouse clicks, keyboard inputs, or other interactions as needed.");
+                // systemObservations.Add("");
+                // systemObservations.Add("INSTRUCTION: Analyze the provided visual, audio, and input data to determine the most appropriate action(s) to take. Consider the current system state, user activity patterns, and provide specific actionable outputs including mouse clicks, keyboard inputs, or other interactions as needed.");
             }
             catch (Exception ex)
             {
