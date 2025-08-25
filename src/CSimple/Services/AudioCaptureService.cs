@@ -130,67 +130,119 @@ namespace CSimple.Services
                 _saveWebcamAudio = saveRecording;
                 _tempWebcamFilePath = Path.Combine(_webcamAudioDirectory, $"WebcamAudio_{DateTime.Now:yyyyMMdd_HHmmss}.wav");
 
+                Debug.Print($"Starting webcam audio recording to: {_tempWebcamFilePath}");
+                Debug.Print($"Save recording: {saveRecording}");
+                Debug.Print($"Webcam audio directory: {_webcamAudioDirectory}");
+
+                // Ensure directory exists
+                if (!Directory.Exists(_webcamAudioDirectory))
+                {
+                    Directory.CreateDirectory(_webcamAudioDirectory);
+                    Debug.Print($"Created webcam audio directory: {_webcamAudioDirectory}");
+                }
+
                 _waveIn = new WaveInEvent();
 
                 var deviceNumber = FindWebcamAudioDevice();
                 if (deviceNumber == -1)
                 {
-                    Debug.Print("Webcam audio device not found.");
+                    Debug.Print("ERROR: Webcam audio device not found. Cannot start recording.");
                     return;
                 }
 
+                Debug.Print($"Using audio device {deviceNumber} for webcam audio recording");
+
                 _waveIn.DeviceNumber = deviceNumber;
                 _waveIn.WaveFormat = new WaveFormat(44100, 1);
-                _writer = new WaveFileWriter(_tempWebcamFilePath, _waveIn.WaveFormat);
+
+                try
+                {
+                    _writer = new WaveFileWriter(_tempWebcamFilePath, _waveIn.WaveFormat);
+                    Debug.Print($"Created WaveFileWriter successfully for {_tempWebcamFilePath}");
+                }
+                catch (Exception writerEx)
+                {
+                    Debug.Print($"ERROR: Failed to create WaveFileWriter: {writerEx.Message}");
+                    _waveIn.Dispose();
+                    return;
+                }
 
                 _waveIn.DataAvailable += (s, a) =>
                 {
-                    _writer.Write(a.Buffer, 0, a.BytesRecorded);
+                    try
+                    {
+                        _writer.Write(a.Buffer, 0, a.BytesRecorded);
 
-                    // Calculate audio level
-                    float level = CalculateLevel(a.Buffer, a.BytesRecorded);
-                    WebcamLevelChanged?.Invoke(level);
+                        // Calculate audio level
+                        float level = CalculateLevel(a.Buffer, a.BytesRecorded);
+                        WebcamLevelChanged?.Invoke(level);
+                    }
+                    catch (Exception dataEx)
+                    {
+                        Debug.Print($"ERROR in DataAvailable handler: {dataEx.Message}");
+                    }
                 };
 
                 _waveIn.RecordingStopped += (s, a) =>
                 {
-                    _writer?.Dispose();
-                    _writer = null;
-                    _waveIn.Dispose();
+                    try
+                    {
+                        Debug.Print("Webcam audio recording stopped");
 
-                    if (_saveWebcamAudio)
-                    {
-                        Debug.Print($"Webcam audio recording saved to: {_tempWebcamFilePath}");
-                        FileCaptured?.Invoke(_tempWebcamFilePath);
-                        ExtractMFCCs(_tempWebcamFilePath);
-                    }
-                    else
-                    {
-                        // Delete the file if we're not supposed to save it
-                        if (File.Exists(_tempWebcamFilePath))
+                        _writer?.Dispose();
+                        _writer = null;
+                        _waveIn?.Dispose();
+
+                        if (_saveWebcamAudio && File.Exists(_tempWebcamFilePath))
                         {
-                            try
+                            var fileInfo = new FileInfo(_tempWebcamFilePath);
+                            Debug.Print($"Webcam audio recording saved to: {_tempWebcamFilePath} (Size: {fileInfo.Length} bytes)");
+                            FileCaptured?.Invoke(_tempWebcamFilePath);
+                            ExtractMFCCs(_tempWebcamFilePath);
+                        }
+                        else
+                        {
+                            // Delete the file if we're not supposed to save it
+                            if (File.Exists(_tempWebcamFilePath))
                             {
-                                File.Delete(_tempWebcamFilePath);
-                                Debug.Print("Webcam audio recording discarded");
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.Print($"Error deleting temporary audio file: {ex.Message}");
+                                try
+                                {
+                                    File.Delete(_tempWebcamFilePath);
+                                    Debug.Print("Webcam audio recording discarded");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.Print($"Error deleting temporary audio file: {ex.Message}");
+                                }
                             }
                         }
-                    }
 
-                    // Reset audio level
-                    WebcamLevelChanged?.Invoke(0);
+                        // Reset audio level
+                        WebcamLevelChanged?.Invoke(0);
+                    }
+                    catch (Exception stoppedEx)
+                    {
+                        Debug.Print($"ERROR in RecordingStopped handler: {stoppedEx.Message}");
+                    }
                 };
 
-                _waveIn.StartRecording();
-                Debug.Print("Recording webcam audio...");
+                try
+                {
+                    _waveIn.StartRecording();
+                    Debug.Print("Webcam audio recording started successfully");
+                }
+                catch (Exception startEx)
+                {
+                    Debug.Print($"ERROR: Failed to start recording: {startEx.Message}");
+                    _writer?.Dispose();
+                    _waveIn?.Dispose();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
-                Debug.Print($"Error starting webcam audio recording: {ex.Message}");
+                Debug.Print($"ERROR starting webcam audio recording: {ex.Message}");
+                Debug.Print($"Stack trace: {ex.StackTrace}");
             }
         }
 
@@ -202,15 +254,122 @@ namespace CSimple.Services
 
         private int FindWebcamAudioDevice()
         {
+            Debug.Print($"Searching for webcam audio device among {WaveIn.DeviceCount} available devices:");
+
+            // List all available devices for debugging
             for (int i = 0; i < WaveIn.DeviceCount; i++)
             {
                 var deviceInfo = WaveIn.GetCapabilities(i);
-                if (deviceInfo.ProductName.Contains("Webcam"))
+                Debug.Print($"Device {i}: {deviceInfo.ProductName} (Channels: {deviceInfo.Channels})");
+            }
+
+            // First, try to find devices with common webcam-related names
+            string[] webcamKeywords = { "webcam", "camera", "usb", "microphone", "mic" };
+
+            for (int i = 0; i < WaveIn.DeviceCount; i++)
+            {
+                var deviceInfo = WaveIn.GetCapabilities(i);
+                string productName = deviceInfo.ProductName.ToLower();
+
+                foreach (string keyword in webcamKeywords)
                 {
-                    return i;
+                    if (productName.Contains(keyword))
+                    {
+                        Debug.Print($"Found potential webcam audio device: {deviceInfo.ProductName} (Device {i})");
+                        return i;
+                    }
                 }
             }
+
+            // If no webcam-specific device found, try to use the default microphone device (usually device 0)
+            if (WaveIn.DeviceCount > 0)
+            {
+                var defaultDevice = WaveIn.GetCapabilities(0);
+                Debug.Print($"No webcam-specific device found, using default microphone: {defaultDevice.ProductName} (Device 0)");
+                return 0;
+            }
+
+            Debug.Print("No audio input devices found.");
             return -1;
+        }
+
+        /// <summary>
+        /// Diagnostic method to list all available audio input devices
+        /// </summary>
+        public void ListAvailableAudioDevices()
+        {
+            Debug.Print("=== Available Audio Input Devices ===");
+            Debug.Print($"Total devices found: {WaveIn.DeviceCount}");
+
+            for (int i = 0; i < WaveIn.DeviceCount; i++)
+            {
+                try
+                {
+                    var deviceInfo = WaveIn.GetCapabilities(i);
+                    Debug.Print($"Device {i}:");
+                    Debug.Print($"  Name: {deviceInfo.ProductName}");
+                    Debug.Print($"  Channels: {deviceInfo.Channels}");
+                    // Note: ManufacturerId, ProductId, and DriverVersion may not be available in all NAudio versions
+                    Debug.Print("---");
+                }
+                catch (Exception ex)
+                {
+                    Debug.Print($"Device {i}: Error getting device info - {ex.Message}");
+                }
+            }
+            Debug.Print("=== End of Audio Device List ===");
+        }
+
+        /// <summary>
+        /// Test method to verify webcam audio device functionality
+        /// </summary>
+        public bool TestWebcamAudioDevice()
+        {
+            try
+            {
+                Debug.Print("Testing webcam audio device...");
+
+                var deviceNumber = FindWebcamAudioDevice();
+                if (deviceNumber == -1)
+                {
+                    Debug.Print("TEST FAILED: No webcam audio device found");
+                    return false;
+                }
+
+                using var testWaveIn = new WaveInEvent();
+                testWaveIn.DeviceNumber = deviceNumber;
+                testWaveIn.WaveFormat = new WaveFormat(44100, 1);
+
+                bool dataReceived = false;
+                testWaveIn.DataAvailable += (s, a) =>
+                {
+                    if (a.BytesRecorded > 0)
+                    {
+                        dataReceived = true;
+                        Debug.Print($"TEST: Received {a.BytesRecorded} bytes of audio data");
+                    }
+                };
+
+                testWaveIn.StartRecording();
+                System.Threading.Thread.Sleep(1000); // Record for 1 second
+                testWaveIn.StopRecording();
+
+                if (dataReceived)
+                {
+                    Debug.Print("TEST PASSED: Webcam audio device is functional");
+                    return true;
+                }
+                else
+                {
+                    Debug.Print("TEST FAILED: No audio data received from webcam device");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.Print($"TEST FAILED: Error testing webcam audio device - {ex.Message}");
+                return false;
+            }
         }
 
         private void ExtractMFCCs(string filePath)
