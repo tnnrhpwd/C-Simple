@@ -3355,9 +3355,9 @@ namespace CSimple.ViewModels
                         Debug.WriteLine($"[NetPage Pipeline] Output Node: '{output.Value ?? "NULL"}'");
                     }
 
-                    Debug.WriteLine($"[NetPage Pipeline] ---");
+                    // Debug.WriteLine($"[NetPage Pipeline] ---");
                 }
-                Debug.WriteLine($"[NetPage Pipeline] ===== END PIPELINE RESULTS =====");
+                // Debug.WriteLine($"[NetPage Pipeline] ===== END PIPELINE RESULTS =====");
 
                 var actionService = ServiceProvider.GetService<ActionService>();
                 if (actionService == null)
@@ -4089,22 +4089,22 @@ namespace CSimple.ViewModels
                 // 4. Enhanced Input and User Behavior Analysis
                 var userBehavior = await AnalyzeUserBehaviorPatterns(cancellationToken);
                 var inputContext = CaptureInputContext();
-                contextData.AppendLine($"User Activity Level: {userBehavior.ActivityLevel}");
-                contextData.AppendLine($"Input Events: {inputContext.RecentEvents.Count} in last 5s");
-                contextData.AppendLine($"Mouse Position: ({inputContext.MousePosition.X}, {inputContext.MousePosition.Y})");
+                // contextData.AppendLine($"User Activity Level: {userBehavior.ActivityLevel}");
+                // contextData.AppendLine($"Input Events: {inputContext.RecentEvents.Count} in last 5s");
+                // contextData.AppendLine($"Mouse Position: ({inputContext.MousePosition.X}, {inputContext.MousePosition.Y})");
 
                 // 5. Memory Integration - Load Previous Context
                 var memoryContext = await LoadMemoryContext(cancellationToken);
-                contextData.AppendLine($"Memory Entries: {memoryContext.RecentEntries.Count}");
-                contextData.AppendLine($"Session Duration: {(timestamp - _sessionStartTime).TotalMinutes:F1} minutes");
+                // contextData.AppendLine($"Memory Entries: {memoryContext.RecentEntries.Count}");
+                // contextData.AppendLine($"Session Duration: {(timestamp - _sessionStartTime).TotalMinutes:F1} minutes");
 
                 // 6. Pipeline Execution History
                 var pipelineHistory = GetRecentPipelineHistory();
-                contextData.AppendLine($"Recent Pipelines: {pipelineHistory.Count} in last hour");
+                // contextData.AppendLine($"Recent Pipelines: {pipelineHistory.Count} in last hour");
                 if (pipelineHistory.Any())
                 {
                     var lastExecution = pipelineHistory.First();
-                    contextData.AppendLine($"Last Pipeline: {lastExecution.PipelineName} ({lastExecution.ExecutionTime:F0}ms ago)");
+                    // contextData.AppendLine($"Last Pipeline: {lastExecution.PipelineName} ({lastExecution.ExecutionTime:F0}ms ago)");
                 }
 
                 // 7. Store comprehensive context as enriched text data
@@ -4308,14 +4308,14 @@ namespace CSimple.ViewModels
                 // Add audio context
                 if (audioData.Count > 0)
                 {
-                    systemObservations.Add("Audio Context: System audio data captured and available for analysis");
+                    // systemObservations.Add("Audio Context: System audio data captured and available for analysis");
                     systemObservations.Add($"Audio samples from: {DateTime.Now.AddSeconds(-audioData.Count):HH:mm:ss} to {DateTime.Now:HH:mm:ss}");
                 }
 
                 // Add text/input context
                 if (textData.Count > 0)
                 {
-                    systemObservations.Add("Input Context: User input activity captured");
+                    // systemObservations.Add("Input Context: User input activity captured");
                     foreach (var textItem in textData.TakeLast(5)) // Last 5 text inputs
                     {
                         systemObservations.Add($"Input: {textItem}");
