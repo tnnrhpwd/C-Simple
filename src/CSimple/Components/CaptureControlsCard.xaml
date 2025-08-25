@@ -115,6 +115,17 @@
                     </Grid>
                 </VerticalStackLayout>
             </Frame>
+            <!-- Audio Diagnostics -->
+            <Button Text="🔧 Test Audio Setup"
+                    Command="{Binding TestAudioCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{StaticResource PrimaryColor}"
+                    BorderColor="{StaticResource PrimaryColor}"
+                    BorderWidth="1"
+                    CornerRadius="8"
+                    FontSize="12"
+                    HeightRequest="32"
+                    HorizontalOptions="Center" />
         </VerticalStackLayout>
     </Border>
 </ContentView>

@@ -589,6 +589,7 @@ namespace CSimple.Pages
         {
             try
             {
+                // First, add explicitly attached files from the action group
                 if (_actionGroup?.Files != null && _actionGroup.Files.Any())
                 {
                     foreach (var file in _actionGroup.Files)
@@ -605,15 +606,296 @@ namespace CSimple.Pages
                         });
                     }
                 }
+
+                // Then, search for and add related screenshots and webcam images
+                var relatedImages = FindRelatedImages();
+                foreach (var imagePath in relatedImages)
+                {
+                    if (File.Exists(imagePath))
+                    {
+                        string filename = Path.GetFileName(imagePath);
+                        string fileType = GetFileType(filename);
+                        string fileTypeIcon = GetFileTypeIcon(fileType);
+
+                        // Avoid duplicates - check if this file is already in the collection
+                        if (!AttachedFiles.Any(f => f.Filename == filename))
+                        {
+                            AttachedFiles.Add(new FileViewModel
+                            {
+                                Filename = GetEnhancedFilename(filename),
+                                FileType = fileType,
+                                FileTypeIcon = fileTypeIcon,
+                                Data = imagePath // Store full path for images
+                            });
+                        }
+                    }
+                }
+
+                if (!AttachedFiles.Any())
+                {
+                    Debug.WriteLine("No files attached to this action group and no related images found.");
+                }
                 else
                 {
-                    Debug.WriteLine("No files attached to this action group.");
+                    Debug.WriteLine($"Initialized {AttachedFiles.Count} attached files (including related images).");
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error initializing attached files: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Finds screenshots and webcam images related to the current action based on timestamp correlation
+        /// </summary>
+        private List<string> FindRelatedImages()
+        {
+            var relatedImages = new List<string>();
+
+            try
+            {
+                // Determine the target timestamp for correlation
+                DateTime? targetTimestamp = GetActionTimestamp();
+
+                if (!targetTimestamp.HasValue)
+                {
+                    Debug.WriteLine("No valid timestamp found for action - cannot find related images");
+                    return relatedImages;
+                }
+
+                Debug.WriteLine($"Searching for images related to action timestamp: {targetTimestamp.Value:yyyy-MM-dd HH:mm:ss.fff}");
+
+                // Search for screenshots
+                var screenshots = FindImagesInDirectory(
+                    @"C:\Users\tanne\Documents\CSimple\Resources\Screenshots\",
+                    "ScreenCapture_*.png",
+                    targetTimestamp.Value,
+                    "ScreenCapture_"
+                );
+                relatedImages.AddRange(screenshots);
+
+                // Search for webcam images
+                var webcamImages = FindImagesInDirectory(
+                    @"C:\Users\tanne\Documents\CSimple\Resources\WebcamImages\",
+                    "WebcamImage_*.jpg",
+                    targetTimestamp.Value,
+                    "WebcamImage_"
+                );
+                relatedImages.AddRange(webcamImages);
+
+                Debug.WriteLine($"Found {relatedImages.Count} related images ({screenshots.Count} screenshots, {webcamImages.Count} webcam images)");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error finding related images: {ex.Message}");
+            }
+
+            return relatedImages;
+        }
+
+        /// <summary>
+        /// Gets the most relevant timestamp for the action group
+        /// </summary>
+        private DateTime? GetActionTimestamp()
+        {
+            try
+            {
+                // First, try to use the creation timestamp
+                if (_actionGroup?.CreatedAt.HasValue == true)
+                {
+                    return _actionGroup.CreatedAt.Value;
+                }
+
+                // If no creation timestamp, try to find the earliest timestamp from ActionArray
+                if (_actionGroup?.ActionArray != null && _actionGroup.ActionArray.Any())
+                {
+                    var firstActionWithTimestamp = _actionGroup.ActionArray
+                        .Where(a => a.Timestamp != null)
+                        .FirstOrDefault();
+
+                    if (firstActionWithTimestamp != null)
+                    {
+                        // Handle different timestamp formats
+                        if (firstActionWithTimestamp.Timestamp is long ticks)
+                        {
+                            return new DateTime(ticks);
+                        }
+                        else if (firstActionWithTimestamp.Timestamp is DateTime dt)
+                        {
+                            return dt;
+                        }
+                        else if (firstActionWithTimestamp.Timestamp is string timestampStr &&
+                                DateTime.TryParse(timestampStr, out DateTime parsedDateTime))
+                        {
+                            return parsedDateTime;
+                        }
+                    }
+                }
+
+                // Fallback to current time minus a reasonable window (last hour)
+                return DateTime.Now.AddHours(-1);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting action timestamp: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Finds images in a specific directory that are closest to the target timestamp
+        /// </summary>
+        private List<string> FindImagesInDirectory(string directoryPath, string filePattern, DateTime targetTimestamp, string filenamePrefix)
+        {
+            var foundImages = new List<string>();
+
+            try
+            {
+                if (!Directory.Exists(directoryPath))
+                {
+                    Debug.WriteLine($"Directory does not exist: {directoryPath}");
+                    return foundImages;
+                }
+
+                string[] files = Directory.GetFiles(directoryPath, filePattern);
+                var closestFiles = new List<string>();
+                TimeSpan closestDifference = TimeSpan.FromHours(1); // Only consider files within 1 hour
+                DateTime closestDateTime = DateTime.MinValue;
+
+                foreach (string filePath in files)
+                {
+                    string fileName = Path.GetFileNameWithoutExtension(filePath);
+                    DateTime fileTime = ParseImageTimestamp(fileName, filenamePrefix);
+
+                    if (fileTime != DateTime.MinValue)
+                    {
+                        // Convert UTC to local time if needed
+                        DateTime localTargetTime = targetTimestamp.Kind == DateTimeKind.Utc
+                            ? targetTimestamp.ToLocalTime()
+                            : targetTimestamp;
+
+                        TimeSpan difference = TimeSpan.FromTicks(Math.Abs(fileTime.Ticks - localTargetTime.Ticks));
+
+                        if (difference < closestDifference)
+                        {
+                            // Found a closer timestamp
+                            closestDifference = difference;
+                            closestDateTime = fileTime;
+                            closestFiles.Clear();
+                            closestFiles.Add(filePath);
+                        }
+                        else if (difference == closestDifference && fileTime == closestDateTime)
+                        {
+                            // Same timestamp (multi-monitor screenshots)
+                            closestFiles.Add(filePath);
+                        }
+                    }
+                }
+
+                if (closestFiles.Count > 0 && closestDifference.TotalMinutes <= 30) // Only include files within 30 minutes
+                {
+                    foundImages.AddRange(closestFiles.OrderBy(f => f));
+                    Debug.WriteLine($"Found {closestFiles.Count} images in {directoryPath} within {closestDifference.TotalSeconds:F1} seconds of target");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error searching directory {directoryPath}: {ex.Message}");
+            }
+
+            return foundImages;
+        }
+
+        /// <summary>
+        /// Parses timestamp from image filename
+        /// </summary>
+        private DateTime ParseImageTimestamp(string fileName, string prefix)
+        {
+            try
+            {
+                if (fileName.StartsWith(prefix))
+                {
+                    if (prefix == "ScreenCapture_")
+                    {
+                        // Format: ScreenCapture_20250719_122427_898_.DISPLAY1
+                        string[] parts = fileName.Split('_');
+                        if (parts.Length >= 4)
+                        {
+                            string datePart = parts[1]; // 20250719
+                            string timePart = parts[2]; // 122427
+                            string millisPart = parts[3]; // 898
+
+                            string fullTimestamp = $"{datePart}_{timePart}";
+                            if (millisPart.Length >= 3)
+                            {
+                                fullTimestamp += $"_{millisPart.Substring(0, 3)}";
+                                if (DateTime.TryParseExact(fullTimestamp, "yyyyMMdd_HHmmss_fff", null,
+                                    System.Globalization.DateTimeStyles.None, out DateTime fileTime))
+                                {
+                                    return fileTime;
+                                }
+                            }
+                            if (DateTime.TryParseExact($"{datePart}_{timePart}", "yyyyMMdd_HHmmss", null,
+                                System.Globalization.DateTimeStyles.None, out DateTime fileTimeNoMillis))
+                            {
+                                return fileTimeNoMillis;
+                            }
+                        }
+                    }
+                    else if (prefix == "WebcamImage_")
+                    {
+                        // Format: WebcamImage_20250719_122427
+                        string[] parts = fileName.Split('_');
+                        if (parts.Length >= 3)
+                        {
+                            string datePart = parts[1];
+                            string timePart = parts[2];
+                            if (DateTime.TryParseExact($"{datePart}_{timePart}", "yyyyMMdd_HHmmss", null,
+                                System.Globalization.DateTimeStyles.None, out DateTime fileTime))
+                            {
+                                return fileTime;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error parsing timestamp from filename {fileName}: {ex.Message}");
+            }
+
+            return DateTime.MinValue;
+        }
+
+        /// <summary>
+        /// Enhances filename display for better user understanding
+        /// </summary>
+        private string GetEnhancedFilename(string filename)
+        {
+            try
+            {
+                if (filename.StartsWith("ScreenCapture_"))
+                {
+                    // Add context for screen captures
+                    if (filename.Contains("DISPLAY"))
+                    {
+                        return $"📺 {filename}";
+                    }
+                    return $"📷 Screenshot - {filename}";
+                }
+                else if (filename.StartsWith("WebcamImage_"))
+                {
+                    // Add context for webcam images
+                    return $"🎥 Webcam - {filename}";
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error enhancing filename {filename}: {ex.Message}");
+            }
+
+            return filename;
         }
 
         private string GetFileType(string filename)

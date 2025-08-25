@@ -65,6 +65,7 @@ namespace CSimple.Pages
         public ICommand SaveActionCommand { get; }
         public ICommand SaveToFileCommand { get; }
         public ICommand LoadFromFileCommand { get; }
+        public ICommand TestAudioCommand { get; }
 
         // Save options - Change defaults to true to ensure actions are always saved
         private bool _saveRecord = true; // Changed from false to true
@@ -280,9 +281,124 @@ namespace CSimple.Pages
             SaveActionCommand = new Command(SaveAction, () => !string.IsNullOrEmpty(ActionConfigCard?.ActionName));
             SaveToFileCommand = new Command(async () => await SaveDataItemsToFile());
             LoadFromFileCommand = new Command(async () => await LoadDataItemsFromFile());
+            TestAudioCommand = new Command(async () => await TestAudioSetup());
 
             CheckUserLoggedIn();
             BindingContext = this;
+
+            // Perform audio diagnostics on initialization
+            PerformAudioDiagnostics();
+        }
+
+        /// <summary>
+        /// Performs diagnostic checks on audio devices to help troubleshoot webcam audio issues
+        /// </summary>
+        private void PerformAudioDiagnostics()
+        {
+            try
+            {
+                Debug.Print("=== ObservePage Audio Diagnostics ===");
+
+                // List available audio devices
+                _audioService.ListAvailableAudioDevices();
+
+                // Test webcam audio device
+                bool webcamAudioWorking = _audioService.TestWebcamAudioDevice();
+
+                // Check if webcam audio directory exists and is writable
+                string webcamAudioPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                                                     "CSimple", "Resources", "WebcamAudio");
+
+                Debug.Print($"Webcam audio directory: {webcamAudioPath}");
+                Debug.Print($"Directory exists: {Directory.Exists(webcamAudioPath)}");
+
+                if (Directory.Exists(webcamAudioPath))
+                {
+                    try
+                    {
+                        // Test write permissions
+                        string testFile = Path.Combine(webcamAudioPath, "test_write.tmp");
+                        File.WriteAllText(testFile, "test");
+                        File.Delete(testFile);
+                        Debug.Print("Directory is writable: YES");
+                    }
+                    catch
+                    {
+                        Debug.Print("Directory is writable: NO");
+                    }
+                }
+
+                Debug.Print($"Audio service initialized: {_audioService != null}");
+                Debug.Print($"Webcam audio device test result: {(webcamAudioWorking ? "PASS" : "FAIL")}");
+                Debug.Print("=== End Audio Diagnostics ===");
+
+                // Show user-friendly message if webcam audio is not working
+                if (!webcamAudioWorking)
+                {
+                    // We'll use the dispatcher to show a message to the user
+                    Dispatcher.Dispatch(async () =>
+                    {
+                        bool answer = await DisplayAlert("Webcam Audio Issue",
+                            "Webcam audio device not detected or not working properly. " +
+                            "Please check that your microphone/webcam is connected and not being used by another application. " +
+                            "Would you like to see the diagnostic details?", "Yes", "No");
+
+                        if (answer)
+                        {
+                            await DisplayAlert("Audio Diagnostics",
+                                "Check the Debug output window for detailed audio device information. " +
+                                "Common issues:\n" +
+                                "• Microphone is being used by another app\n" +
+                                "• Microphone permissions not granted\n" +
+                                "• Webcam drivers not installed properly\n" +
+                                "• USB webcam not properly connected", "OK");
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.Print($"Error in audio diagnostics: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Manual test method for audio setup that can be triggered by user
+        /// </summary>
+        private async Task TestAudioSetup()
+        {
+            try
+            {
+                await DisplayAlert("Testing Audio Setup", "Running audio device tests...", "OK");
+
+                // Perform diagnostic tests
+                _audioService.ListAvailableAudioDevices();
+                bool webcamAudioWorking = _audioService.TestWebcamAudioDevice();
+
+                string message;
+                if (webcamAudioWorking)
+                {
+                    message = "✅ Webcam audio device is working correctly!\n\n" +
+                             "Your microphone should now be able to record audio when you use the 'User Audible' button.";
+                }
+                else
+                {
+                    message = "❌ Webcam audio device test failed.\n\n" +
+                             "Possible solutions:\n" +
+                             "• Close other apps using your microphone\n" +
+                             "• Check Windows privacy settings for microphone access\n" +
+                             "• Reconnect your USB webcam/microphone\n" +
+                             "• Update audio drivers\n" +
+                             "• Try using a different microphone device\n\n" +
+                             "Check the Debug output for detailed device information.";
+                }
+
+                await DisplayAlert("Audio Test Results", message, "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Test Error", $"Error during audio test: {ex.Message}", "OK");
+            }
         }
 
         private void UpdateButtonVisualState(string buttonText)

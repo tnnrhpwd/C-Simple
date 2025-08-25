@@ -332,13 +332,13 @@
                        BorderColor="{AppThemeBinding Light=#e0e0e0, Dark=#333333}"
                        BackgroundColor="{AppThemeBinding Light=White, Dark=#1e1e1e}">
                     <VerticalStackLayout Spacing="8">
-                        <Label Text="Attached Files"
+                        <Label Text="Attached Files &amp; Related Media"
                                FontAttributes="Bold"
                                FontSize="18" />
                         <CollectionView ItemsSource="{Binding AttachedFiles}"
                                         HeightRequest="200">
                             <CollectionView.EmptyView>
-                                <Label Text="No files attached"
+                                <Label Text="No files or related media found"
                                        HorizontalOptions="Center"
                                        VerticalOptions="Center"
                                        TextColor="Gray" />
