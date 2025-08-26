@@ -2568,22 +2568,43 @@ namespace CSimple.ViewModels
         {
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
             Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
+            Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Available models count: {AvailableModels?.Count ?? 0}");
 
             try
             {
+                // Debug: List all available models for troubleshooting
+                if (AvailableModels != null)
+                {
+                    foreach (var availableModel in AvailableModels.Take(5)) // Show first 5 models
+                    {
+                        Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Available model: ID='{availableModel.Id}', Name='{availableModel.Name}', HFModelId='{availableModel.HuggingFaceModelId}'");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] ERROR: AvailableModels is null!");
+                }
+
                 // Find the model in available models
-                var model = AvailableModels.FirstOrDefault(m =>
+                var model = AvailableModels?.FirstOrDefault(m =>
                     m.HuggingFaceModelId == modelId ||
                     m.Name == modelId ||
                     m.Id == modelId);
 
                 if (model == null)
                 {
+                    Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] ERROR: Model '{modelId}' not found in available models");
                     throw new InvalidOperationException($"Model '{modelId}' not found in available models");
                 }
 
+                Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Found model: {model.Name} (HF ID: {model.HuggingFaceModelId})");
+
                 // Use the existing model execution infrastructure
                 string localModelPath = GetLocalModelPath(modelId);
+                Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Local model path: {localModelPath ?? "null"}");
+                Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Python executable: {_pythonExecutablePath}");
+                Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] HF script path: {_huggingFaceScriptPath}");
+
                 var result = await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(
                     modelId, inputText, model, _pythonExecutablePath, _huggingFaceScriptPath, localModelPath);
 
@@ -2596,6 +2617,7 @@ namespace CSimple.ViewModels
             {
                 Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ❌ [NetPageViewModel.ExecuteModelAsync] Model execution failed: {ex.Message}");
                 Debug.WriteLine($"❌ [NetPageViewModel.ExecuteModelAsync] Model execution failed: {ex.Message}");
+                Debug.WriteLine($"❌ [NetPageViewModel.ExecuteModelAsync] Stack trace: {ex.StackTrace}");
                 throw;
             }
         }
