@@ -283,6 +283,27 @@ namespace CSimple.ViewModels
         public string ActionsEnabledText => ActionsEnabled ? "Actions Enabled" : "Actions Disabled";
         public string ActionsEnabledColor => ActionsEnabled ? "#4CAF50" : "#333333"; // Green when enabled, dark when disabled
 
+        // Concurrent Render toggle state (for pipeline execution mode)
+        private bool _concurrentRenderEnabled = true; // Default to concurrent (current behavior)
+        public bool ConcurrentRenderEnabled
+        {
+            get => _concurrentRenderEnabled;
+            set
+            {
+                if (SetProperty(ref _concurrentRenderEnabled, value))
+                {
+                    OnPropertyChanged(nameof(ConcurrentRenderText));
+                    OnPropertyChanged(nameof(ConcurrentRenderColor));
+
+                    // Update the current pipeline's ConcurrentRender setting
+                    UpdateCurrentPipelineConcurrentRender(value);
+                }
+            }
+        }
+
+        public string ConcurrentRenderText => ConcurrentRenderEnabled ? "Concurrent Render" : "Sequential Render";
+        public string ConcurrentRenderColor => ConcurrentRenderEnabled ? "#4CAF50" : "#333333"; // Green when concurrent, orange when sequential
+
         private List<string> _executionResults = new List<string>();
         public ObservableCollection<string> ExecutionResults { get; } = new ObservableCollection<string>();        // Add these properties and fields for Action Review functionality
         private ObservableCollection<string> _availableActionNames;
@@ -358,6 +379,7 @@ namespace CSimple.ViewModels
         public ICommand RunAllNodesCommand { get; private set; }
         public ICommand SleepMemoryCompressionCommand { get; private set; }
         public ICommand ToggleActionsEnabledCommand { get; private set; }
+        public ICommand ToggleConcurrentRenderCommand { get; private set; }
         public ICommand SelectSaveFileCommand { get; private set; }
         public ICommand CreateNewMemoryFileCommand { get; private set; }
 
@@ -553,6 +575,9 @@ namespace CSimple.ViewModels
 
             // Initialize ToggleActionsEnabledCommand
             ToggleActionsEnabledCommand = new Command(() => ActionsEnabled = !ActionsEnabled);
+
+            // Initialize ToggleConcurrentRenderCommand
+            ToggleConcurrentRenderCommand = new Command(() => ConcurrentRenderEnabled = !ConcurrentRenderEnabled);
 
             // Initialize SelectSaveFileCommand
             SelectSaveFileCommand = new Command(async () =>
@@ -1049,6 +1074,66 @@ namespace CSimple.ViewModels
 
             // Update execution status after pipeline is loaded
             UpdateExecutionStatusFromPipeline();
+
+            // Load the ConcurrentRender setting for this pipeline
+            await LoadConcurrentRenderSettingAsync();
+        }
+
+        /// <summary>
+        /// Updates the current pipeline's ConcurrentRender setting and saves it
+        /// </summary>
+        private async void UpdateCurrentPipelineConcurrentRender(bool concurrentEnabled)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(CurrentPipelineName))
+                {
+                    // Load the current pipeline data
+                    var pipelineData = await _fileService.LoadPipelineAsync(CurrentPipelineName);
+                    if (pipelineData != null)
+                    {
+                        // Update the ConcurrentRender setting
+                        pipelineData.ConcurrentRender = concurrentEnabled;
+
+                        // Save the pipeline with the updated setting
+                        await _fileService.SavePipelineAsync(pipelineData);
+
+                        Debug.WriteLine($"Updated ConcurrentRender setting for pipeline '{CurrentPipelineName}' to: {concurrentEnabled}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error updating ConcurrentRender setting: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Loads the ConcurrentRender setting from the current pipeline
+        /// </summary>
+        private async Task LoadConcurrentRenderSettingAsync()
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(CurrentPipelineName))
+                {
+                    var pipelineData = await _fileService.LoadPipelineAsync(CurrentPipelineName);
+                    if (pipelineData != null)
+                    {
+                        // Update the toggle state without triggering the setter's save logic
+                        _concurrentRenderEnabled = pipelineData.ConcurrentRender;
+                        OnPropertyChanged(nameof(ConcurrentRenderEnabled));
+                        OnPropertyChanged(nameof(ConcurrentRenderText));
+                        OnPropertyChanged(nameof(ConcurrentRenderColor));
+
+                        Debug.WriteLine($"Loaded ConcurrentRender setting for pipeline '{CurrentPipelineName}': {pipelineData.ConcurrentRender}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading ConcurrentRender setting: {ex.Message}");
+            }
         }
 
         // Change from protected to public to make it accessible from OrientPage
@@ -2189,7 +2274,8 @@ namespace CSimple.ViewModels
                     ShowAlert,
                     onGroupsInitialized: (groupCount) => _executionStatusTrackingService.InitializeExecutionGroups(groupCount),
                     onGroupStarted: (groupNumber, modelCount) => _executionStatusTrackingService.StartGroupExecution(groupNumber, modelCount),
-                    onGroupCompleted: (groupNumber) => _executionStatusTrackingService.CompleteGroupExecution(groupNumber)
+                    onGroupCompleted: (groupNumber) => _executionStatusTrackingService.CompleteGroupExecution(groupNumber),
+                    concurrentRender: ConcurrentRenderEnabled
                 );
                 var successCount = executionResult.Item1;
                 var skippedCount = executionResult.Item2;

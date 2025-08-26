@@ -96,11 +96,17 @@ namespace CSimple.Services
             }
 
             Debug.WriteLine($"Saving pipeline: {CurrentPipelineName}");
+
+            // Load existing pipeline to preserve ConcurrentRender setting
+            var existingPipeline = await _fileService.LoadPipelineAsync(CurrentPipelineName);
+            bool concurrentRender = existingPipeline?.ConcurrentRender ?? true; // Default to true if no existing pipeline
+
             var pipelineData = new PipelineData
             {
                 Name = CurrentPipelineName,
                 Nodes = Nodes.Select(n => new SerializableNode(n)).ToList(),
-                Connections = Connections.Select(c => new SerializableConnection(c)).ToList()
+                Connections = Connections.Select(c => new SerializableConnection(c)).ToList(),
+                ConcurrentRender = concurrentRender // Preserve the existing setting
             };
             await _fileService.SavePipelineAsync(pipelineData);
             // No need to reload list unless timestamp sorting is critical for immediate UI update

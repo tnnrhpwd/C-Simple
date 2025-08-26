@@ -795,9 +795,10 @@ namespace CSimple.Services
             int currentActionStep,
             Dictionary<string, NeuralNetworkModel> preloadedModelCache,
             Dictionary<string, string> precomputedInputCache,
-            Func<string, string, string, Task> showAlert = null)
+            Func<string, string, string, Task> showAlert = null,
+            bool concurrentRender = true)
         {
-            return await ExecuteAllModelsOptimizedAsync(nodes, connections, currentActionStep, preloadedModelCache, precomputedInputCache, showAlert, null, null, null);
+            return await ExecuteAllModelsOptimizedAsync(nodes, connections, currentActionStep, preloadedModelCache, precomputedInputCache, showAlert, null, null, null, concurrentRender);
         }
 
         /// <summary>
@@ -812,7 +813,8 @@ namespace CSimple.Services
             Func<string, string, string, Task> showAlert = null,
             Action<int> onGroupsInitialized = null,
             Action<int, int> onGroupStarted = null,
-            Action<int> onGroupCompleted = null)
+            Action<int> onGroupCompleted = null,
+            bool concurrentRender = true)
         {
             var totalStopwatch = Stopwatch.StartNew();
             Debug.WriteLine($"⚡ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Using pre-computed optimizations");
@@ -961,33 +963,73 @@ namespace CSimple.Services
 
                     if (executionTasks.Count > 0)
                     {
-                        // Execute all models in the group concurrently
-                        var results = await Task.WhenAll(executionTasks).ConfigureAwait(false);
-
-                        // Update execution states based on results on UI thread
-                        Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
+                        if (concurrentRender)
                         {
-                            for (int i = 0; i < group.Count && i < results.Length; i++)
+                            // Execute all models in the group concurrently (original behavior)
+                            Debug.WriteLine($"🔄 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Group {currentGroupNumber}: Executing {executionTasks.Count} models concurrently");
+                            var results = await Task.WhenAll(executionTasks).ConfigureAwait(false);
+
+                            // Update execution states based on results on UI thread
+                            Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
+                            {
+                                for (int i = 0; i < group.Count && i < results.Length; i++)
+                                {
+                                    var modelNode = group[i];
+                                    var success = results[i];
+
+                                    if (success)
+                                    {
+                                        modelNode.ExecutionState = ViewModels.ExecutionState.Completed;
+                                    }
+                                    else
+                                    {
+                                        modelNode.ExecutionState = ViewModels.ExecutionState.Pending; // Reset failed nodes
+                                    }
+                                }
+                            });
+
+                            // Count successful executions
+                            successCount += results.Count(r => r);
+                            skippedCount += results.Count(r => !r);
+
+                            Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Group {currentGroupNumber} completed: {results.Count(r => r)} successful, {results.Count(r => !r)} failed");
+                        }
+                        else
+                        {
+                            // Execute models sequentially (new behavior)
+                            Debug.WriteLine($"⏩ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Group {currentGroupNumber}: Executing {executionTasks.Count} models sequentially");
+                            var results = new List<bool>();
+
+                            for (int i = 0; i < executionTasks.Count; i++)
                             {
                                 var modelNode = group[i];
-                                var success = results[i];
+                                Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Sequential execution: Starting model {i + 1}/{executionTasks.Count}: {modelNode.Name}");
 
-                                if (success)
+                                var result = await executionTasks[i].ConfigureAwait(false);
+                                results.Add(result);
+
+                                // Update execution state immediately after each model completes
+                                Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
                                 {
-                                    modelNode.ExecutionState = ViewModels.ExecutionState.Completed;
-                                }
-                                else
-                                {
-                                    modelNode.ExecutionState = ViewModels.ExecutionState.Pending; // Reset failed nodes
-                                }
+                                    if (result)
+                                    {
+                                        modelNode.ExecutionState = ViewModels.ExecutionState.Completed;
+                                        Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Sequential execution: {modelNode.Name} completed successfully");
+                                    }
+                                    else
+                                    {
+                                        modelNode.ExecutionState = ViewModels.ExecutionState.Pending; // Reset failed nodes
+                                        Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Sequential execution: {modelNode.Name} failed");
+                                    }
+                                });
                             }
-                        });
 
-                        // Count successful executions
-                        successCount += results.Count(r => r);
-                        skippedCount += results.Count(r => !r);
+                            // Count successful executions
+                            successCount += results.Count(r => r);
+                            skippedCount += results.Count(r => !r);
 
-                        Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Group {currentGroupNumber} completed: {results.Count(r => r)} successful, {results.Count(r => !r)} failed");
+                            Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Group {currentGroupNumber} sequential execution completed: {results.Count(r => r)} successful, {results.Count(r => !r)} failed");
+                        }
                     }
 
                     // Notify group completed

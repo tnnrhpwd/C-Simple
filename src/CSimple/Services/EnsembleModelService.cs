@@ -41,25 +41,34 @@ namespace CSimple.Services
 
         private NetPageViewModel GetNetPageViewModel()
         {
+            Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Attempting to get NetPageViewModel...");
+
             if (_netPageViewModel != null)
+            {
+                Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Using cached NetPageViewModel");
                 return _netPageViewModel;
+            }
 
             if (_serviceProvider != null)
             {
                 try
                 {
-                    return _serviceProvider.GetRequiredService<NetPageViewModel>();
+                    Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Getting NetPageViewModel from service provider...");
+                    var netPageViewModel = _serviceProvider.GetRequiredService<NetPageViewModel>();
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Successfully retrieved NetPageViewModel from service provider");
+                    return netPageViewModel;
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Could not get NetPageViewModel from service provider: {ex.Message}");
+                    Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Could not get NetPageViewModel from service provider: {ex.Message}");
+                    Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Stack trace: {ex.StackTrace}");
                     return null;
                 }
             }
 
+            Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Both _netPageViewModel and _serviceProvider are null!");
             return null;
         }
-
         public void ClearStepContentCache()
         {
             lock (_nodeCacheLock)
@@ -226,6 +235,8 @@ namespace CSimple.Services
         /// </summary>
         public async Task<string> ExecuteModelWithInput(NeuralNetworkModel model, string input, List<NodeViewModel> connectedInputNodes = null)
         {
+            Debug.WriteLine($"🚀 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] CALLED with model: {model?.Name ?? "NULL"}, input length: {input?.Length ?? 0}");
+
             try
             {
                 // Fast validation

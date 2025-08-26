@@ -15,6 +15,7 @@ namespace CSimple.Models
         public List<SerializableNode> Nodes { get; set; } = new List<SerializableNode>();
         public List<SerializableConnection> Connections { get; set; } = new List<SerializableConnection>();
         public DateTime LastModified { get; set; } = DateTime.UtcNow;
+        public bool ConcurrentRender { get; set; } = true; // Default to concurrent rendering (current behavior)
     }
 
     /// <summary>
