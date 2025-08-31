@@ -1,6 +1,7 @@
 ﻿using CSimple.ViewModels;
 using System.Diagnostics;
 using CSimple.Services;
+using System.Collections.ObjectModel;
 namespace CSimple.Pages;
 
 using Microsoft.Maui.Controls;
@@ -13,6 +14,26 @@ using System.Linq;
 using CSimple.Services;
 using static CSimple.Services.SettingsService;
 
+// Data model for recent usage display
+public class UsageItem
+{
+    public string ApiDisplayName { get; set; }
+    public string Date { get; set; }
+    public string Usage { get; set; }
+    public string Cost { get; set; }
+}
+
+// Enhanced usage statistics model
+public class EnhancedUsageStats
+{
+    public decimal CurrentUsage { get; set; }
+    public decimal MonthlyLimit { get; set; }
+    public decimal RemainingBalance { get; set; }
+    public double UsagePercentage { get; set; }
+    public bool IsUnlimited { get; set; }
+    public List<UsageItem> RecentUsage { get; set; } = new List<UsageItem>();
+}
+
 public partial class SettingsPage : ContentPage
 {
     private readonly DataService _dataService;
@@ -23,6 +44,8 @@ public partial class SettingsPage : ContentPage
     private Dictionary<string, Switch> _permissionSwitches;
     private Dictionary<string, Switch> _featureSwitches;
     private MembershipTier _currentTier = MembershipTier.Free;
+    private EnhancedUsageStats _enhancedUsageStats;
+    private ObservableCollection<UsageItem> _recentUsageItems;
 
     private readonly string[] _gpuCapabilityLevels = new[]
     {
@@ -45,6 +68,10 @@ public partial class SettingsPage : ContentPage
         _settingsService = new SettingsService(dataService, appPathService);
         LogoutCommand = new Command(ExecuteLogout);
         BindingContext = new SettingsViewModel();
+
+        // Initialize collections
+        _recentUsageItems = new ObservableCollection<UsageItem>();
+        RecentUsageList.ItemsSource = _recentUsageItems;
 
         _permissionSwitches = new Dictionary<string, Switch>
         {
@@ -94,6 +121,10 @@ public partial class SettingsPage : ContentPage
 
         // Initialize AI settings
         await InitializeAISettings();
+
+        // Initialize membership tier if not set (for debugging)
+        await EnsureMembershipTierIsSet();
+
         await LoadMembershipDataAsync();
 
         LoadModelCompatibilitySettings();
@@ -107,6 +138,29 @@ public partial class SettingsPage : ContentPage
 
         // Load and display current application paths
         await LoadApplicationPaths();
+    }
+
+    private async Task EnsureMembershipTierIsSet()
+    {
+        try
+        {
+            Debug.WriteLine("Ensuring membership tier is properly set...");
+            var currentTier = await _settingsService.GetMembershipTierAsync();
+            Debug.WriteLine($"Current stored tier: {currentTier}");
+
+            // If somehow the tier is not properly stored, you can force set it here
+            // Remove this once you've confirmed the tier is properly persisting
+            if (currentTier == MembershipTier.Free)
+            {
+                Debug.WriteLine("Tier is Free - this might be incorrect if user should be on Flex plan");
+                // Uncomment the next line to force set to Flex for testing
+                // await _settingsService.SetMembershipTierAsync(MembershipTier.Flex);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error ensuring membership tier: {ex.Message}");
+        }
     }
 
     // Application Path Management Methods
@@ -507,17 +561,162 @@ public partial class SettingsPage : ContentPage
         await LoadMembershipDataAsync();
     }
 
+    private async void RefreshMembership_Clicked(object sender, EventArgs e)
+    {
+        try
+        {
+            Debug.WriteLine("Manual membership refresh triggered");
+
+            // Show options for debugging
+            var action = await DisplayActionSheet(
+                "Debug Membership",
+                "Cancel",
+                null,
+                "Set to Free",
+                "Set to Flex",
+                "Set to Premium",
+                "Just Refresh");
+
+            switch (action)
+            {
+                case "Set to Free":
+                    await _settingsService.SetMembershipTierAsync(MembershipTier.Free);
+                    break;
+                case "Set to Flex":
+                    await _settingsService.SetMembershipTierAsync(MembershipTier.Flex);
+                    break;
+                case "Set to Premium":
+                    await _settingsService.SetMembershipTierAsync(MembershipTier.Premium);
+                    break;
+                case "Just Refresh":
+                    // Do nothing, just refresh
+                    break;
+                default:
+                    return;
+            }
+
+            // Force refresh the membership display
+            await LoadMembershipDataAsync();
+            await DisplayAlert("Debug", $"Membership refreshed. Current tier: {_currentTier}", "OK");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error in RefreshMembership_Clicked: {ex.Message}");
+            await DisplayAlert("Error", $"Failed to refresh membership: {ex.Message}", "OK");
+        }
+    }
+
+    private async void ResetPassword_Clicked(object sender, EventArgs e)
+    {
+        try
+        {
+            Debug.WriteLine("Password reset requested");
+
+            // Get user email for display
+            var userEmail = await SecureStorage.GetAsync("userEmail");
+            if (string.IsNullOrEmpty(userEmail))
+            {
+                await DisplayAlert("Error", "Unable to send password reset email. No email address found.", "OK");
+                return;
+            }
+
+            // Confirm action
+            bool confirmed = await DisplayAlert(
+                "Reset Password",
+                $"Send password reset email to {userEmail}?",
+                "Send",
+                "Cancel"
+            );
+
+            if (!confirmed)
+                return;
+
+            // Show loading state
+            var button = sender as Button;
+            var originalText = button?.Text;
+            if (button != null)
+            {
+                button.Text = "📤 Sending...";
+                button.IsEnabled = false;
+            }
+
+            // Send password reset email
+            bool success = await _dataService.SendPasswordResetAsync();
+
+            // Restore button state
+            if (button != null)
+            {
+                button.Text = originalText;
+                button.IsEnabled = true;
+            }
+
+            if (success)
+            {
+                await DisplayAlert(
+                    "Success",
+                    $"Password reset email sent to {userEmail}. Check your inbox and follow the instructions to reset your password.",
+                    "OK"
+                );
+            }
+            else
+            {
+                await DisplayAlert(
+                    "Error",
+                    "Failed to send password reset email. Please try again later.",
+                    "OK"
+                );
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            await DisplayAlert("Error", "Your session has expired. Please log in again.", "OK");
+            // Navigate to login if needed
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error in ResetPassword_Clicked: {ex.Message}");
+            await DisplayAlert("Error", "Failed to send password reset email. Please try again.", "OK");
+        }
+    }
+
     private async void ViewBilling_Clicked(object sender, EventArgs e)
     {
-        // For demonstration purposes, just show a simple alert with billing information
-        var stats = await _settingsService.GetUsageStatisticsAsync();
+        try
+        {
+            var stats = await _settingsService.GetUsageStatisticsAsync();
 
-        string billingInfo = $"Current Plan: {_currentTier}\n" +
-                            $"Billing Cycle End: {stats.BillingCycleEnd.ToShortDateString()}\n\n" +
-                            $"Recent Charges:\n" +
-                            $"- {DateTime.Now.AddMonths(-1).ToString("MMM d, yyyy")}: ${GetPlanPrice(_currentTier)}\n";
+            string billingInfo = $"Current Plan: {_currentTier}\n" +
+                                $"Billing Cycle End: {stats.BillingCycleEnd.ToShortDateString()}\n\n";
 
-        await DisplayAlert("Billing History", billingInfo, "OK");
+            if (_enhancedUsageStats != null)
+            {
+                billingInfo += "Current Usage Summary:\n" +
+                              $"• API Usage: ${_enhancedUsageStats.CurrentUsage:F4}\n" +
+                              $"• Monthly Limit: {(_enhancedUsageStats.IsUnlimited ? "Unlimited" : $"${_enhancedUsageStats.MonthlyLimit:F2}")}\n" +
+                              $"• Remaining: {(_enhancedUsageStats.IsUnlimited ? "Unlimited" : $"${_enhancedUsageStats.RemainingBalance:F4}")}\n\n";
+
+                if (_enhancedUsageStats.RecentUsage?.Any() == true)
+                {
+                    billingInfo += "Recent Charges:\n";
+                    foreach (var usage in _enhancedUsageStats.RecentUsage.Take(3))
+                    {
+                        billingInfo += $"• {usage.Date}: {usage.Cost}\n";
+                    }
+                }
+            }
+            else
+            {
+                billingInfo += $"Recent Charges:\n" +
+                              $"• {DateTime.Now.AddMonths(-1).ToString("MMM d, yyyy")}: ${GetPlanPrice(_currentTier)}\n";
+            }
+
+            await DisplayAlert("Billing History", billingInfo, "OK");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error displaying billing info: {ex.Message}");
+            await DisplayAlert("Error", "Failed to load billing information", "OK");
+        }
     }
 
     private string GetPlanPrice(MembershipTier tier)
@@ -535,27 +734,461 @@ public partial class SettingsPage : ContentPage
     {
         try
         {
-            // Get membership tier and update display
-            _currentTier = await _settingsService.GetMembershipTierAsync();
-            MembershipTierLabel.Text = _currentTier.ToString();
+            Debug.WriteLine("Starting LoadMembershipDataAsync...");
 
-            // Get usage statistics
-            var stats = await _settingsService.GetUsageStatisticsAsync();
-            ProcessingTimeLabel.Text = $"{stats.ProcessingMinutes} minutes";
-            ApiCallsLabel.Text = $"{stats.ApiCalls} / {stats.ApiCallsLimit}";
-            StorageLabel.Text = $"{stats.StorageMB:F1} MB / {stats.StorageLimitMB:F1} MB";
-            BillingCycleLabel.Text = stats.BillingCycleEnd.ToString("MMM d, yyyy");
+            // Get stored user data for basic info
+            var user = await _dataService.GetStoredUserAsync();
+            if (user != null)
+            {
+                Debug.WriteLine($"LoadMembershipDataAsync: Found user - Nickname: {user.Nickname}, Email: {user.Email}");
+                UserNicknameLabel.Text = user.Nickname ?? "N/A";
+                UserEmailLabel.Text = user.Email ?? "N/A";
+            }
+            else
+            {
+                Debug.WriteLine("LoadMembershipDataAsync: No stored user found");
+                UserNicknameLabel.Text = "N/A";
+                UserEmailLabel.Text = "N/A";
+            }
+
+            // Get subscription data from backend API
+            var subscription = await _dataService.GetUserSubscriptionAsync();
+            if (subscription != null && !string.IsNullOrEmpty(subscription.SubscriptionPlan))
+            {
+                Debug.WriteLine($"LoadMembershipDataAsync: Backend subscription data - Plan: {subscription.SubscriptionPlan}");
+
+                // Convert subscription plan to membership tier
+                _currentTier = subscription.SubscriptionPlan.ToLower() switch
+                {
+                    "flex" => MembershipTier.Flex,
+                    "premium" => MembershipTier.Premium,
+                    _ => MembershipTier.Free
+                };
+
+                // Update displays
+                MembershipTierLabel.Text = _currentTier.ToString();
+
+                // Store updated membership locally for consistency
+                await _settingsService.SetMembershipTierAsync(_currentTier);
+                Debug.WriteLine($"LoadMembershipDataAsync: Updated to {_currentTier} from backend plan: {subscription.SubscriptionPlan}");
+            }
+            else
+            {
+                Debug.WriteLine("LoadMembershipDataAsync: Failed to get subscription data from backend, falling back to local storage");
+
+                // Fallback to local settings if API fails
+                _currentTier = await _settingsService.GetMembershipTierAsync();
+                MembershipTierLabel.Text = _currentTier.ToString();
+                Debug.WriteLine($"LoadMembershipDataAsync: Using fallback membership: {_currentTier}");
+            }
+
+            // Get usage statistics from backend
+            var backendUsage = await _dataService.GetUserUsageAsync();
+            var backendStorage = await _dataService.GetUserStorageAsync();
+            UsageStatistics localStats = null;
+
+            if (backendUsage != null)
+            {
+                Debug.WriteLine($"Retrieved backend usage data - Available Credits: ${backendUsage.AvailableCredits:F4}, Total Usage: ${backendUsage.TotalUsage:F4}");
+
+                // Use real backend data
+                await LoadEnhancedUsageStatsFromBackend(backendUsage, backendStorage);
+            }
+            else
+            {
+                Debug.WriteLine("Failed to get backend usage data, falling back to local stats");
+
+                // Fallback to local usage statistics
+                localStats = await _settingsService.GetUsageStatisticsAsync();
+                await LoadEnhancedUsageStats(localStats);
+            }
+
+            // Update legacy labels (hidden by default) - use fallback if needed
+            if (localStats == null)
+                localStats = await _settingsService.GetUsageStatisticsAsync();
+
+            ProcessingTimeLabel.Text = $"{localStats.ProcessingMinutes} minutes";
+            ApiCallsLabel.Text = $"{localStats.ApiCalls} / {localStats.ApiCallsLimit}";
+            StorageLabel.Text = $"{localStats.StorageMB:F1} MB / {localStats.StorageLimitMB:F1} MB";
+            BillingCycleLabel.Text = localStats.BillingCycleEnd.ToString("MMM d, yyyy");
 
             // Update membership features description
             MembershipFeaturesLabel.Text = _settingsService.GetMembershipFeatures(_currentTier);
 
             // Update button visibility based on tier
             UpgradePlanButton.IsVisible = _currentTier != MembershipTier.Premium;
+
+            // Update enhanced UI
+            UpdateEnhancedUsageDisplay();
+
+            // Update storage display if we have backend storage data
+            if (backendStorage != null)
+            {
+                UpdateStorageDisplay(backendStorage);
+            }
+
+            Debug.WriteLine($"Completed LoadMembershipDataAsync successfully with tier: {_currentTier}");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Error loading membership data: {ex.Message}");
             await DisplayAlert("Error", "Failed to load membership data", "OK");
+        }
+    }
+
+    private async Task LoadEnhancedUsageStats(UsageStatistics stats)
+    {
+        try
+        {
+            Debug.WriteLine($"Loading enhanced usage stats for tier: {_currentTier}");
+
+            // Calculate enhanced usage statistics
+            decimal currentUsage = (decimal)(stats.ApiCalls * 0.002); // Estimate $0.002 per API call
+            decimal monthlyLimit = _currentTier switch
+            {
+                MembershipTier.Free => 0m,
+                MembershipTier.Flex => 10m,
+                MembershipTier.Premium => decimal.MaxValue, // Unlimited
+                _ => 0m
+            };
+
+            bool isUnlimited = _currentTier == MembershipTier.Premium;
+            decimal remainingBalance = isUnlimited ? decimal.MaxValue : Math.Max(0, monthlyLimit - currentUsage);
+            double usagePercentage = isUnlimited ? 0 : monthlyLimit > 0 ? (double)(currentUsage / monthlyLimit * 100) : 0;
+
+            _enhancedUsageStats = new EnhancedUsageStats
+            {
+                CurrentUsage = currentUsage,
+                MonthlyLimit = monthlyLimit,
+                RemainingBalance = remainingBalance,
+                UsagePercentage = usagePercentage,
+                IsUnlimited = isUnlimited,
+                RecentUsage = await GenerateRecentUsageData(stats)
+            };
+
+            Debug.WriteLine($"Enhanced stats calculated - Current: ${currentUsage:F4}, Limit: {(isUnlimited ? "Unlimited" : $"${monthlyLimit:F2}")}, Remaining: {(isUnlimited ? "Unlimited" : $"${remainingBalance:F4}")}, Percentage: {usagePercentage:F1}%");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error loading enhanced usage stats: {ex.Message}");
+            // Fallback to default values
+            _enhancedUsageStats = new EnhancedUsageStats();
+        }
+    }
+
+    private Task<List<UsageItem>> GenerateRecentUsageData(UsageStatistics stats)
+    {
+        var recentUsage = new List<UsageItem>();
+
+        try
+        {
+            // Generate sample recent usage data (you can replace this with actual data from your service)
+            if (stats.ApiCalls > 0)
+            {
+                var random = new Random();
+                var apiTypes = new[]
+                {
+                    ("🤖 OpenAI", "openai"),
+                    ("📝 Word Generator", "rapidword"),
+                    ("📚 Dictionary", "rapiddef")
+                };
+
+                for (int i = 0; i < Math.Min(5, stats.ApiCalls); i++)
+                {
+                    var apiType = apiTypes[random.Next(apiTypes.Length)];
+                    var date = DateTime.Now.AddDays(-random.Next(0, 30));
+                    var usage = random.Next(1, 10);
+                    var cost = usage * 0.002m;
+
+                    recentUsage.Add(new UsageItem
+                    {
+                        ApiDisplayName = apiType.Item1,
+                        Date = date.ToString("MMM d, yyyy"),
+                        Usage = $"{usage} calls",
+                        Cost = $"${cost:F4}"
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error generating recent usage data: {ex.Message}");
+        }
+
+        return Task.FromResult(recentUsage.OrderByDescending(x => DateTime.Parse(x.Date)).ToList());
+    }
+
+    private Task LoadEnhancedUsageStatsFromBackend(DataModel.UserUsage backendUsage, DataModel.UserStorage backendStorage)
+    {
+        try
+        {
+            Debug.WriteLine($"Loading enhanced usage stats from backend data - Membership: {backendUsage.Membership}");
+
+            // Use real backend data
+            decimal currentUsage = backendUsage.TotalUsage;
+            decimal monthlyLimit = backendUsage.CustomLimit ?? backendUsage.Limit;
+            bool isUnlimited = backendUsage.Membership == "Premium" && monthlyLimit <= 0;
+            decimal remainingBalance = backendUsage.AvailableCredits;
+            double usagePercentage = backendUsage.PercentUsed;
+
+            // Convert backend usage breakdown to UI format
+            var recentUsage = new List<UsageItem>();
+            if (backendUsage.UsageBreakdown?.Any() == true)
+            {
+                foreach (var breakdown in backendUsage.UsageBreakdown.Take(5))
+                {
+                    string apiDisplayName = breakdown.Api?.ToLower() switch
+                    {
+                        "openai" => "🤖 OpenAI",
+                        "rapidword" => "📝 Word Generator",
+                        "rapiddef" => "📚 Dictionary",
+                        _ => $"🔧 {breakdown.Api}"
+                    };
+
+                    recentUsage.Add(new UsageItem
+                    {
+                        ApiDisplayName = apiDisplayName,
+                        Date = breakdown.FullDate ?? breakdown.Date ?? DateTime.Now.ToString("MMM d, yyyy"),
+                        Usage = breakdown.Usage ?? "1 call",
+                        Cost = $"${breakdown.Cost:F4}"
+                    });
+                }
+            }
+
+            _enhancedUsageStats = new EnhancedUsageStats
+            {
+                CurrentUsage = currentUsage,
+                MonthlyLimit = monthlyLimit,
+                RemainingBalance = remainingBalance,
+                UsagePercentage = usagePercentage,
+                IsUnlimited = isUnlimited,
+                RecentUsage = recentUsage.OrderByDescending(x => x.Date).ToList()
+            };
+
+            Debug.WriteLine($"Backend enhanced stats calculated - Current: ${currentUsage:F4}, Limit: {(isUnlimited ? "Unlimited" : $"${monthlyLimit:F2}")}, Remaining: ${remainingBalance:F4}, Percentage: {usagePercentage:F1}%");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error loading enhanced usage stats from backend: {ex.Message}");
+            // Fallback to default values
+            _enhancedUsageStats = new EnhancedUsageStats();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async void RefreshUsage_Clicked(object sender, EventArgs e)
+    {
+        try
+        {
+            Debug.WriteLine("Manual refresh of usage data requested");
+
+            // Show loading indicator
+            var button = sender as Button;
+            var originalText = button?.Text;
+            if (button != null)
+            {
+                button.Text = "🔄 Refreshing...";
+                button.IsEnabled = false;
+            }
+
+            // Refresh usage and storage data
+            var backendUsage = await _dataService.GetUserUsageAsync();
+            var backendStorage = await _dataService.GetUserStorageAsync();
+
+            if (backendUsage != null)
+            {
+                await LoadEnhancedUsageStatsFromBackend(backendUsage, backendStorage);
+                UpdateEnhancedUsageDisplay();
+
+                if (backendStorage != null)
+                {
+                    UpdateStorageDisplay(backendStorage);
+                }
+
+                await DisplayAlert("Success", "Usage data refreshed successfully!", "OK");
+            }
+            else
+            {
+                await DisplayAlert("Error", "Failed to refresh usage data from server.", "OK");
+            }
+
+            // Restore button
+            if (button != null)
+            {
+                button.Text = originalText;
+                button.IsEnabled = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error refreshing usage data: {ex.Message}");
+            await DisplayAlert("Error", "Failed to refresh usage data.", "OK");
+        }
+    }
+
+    private void UpdateStorageDisplay(DataModel.UserStorage storageData)
+    {
+        try
+        {
+            Debug.WriteLine($"Updating storage display - Used: {storageData.TotalStorageFormatted}, Limit: {storageData.StorageLimitFormatted}");
+
+            // Update storage overview cards
+            StorageTotalUsedLabel.Text = storageData.TotalStorageFormatted ?? "0 B";
+            StorageLimitLabel.Text = storageData.StorageLimitFormatted ?? "10 MB";
+            StorageItemCountLabel.Text = storageData.ItemCount.ToString();
+            StorageFileCountLabel.Text = storageData.FileCount.ToString();
+
+            // Update storage progress bar
+            if (storageData.StorageUsagePercent > 0)
+            {
+                StorageProgressContainer.IsVisible = true;
+
+                // Calculate progress bar width
+                double progressWidth = Math.Min(storageData.StorageUsagePercent / 100.0 * 280, 280); // Assuming 280px container width
+                StorageProgressBar.WidthRequest = progressWidth;
+
+                // Update status and color based on percentage
+                if (storageData.IsOverLimit)
+                {
+                    StorageStatusLabel.Text = "🚨 Over Limit";
+                    StorageProgressBar.BackgroundColor = Color.FromArgb("#FF4757"); // Red
+                }
+                else if (storageData.StorageUsagePercent >= 90)
+                {
+                    StorageStatusLabel.Text = "⚠️ Nearly Full";
+                    StorageProgressBar.BackgroundColor = Color.FromArgb("#FFA500"); // Orange
+                }
+                else if (storageData.StorageUsagePercent >= 75)
+                {
+                    StorageStatusLabel.Text = "🔶 High Usage";
+                    StorageProgressBar.BackgroundColor = Color.FromArgb("#FFCC02"); // Yellow
+                }
+                else
+                {
+                    StorageStatusLabel.Text = $"✅ {storageData.StorageUsagePercent:F1}% Used";
+                    StorageProgressBar.BackgroundColor = Color.FromArgb("#4CAF50"); // Green
+                }
+            }
+            else
+            {
+                StorageProgressContainer.IsVisible = false;
+            }
+
+            // Show storage warnings
+            if (storageData.IsOverLimit || storageData.IsNearLimit)
+            {
+                StorageWarningFrame.IsVisible = true;
+
+                if (storageData.IsOverLimit)
+                {
+                    StorageWarningIcon.Text = "🚨";
+                    StorageWarningTitle.Text = "Storage Limit Exceeded";
+                    StorageWarningMessage.Text = "You've exceeded your storage limit. Delete some items or upgrade to continue storing data.";
+                }
+                else if (storageData.IsNearLimit)
+                {
+                    StorageWarningIcon.Text = "⚠️";
+                    StorageWarningTitle.Text = "Storage Nearly Full";
+                    StorageWarningMessage.Text = $"You're using {storageData.StorageUsagePercent:F1}% of your storage limit.";
+                }
+            }
+            else
+            {
+                StorageWarningFrame.IsVisible = false;
+            }
+
+            Debug.WriteLine($"Storage display updated - Progress: {storageData.StorageUsagePercent:F1}%, Warning visible: {StorageWarningFrame.IsVisible}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error updating storage display: {ex.Message}");
+        }
+    }
+
+    private void UpdateEnhancedUsageDisplay()
+    {
+        if (_enhancedUsageStats == null)
+        {
+            Debug.WriteLine("_enhancedUsageStats is null, cannot update display");
+            return;
+        }
+
+        try
+        {
+            Debug.WriteLine($"Updating enhanced usage display for {_currentTier} tier");
+
+            // Update usage overview cards
+            CurrentUsageLabel.Text = $"${_enhancedUsageStats.CurrentUsage:F4}";
+            MonthlyLimitLabel.Text = _enhancedUsageStats.IsUnlimited ? "∞ Unlimited" : $"${_enhancedUsageStats.MonthlyLimit:F2}";
+            RemainingBalanceLabel.Text = _enhancedUsageStats.IsUnlimited ? "∞ Unlimited" : $"${_enhancedUsageStats.RemainingBalance:F4}";
+            UsagePercentageLabel.Text = _enhancedUsageStats.IsUnlimited ? "N/A" : $"{_enhancedUsageStats.UsagePercentage:F1}%";
+
+            Debug.WriteLine($"Updated labels - Usage: {CurrentUsageLabel.Text}, Limit: {MonthlyLimitLabel.Text}, Remaining: {RemainingBalanceLabel.Text}, Percentage: {UsagePercentageLabel.Text}");
+
+            // Update progress bar
+            if (!_enhancedUsageStats.IsUnlimited && _enhancedUsageStats.UsagePercentage > 0)
+            {
+                UsageProgressContainer.IsVisible = true;
+
+                // Calculate progress bar width (relative to container)
+                double progressWidth = Math.Min(_enhancedUsageStats.UsagePercentage / 100.0 * 280, 280); // Assuming 280px container width
+                UsageProgressBar.WidthRequest = progressWidth;
+
+                // Update status and color based on percentage
+                if (_enhancedUsageStats.UsagePercentage >= 90)
+                {
+                    UsageStatusLabel.Text = "⚠️ Nearly Full";
+                    UsageProgressBar.BackgroundColor = Color.FromArgb("#FF4757"); // Red
+                }
+                else if (_enhancedUsageStats.UsagePercentage >= 75)
+                {
+                    UsageStatusLabel.Text = "🔶 High Usage";
+                    UsageProgressBar.BackgroundColor = Color.FromArgb("#FFA500"); // Orange
+                }
+                else
+                {
+                    UsageStatusLabel.Text = "✅ Good";
+                    UsageProgressBar.BackgroundColor = Color.FromArgb("#4CAF50"); // Green
+                }
+
+                Debug.WriteLine($"Progress bar visible with width: {progressWidth}, status: {UsageStatusLabel.Text}");
+            }
+            else
+            {
+                UsageProgressContainer.IsVisible = false;
+                Debug.WriteLine("Progress bar hidden");
+            }
+
+            // Update recent usage list
+            if (_enhancedUsageStats.RecentUsage?.Any() == true)
+            {
+                _recentUsageItems.Clear();
+                foreach (var item in _enhancedUsageStats.RecentUsage.Take(5))
+                {
+                    _recentUsageItems.Add(item);
+                }
+                RecentUsageContainer.IsVisible = true;
+                Debug.WriteLine($"Recent usage visible with {_recentUsageItems.Count} items");
+            }
+            else
+            {
+                RecentUsageContainer.IsVisible = false;
+                Debug.WriteLine("Recent usage hidden");
+            }
+
+            // Show upgrade prompt for free users
+            UpgradePromptFrame.IsVisible = _currentTier == MembershipTier.Free;
+            Debug.WriteLine($"Upgrade prompt visible: {UpgradePromptFrame.IsVisible}");
+
+            // Show legacy stats container if needed (hidden by default)
+            LegacyStatsContainer.IsVisible = false;
+
+            Debug.WriteLine("Enhanced usage display update completed successfully");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error updating enhanced usage display: {ex.Message}");
         }
     }
 

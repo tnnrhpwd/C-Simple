@@ -129,8 +129,14 @@
                         <Label Text="********"
                                x:Name="PasswordLabel"
                                class="SubContent" />
-                        <Button Text="Edit Password"
-                                Command="{Binding EditPasswordCommand}" />
+                        <Button x:Name="ResetPasswordButton"
+                                Text="🔐 Reset Password"
+                                Clicked="ResetPassword_Clicked"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
+                                TextColor="White"
+                                CornerRadius="8"
+                                Padding="15,8"
+                                HorizontalOptions="Start" />
                     </StackLayout>
                 </StackLayout>
                 <BoxView class="HRule" />
@@ -153,39 +159,235 @@
                         </Grid>
                         <BoxView class="HRule"
                                  Margin="0,5" />
-                        <Label Text="Usage Statistics"
+                        <Label Text="API Usage &amp; Limits"
                                class="Subhead" />
-                        <Grid RowDefinitions="Auto,Auto,Auto,Auto"
-                              ColumnDefinitions="*,Auto">
-                            <Label Text="Model Processing Time"
-                                   Grid.Row="0"
-                                   Grid.Column="0" />
-                            <Label x:Name="ProcessingTimeLabel"
-                                   Text="0 minutes"
-                                   Grid.Row="0"
-                                   Grid.Column="1" />
-                            <Label Text="API Calls"
-                                   Grid.Row="1"
-                                   Grid.Column="0" />
-                            <Label x:Name="ApiCallsLabel"
-                                   Text="0 / 100"
-                                   Grid.Row="1"
-                                   Grid.Column="1" />
-                            <Label Text="Storage Used"
-                                   Grid.Row="2"
-                                   Grid.Column="0" />
-                            <Label x:Name="StorageLabel"
-                                   Text="0 MB / 500 MB"
-                                   Grid.Row="2"
-                                   Grid.Column="1" />
-                            <Label Text="Billing Cycle"
-                                   Grid.Row="3"
-                                   Grid.Column="0" />
-                            <Label x:Name="BillingCycleLabel"
-                                   Text="N/A"
-                                   Grid.Row="3"
-                                   Grid.Column="1" />
+                        <!-- Usage Overview Grid -->
+                        <Grid RowDefinitions="Auto,Auto"
+                              ColumnDefinitions="*,*"
+                              ColumnSpacing="10"
+                              RowSpacing="10"
+                              Margin="0,5">
+                            <!-- Current Usage -->
+                            <Frame Grid.Row="0"
+                                   Grid.Column="0"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
+                                   CornerRadius="8"
+                                   Padding="10"
+                                   HasShadow="False">
+                                <StackLayout Spacing="5">
+                                    <Label Text="💰 Current Usage"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                    <Label x:Name="CurrentUsageLabel"
+                                           Text="$0.0000"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}" />
+                                </StackLayout>
+                            </Frame>
+                            <!-- Monthly Limit -->
+                            <Frame Grid.Row="0"
+                                   Grid.Column="1"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryExtraLight}, Dark={StaticResource SecondaryDark}}"
+                                   CornerRadius="8"
+                                   Padding="10"
+                                   HasShadow="False">
+                                <StackLayout Spacing="5">
+                                    <Label Text="🎯 Monthly Limit"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                    <Label x:Name="MonthlyLimitLabel"
+                                           Text="$10.00"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryLight}}" />
+                                </StackLayout>
+                            </Frame>
+                            <!-- Remaining Balance -->
+                            <Frame Grid.Row="1"
+                                   Grid.Column="0"
+                                   BackgroundColor="{AppThemeBinding Light=#E8F5E8, Dark=#2D4A2D}"
+                                   CornerRadius="8"
+                                   Padding="10"
+                                   HasShadow="False">
+                                <StackLayout Spacing="5">
+                                    <Label Text="💸 Remaining"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                    <Label x:Name="RemainingBalanceLabel"
+                                           Text="$10.0000"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light=#2E7D32, Dark=#4CAF50}" />
+                                </StackLayout>
+                            </Frame>
+                            <!-- Usage Percentage -->
+                            <Frame Grid.Row="1"
+                                   Grid.Column="1"
+                                   BackgroundColor="{AppThemeBinding Light=#F3E5F5, Dark=#4A2C4A}"
+                                   CornerRadius="8"
+                                   Padding="10"
+                                   HasShadow="False">
+                                <StackLayout Spacing="5">
+                                    <Label Text="📊 Usage %"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                    <Label x:Name="UsagePercentageLabel"
+                                           Text="0.0%"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light=#7B1FA2, Dark=#BA68C8}" />
+                                </StackLayout>
+                            </Frame>
                         </Grid>
+                        <!-- Usage Progress Bar -->
+                        <StackLayout x:Name="UsageProgressContainer"
+                                     Spacing="8"
+                                     Margin="0,10,0,0"
+                                     IsVisible="False">
+                            <Label Text="Usage Progress"
+                                   FontSize="14"
+                                   FontAttributes="Bold" />
+                            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Background_Light}, Dark={StaticResource Background_Dark}}"
+                                   CornerRadius="10"
+                                   Padding="2"
+                                   HasShadow="False">
+                                <Frame x:Name="UsageProgressBar"
+                                       BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
+                                       CornerRadius="8"
+                                       HeightRequest="16"
+                                       HorizontalOptions="Start"
+                                       HasShadow="False"
+                                       WidthRequest="0" />
+                            </Frame>
+                            <Label x:Name="UsageStatusLabel"
+                                   Text="✅ Good"
+                                   FontSize="12"
+                                   HorizontalOptions="Center" />
+                        </StackLayout>
+                        <!-- Recent API Usage -->
+                        <StackLayout x:Name="RecentUsageContainer"
+                                     Spacing="8"
+                                     Margin="0,15,0,0"
+                                     IsVisible="False">
+                            <Label Text="Recent API Usage"
+                                   FontSize="14"
+                                   FontAttributes="Bold" />
+                            <CollectionView x:Name="RecentUsageList"
+                                            HeightRequest="150">
+                                <CollectionView.ItemsLayout>
+                                    <LinearItemsLayout Orientation="Vertical"
+                                                       ItemSpacing="5" />
+                                </CollectionView.ItemsLayout>
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundLight}, Dark={StaticResource CardBackgroundDark}}"
+                                               CornerRadius="8"
+                                               Padding="10"
+                                               Margin="0,2"
+                                               HasShadow="False">
+                                            <Grid ColumnDefinitions="*,Auto"
+                                                  ColumnSpacing="10">
+                                                <StackLayout Grid.Column="0"
+                                                             Spacing="2">
+                                                    <Label Text="{Binding ApiDisplayName}"
+                                                           FontSize="13"
+                                                           FontAttributes="Bold" />
+                                                    <Label Text="{Binding Date}"
+                                                           FontSize="11"
+                                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                                </StackLayout>
+                                                <StackLayout Grid.Column="1"
+                                                             Spacing="2">
+                                                    <Label Text="{Binding Usage}"
+                                                           FontSize="11"
+                                                           HorizontalTextAlignment="End"
+                                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                                    <Label Text="{Binding Cost}"
+                                                           FontSize="13"
+                                                           FontAttributes="Bold"
+                                                           HorizontalTextAlignment="End" />
+                                                </StackLayout>
+                                            </Grid>
+                                        </Frame>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </StackLayout>
+                        <!-- Upgrade Prompt for Free Users -->
+                        <Frame x:Name="UpgradePromptFrame"
+                               BackgroundColor="{AppThemeBinding Light=#FFF3E0, Dark=#3E2723}"
+                               CornerRadius="10"
+                               Padding="15"
+                               Margin="0,15,0,0"
+                               IsVisible="False"
+                               HasShadow="False">
+                            <Grid ColumnDefinitions="Auto,*,Auto"
+                                  ColumnSpacing="15">
+                                <Label Grid.Column="0"
+                                       Text="🚀"
+                                       FontSize="32"
+                                       VerticalOptions="Center" />
+                                <StackLayout Grid.Column="1"
+                                             Spacing="5">
+                                    <Label Text="Upgrade to Flex or Premium"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}" />
+                                    <Label Text="Get $10 monthly API usage allowance and access to AI-powered features!"
+                                           FontSize="14"
+                                           LineBreakMode="WordWrap"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                </StackLayout>
+                                <Button Grid.Column="2"
+                                        Text="Upgrade Now"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                        TextColor="White"
+                                        CornerRadius="8"
+                                        Padding="15,8"
+                                        Clicked="UpgradePlan_Clicked" />
+                            </Grid>
+                        </Frame>
+                        <!-- Legacy Stats for Backward Compatibility -->
+                        <StackLayout x:Name="LegacyStatsContainer"
+                                     Spacing="5"
+                                     Margin="0,15,0,0"
+                                     IsVisible="False">
+                            <Label Text="System Statistics"
+                                   FontSize="14"
+                                   FontAttributes="Bold" />
+                            <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                                  ColumnDefinitions="*,Auto">
+                                <Label Text="Model Processing Time"
+                                       Grid.Row="0"
+                                       Grid.Column="0" />
+                                <Label x:Name="ProcessingTimeLabel"
+                                       Text="0 minutes"
+                                       Grid.Row="0"
+                                       Grid.Column="1" />
+                                <Label Text="API Calls"
+                                       Grid.Row="1"
+                                       Grid.Column="0" />
+                                <Label x:Name="ApiCallsLabel"
+                                       Text="0 / 100"
+                                       Grid.Row="1"
+                                       Grid.Column="1" />
+                                <Label Text="Storage Used"
+                                       Grid.Row="2"
+                                       Grid.Column="0" />
+                                <Label x:Name="StorageLabel"
+                                       Text="0 MB / 500 MB"
+                                       Grid.Row="2"
+                                       Grid.Column="1" />
+                                <Label Text="Billing Cycle"
+                                       Grid.Row="3"
+                                       Grid.Column="0" />
+                                <Label x:Name="BillingCycleLabel"
+                                       Text="N/A"
+                                       Grid.Row="3"
+                                       Grid.Column="1" />
+                            </Grid>
+                        </StackLayout>
                         <BoxView class="HRule"
                                  Margin="0,5" />
                         <Label Text="Membership Benefits"
@@ -204,6 +406,165 @@
                                 Text="View Billing History"
                                 Clicked="ViewBilling_Clicked"
                                 HorizontalOptions="Start" />
+                        <!-- Debug button - remove once membership issue is resolved -->
+                        <Button x:Name="RefreshMembershipButton"
+                                Text="🔄 Refresh Membership"
+                                Clicked="RefreshMembership_Clicked"
+                                HorizontalOptions="Start"
+                                BackgroundColor="Orange"
+                                TextColor="White" />
+                        <!-- Refresh Usage Button -->
+                        <Button x:Name="RefreshUsageButton"
+                                Text="🔄 Refresh Usage Data"
+                                Clicked="RefreshUsage_Clicked"
+                                HorizontalOptions="Start"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
+                                TextColor="White"
+                                Margin="0,5" />
+                    </VerticalStackLayout>
+                </Frame>
+                <BoxView class="HRule" />
+                <!-- Storage Section -->
+                <Label Text="💾 Database Storage"
+                       class="SectionTitle" />
+                <Frame Padding="10"
+                       BorderColor="{StaticResource Background_Mid}"
+                       BackgroundColor="Transparent">
+                    <VerticalStackLayout x:Name="StorageSection"
+                                         Spacing="10">
+                        <!-- Storage Overview Grid -->
+                        <Grid RowDefinitions="Auto,Auto"
+                              ColumnDefinitions="*,*"
+                              ColumnSpacing="10"
+                              RowSpacing="10">
+                            <!-- Total Used -->
+                            <Frame Grid.Row="0"
+                                   Grid.Column="0"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
+                                   CornerRadius="8"
+                                   Padding="10"
+                                   HasShadow="False">
+                                <StackLayout Spacing="5">
+                                    <Label Text="📊 Total Used"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                    <Label x:Name="StorageTotalUsedLabel"
+                                           Text="0 B"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}" />
+                                </StackLayout>
+                            </Frame>
+                            <!-- Storage Limit -->
+                            <Frame Grid.Row="0"
+                                   Grid.Column="1"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryExtraLight}, Dark={StaticResource SecondaryDark}}"
+                                   CornerRadius="8"
+                                   Padding="10"
+                                   HasShadow="False">
+                                <StackLayout Spacing="5">
+                                    <Label Text="🎯 Storage Limit"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                    <Label x:Name="StorageLimitLabel"
+                                           Text="10 MB"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryLight}}" />
+                                </StackLayout>
+                            </Frame>
+                            <!-- Total Items -->
+                            <Frame Grid.Row="1"
+                                   Grid.Column="0"
+                                   BackgroundColor="{AppThemeBinding Light=#E8F5E8, Dark=#2D4A2D}"
+                                   CornerRadius="8"
+                                   Padding="10"
+                                   HasShadow="False">
+                                <StackLayout Spacing="5">
+                                    <Label Text="📁 Total Items"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                    <Label x:Name="StorageItemCountLabel"
+                                           Text="0"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light=#2E7D32, Dark=#4CAF50}" />
+                                </StackLayout>
+                            </Frame>
+                            <!-- Files Stored -->
+                            <Frame Grid.Row="1"
+                                   Grid.Column="1"
+                                   BackgroundColor="{AppThemeBinding Light=#F3E5F5, Dark=#4A2C4A}"
+                                   CornerRadius="8"
+                                   Padding="10"
+                                   HasShadow="False">
+                                <StackLayout Spacing="5">
+                                    <Label Text="📄 Files Stored"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                    <Label x:Name="StorageFileCountLabel"
+                                           Text="0"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light=#7B1FA2, Dark=#BA68C8}" />
+                                </StackLayout>
+                            </Frame>
+                        </Grid>
+                        <!-- Storage Progress Bar -->
+                        <StackLayout x:Name="StorageProgressContainer"
+                                     Spacing="8"
+                                     Margin="0,10,0,0"
+                                     IsVisible="False">
+                            <Label Text="Storage Progress"
+                                   FontSize="14"
+                                   FontAttributes="Bold" />
+                            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Background_Light}, Dark={StaticResource Background_Dark}}"
+                                   CornerRadius="10"
+                                   Padding="2"
+                                   HasShadow="False">
+                                <Frame x:Name="StorageProgressBar"
+                                       BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryLight}}"
+                                       CornerRadius="8"
+                                       HeightRequest="16"
+                                       HorizontalOptions="Start"
+                                       HasShadow="False"
+                                       WidthRequest="0" />
+                            </Frame>
+                            <Label x:Name="StorageStatusLabel"
+                                   Text="✅ Good"
+                                   FontSize="12"
+                                   HorizontalOptions="Center" />
+                        </StackLayout>
+                        <!-- Storage warnings -->
+                        <Frame x:Name="StorageWarningFrame"
+                               BackgroundColor="{AppThemeBinding Light=#FFEBEE, Dark=#4A2D2D}"
+                               CornerRadius="10"
+                               Padding="15"
+                               Margin="0,10,0,0"
+                               IsVisible="False"
+                               HasShadow="False">
+                            <Grid ColumnDefinitions="Auto,*"
+                                  ColumnSpacing="10">
+                                <Label x:Name="StorageWarningIcon"
+                                       Grid.Column="0"
+                                       Text="⚠️"
+                                       FontSize="24"
+                                       VerticalOptions="Center" />
+                                <StackLayout Grid.Column="1"
+                                             Spacing="5">
+                                    <Label x:Name="StorageWarningTitle"
+                                           Text="Storage Nearly Full"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light=#D32F2F, Dark=#F44336}" />
+                                    <Label x:Name="StorageWarningMessage"
+                                           Text="You're using most of your storage limit."
+                                           FontSize="14"
+                                           LineBreakMode="WordWrap"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                                </StackLayout>
+                            </Grid>
+                        </Frame>
                     </VerticalStackLayout>
                 </Frame>
                 <BoxView class="HRule" />

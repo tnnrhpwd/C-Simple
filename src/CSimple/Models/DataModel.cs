@@ -20,6 +20,71 @@ public class DataModel : INotifyPropertyChanged
         public string Email { get; set; }
         public string Token { get; set; }
     }
+
+    public class UserSubscription
+    {
+        public string SubscriptionPlan { get; set; }
+        public SubscriptionDetails SubscriptionDetails { get; set; }
+    }
+
+    public class SubscriptionDetails
+    {
+        public string Id { get; set; }
+        public string Status { get; set; }
+        public DateTime CurrentPeriodEnd { get; set; }
+        public string ProductName { get; set; }
+        public string PriceId { get; set; }
+        public int Amount { get; set; }
+        public string Currency { get; set; }
+        public string Interval { get; set; }
+    }
+
+    public class UserUsage
+    {
+        public decimal TotalUsage { get; set; }
+        public decimal AvailableCredits { get; set; }
+        public decimal Limit { get; set; }
+        public decimal? CustomLimit { get; set; }
+        public List<UsageBreakdown> UsageBreakdown { get; set; } = new List<UsageBreakdown>();
+        public string Membership { get; set; }
+        public DateTime? LastReset { get; set; }
+        public decimal RemainingBalance { get; set; }
+        public double PercentUsed { get; set; }
+        public DateTime? NextReset { get; set; }
+    }
+
+    public class UsageBreakdown
+    {
+        public string Api { get; set; }
+        public string Date { get; set; }
+        public string FullDate { get; set; }
+        public string Usage { get; set; }
+        public decimal Cost { get; set; }
+    }
+
+    public class UserStorage
+    {
+        public string TotalStorageFormatted { get; set; }
+        public string StorageLimitFormatted { get; set; }
+        public int ItemCount { get; set; }
+        public int FileCount { get; set; }
+        public long TotalStorage { get; set; }
+        public long StorageLimit { get; set; }
+        public double StorageUsagePercent { get; set; }
+        public bool IsOverLimit { get; set; }
+        public bool IsNearLimit { get; set; }
+        public string Membership { get; set; }
+        public List<StorageBreakdown> StorageBreakdown { get; set; } = new List<StorageBreakdown>();
+    }
+
+    public class StorageBreakdown
+    {
+        public bool HasFiles { get; set; }
+        public DateTime? CreatedAt { get; set; }
+        public int FileCount { get; set; }
+        public string SizeFormatted { get; set; }
+    }
+
     public List<DataItem> Data { get; set; } = new List<DataItem>();
     public bool DataIsError { get; set; }
     public bool DataIsSuccess { get; set; }

@@ -7,8 +7,9 @@ using System.Threading;
 public class DataService
 {
     private readonly HttpClient _httpClient;
-    private const string BaseUrl = "https://mern-plan-web-service.onrender.com/api/data/";
+    private const string BaseUrl = "https://www.sthopwood.com/api/data/";
     // private const string BaseUrl = "https://localhost:5000/api/data/";
+    // private const string BaseUrl = "https://mern-plan-web-service.onrender.com/api/data/";
     private readonly UpdateDataService _updateDataService;
 
     public DataService()
@@ -254,7 +255,196 @@ public class DataService
         }
     }
 
-    // Handle responses, ensure success or handle error
+    // Get user subscription data from backend
+    public async Task<DataModel.UserSubscription> GetUserSubscriptionAsync()
+    {
+        try
+        {
+            var token = await SecureStorage.GetAsync("userToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Debug.WriteLine("No token found for subscription request");
+                return null;
+            }
+
+            var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl + "subscription");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await _httpClient.SendAsync(request);
+            Debug.WriteLine($"Subscription request URL: {BaseUrl}subscription");
+            Debug.WriteLine($"Subscription response status: {response.StatusCode}");
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            Debug.WriteLine($"Subscription response content: {responseContent}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+
+                var subscription = JsonSerializer.Deserialize<DataModel.UserSubscription>(responseContent, options);
+                Debug.WriteLine($"Subscription parsed - Plan: {subscription?.SubscriptionPlan}");
+                return subscription;
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                await HandleTokenExpiration();
+                throw new UnauthorizedAccessException("Your session has expired. Please log in again.");
+            }
+
+            Debug.WriteLine($"Subscription request failed: {response.StatusCode}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error fetching subscription: {ex.Message}");
+            return null;
+        }
+    }
+
+    // Get user usage data from backend
+    public async Task<DataModel.UserUsage> GetUserUsageAsync()
+    {
+        try
+        {
+            var token = await SecureStorage.GetAsync("userToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Debug.WriteLine("No token found for usage request");
+                return null;
+            }
+
+            var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl + "usage");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await _httpClient.SendAsync(request);
+            Debug.WriteLine($"Usage request URL: {BaseUrl}usage");
+            Debug.WriteLine($"Usage response status: {response.StatusCode}");
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            Debug.WriteLine($"Usage response content: {responseContent}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+
+                var usage = JsonSerializer.Deserialize<DataModel.UserUsage>(responseContent, options);
+                Debug.WriteLine($"Usage parsed - Available Credits: ${usage?.AvailableCredits:F4}");
+                return usage;
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                await HandleTokenExpiration();
+                throw new UnauthorizedAccessException("Your session has expired. Please log in again.");
+            }
+
+            Debug.WriteLine($"Usage request failed: {response.StatusCode}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error fetching usage: {ex.Message}");
+            return null;
+        }
+    }
+
+    // Get user storage data from backend
+    public async Task<DataModel.UserStorage> GetUserStorageAsync()
+    {
+        try
+        {
+            var token = await SecureStorage.GetAsync("userToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Debug.WriteLine("No token found for storage request");
+                return null;
+            }
+
+            var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl + "storage");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await _httpClient.SendAsync(request);
+            Debug.WriteLine($"Storage request URL: {BaseUrl}storage");
+            Debug.WriteLine($"Storage response status: {response.StatusCode}");
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            Debug.WriteLine($"Storage response content: {responseContent}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+
+                var storage = JsonSerializer.Deserialize<DataModel.UserStorage>(responseContent, options);
+                Debug.WriteLine($"Storage parsed - Total Used: {storage?.TotalStorageFormatted}");
+                return storage;
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                await HandleTokenExpiration();
+                throw new UnauthorizedAccessException("Your session has expired. Please log in again.");
+            }
+
+            Debug.WriteLine($"Storage request failed: {response.StatusCode}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error fetching storage: {ex.Message}");
+            return null;
+        }
+    }
+
+    // Send password reset email for authenticated user
+    public async Task<bool> SendPasswordResetAsync()
+    {
+        try
+        {
+            var token = await SecureStorage.GetAsync("userToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Debug.WriteLine("No token found for password reset request");
+                return false;
+            }
+
+            var request = new HttpRequestMessage(HttpMethod.Post, BaseUrl + "forgot-password-authenticated");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            request.Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.SendAsync(request);
+            Debug.WriteLine($"Password reset request URL: {BaseUrl}forgot-password-authenticated");
+            Debug.WriteLine($"Password reset response status: {response.StatusCode}");
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            Debug.WriteLine($"Password reset response content: {responseContent}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                Debug.WriteLine("Password reset email sent successfully");
+                return true;
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                await HandleTokenExpiration();
+                throw new UnauthorizedAccessException("Your session has expired. Please log in again.");
+            }
+
+            Debug.WriteLine($"Password reset request failed: {response.StatusCode}");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error sending password reset: {ex.Message}");
+            return false;
+        }
+    }    // Handle responses, ensure success or handle error
     private async Task<T> HandleResponse<T>(HttpResponseMessage response)
     {
         if (response.IsSuccessStatusCode)
