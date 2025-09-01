@@ -744,7 +744,7 @@
                                    Grid.Row="1"
                                    Grid.ColumnSpan="2"
                                    FontSize="12"
-                                   TextColor="{StaticResource DarkGray}"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
                                    Margin="0,5,0,0" />
                         </Grid>
                         <BoxView class="HRule"
