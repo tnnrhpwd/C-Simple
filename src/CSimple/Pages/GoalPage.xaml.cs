@@ -23,6 +23,7 @@ namespace CSimple.Pages
         private readonly OrientPageViewModel _orientPageViewModel; // Added
         private readonly FileService _fileService; // Added FileService
         private readonly DataService _dataService; // Added for backend integration
+        private readonly NetPageViewModel _netPageViewModel; // Added for neural network access
 
         private bool _showNewGoal = false;
         private bool _isLoading = false;
@@ -390,8 +391,8 @@ namespace CSimple.Pages
         public ICommand UnshareGoalCommand { get; }
         public ICommand DownloadGoalCommand { get; }
 
-        // Modified constructor to accept OrientPageViewModel and FileService
-        public GoalPage(GoalService goalService, CSimple.Services.AppModeService.AppModeService appModeService, OrientPageViewModel orientPageViewModel, FileService fileService, DataService dataService) // Added DataService
+        // Modified constructor to accept OrientPageViewModel, FileService, and NetPageViewModel
+        public GoalPage(GoalService goalService, CSimple.Services.AppModeService.AppModeService appModeService, OrientPageViewModel orientPageViewModel, FileService fileService, DataService dataService, NetPageViewModel netPageViewModel) // Added NetPageViewModel
         {
             InitializeComponent();
 
@@ -400,6 +401,7 @@ namespace CSimple.Pages
             _orientPageViewModel = orientPageViewModel; // Store injected ViewModel
             _fileService = fileService; // Store injected FileService
             _dataService = dataService; // Store injected DataService
+            _netPageViewModel = netPageViewModel; // Store injected NetPageViewModel
 
             // Initialize existing commands
             ToggleCreateGoalCommand = new Command(OnToggleCreateGoal);
@@ -1113,7 +1115,7 @@ namespace CSimple.Pages
 
         #endregion
 
-        // --- Enhanced Goal Generation Method ---
+        // --- Enhanced Goal Generation Method with Neural Network Priority ---
         private async Task OnGenerateGoals()
         {
             try
@@ -1130,98 +1132,763 @@ namespace CSimple.Pages
 
                 ShowGeneratedGoals = true;
 
-                // Generate goals with multiple strategies
+                // Generate goals with multiple strategies - prioritizing neural networks
                 var generatedGoals = new List<GeneratedGoal>();
 
-                // Strategy 1: AI Pipeline Analysis (if pipeline selected)
-                if (!string.IsNullOrEmpty(SelectedPipelineName))
+                // Strategy 1: Active Neural Network Models (HIGHEST PRIORITY - Try Multiple Models)
+                var neuralGoals = await GenerateGoalsFromActiveNeuralNetworks();
+                generatedGoals.AddRange(neuralGoals);
+
+                // Strategy 2: Try to get more neural network goals aggressively to reach 3
+                if (generatedGoals.Count > 0 && generatedGoals.Count < 3)
                 {
-                    var pipelineGoals = await GenerateGoalsFromPipeline();
-                    generatedGoals.AddRange(pipelineGoals);
+                    var additionalNeuralGoals = await TryGenerateMoreNeuralGoals();
+                    generatedGoals.AddRange(additionalNeuralGoals);
                 }
 
-                // Strategy 2: Context-based Goal Generation
-                var contextGoals = await GenerateGoalsFromContext();
-                generatedGoals.AddRange(contextGoals);
-
-                // Strategy 3: Webcam Analysis (if enabled)
-                if (UseWebcamForGeneration)
+                // Strategy 3: Try different neural prompts if still not enough goals
+                if (generatedGoals.Count > 0 && generatedGoals.Count < 3)
                 {
-                    var webcamGoals = await GenerateGoalsFromWebcam();
-                    generatedGoals.AddRange(webcamGoals);
+                    var diverseNeuralGoals = await GenerateDiverseNeuralGoals();
+                    generatedGoals.AddRange(diverseNeuralGoals);
                 }
 
-                // Strategy 4: Existing Goals Analysis
-                if (MyGoals.Any())
-                {
-                    var analysisGoals = await GenerateGoalsFromExistingGoals();
-                    generatedGoals.AddRange(analysisGoals);
-                }
+                // REMOVE OTHER STRATEGIES - Only neural network goals wanted
+                // No AI Pipeline, Context Analysis, Webcam, Existing Goals Analysis, or Fallbacks
 
-                // Strategy 5: Ensure we have at least 3 goals - add defaults if needed
-                var defaultGoals = GenerateDefaultSmartGoals();
-                generatedGoals.AddRange(defaultGoals);
-
-                // Take at least 3, up to 8 goals, ensuring we have enough variety
+                // Take up to 3 neural network goals only
                 var finalGoals = generatedGoals
+                    .GroupBy(g => g.Title) // Remove duplicates by title
+                    .Select(g => g.First())
                     .OrderByDescending(g => g.Confidence)
-                    .Take(Math.Max(8, generatedGoals.Count))
+                    .Take(3) // Only 3 goals
                     .ToList();
 
-                // If we still don't have at least 3, generate more defaults
-                while (finalGoals.Count < 3)
-                {
-                    finalGoals.AddRange(GenerateAdditionalDefaultGoals(3 - finalGoals.Count));
-                }
-
                 // Add new generated goals to collection (after selected ones)
-                foreach (var goal in finalGoals.Take(8))
+                foreach (var goal in finalGoals)
                 {
                     GeneratedGoals.Add(goal);
                 }
 
-                // Update status without popup
-                if (GeneratedGoals.Count > 0)
+                // Update status with neural network focus
+                var neuralCount = finalGoals.Count(g => g.Source.Contains("Neural"));
+                var totalCount = GeneratedGoals.Count;
+
+                if (neuralCount > 0)
                 {
-                    // Success - goals were generated
-                    ShowFeedback($"🎯 Generated {GeneratedGoals.Count} goal suggestions! Click to add them.");
-                    Debug.WriteLine($"Generated {GeneratedGoals.Count} goal suggestions successfully");
+                    ShowFeedback($"🧠 Generated {neuralCount} neural network goals! Pure AI-powered suggestions ready.");
+                    Debug.WriteLine($"Generated {neuralCount} goals successfully - all from neural networks");
                 }
                 else
                 {
-                    // Fallback - show a simple status message
-                    ShowFeedback("⚠️ No goals generated - please try again");
-                    Debug.WriteLine("No goals were generated - this shouldn't happen with fallback system");
+                    ShowFeedback("🛠️ No neural network models active. Please activate models in NetPage for AI suggestions.");
+                    Debug.WriteLine("No neural network goals generated - models need activation");
                 }
             }
             catch (Exception ex)
             {
-                // Log error instead of showing popup
-                Debug.WriteLine($"Goal generation error: {ex.Message}");
+                // Log error but don't add any fallback goals
+                Debug.WriteLine($"Neural network goal generation error: {ex.Message}");
 
-                // Add fallback goal so user isn't left with empty results
-                GeneratedGoals.Add(new GeneratedGoal
+                // Only add a setup guidance goal if no neural networks are working at all
+                if (GeneratedGoals.Count == 0)
                 {
-                    Title = "Quick Goal Planning Session",
-                    Description = "Take 15 minutes to review and plan your upcoming goals",
-                    Category = "Planning",
-                    Priority = 3,
-                    Confidence = 85,
-                    Source = "Fallback",
-                    Rationale = "Always a good practice when goal generation encounters issues",
-                    SuggestedDeadline = DateTime.Now.AddDays(1),
-                    EstimatedDuration = TimeSpan.FromMinutes(15),
-                    Icon = "📝"
-                });
+                    GeneratedGoals.Add(new GeneratedGoal
+                    {
+                        Title = "Activate Neural Network Models",
+                        Description = "Enable AI models in NetPage to get personalized neural network-generated goals",
+                        Category = "AI Setup",
+                        Priority = 5,
+                        Confidence = 100,
+                        Source = "Setup Guidance",
+                        Rationale = "Neural networks are required for AI-powered goal generation",
+                        SuggestedDeadline = DateTime.Now.AddDays(1),
+                        EstimatedDuration = TimeSpan.FromMinutes(15),
+                        Icon = "�",
+                        KeySteps = new List<string>
+                        {
+                            "Go to NetPage",
+                            "Activate DeepSeek-R1 or Qwen2.5-VL models",
+                            "Test model functionality",
+                            "Return for neural network goal generation"
+                        }
+                    });
 
-                // Show fallback feedback
-                ShowFeedback("⚠️ Added fallback goal - try again for AI suggestions");
+                    ShowFeedback("🛠️ Please activate neural network models in NetPage for AI-powered goal generation");
+                    Debug.WriteLine("No neural network goals generated - setup guidance provided");
+                }
             }
             finally
             {
                 IsGeneratingGoals = false;
                 ((Command)GenerateGoalsCommand).ChangeCanExecute();
             }
+        }
+
+        // --- New Neural Network Goal Generation Methods ---
+
+        private async Task<List<GeneratedGoal>> GenerateGoalsFromActiveNeuralNetworks()
+        {
+            var goals = new List<GeneratedGoal>();
+
+            try
+            {
+                Debug.WriteLine("🧠 Generating goals from active neural network models...");
+
+                // Get active text generation models
+                var activeModels = _netPageViewModel?.ActiveModels?.Where(m =>
+                    m.IsActive &&
+                    !string.IsNullOrEmpty(m.HuggingFaceModelId) &&
+                    IsTextGenerationModel(m)).ToList();
+
+                if (activeModels == null || !activeModels.Any())
+                {
+                    Debug.WriteLine("🧠 No active neural network models available for goal generation");
+                    return goals;
+                }
+
+                Debug.WriteLine($"🧠 Found {activeModels.Count} active text generation models");
+
+                // Use the best model for goal generation
+                var bestModel = GetBestTextGenerationModel(activeModels);
+                if (bestModel == null)
+                {
+                    Debug.WriteLine("🧠 No suitable text generation model found");
+                    return goals;
+                }
+
+                Debug.WriteLine($"🧠 Using model: {bestModel.Name} ({bestModel.HuggingFaceModelId})");
+
+                // Generate goals using neural network
+                var neuralGoals = await GenerateGoalsWithNeuralNetwork(bestModel);
+                goals.AddRange(neuralGoals);
+
+                // If we have multiple active models, use another one for variety
+                if (activeModels.Count > 1 && goals.Count < 5)
+                {
+                    var secondModel = activeModels.FirstOrDefault(m => m.Id != bestModel.Id);
+                    if (secondModel != null)
+                    {
+                        Debug.WriteLine($"🧠 Using secondary model for variety: {secondModel.Name}");
+                        var secondaryGoals = await GenerateGoalsWithNeuralNetwork(secondModel, "alternative perspective");
+                        goals.AddRange(secondaryGoals.Take(2)); // Add 2 more for variety
+                    }
+                }
+
+                Debug.WriteLine($"🧠 Generated {goals.Count} goals from neural networks");
+                return goals;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"🧠 Neural network goal generation failed: {ex.Message}");
+                return goals;
+            }
+        }
+
+        private async Task<List<GeneratedGoal>> TryGenerateMoreNeuralGoals()
+        {
+            var goals = new List<GeneratedGoal>();
+
+            try
+            {
+                // Get available text generation models (excluding already used ones)
+                var activeModels = _netPageViewModel?.ActiveModels?.Where(m =>
+                    m.IsActive &&
+                    !string.IsNullOrEmpty(m.HuggingFaceModelId) &&
+                    IsTextGenerationModel(m)).ToList();
+
+                if (activeModels == null || activeModels.Count <= 1) 
+                {
+                    // If only one model available, try it again with different prompts
+                    var primaryModel = GetBestTextGenerationModel(activeModels ?? new List<NeuralNetworkModel>());
+                    if (primaryModel != null)
+                    {
+                        Debug.WriteLine($"🧠 Re-using primary model with different perspective: {primaryModel.Name}");
+                        var modelGoals = await GenerateGoalsWithNeuralNetwork(primaryModel, "alternative creative approach");
+                        goals.AddRange(modelGoals.Take(2));
+                    }
+                    return goals;
+                }
+
+                // Try using DeepSeek or Qwen models if available (from execution logs we know these are present)
+                var alternativeModels = activeModels.Where(m =>
+                {
+                    var modelId = m.HuggingFaceModelId?.ToLowerInvariant() ?? "";
+                    return modelId.Contains("deepseek") || modelId.Contains("qwen") || 
+                           !modelId.Contains("gpt2"); // Try any model that's not GPT-2
+                }).Take(2);
+
+                foreach (var model in alternativeModels)
+                {
+                    Debug.WriteLine($"🧠 Trying additional neural model: {model.Name}");
+                    var modelGoals = await GenerateGoalsWithNeuralNetwork(model, "comprehensive life improvement");
+                    goals.AddRange(modelGoals.Take(2)); // Up to 2 goals per additional model
+
+                    if (goals.Count >= 2) break; // Stop when we have enough
+                }
+
+                Debug.WriteLine($"🧠 Generated {goals.Count} additional neural network goals");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"🧠 Additional neural network generation failed: {ex.Message}");
+            }
+
+            return goals;
+        }
+
+        private async Task<List<GeneratedGoal>> GenerateDiverseNeuralGoals()
+        {
+            var goals = new List<GeneratedGoal>();
+
+            try
+            {
+                // Use the primary model with different creative prompts to ensure we get 3 goals
+                var activeModels = _netPageViewModel?.ActiveModels?.Where(m =>
+                    m.IsActive &&
+                    !string.IsNullOrEmpty(m.HuggingFaceModelId) &&
+                    IsTextGenerationModel(m)).ToList();
+
+                var primaryModel = GetBestTextGenerationModel(activeModels ?? new List<NeuralNetworkModel>());
+                if (primaryModel == null) return goals;
+
+                // Try with different creative perspectives
+                var perspectives = new[]
+                {
+                    "focus on personal growth and self-improvement",
+                    "emphasize productivity and efficiency", 
+                    "consider wellness and work-life balance"
+                };
+
+                foreach (var perspective in perspectives)
+                {
+                    Debug.WriteLine($"🧠 Generating diverse neural goals with perspective: {perspective}");
+                    var perspectiveGoals = await GenerateGoalsWithNeuralNetwork(primaryModel, perspective);
+                    goals.AddRange(perspectiveGoals.Take(1)); // Take 1 from each perspective
+
+                    if (goals.Count >= 2) break;
+                }
+
+                Debug.WriteLine($"🧠 Generated {goals.Count} diverse neural network goals");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"🧠 Diverse neural network generation failed: {ex.Message}");
+            }
+
+            return goals;
+        }
+
+        private bool IsTextGenerationModel(NeuralNetworkModel model)
+        {
+            var modelId = model.HuggingFaceModelId?.ToLowerInvariant() ?? "";
+            var name = model.Name?.ToLowerInvariant() ?? "";
+
+            // Exclude audio/speech models that are not suitable for text generation
+            var excludedModels = new[]
+            {
+                "chatterbox", // Speech synthesis model
+                "ultravox", // Multimodal audio model
+                "whisper", // Speech recognition
+                "speecht5", // Speech processing
+                "wav2vec", // Audio processing
+                "audio", // Generic audio models
+                "speech", // Generic speech models
+                "tts", // Text-to-speech
+                "stt", // Speech-to-text
+                "voice", // Voice models
+                "sound" // Sound processing
+            };
+
+            // Skip excluded models
+            if (excludedModels.Any(excluded => modelId.Contains(excluded) || name.Contains(excluded)))
+            {
+                Debug.WriteLine($"🧠 Excluding audio/speech model: {model.Name} ({modelId})");
+                return false;
+            }
+
+            // Check for text generation indicators
+            return modelId.Contains("gpt") ||
+                   modelId.Contains("llama") ||
+                   modelId.Contains("bloom") ||
+                   modelId.Contains("t5") ||
+                   modelId.Contains("bart") ||
+                   modelId.Contains("deepseek") ||
+                   modelId.Contains("qwen") ||
+                   modelId.Contains("opt") ||
+                   modelId.Contains("flan") ||
+                   name.Contains("language") ||
+                   name.Contains("text") ||
+                   name.Contains("chat") ||
+                   name.Contains("dialog") ||
+                   name.Contains("conversation") ||
+                   name.Contains("instruct"); // Add instruct models
+        }
+
+        private NeuralNetworkModel GetBestTextGenerationModel(List<NeuralNetworkModel> models)
+        {
+            // Prioritize models known to work well for goal generation (based on successful execution logs)
+            var priorityModels = new[]
+            {
+                // Tier 1: Proven working models from execution logs
+                "openai-community/gpt2", "gpt2", "distilgpt2",
+                
+                // Tier 2: Available but not yet tested models (from execution logs)
+                "deepseek-ai/DeepSeek", "Qwen/Qwen2.5-VL", "Qwen/Qwen",
+                
+                // Tier 3: Likely compatible models
+                "microsoft/DialoGPT", "facebook/opt", "google/flan-t5",
+                "microsoft/DialoGPT-medium", "microsoft/DialoGPT-small"
+            };
+
+            // Completely exclude problematic and audio/speech models
+            var excludedModels = new[]
+            {
+                // Audio/Speech models (not suitable for text generation)
+                "ResembleAI/chatterbox", "fixie-ai/ultravox",
+                "whisper", "speecht5", "wav2vec", "tts", "stt",
+                "voice", "audio", "speech", "sound"
+            };
+
+            // Filter out excluded models first
+            var safeModels = models.Where(m =>
+            {
+                var modelId = (m.HuggingFaceModelId ?? "").ToLowerInvariant();
+                var name = (m.Name ?? "").ToLowerInvariant();
+
+                return !excludedModels.Any(excluded =>
+                    modelId.Contains(excluded) || name.Contains(excluded));
+            }).ToList();
+
+            Debug.WriteLine($"🧠 Filtered to {safeModels.Count} safe text generation models (excluded {models.Count - safeModels.Count} audio/speech models)");
+
+            // Find priority models from the safe list
+            foreach (var priority in priorityModels)
+            {
+                var model = safeModels.FirstOrDefault(m =>
+                {
+                    var modelId = m.HuggingFaceModelId ?? "";
+                    return modelId.Contains(priority, StringComparison.OrdinalIgnoreCase);
+                });
+                if (model != null)
+                {
+                    Debug.WriteLine($"🧠 Selected priority model: {model.Name} ({model.HuggingFaceModelId})");
+                    return model;
+                }
+            }
+
+            // Return the first safe model if no priority match
+            var fallbackModel = safeModels.FirstOrDefault();
+            if (fallbackModel != null)
+            {
+                Debug.WriteLine($"🧠 Selected fallback text model: {fallbackModel.Name} ({fallbackModel.HuggingFaceModelId})");
+            }
+            else
+            {
+                Debug.WriteLine("🧠 No suitable text generation models found");
+            }
+
+            return fallbackModel;
+        }
+        private async Task<List<GeneratedGoal>> GenerateGoalsWithNeuralNetwork(NeuralNetworkModel model, string perspective = "")
+        {
+            var goals = new List<GeneratedGoal>();
+
+            try
+            {
+                // Create comprehensive prompt for goal generation
+                var prompt = CreateNeuralGoalGenerationPrompt(perspective);
+
+                Debug.WriteLine($"🧠 Executing model {model.Name} with prompt length: {prompt.Length}");
+
+                // Execute the neural network model
+                var result = await _netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, prompt);
+
+                if (!string.IsNullOrEmpty(result))
+                {
+                    Debug.WriteLine($"🧠 Model returned result length: {result.Length}");
+
+                    // Check for common error patterns in the result
+                    if (result.Contains("ERROR:") || result.Contains("Unrecognized model"))
+                    {
+                        Debug.WriteLine($"🧠 Model {model.Name} returned error: {result.Substring(0, Math.Min(200, result.Length))}...");
+                        return goals; // Return empty list, will trigger fallback
+                    }
+
+                    goals = ParseNeuralNetworkGoalResults(result, model.Name);
+                    Debug.WriteLine($"🧠 Successfully parsed {goals.Count} goals from {model.Name}");
+                }
+                else
+                {
+                    Debug.WriteLine($"🧠 Model {model.Name} returned empty result");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"🧠 Error executing neural network model {model.Name}: {ex.Message}");
+                // Don't re-throw - let the system continue with other models or fallbacks
+            }
+
+            return goals;
+        }
+
+        private string CreateNeuralGoalGenerationPrompt(string perspective = "")
+        {
+            var contextInfo = !string.IsNullOrEmpty(GoalGenerationContext) ?
+                $" Context: {GoalGenerationContext}." : "";
+
+            var existingGoalsInfo = MyGoals.Any() ?
+                $" Current goals: {string.Join(", ", MyGoals.Take(3).Select(g => g.Title))}." : "";
+
+            var perspectiveInfo = !string.IsNullOrEmpty(perspective) ?
+                $" Provide {perspective}." : "";
+
+            var prompt = $@"Generate 3 specific, actionable personal goals. Each goal should be SMART (Specific, Measurable, Achievable, Relevant, Time-bound).
+
+Format each goal as:
+GOAL: [Title]
+DESCRIPTION: [Detailed description]
+CATEGORY: [Category like Health, Career, Learning, Finance, Personal]
+PRIORITY: [1-5 scale]
+
+{contextInfo}{existingGoalsInfo}{perspectiveInfo}
+
+Focus on realistic goals that can be accomplished within 1-12 weeks. Make them diverse across different life areas.
+
+Generate 3 goals now:";
+
+            return prompt;
+        }
+
+        private List<GeneratedGoal> ParseNeuralNetworkGoalResults(string result, string modelName)
+        {
+            var goals = new List<GeneratedGoal>();
+
+            try
+            {
+                // Split into potential goal sections
+                var sections = result.Split(new[] { "GOAL:", "Goal:", "goal:" },
+                    StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (var section in sections.Skip(1)) // Skip first empty section
+                {
+                    var goal = ParseSingleNeuralGoal(section.Trim(), modelName);
+                    if (goal != null)
+                    {
+                        goals.Add(goal);
+                        if (goals.Count >= 3) break; // Limit to 3 goals per model
+                    }
+                }
+
+                // If structured parsing failed, try line-based parsing
+                if (goals.Count == 0)
+                {
+                    goals = ParseNeuralGoalsFromLines(result, modelName);
+                }
+
+                Debug.WriteLine($"🧠 Parsed {goals.Count} goals from neural network output");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"🧠 Error parsing neural network results: {ex.Message}");
+            }
+
+            return goals;
+        }
+
+        private GeneratedGoal ParseSingleNeuralGoal(string section, string modelName)
+        {
+            try
+            {
+                var lines = section.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                var goal = new GeneratedGoal
+                {
+                    Source = $"Neural Network ({modelName})",
+                    Confidence = 85, // High confidence for neural network results
+                    GeneratedAt = DateTime.Now,
+                    Icon = "🧠"
+                };
+
+                string title = "";
+                foreach (var line in lines)
+                {
+                    var cleanLine = line.Trim();
+                    if (string.IsNullOrEmpty(cleanLine)) continue;
+
+                    if (cleanLine.StartsWith("DESCRIPTION:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        goal.Description = cleanLine.Substring(12).Trim();
+                    }
+                    else if (cleanLine.StartsWith("CATEGORY:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        goal.Category = cleanLine.Substring(9).Trim();
+                    }
+                    else if (cleanLine.StartsWith("PRIORITY:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (int.TryParse(cleanLine.Substring(9).Trim(), out int priority))
+                        {
+                            goal.Priority = Math.Max(1, Math.Min(5, priority));
+                        }
+                    }
+                    else if (string.IsNullOrEmpty(title) && !cleanLine.Contains(":"))
+                    {
+                        // First non-labeled line is likely the title
+                        title = cleanLine;
+                    }
+                }
+
+                goal.Title = !string.IsNullOrEmpty(title) ? title :
+                    (!string.IsNullOrEmpty(goal.Description) ?
+                        (goal.Description.Length > 50 ? goal.Description.Substring(0, 50) + "..." : goal.Description) :
+                        "AI Generated Goal");
+
+                // Set defaults if not parsed
+                if (string.IsNullOrEmpty(goal.Category)) goal.Category = "Personal";
+                if (goal.Priority == 0) goal.Priority = 3;
+                if (string.IsNullOrEmpty(goal.Description)) goal.Description = goal.Title;
+
+                goal.SuggestedDeadline = DateTime.Now.AddDays(new Random().Next(7, 60));
+                goal.EstimatedDuration = TimeSpan.FromDays(new Random().Next(1, 30));
+                goal.Rationale = $"Generated by neural network model {modelName} based on AI analysis";
+
+                return string.IsNullOrEmpty(goal.Title) ? null : goal;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"🧠 Error parsing single neural goal: {ex.Message}");
+                return null;
+            }
+        }
+
+        private List<GeneratedGoal> ParseNeuralGoalsFromLines(string result, string modelName)
+        {
+            var goals = new List<GeneratedGoal>();
+
+            try
+            {
+                var lines = result.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(l => l.Trim())
+                    .Where(l => !string.IsNullOrEmpty(l) && l.Length > 10)
+                    .Take(6) // Limit processing
+                    .ToList();
+
+                for (int i = 0; i < Math.Min(lines.Count, 3); i++)
+                {
+                    var line = lines[i];
+                    // Skip lines that look like headers or metadata
+                    if (line.StartsWith("Based on") || line.StartsWith("Here are") ||
+                        line.StartsWith("Sure") || line.Contains("goals:")) continue;
+
+                    var goal = new GeneratedGoal
+                    {
+                        Title = line.Length > 80 ? line.Substring(0, 80) + "..." : line,
+                        Description = line,
+                        Category = DetermineCategory(line),
+                        Priority = 3,
+                        Confidence = 75,
+                        Source = $"Neural Network ({modelName})",
+                        SuggestedDeadline = DateTime.Now.AddDays(new Random().Next(14, 45)),
+                        EstimatedDuration = TimeSpan.FromDays(new Random().Next(7, 21)),
+                        Rationale = $"AI-generated goal from {modelName}",
+                        Icon = "🧠"
+                    };
+
+                    goals.Add(goal);
+                    if (goals.Count >= 3) break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"🧠 Error parsing neural goals from lines: {ex.Message}");
+            }
+
+            return goals;
+        }
+
+        private async Task<List<GeneratedGoal>> GenerateGoalsFromFallbackSources()
+        {
+            var goals = new List<GeneratedGoal>();
+
+            try
+            {
+                Debug.WriteLine("📋 Fallback sources disabled - neural networks only approach active");
+
+                // NO fallback goals - only neural networks wanted
+                // This method is kept for compatibility but returns empty list
+
+                Debug.WriteLine($"📋 Generated {goals.Count} goals from fallback sources (disabled)");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"📋 Fallback goal generation failed: {ex.Message}");
+            }
+
+            return goals;
+        }
+
+        private List<GeneratedGoal> AnalyzeContextForSmartGoals(string context)
+        {
+            var goals = new List<GeneratedGoal>();
+            var lowerContext = context.ToLower();
+
+            var contextMappings = new Dictionary<string[], (string category, string title, string description)>
+            {
+                { new[] { "work", "career", "job", "professional" },
+                  ("Career", "Professional Development Plan", "Create a structured plan for advancing your career and professional skills") },
+                { new[] { "health", "fitness", "exercise", "wellness" },
+                  ("Health", "Comprehensive Health Improvement", "Establish a holistic approach to physical and mental wellness") },
+                { new[] { "learn", "study", "education", "skill", "knowledge" },
+                  ("Learning", "Skill Enhancement Program", "Develop new competencies and expand your knowledge base") },
+                { new[] { "money", "finance", "budget", "investment", "savings" },
+                  ("Finance", "Financial Optimization Strategy", "Create a comprehensive plan for financial stability and growth") },
+                { new[] { "relationship", "social", "family", "friends" },
+                  ("Social", "Relationship Building Initiative", "Strengthen personal and professional relationships") },
+                { new[] { "creative", "art", "music", "writing", "design" },
+                  ("Creativity", "Creative Expression Project", "Explore and develop your creative talents and interests") },
+                { new[] { "travel", "adventure", "explore", "experience" },
+                  ("Personal", "Life Experience Expansion", "Broaden your horizons through new experiences and adventures") }
+            };
+
+            foreach (var mapping in contextMappings)
+            {
+                if (mapping.Key.Any(keyword => lowerContext.Contains(keyword)))
+                {
+                    goals.Add(new GeneratedGoal
+                    {
+                        Title = mapping.Value.title,
+                        Description = mapping.Value.description + " based on your current interests and context.",
+                        Category = mapping.Value.category,
+                        Priority = new Random().Next(3, 5),
+                        Confidence = 80,
+                        Source = "Context Analysis",
+                        Rationale = $"Generated based on context keywords: {string.Join(", ", mapping.Key.Where(k => lowerContext.Contains(k)))}",
+                        SuggestedDeadline = DateTime.Now.AddDays(new Random().Next(21, 60)),
+                        EstimatedDuration = TimeSpan.FromDays(new Random().Next(7, 30)),
+                        Icon = GetCategoryIcon(mapping.Value.category)
+                    });
+
+                    if (goals.Count >= 2) break; // Limit context-based goals
+                }
+            }
+
+            return goals;
+        }
+
+        private List<GeneratedGoal> GenerateEnhancedTemplateGoals()
+        {
+            var enhancedTemplates = new List<GeneratedGoal>
+            {
+                new GeneratedGoal
+                {
+                    Title = "Digital Life Optimization",
+                    Description = "Streamline your digital workflows, organize online accounts, and improve digital productivity",
+                    Category = "Productivity",
+                    Priority = 4,
+                    Confidence = 85,
+                    Source = "Enhanced Template",
+                    Rationale = "Digital organization is crucial in today's connected world",
+                    SuggestedDeadline = DateTime.Now.AddDays(21),
+                    EstimatedDuration = TimeSpan.FromDays(7),
+                    Icon = "💻",
+                    KeySteps = new List<string> { "Audit digital accounts", "Organize files and folders", "Set up automation", "Review privacy settings" }
+                },
+                new GeneratedGoal
+                {
+                    Title = "Mindfulness & Mental Clarity Practice",
+                    Description = "Develop a consistent mindfulness practice to improve focus, reduce stress, and enhance well-being",
+                    Category = "Health",
+                    Priority = 4,
+                    Confidence = 90,
+                    Source = "Enhanced Template",
+                    Rationale = "Mental health is fundamental to achieving all other goals",
+                    SuggestedDeadline = DateTime.Now.AddDays(30),
+                    EstimatedDuration = TimeSpan.FromDays(21),
+                    Icon = "🧘‍♂️",
+                    KeySteps = new List<string> { "Choose mindfulness technique", "Set daily practice time", "Track progress", "Join community or app" }
+                },
+                new GeneratedGoal
+                {
+                    Title = "Knowledge Synthesis Project",
+                    Description = "Create a system for capturing, organizing, and connecting knowledge from various sources",
+                    Category = "Learning",
+                    Priority = 3,
+                    Confidence = 75,
+                    Source = "Enhanced Template",
+                    Rationale = "Effective knowledge management accelerates learning and decision-making",
+                    SuggestedDeadline = DateTime.Now.AddDays(45),
+                    EstimatedDuration = TimeSpan.FromDays(14),
+                    Icon = "📚",
+                    KeySteps = new List<string> { "Choose note-taking system", "Set up knowledge base", "Create connection system", "Regular review process" }
+                }
+            };
+
+            return enhancedTemplates;
+        }
+
+        private List<GeneratedGoal> GenerateAdditionalSmartGoals(int count)
+        {
+            var additionalGoals = new List<GeneratedGoal>
+            {
+                new GeneratedGoal
+                {
+                    Title = "Personal Energy Management System",
+                    Description = "Develop strategies to optimize your energy levels throughout the day and week",
+                    Category = "Health",
+                    Priority = 4,
+                    Confidence = 85,
+                    Source = "Smart Template",
+                    Rationale = "Energy management is more important than time management",
+                    SuggestedDeadline = DateTime.Now.AddDays(14),
+                    EstimatedDuration = TimeSpan.FromDays(7),
+                    Icon = "⚡",
+                    KeySteps = new List<string> { "Track energy patterns", "Identify energy drains", "Optimize sleep schedule", "Plan high-energy tasks" }
+                },
+                new GeneratedGoal
+                {
+                    Title = "Communication Skills Enhancement",
+                    Description = "Improve verbal and written communication skills for better personal and professional relationships",
+                    Category = "Personal Development",
+                    Priority = 3,
+                    Confidence = 80,
+                    Source = "Smart Template",
+                    Rationale = "Strong communication skills benefit all areas of life",
+                    SuggestedDeadline = DateTime.Now.AddDays(60),
+                    EstimatedDuration = TimeSpan.FromDays(30),
+                    Icon = "🗣️",
+                    KeySteps = new List<string> { "Identify improvement areas", "Practice active listening", "Join speaking group", "Seek feedback" }
+                },
+                new GeneratedGoal
+                {
+                    Title = "Financial Literacy & Planning",
+                    Description = "Build comprehensive understanding of personal finance and create a long-term financial plan",
+                    Category = "Finance",
+                    Priority = 5,
+                    Confidence = 90,
+                    Source = "Smart Template",
+                    Rationale = "Financial literacy is essential for long-term security and freedom",
+                    SuggestedDeadline = DateTime.Now.AddDays(30),
+                    EstimatedDuration = TimeSpan.FromDays(21),
+                    Icon = "💰",
+                    KeySteps = new List<string> { "Assess current finances", "Learn investment basics", "Create budget plan", "Set up emergency fund" }
+                }
+            };
+
+            return additionalGoals.Take(count).ToList();
+        }
+
+        private string GetCategoryIcon(string category)
+        {
+            return category.ToLowerInvariant() switch
+            {
+                "health" => "🏃‍♀️",
+                "career" => "💼",
+                "learning" => "📚",
+                "finance" => "💰",
+                "social" => "👥",
+                "creativity" => "🎨",
+                "personal" => "🌟",
+                _ => "🎯"
+            };
         }
 
         private async Task<List<GeneratedGoal>> GenerateGoalsFromPipeline()
@@ -1400,134 +2067,23 @@ namespace CSimple.Pages
             return Task.FromResult(goals);
         }
 
+        // --- Legacy Method Updated for Compatibility ---
         private List<GeneratedGoal> GenerateDefaultSmartGoals()
         {
-            var defaultGoals = new List<GeneratedGoal>
-            {
-                new GeneratedGoal
-                {
-                    Title = "Daily Learning Habit",
-                    Description = "Spend 30 minutes daily learning something new in your field of interest",
-                    Category = "Learning",
-                    Priority = 3,
-                    Confidence = 75,
-                    Source = "Default Template",
-                    Rationale = "Continuous learning is essential for personal growth",
-                    SuggestedDeadline = DateTime.Now.AddDays(30),
-                    EstimatedDuration = TimeSpan.FromDays(30),
-                    Icon = "📚",
-                    KeySteps = new List<string> { "Choose learning topic", "Set daily reminder", "Track progress" }
-                },
-                new GeneratedGoal
-                {
-                    Title = "Health & Wellness Check",
-                    Description = "Establish a weekly routine for physical and mental health maintenance",
-                    Category = "Health",
-                    Priority = 4,
-                    Confidence = 85,
-                    Source = "Default Template",
-                    Rationale = "Regular health maintenance prevents future issues",
-                    SuggestedDeadline = DateTime.Now.AddDays(7),
-                    EstimatedDuration = TimeSpan.FromDays(1),
-                    Icon = "🏃‍♂️",
-                    KeySteps = new List<string> { "Schedule health checkup", "Plan weekly exercise", "Set wellness goals" }
-                },
-                new GeneratedGoal
-                {
-                    Title = "Digital Organization",
-                    Description = "Organize digital files, emails, and online accounts for better productivity",
-                    Category = "Productivity",
-                    Priority = 3,
-                    Confidence = 70,
-                    Source = "Default Template",
-                    Rationale = "Digital clutter reduces productivity and increases stress",
-                    SuggestedDeadline = DateTime.Now.AddDays(14),
-                    EstimatedDuration = TimeSpan.FromHours(4),
-                    Icon = "💻",
-                    KeySteps = new List<string> { "Clean email inbox", "Organize files", "Update passwords" }
-                }
-            };
+            // This method is now used as a compatibility layer
+            // The actual neural network goal generation happens in GenerateGoalsFromActiveNeuralNetworks
+            Debug.WriteLine("📋 Using compatibility method - neural network generation is preferred");
 
-            return defaultGoals;
+            return GenerateEnhancedTemplateGoals().Take(3).ToList();
         }
 
+        // --- Legacy Method Updated for Compatibility ---
         private List<GeneratedGoal> GenerateAdditionalDefaultGoals(int count)
         {
-            var additionalGoals = new List<GeneratedGoal>
-            {
-                new GeneratedGoal
-                {
-                    Title = "Financial Planning Review",
-                    Description = "Review and update your financial goals and budget for the upcoming period",
-                    Category = "Finance",
-                    Priority = 4,
-                    Confidence = 80,
-                    Source = "Additional Default",
-                    Rationale = "Regular financial review helps maintain financial health",
-                    SuggestedDeadline = DateTime.Now.AddDays(21),
-                    EstimatedDuration = TimeSpan.FromHours(3),
-                    Icon = "💰",
-                    KeySteps = new List<string> { "Review budget", "Update savings goals", "Check investments" }
-                },
-                new GeneratedGoal
-                {
-                    Title = "Social Connection Goal",
-                    Description = "Strengthen relationships with family and friends through regular communication",
-                    Category = "Social",
-                    Priority = 3,
-                    Confidence = 75,
-                    Source = "Additional Default",
-                    Rationale = "Social connections are crucial for mental health and well-being",
-                    SuggestedDeadline = DateTime.Now.AddDays(14),
-                    EstimatedDuration = TimeSpan.FromDays(7),
-                    Icon = "👥",
-                    KeySteps = new List<string> { "Schedule calls", "Plan activities", "Send messages" }
-                },
-                new GeneratedGoal
-                {
-                    Title = "Skill Development Project",
-                    Description = "Start a project to develop a new professional or personal skill",
-                    Category = "Growth",
-                    Priority = 3,
-                    Confidence = 70,
-                    Source = "Additional Default",
-                    Rationale = "Skill development opens new opportunities and builds confidence",
-                    SuggestedDeadline = DateTime.Now.AddDays(45),
-                    EstimatedDuration = TimeSpan.FromDays(30),
-                    Icon = "🎯",
-                    KeySteps = new List<string> { "Choose skill", "Find resources", "Create practice plan" }
-                },
-                new GeneratedGoal
-                {
-                    Title = "Home Environment Optimization",
-                    Description = "Improve your living or working space for better comfort and productivity",
-                    Category = "Environment",
-                    Priority = 2,
-                    Confidence = 65,
-                    Source = "Additional Default",
-                    Rationale = "A well-organized environment enhances focus and reduces stress",
-                    SuggestedDeadline = DateTime.Now.AddDays(10),
-                    EstimatedDuration = TimeSpan.FromDays(2),
-                    Icon = "🏠",
-                    KeySteps = new List<string> { "Declutter space", "Organize items", "Add improvements" }
-                },
-                new GeneratedGoal
-                {
-                    Title = "Creative Expression Time",
-                    Description = "Dedicate time to a creative hobby or artistic pursuit",
-                    Category = "Creativity",
-                    Priority = 2,
-                    Confidence = 60,
-                    Source = "Additional Default",
-                    Rationale = "Creative activities reduce stress and enhance problem-solving abilities",
-                    SuggestedDeadline = DateTime.Now.AddDays(7),
-                    EstimatedDuration = TimeSpan.FromHours(5),
-                    Icon = "🎨",
-                    KeySteps = new List<string> { "Choose activity", "Gather materials", "Set time aside" }
-                }
-            };
+            // This method is now used as a compatibility layer
+            Debug.WriteLine($"📋 Using compatibility method for {count} additional goals");
 
-            return additionalGoals.Take(count).ToList();
+            return GenerateAdditionalSmartGoals(count);
         }
 
         private List<GeneratedGoal> AnalyzeContextForGoals(string context)

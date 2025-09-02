@@ -124,7 +124,8 @@ namespace CSimple.Extensions
                 sp.GetRequiredService<AppModeService>(),
                 sp.GetRequiredService<OrientPageViewModel>(),
                 sp.GetRequiredService<FileService>(),
-                sp.GetRequiredService<DataService>()
+                sp.GetRequiredService<DataService>(),
+                sp.GetRequiredService<NetPageViewModel>()
             ));
 
             services.AddSingleton<ActionPage>();
