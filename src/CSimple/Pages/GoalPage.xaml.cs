@@ -8,17 +8,27 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using Microsoft.Maui.Storage;
+using System.Text.Json;
+using CSimple.Services.AppModeService;
 
 namespace CSimple.Pages
 {
     public partial class GoalPage : ContentPage, INotifyPropertyChanged
     {
+        #region Private Fields
         private readonly GoalService _goalService;
         private readonly CSimple.Services.AppModeService.AppModeService _appModeService;
         private readonly OrientPageViewModel _orientPageViewModel; // Added
         private readonly FileService _fileService; // Added FileService
+        private readonly DataService _dataService; // Added for backend integration
 
         private bool _showNewGoal = false;
+        private bool _isLoading = false;
+        private bool _hasError = false;
+        private string _errorMessage = string.Empty;
+        private bool _isUserLoggedIn = false;
+        #endregion
         public bool ShowNewGoal
         {
             get => _showNewGoal;
@@ -26,6 +36,32 @@ namespace CSimple.Pages
         }
 
         public string CreateGoalButtonText => ShowNewGoal ? "Cancel Goal" : "Create Goal";
+
+        // Loading and Error States (similar to PlanPage)
+        public bool IsLoading
+        {
+            get => _isLoading;
+            set => SetProperty(ref _isLoading, value);
+        }
+
+        public bool HasError
+        {
+            get => _hasError;
+            set => SetProperty(ref _hasError, value);
+        }
+
+        public string ErrorMessage
+        {
+            get => _errorMessage;
+            set => SetProperty(ref _errorMessage, value);
+        }
+
+        // User state
+        public bool IsUserLoggedIn
+        {
+            get => _isUserLoggedIn;
+            set => SetProperty(ref _isUserLoggedIn, value);
+        }
 
         public ObservableCollection<Goal> MyGoals { get; set; } = new ObservableCollection<Goal>();
         public ObservableCollection<DataItem> AllDataItems { get; set; } = new ObservableCollection<DataItem>();
@@ -169,7 +205,7 @@ namespace CSimple.Pages
         public ICommand DownloadGoalCommand { get; }
 
         // Modified constructor to accept OrientPageViewModel and FileService
-        public GoalPage(GoalService goalService, CSimple.Services.AppModeService.AppModeService appModeService, OrientPageViewModel orientPageViewModel, FileService fileService) // Added FileService
+        public GoalPage(GoalService goalService, CSimple.Services.AppModeService.AppModeService appModeService, OrientPageViewModel orientPageViewModel, FileService fileService, DataService dataService) // Added DataService
         {
             InitializeComponent();
 
@@ -177,6 +213,7 @@ namespace CSimple.Pages
             _appModeService = appModeService; // Use injected service
             _orientPageViewModel = orientPageViewModel; // Store injected ViewModel
             _fileService = fileService; // Store injected FileService
+            _dataService = dataService; // Store injected DataService
 
             // Initialize existing commands
             ToggleCreateGoalCommand = new Command(OnToggleCreateGoal);
@@ -197,7 +234,32 @@ namespace CSimple.Pages
 
             BindingContext = this;
 
-            _ = LoadInitialDataAsync(); // Combined loading
+            _ = InitializePageAsync(); // Initialize with backend integration
+        }
+
+        private async Task InitializePageAsync()
+        {
+            try
+            {
+                IsLoading = true;
+                HasError = false;
+
+                // Check user authentication status
+                await CheckUserLoggedInAsync();
+
+                // Load initial data
+                await LoadInitialDataAsync();
+            }
+            catch (Exception ex)
+            {
+                HasError = true;
+                ErrorMessage = ex.Message;
+                Debug.WriteLine($"Error initializing page: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
         // Add the missing LoadInitialDataAsync method
@@ -208,6 +270,31 @@ namespace CSimple.Pages
 
             // Load available pipelines
             await LoadAvailablePipelinesAsync();
+        }
+
+        private async Task CheckUserLoggedInAsync()
+        {
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                Debug.WriteLine("App is in offline mode. Using local goals only.");
+                IsUserLoggedIn = false;
+                await LoadGoalsFromFile();
+                return;
+            }
+
+            var isLoggedIn = await IsUserLoggedInAsync();
+            IsUserLoggedIn = isLoggedIn;
+
+            if (!isLoggedIn)
+            {
+                Debug.WriteLine("User is not logged in.");
+                // In PlanPage, it navigates to login, but here we'll just show local goals
+            }
+            else
+            {
+                Debug.WriteLine("User is logged in.");
+                await LoadGoalsFromBackend();
+            }
         }
 
         // Method to load available pipeline names
@@ -329,7 +416,7 @@ namespace CSimple.Pages
             SharedGoals.Remove(goal);
         }
 
-        private void OnDownloadGoal(Goal goal)
+        private async void OnDownloadGoal(Goal goal)
         {
             if (goal == null) return;
 
@@ -348,7 +435,7 @@ namespace CSimple.Pages
             };
 
             MyGoals.Add(downloadedGoal);
-            _ = SaveGoalsAsync();
+            await SaveGoalsToFile();
         }
 
         // --- AI Improvement Method ---
@@ -411,37 +498,83 @@ namespace CSimple.Pages
                 return;
             }
 
-            var newGoal = new Goal
+            try
             {
-                Title = NewGoalTitle,
-                Description = NewGoalDescription,
-                Priority = GoalPriority,
-                Deadline = GoalDeadline,
-                IsShared = ShareGoal,
-                GoalType = SelectedGoalType,
-                CreatedAt = DateTime.UtcNow
-            };
+                IsLoading = true;
+                HasError = false;
 
-            MyGoals.Insert(0, newGoal);
-            await SaveGoalsAsync();
+                var newGoal = new Goal
+                {
+                    Title = NewGoalTitle,
+                    Description = NewGoalDescription,
+                    Priority = GoalPriority,
+                    Deadline = GoalDeadline,
+                    IsShared = ShareGoal,
+                    GoalType = SelectedGoalType,
+                    CreatedAt = DateTime.UtcNow
+                };
 
-            await _goalService.SaveGoalToBackend(newGoal);
+                MyGoals.Insert(0, newGoal);
+                await SaveGoalsToFile();
 
-            ClearGoalForm();
-            ShowNewGoal = false;
+                // Save to backend if online
+                if (_appModeService.CurrentMode != AppMode.Offline)
+                {
+                    await SaveGoalToBackend(newGoal);
+                }
+
+                ClearGoalForm();
+                ShowNewGoal = false;
+
+                await DisplayAlert("Success", "Goal created successfully!", "OK");
+            }
+            catch (Exception ex)
+            {
+                HasError = true;
+                ErrorMessage = ex.Message;
+                await DisplayAlert("Error", $"Failed to create goal: {ex.Message}", "OK");
+                Debug.WriteLine($"Error creating goal: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
         private async Task OnDeleteGoal(Goal goalToDelete)
         {
             if (goalToDelete == null) return;
 
-            bool confirm = await DisplayAlert("Confirm Delete", $"Are you sure you want to delete the goal '{goalToDelete.Title}'?", "Yes", "No");
-            if (confirm)
+            try
             {
-                MyGoals.Remove(goalToDelete);
-                await SaveGoalsAsync();
+                IsLoading = true;
+                HasError = false;
 
-                await _goalService.DeleteGoalFromBackend(goalToDelete.Id);
+                bool confirm = await DisplayAlert("Confirm Delete", $"Are you sure you want to delete the goal '{goalToDelete.Title}'?", "Yes", "No");
+                if (confirm)
+                {
+                    MyGoals.Remove(goalToDelete);
+                    await SaveGoalsToFile();
+
+                    // Delete from backend if online
+                    if (_appModeService.CurrentMode != AppMode.Offline)
+                    {
+                        await _goalService.DeleteGoalFromBackend(goalToDelete.Id);
+                    }
+
+                    await DisplayAlert("Success", "Goal deleted successfully!", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                HasError = true;
+                ErrorMessage = ex.Message;
+                await DisplayAlert("Error", $"Failed to delete goal: {ex.Message}", "OK");
+                Debug.WriteLine($"Error deleting goal: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
             }
         }
 
@@ -478,17 +611,138 @@ namespace CSimple.Pages
             OnPropertyChanged(nameof(MyGoals));
         }
 
-        private async Task SaveGoalsAsync()
+        private async Task SaveGoalsToFile()
         {
             await _goalService.SaveGoalsToFile(MyGoals);
+        }
+
+        private async Task LoadPublicGoalsFromBackend()
+        {
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                Debug.WriteLine("App is in offline mode. Skipping public goal loading.");
+                return;
+            }
+
+            try
+            {
+                IsLoading = true;
+
+                Debug.WriteLine("LoadPublicGoalsFromBackend called - loading from backend API");
+
+                // Call the backend public endpoint
+                var publicGoalsData = await _dataService.GetPublicPlansAsync();
+
+                // Convert DataItems to Goals for public display
+                var publicGoalItems = new List<Goal>();
+
+                foreach (var dataItem in publicGoalsData.Data ?? new List<DataItem>())
+                {
+                    try
+                    {
+                        var publicGoal = ConvertDataItemToPublicGoal(dataItem);
+                        if (publicGoal != null)
+                        {
+                            publicGoalItems.Add(publicGoal);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error converting data item to public goal: {ex.Message}");
+                    }
+                }
+
+                SharedGoals.Clear();
+                foreach (var goal in publicGoalItems)
+                {
+                    SharedGoals.Add(goal);
+                }
+
+                Debug.WriteLine($"Successfully loaded {SharedGoals.Count} public goals from backend");
+
+                // Clear any errors since we successfully loaded data
+                HasError = false;
+                ErrorMessage = string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading public goals: {ex.Message}");
+                HasError = true;
+                ErrorMessage = "Failed to load public goals. Please try again later.";
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        private Goal ConvertDataItemToPublicGoal(DataItem dataItem)
+        {
+            if (dataItem?.Data?.Text == null) return null;
+
+            var publicGoal = new Goal
+            {
+                Id = dataItem._id ?? Guid.NewGuid().ToString(),
+                CreatedAt = dataItem.createdAt,
+                SharedDate = dataItem.createdAt
+            };
+
+            // Parse the pipe-delimited text to extract goal information
+            var parts = dataItem.Data.Text.Split('|');
+            foreach (var part in parts)
+            {
+                var keyValue = part.Split(':', 2);
+                if (keyValue.Length != 2) continue;
+
+                var key = keyValue[0].Trim().ToLower();
+                var value = keyValue[1].Trim();
+
+                switch (key)
+                {
+                    case "title":
+                        publicGoal.Title = value;
+                        break;
+                    case "goal":
+                        publicGoal.Description = value;
+                        break;
+                    case "description":
+                        publicGoal.Description = value;
+                        break;
+                    case "priority":
+                        if (int.TryParse(value, out int priority))
+                            publicGoal.Priority = priority;
+                        break;
+                    case "deadline":
+                        if (DateTime.TryParse(value, out DateTime deadline))
+                            publicGoal.Deadline = deadline;
+                        break;
+                    case "goaltype":
+                        publicGoal.GoalType = value;
+                        break;
+                }
+            }
+
+            // Set default values for shared goals
+            publicGoal.IsShared = true;
+            publicGoal.SharedWith = 1; // Default to 1 for now
+
+            return publicGoal;
         }
 
         protected override async void OnAppearing()
         {
             base.OnAppearing();
             Debug.WriteLine("GoalPage Appearing");
-            // Reload pipelines in case new ones were created/deleted elsewhere
-            await LoadInitialDataAsync();
+
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                await LoadGoalsFromFile();
+            }
+            else
+            {
+                await LoadGoalsFromBackend();
+                await LoadPublicGoalsFromBackend();
+            }
         }
 
         private async void CheckUserLoggedIn()
@@ -508,6 +762,314 @@ namespace CSimple.Pages
             {
                 Debug.WriteLine("User is logged in. Backend operations enabled.");
             }
+        }
+
+        private async Task<bool> IsUserLoggedInAsync()
+        {
+            try
+            {
+                var userToken = await SecureStorage.GetAsync("userToken");
+                if (!string.IsNullOrEmpty(userToken))
+                {
+                    Debug.WriteLine("User token found: " + userToken);
+                    return true;
+                }
+                else
+                {
+                    Debug.WriteLine("No user token found.");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error retrieving user token: {ex.Message}");
+                return false;
+            }
+        }
+
+        private async Task LoadGoalsFromBackend()
+        {
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                Debug.WriteLine("App is in offline mode. Skipping backend goal loading.");
+                return;
+            }
+
+            try
+            {
+                IsLoading = true;
+                HasError = false;
+
+                var token = await SecureStorage.GetAsync("userToken");
+                if (string.IsNullOrEmpty(token))
+                {
+                    Debug.WriteLine("User is not logged in.");
+                    IsUserLoggedIn = false;
+                    await LoadGoalsFromFile(); // Fallback to local/sample data
+                    return;
+                }
+
+                // First, check if the user is still logged in
+                var isLoggedIn = await _dataService.IsLoggedInAsync();
+                if (!isLoggedIn)
+                {
+                    Debug.WriteLine("User authentication check failed. Falling back to local data.");
+                    IsUserLoggedIn = false;
+                    await LoadGoalsFromFile();
+                    return;
+                }
+
+                var data = "Goal";
+                Debug.WriteLine($"Making request to backend for goals with data: {data}");
+
+                var goals = await _dataService.GetDataAsync(data, token);
+                var myGoalItems = ProcessMyGoalsFromBackend(goals.Data?.Cast<DataItem>().ToList() ?? new List<DataItem>());
+
+                MyGoals.Clear();
+                AllDataItems.Clear();
+
+                foreach (var goal in myGoalItems)
+                {
+                    MyGoals.Add(goal);
+                }
+
+                foreach (var item in goals.Data ?? new List<DataItem>())
+                {
+                    AllDataItems.Add(item);
+                }
+
+                await SaveGoalsToFile();
+
+                Debug.WriteLine($"Successfully loaded {MyGoals.Count} goals from backend");
+            }
+            catch (UnauthorizedAccessException)
+            {
+                Debug.WriteLine("Unauthorized access - user session expired");
+                HasError = true;
+                ErrorMessage = "Your session has expired. Please log in again.";
+                IsUserLoggedIn = false;
+
+                // Clear sensitive data and fallback to local storage
+                await LoadGoalsFromFile();
+            }
+            catch (JsonException jsonEx)
+            {
+                Debug.WriteLine($"JSON parsing error: {jsonEx.Message}. Server may have returned HTML instead of JSON.");
+                HasError = true;
+                ErrorMessage = "🔧 BACKEND CONFIGURATION ISSUE: Enable debug build to use local backend, or check production backend deployment.";
+
+                Debug.WriteLine("🚨 BACKEND CONFIGURATION ISSUE DETECTED");
+                Debug.WriteLine($"📋 Current Environment: {BackendConfigService.CurrentEnvironment}");
+                Debug.WriteLine($"🌐 Backend URL: {BackendConfigService.ApiEndpoints.GetBaseUrl()}");
+
+                // Fallback to local storage when server returns HTML/invalid JSON
+                await LoadGoalsFromFile();
+            }
+            catch (HttpRequestException httpEx)
+            {
+                Debug.WriteLine($"Network error loading goals: {httpEx.Message}");
+                HasError = true;
+                ErrorMessage = "Network error. Check your internet connection and server status. Loading saved goals instead.";
+
+                // Fallback to local storage on network errors
+                await LoadGoalsFromFile();
+            }
+            catch (TaskCanceledException)
+            {
+                Debug.WriteLine("Request timed out loading goals from backend");
+                HasError = true;
+                ErrorMessage = "Request timed out. The server may be slow or unavailable. Loading saved goals instead.";
+
+                // Fallback to local storage on timeout
+                await LoadGoalsFromFile();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Unexpected error loading goals from backend: {ex.Message}");
+                Debug.WriteLine($"Exception type: {ex.GetType().Name}");
+                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+
+                HasError = true;
+                ErrorMessage = "An unexpected error occurred while loading goals. Loading saved goals instead.";
+
+                // Fallback to local storage on any other unexpected error
+                await LoadGoalsFromFile();
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        private async Task LoadGoalsFromFile()
+        {
+            try
+            {
+                IsLoading = true;
+                Debug.WriteLine("LoadGoalsFromFile called - No sample data loaded. Backend connection required.");
+
+                await Task.Delay(50); // Small delay to show loading state
+
+                // Clear collections - no sample data
+                MyGoals.Clear();
+                AllDataItems.Clear();
+
+                Debug.WriteLine("No local goals loaded. Please ensure backend is running and accessible.");
+
+                // Show informative message about backend requirement
+                HasError = true;
+                ErrorMessage = _appModeService.CurrentMode == AppMode.Offline
+                    ? "Offline mode: No local goals available. Switch to online mode to access your goals."
+                    : "No goals loaded. Please ensure the backend server is running and accessible.";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in LoadGoalsFromFile: {ex.Message}");
+                HasError = true;
+                ErrorMessage = "Unable to load goals.";
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        private List<Goal> ProcessMyGoalsFromBackend(List<DataItem> goalItems)
+        {
+            var myGoalItems = new List<Goal>();
+
+            foreach (var dataItem in goalItems)
+            {
+                try
+                {
+                    var goalItem = ParseDataItemToGoalItem(dataItem);
+                    if (goalItem != null)
+                    {
+                        myGoalItems.Add(goalItem);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error parsing goal item: {ex.Message}");
+                }
+            }
+
+            return myGoalItems;
+        }
+
+        private Goal ParseDataItemToGoalItem(DataItem dataItem)
+        {
+            if (dataItem?.Data?.Text == null) return null;
+
+            var goalItem = new Goal
+            {
+                Id = dataItem._id ?? Guid.NewGuid().ToString(),
+                CreatedAt = dataItem.createdAt
+            };
+
+            // Parse the text format: "Goal:description|Title:title|Description:description|..."
+            var parts = dataItem.Data.Text.Split('|');
+            foreach (var part in parts)
+            {
+                var keyValue = part.Split(':', 2);
+                if (keyValue.Length != 2) continue;
+
+                var key = keyValue[0].Trim();
+                var value = keyValue[1].Trim();
+
+                switch (key.ToLower())
+                {
+                    case "goal":
+                        goalItem.Description = value;
+                        break;
+                    case "title":
+                        goalItem.Title = value;
+                        break;
+                    case "description":
+                        goalItem.Description = value;
+                        break;
+                    case "priority":
+                        if (int.TryParse(value, out int priority))
+                            goalItem.Priority = priority;
+                        break;
+                    case "deadline":
+                        if (DateTime.TryParse(value, out DateTime deadline))
+                            goalItem.Deadline = deadline;
+                        break;
+                    case "public":
+                        goalItem.IsShared = bool.TryParse(value, out bool isShared) && isShared;
+                        break;
+                    case "goaltype":
+                        goalItem.GoalType = value;
+                        break;
+                }
+            }
+
+            // Set default title if none found
+            if (string.IsNullOrEmpty(goalItem.Title) && !string.IsNullOrEmpty(goalItem.Description))
+            {
+                goalItem.Title = goalItem.Description.Length > 50
+                    ? goalItem.Description.Substring(0, 50) + "..."
+                    : goalItem.Description;
+            }
+
+            return goalItem;
+        }
+
+        private async Task SaveGoalToBackend(Goal goal)
+        {
+            if (_appModeService.CurrentMode == AppMode.Offline)
+            {
+                Debug.WriteLine("App is in offline mode. Goal saved locally only.");
+                return;
+            }
+
+            try
+            {
+                var token = await SecureStorage.GetAsync("userToken");
+                if (string.IsNullOrEmpty(token))
+                {
+                    Debug.WriteLine("User is not logged in.");
+                    return;
+                }
+
+                var goalData = CreateGoalDataString(goal);
+                var response = await _dataService.CreateDataAsync(goalData, token);
+                if (response.DataIsSuccess)
+                {
+                    Debug.WriteLine("Goal saved to backend");
+                }
+                else
+                {
+                    Debug.WriteLine("Failed to save goal to backend");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving goal to backend: {ex.Message}");
+            }
+        }
+
+        private string CreateGoalDataString(Goal goal)
+        {
+            var parts = new List<string>();
+
+            if (!string.IsNullOrEmpty(goal.Title))
+                parts.Add($"Title:{goal.Title}");
+
+            if (!string.IsNullOrEmpty(goal.Description))
+                parts.Add($"Goal:{goal.Description}");
+
+            if (!string.IsNullOrEmpty(goal.GoalType))
+                parts.Add($"GoalType:{goal.GoalType}");
+
+            if (goal.IsShared)
+                parts.Add($"Public:{goal.IsShared}");
+
+            parts.Add($"Priority:{goal.Priority}");
+            parts.Add($"Deadline:{goal.Deadline:yyyy-MM-dd}");
+
+            return string.Join("|", parts);
         }
 
         async Task NavigateLogin()

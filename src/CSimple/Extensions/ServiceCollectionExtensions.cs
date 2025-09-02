@@ -117,7 +117,16 @@ namespace CSimple.Extensions
             ));
             services.AddSingleton<NetPage>();
             services.AddSingleton<OrientPage>();
-            services.AddSingleton<GoalPage>();
+
+            // Custom factory for GoalPage with backend integration
+            services.AddSingleton(sp => new GoalPage(
+                sp.GetRequiredService<GoalService>(),
+                sp.GetRequiredService<AppModeService>(),
+                sp.GetRequiredService<OrientPageViewModel>(),
+                sp.GetRequiredService<FileService>(),
+                sp.GetRequiredService<DataService>()
+            ));
+
             services.AddSingleton<ActionPage>();
 
             // Custom factory for HomePage

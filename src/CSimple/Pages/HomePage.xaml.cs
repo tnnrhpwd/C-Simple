@@ -267,6 +267,11 @@ public partial class HomePage : ContentPage, INotifyPropertyChanged
 
         Debug.WriteLine($"HomePage: Loaded AI enabled state: {_isAIEnabled}");
 
+        // Ensure app mode UI reflects the current persisted state
+        OnPropertyChanged(nameof(IsOnlineMode));
+        OnPropertyChanged(nameof(AppModeLabel));
+        Debug.WriteLine($"HomePage: App mode loaded: {IsOnlineMode}");
+
         await Initialize();
 
         // Preload NetPage models and initialize for faster navigation

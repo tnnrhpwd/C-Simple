@@ -3,13 +3,19 @@ using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
+// BackendDataResponse and BackendDataParser are now in global namespace
 
 public class DataService
 {
     private readonly HttpClient _httpClient;
-    private const string BaseUrl = "https://www.sthopwood.com/api/data/";
-    // private const string BaseUrl = "https://localhost:5000/api/data/";
-    // private const string BaseUrl = "https://mern-plan-web-service.onrender.com/api/data/";
+    // Dynamic backend URL based on environment
+    private static string BaseUrl => BackendConfigService.ApiEndpoints.GetBaseUrl();
+
+    // Legacy URLs for reference:
+    // Production (Netlify issue): "https://www.sthopwood.com/api/data/"
+    // Local development: "http://localhost:5000/api/data/"
+    // Render production: "https://mern-plan-web-service.onrender.com/api/data/"
+
     private readonly UpdateDataService _updateDataService;
 
     public DataService()
@@ -84,6 +90,22 @@ public class DataService
                 Debug.WriteLine("Length of responseContent:" + JsonSerializer.Serialize(responseContent).Length.ToString());
                 Debug.WriteLine($"1. (DataService.GetDataAsync) Raw response data: {responseContent.Length}");
 
+                // Enhanced debugging for HTML responses
+                Debug.WriteLine($"Response Status Code: {response.StatusCode}");
+                Debug.WriteLine($"Response Content Type: {response.Content.Headers.ContentType?.MediaType}");
+                Debug.WriteLine($"Response Headers: {string.Join(", ", response.Headers.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}"))}");
+
+                if (responseContent.TrimStart().StartsWith("<"))
+                {
+                    Debug.WriteLine("⚠️ BACKEND ISSUE: Server returned HTML instead of JSON!");
+                    Debug.WriteLine("This typically indicates:");
+                    Debug.WriteLine("1. Web server (nginx/Apache) is serving frontend instead of routing to backend API");
+                    Debug.WriteLine("2. Backend API server is not running or not accessible");
+                    Debug.WriteLine("3. API route configuration is incorrect");
+                    Debug.WriteLine("4. CORS or proxy configuration issues");
+                    Debug.WriteLine($"HTML Response Preview: {(responseContent.Length > 200 ? responseContent.Substring(0, 200) + "..." : responseContent)}");
+                }
+
                 // Check for token expiration
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
@@ -92,8 +114,28 @@ public class DataService
                     throw new UnauthorizedAccessException("Your session has expired. Please log in again.");
                 }
 
-                // Handle the response
-                return await HandleResponse<DataModel>(response);
+                // Handle the response with custom deserialization for backend format
+                Debug.WriteLine("Processing backend response with custom parser...");
+
+                // Check if response looks like HTML (duplicate check removed since already done above)
+                try
+                {
+                    // First, deserialize to the actual backend response format
+                    var backendResponse = JsonSerializer.Deserialize<BackendDataResponse>(responseContent,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                    // Convert to the expected DataModel format
+                    var dataModel = BackendDataParser.ConvertToDataModel(backendResponse);
+                    Debug.WriteLine($"Successfully parsed {dataModel.Data.Count} data items from backend response");
+
+                    return dataModel;
+                }
+                catch (JsonException jsonEx)
+                {
+                    Debug.WriteLine($"JSON deserialization error: {jsonEx.Message}");
+                    Debug.WriteLine($"Response content preview: {(responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent)}");
+                    throw new JsonException($"Failed to parse server response as JSON: {jsonEx.Message}");
+                }
             }
             catch (HttpRequestException ex)
             {
@@ -451,8 +493,25 @@ public class DataService
         {
             var responseContent = await response.Content.ReadAsStringAsync();
             Debug.WriteLine("Length of responseContent:" + responseContent.Length.ToString());
-            // Debug.WriteLine($"1 (DataService.HandleResponse) Raw response data: {responseContent}");
-            return JsonSerializer.Deserialize<T>(responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            // Check if response looks like HTML (common when servers return error pages as HTML)
+            if (responseContent.TrimStart().StartsWith("<"))
+            {
+                Debug.WriteLine("Server returned HTML instead of JSON. Response content preview:");
+                Debug.WriteLine(responseContent.Length > 200 ? responseContent.Substring(0, 200) + "..." : responseContent);
+                throw new JsonException("Server returned HTML instead of JSON data. This may indicate a server error or configuration issue.");
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<T>(responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch (JsonException jsonEx)
+            {
+                Debug.WriteLine($"JSON deserialization error: {jsonEx.Message}");
+                Debug.WriteLine($"Response content preview: {(responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent)}");
+                throw new JsonException($"Failed to parse server response as JSON: {jsonEx.Message}");
+            }
         }
         else
         {
@@ -507,5 +566,77 @@ public class DataService
                 Debug.WriteLine($"Error during navigation after token expiration: {ex.Message}");
             }
         });
+    }
+
+    // Get public plans data (no authentication required)
+    public async Task<DataModel> GetPublicPlansAsync(CancellationToken cancellationToken = default)
+    {
+        using var client = new HttpClient();
+
+        // Use public endpoint
+        var publicUrl = BaseUrl.Replace("/api/data/", "/api/data/public?data={\"text\":\"Plan\"}");
+        Debug.WriteLine($"Public plans request URL: {publicUrl}");
+
+        try
+        {
+            using var response = await client.GetAsync(publicUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            Debug.WriteLine($"Public plans response: {responseContent.Length} characters");
+
+            if (responseContent.TrimStart().StartsWith("<"))
+            {
+                Debug.WriteLine("⚠️ Public endpoint returned HTML instead of JSON!");
+                throw new JsonException("Public endpoint returned HTML instead of JSON data.");
+            }
+
+            // Check response status
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Debug.WriteLine("Unauthorized response from public endpoint");
+                throw new UnauthorizedAccessException("Access denied to public endpoint.");
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Debug.WriteLine($"Public endpoint error: {response.StatusCode}");
+                throw new HttpRequestException($"Public endpoint request failed: {response.StatusCode}");
+            }
+
+            try
+            {
+                // Parse as backend response format
+                var backendResponse = JsonSerializer.Deserialize<BackendDataResponse>(responseContent,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                // Convert to expected DataModel format
+                var dataModel = BackendDataParser.ConvertToDataModel(backendResponse);
+                Debug.WriteLine($"Successfully parsed {dataModel.Data.Count} public data items");
+
+                return dataModel;
+            }
+            catch (JsonException jsonEx)
+            {
+                Debug.WriteLine($"JSON parsing error for public plans: {jsonEx.Message}");
+                Debug.WriteLine($"Response content: {(responseContent.Length > 300 ? responseContent.Substring(0, 300) + "..." : responseContent)}");
+                throw new JsonException($"Failed to parse public plans response: {jsonEx.Message}");
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Debug.WriteLine($"Network error loading public plans: {ex.Message}");
+            throw;
+        }
+        catch (TaskCanceledException)
+        {
+            Debug.WriteLine("Request timed out loading public plans");
+            throw;
+        }
+    }
+
+    // Helper method to test backend connectivity and configuration
+    public async Task<(bool IsReachable, string Details)> TestBackendConnectivityAsync()
+    {
+        return await BackendConfigService.TestBackendAsync();
     }
 }
