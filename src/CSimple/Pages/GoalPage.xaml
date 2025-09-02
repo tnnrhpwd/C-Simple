@@ -4,13 +4,14 @@
              xmlns:models="clr-namespace:CSimple.Models"
              xmlns:converters="clr-namespace:CSimple.Converters"
              xmlns:local="clr-namespace:CSimple.Pages"
-             x:DataType="local:GoalPage"
              Title="Goal"
              BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}">
     <ContentPage.Resources>
         <ResourceDictionary>
             <converters:IsNotNullOrEmptyConverter x:Key="IsNotNullOrEmptyConverter" />
             <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
+            <converters:BoolToTextConverter x:Key="BoolToTextConverter" />
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
         </ResourceDictionary>
     </ContentPage.Resources>
     <ContentPage.Content>
@@ -91,15 +92,122 @@
                                 AutoSize="TextChanges"
                                 TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
                                 BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackgroundLight}, Dark={StaticResource SurfaceBackgroundDark}}" />
-                        <Button Text="Run Improvement Pipeline"
-                                Command="{Binding RunImprovementPipelineCommand}"
-                                IsEnabled="{Binding IsPipelineRunning, Converter={StaticResource InverseBoolConverter}}"
+                        <Button Text="Generate Goals"
+                                Command="{Binding GenerateGoalsCommand}"
+                                IsEnabled="{Binding IsGeneratingGoals, Converter={StaticResource InverseBoolConverter}}"
                                 Style="{StaticResource TertiaryButtonStyle}"
                                 HorizontalOptions="Fill" />
-                        <ActivityIndicator IsRunning="{Binding IsPipelineRunning}"
-                                           IsVisible="{Binding IsPipelineRunning}"
+                        <ActivityIndicator IsRunning="{Binding IsGeneratingGoals}"
+                                           IsVisible="{Binding IsGeneratingGoals}"
                                            Color="{StaticResource Tertiary}"
                                            HorizontalOptions="Center" />
+                        <!-- Feedback Message -->
+                        <Frame IsVisible="{Binding ShowLastAction}"
+                               CornerRadius="8"
+                               Padding="12"
+                               Margin="0,10,0,0"
+                               BackgroundColor="{AppThemeBinding Light=#d4edda, Dark=#155724}"
+                               BorderColor="{AppThemeBinding Light=#c3e6cb, Dark=#28a745}">
+                            <Label Text="{Binding LastAction}"
+                                   TextColor="{AppThemeBinding Light=#155724, Dark=#d4edda}"
+                                   FontSize="14"
+                                   HorizontalOptions="Center" />
+                        </Frame>
+                        <!-- Generated Goals Display -->
+                        <Frame IsVisible="{Binding ShowGeneratedGoals}"
+                               CornerRadius="12"
+                               Padding="15"
+                               Margin="0,10,0,0"
+                               BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#2d2d30}"
+                               BorderColor="{AppThemeBinding Light=#e9ecef, Dark=#404040}">
+                            <VerticalStackLayout>
+                                <Label Text="✨ AI Goal Suggestions"
+                                       FontSize="18"
+                                       FontAttributes="Bold"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                       Margin="0,0,0,10" />
+                                <Label Text="Select the goals you'd like to add:"
+                                       FontSize="14"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                                       Margin="0,0,0,15" />
+                                <CollectionView ItemsSource="{Binding GeneratedGoals}"
+                                                VerticalOptions="FillAndExpand">
+                                    <CollectionView.ItemTemplate>
+                                        <DataTemplate>
+                                            <ContentView>
+                                                <Frame CornerRadius="8"
+                                                       Padding="12"
+                                                       Margin="0,5"
+                                                       BackgroundColor="{AppThemeBinding Light=White, Dark=#383838}"
+                                                       BorderColor="{AppThemeBinding Light=#dee2e6, Dark=#505050}">
+                                                    <Grid ColumnDefinitions="*,Auto">
+                                                        <VerticalStackLayout Grid.Column="0">
+                                                            <HorizontalStackLayout>
+                                                                <Label Text="{Binding Icon}"
+                                                                       FontSize="16"
+                                                                       VerticalOptions="Center"
+                                                                       Margin="0,0,8,0" />
+                                                                <Label Text="{Binding Title}"
+                                                                       FontSize="16"
+                                                                       FontAttributes="Bold"
+                                                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}"
+                                                                       VerticalOptions="Center" />
+                                                            </HorizontalStackLayout>
+                                                            <Label Text="{Binding Description}"
+                                                                   FontSize="14"
+                                                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                                                                   Margin="0,4,0,8"
+                                                                   MaxLines="3" />
+                                                            <HorizontalStackLayout>
+                                                                <Frame CornerRadius="12"
+                                                                       Padding="6,3"
+                                                                       BackgroundColor="{AppThemeBinding Light=#e3f2fd, Dark=#1e3a8a}"
+                                                                       Margin="0,0,8,0">
+                                                                    <Label Text="{Binding Category}"
+                                                                           FontSize="12"
+                                                                           TextColor="{AppThemeBinding Light=#1976d2, Dark=#93c5fd}" />
+                                                                </Frame>
+                                                                <Frame CornerRadius="12"
+                                                                       Padding="6,3"
+                                                                       BackgroundColor="{AppThemeBinding Light=#e8f5e8, Dark=#166534}"
+                                                                       Margin="0,0,8,0">
+                                                                    <Label Text="{Binding Source}"
+                                                                           FontSize="12"
+                                                                           TextColor="{AppThemeBinding Light=#2e7d32, Dark=#86efac}" />
+                                                                </Frame>
+                                                                <Frame CornerRadius="12"
+                                                                       Padding="6,3"
+                                                                       BackgroundColor="{AppThemeBinding Light=#fff3e0, Dark=#92400e}">
+                                                                    <HorizontalStackLayout>
+                                                                        <Label Text="{Binding Confidence, StringFormat='{0}%'}"
+                                                                               FontSize="12"
+                                                                               TextColor="{AppThemeBinding Light=#f57c00, Dark=#fbbf24}" />
+                                                                        <Label Text="⭐"
+                                                                               FontSize="12"
+                                                                               Margin="3,0,0,0" />
+                                                                    </HorizontalStackLayout>
+                                                                </Frame>
+                                                            </HorizontalStackLayout>
+                                                        </VerticalStackLayout>
+                                                        <Button Grid.Column="1"
+                                                                Text="{Binding IsSelected, Converter={StaticResource BoolToTextConverter}, ConverterParameter='✓ Added|+ Add'}"
+                                                                BackgroundColor="{Binding IsSelected, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#4caf50|#2196f3'}"
+                                                                TextColor="White"
+                                                                FontSize="12"
+                                                                Padding="12,6"
+                                                                CornerRadius="6"
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=AddGeneratedGoalCommand}"
+                                                                CommandParameter="{Binding .}"
+                                                                IsEnabled="{Binding IsSelected, Converter={StaticResource InverseBoolConverter}}"
+                                                                VerticalOptions="Start" />
+                                                    </Grid>
+                                                </Frame>
+                                            </ContentView>
+                                        </DataTemplate>
+                                    </CollectionView.ItemTemplate>
+                                </CollectionView>
+                            </VerticalStackLayout>
+                        </Frame>
                     </VerticalStackLayout>
                 </Frame>
                 <!-- Goal Types Tabs -->

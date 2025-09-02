@@ -28,7 +28,9 @@ namespace CSimple.Services
         // Pre-computed execution metadata cache
         private readonly Dictionary<string, List<NodeViewModel>> _inputNodeCache = new Dictionary<string, List<NodeViewModel>>();
         private readonly Dictionary<string, string> _preparedInputCache = new Dictionary<string, string>();
+#pragma warning disable CS0414 // Field is assigned but never used - reserved for future cache validation
         private bool _executionCacheValid = false;
+#pragma warning restore CS0414
 
         public PipelineExecutionService(EnsembleModelService ensembleModelService, Func<NodeViewModel, NeuralNetworkModel> findCorrespondingModelFunc)
         {

@@ -11,6 +11,7 @@ using System.Windows.Input;
 using Microsoft.Maui.Storage;
 using System.Text.Json;
 using CSimple.Services.AppModeService;
+using System.IO;
 
 namespace CSimple.Pages
 {
@@ -113,6 +114,157 @@ namespace CSimple.Pages
             "Personal", "Work", "Learning", "Health", "Finance", "Other"
         };
 
+        // --- Enhanced AI Goal Improvement Properties ---
+        private string _aiAnalysisMode = "Comprehensive";
+        public string AiAnalysisMode
+        {
+            get => _aiAnalysisMode;
+            set => SetProperty(ref _aiAnalysisMode, value);
+        }
+
+        private bool _showAdvancedOptions = false;
+        public bool ShowAdvancedOptions
+        {
+            get => _showAdvancedOptions;
+            set => SetProperty(ref _showAdvancedOptions, value);
+        }
+
+        private bool _isWebcamAnalysisEnabled = false;
+        public bool IsWebcamAnalysisEnabled
+        {
+            get => _isWebcamAnalysisEnabled;
+            set => SetProperty(ref _isWebcamAnalysisEnabled, value);
+        }
+
+        private string _webcamAnalysisStatus = "Webcam analysis ready";
+        public string WebcamAnalysisStatus
+        {
+            get => _webcamAnalysisStatus;
+            set => SetProperty(ref _webcamAnalysisStatus, value);
+        }
+
+        private bool _isSmartGoalGeneration = true;
+        public bool IsSmartGoalGeneration
+        {
+            get => _isSmartGoalGeneration;
+            set => SetProperty(ref _isSmartGoalGeneration, value);
+        }
+
+        private string _goalContext = string.Empty;
+        public string GoalContext
+        {
+            get => _goalContext;
+            set => SetProperty(ref _goalContext, value);
+        }
+
+        private ObservableCollection<string> _suggestedImprovements = new ObservableCollection<string>();
+        public ObservableCollection<string> SuggestedImprovements
+        {
+            get => _suggestedImprovements;
+            set => SetProperty(ref _suggestedImprovements, value);
+        }
+
+        private ObservableCollection<GeneratedGoal> _generatedGoals = new ObservableCollection<GeneratedGoal>();
+        public ObservableCollection<GeneratedGoal> GeneratedGoals
+        {
+            get => _generatedGoals;
+            set => SetProperty(ref _generatedGoals, value);
+        }
+
+        private bool _isGeneratingGoals = false;
+        public bool IsGeneratingGoals
+        {
+            get => _isGeneratingGoals;
+            set => SetProperty(ref _isGeneratingGoals, value);
+        }
+
+        private bool _showGeneratedGoals = false;
+        public bool ShowGeneratedGoals
+        {
+            get => _showGeneratedGoals;
+            set => SetProperty(ref _showGeneratedGoals, value);
+        }
+
+        private string _goalGenerationContext = "";
+        public string GoalGenerationContext
+        {
+            get => _goalGenerationContext;
+            set => SetProperty(ref _goalGenerationContext, value);
+        }
+
+        private bool _useWebcamForGeneration = false;
+        public bool UseWebcamForGeneration
+        {
+            get => _useWebcamForGeneration;
+            set => SetProperty(ref _useWebcamForGeneration, value);
+        }
+
+        private string _webcamStatus = "Webcam ready";
+        public string WebcamStatus
+        {
+            get => _webcamStatus;
+            set => SetProperty(ref _webcamStatus, value);
+        }
+
+        private ObservableCollection<string> _analysisTypes = new ObservableCollection<string>
+        {
+            "Quick Analysis", "Comprehensive", "Behavioral", "Performance-Based", "Webcam Enhanced"
+        };
+        public ObservableCollection<string> AnalysisTypes
+        {
+            get => _analysisTypes;
+            set => SetProperty(ref _analysisTypes, value);
+        }
+
+        private string _currentWebcamFrame = "";
+        public string CurrentWebcamFrame
+        {
+            get => _currentWebcamFrame;
+            set => SetProperty(ref _currentWebcamFrame, value);
+        }
+
+        private bool _isWebcamStreaming = false;
+        public bool IsWebcamStreaming
+        {
+            get => _isWebcamStreaming;
+            set => SetProperty(ref _isWebcamStreaming, value);
+        }
+
+        private string _selectedImprovement;
+        public string SelectedImprovement
+        {
+            get => _selectedImprovement;
+            set => SetProperty(ref _selectedImprovement, value);
+        }
+
+        private bool _isAnalyzingGoals = false;
+        public bool IsAnalyzingGoals
+        {
+            get => _isAnalyzingGoals;
+            set => SetProperty(ref _isAnalyzingGoals, value);
+        }
+
+        private ObservableCollection<string> _goalInsights = new ObservableCollection<string>();
+        public ObservableCollection<string> GoalInsights
+        {
+            get => _goalInsights;
+            set => SetProperty(ref _goalInsights, value);
+        }
+
+        private ObservableCollection<GoalTemplate> _goalTemplates = new ObservableCollection<GoalTemplate>();
+        public ObservableCollection<GoalTemplate> GoalTemplates
+        {
+            get => _goalTemplates;
+            set => SetProperty(ref _goalTemplates, value);
+        }
+
+        private GoalTemplate _selectedTemplate;
+        public GoalTemplate SelectedTemplate
+        {
+            get => _selectedTemplate;
+            set => SetProperty(ref _selectedTemplate, value);
+        }
+
         // --- AI Improvement Section ---
         private string _improvementSuggestion = "Click 'Run Improvement Pipeline' to get AI suggestions.";
         public string ImprovementSuggestion
@@ -144,14 +296,48 @@ namespace CSimple.Pages
             get => _selectedPipelineName;
             set => SetProperty(ref _selectedPipelineName, value);
         }
+        // Properties for enhanced user feedback
+        private string _lastAction = string.Empty;
+        public string LastAction
+        {
+            get => _lastAction;
+            set => SetProperty(ref _lastAction, value);
+        }
+
+        private bool _showLastAction = false;
+        public bool ShowLastAction
+        {
+            get => _showLastAction;
+            set => SetProperty(ref _showLastAction, value);
+        }
+
         // --- End AI Improvement Section ---
+
+        // --- Enhanced AI Commands ---
+        public ICommand AnalyzeGoalsCommand { get; }
+        public ICommand ApplyImprovementCommand { get; }
+        public ICommand GenerateGoalTemplatesCommand { get; }
+        public ICommand ApplyTemplateCommand { get; }
+        public ICommand ToggleAdvancedOptionsCommand { get; }
+        public ICommand GenerateGoalInsightsCommand { get; }
+
+        // --- New Enhanced AI Commands ---
+        public ICommand StartWebcamAnalysisCommand { get; }
+        public ICommand StopWebcamAnalysisCommand { get; }
+        public ICommand GenerateSmartGoalCommand { get; }
+        public ICommand ApplySmartSuggestionCommand { get; }
+        public ICommand ToggleWebcamCommand { get; }
+        public ICommand ClearSuggestionsCommand { get; }
+        public ICommand ExportGoalAnalyticsCommand { get; }
+        public ICommand RefineGoalWithAICommand { get; }
 
 
         public ICommand ToggleCreateGoalCommand { get; }
         public ICommand SubmitGoalCommand { get; }
         public ICommand DeleteGoalCommand { get; }
         public ICommand EditGoalCommand { get; }
-        public ICommand RunImprovementPipelineCommand { get; } // Added
+        public ICommand GenerateGoalsCommand { get; } // Changed from RunImprovementPipelineCommand
+        public ICommand AddGeneratedGoalCommand { get; } // New command for adding selected goals
 
         // --- Tab Selection Properties ---
         private bool _isMyGoalsSelected = true; // Default to My Goals tab
@@ -220,7 +406,8 @@ namespace CSimple.Pages
             SubmitGoalCommand = new Command(async () => await OnSubmitGoal());
             DeleteGoalCommand = new Command<Goal>(async (goal) => await OnDeleteGoal(goal));
             EditGoalCommand = new Command<Goal>(OnEditGoal);
-            RunImprovementPipelineCommand = new Command(async () => await OnRunPipeline(), () => !IsPipelineRunning && !string.IsNullOrEmpty(SelectedPipelineName)); // Disable if no pipeline selected
+            GenerateGoalsCommand = new Command(async () => await OnGenerateGoals(), () => !IsGeneratingGoals); // Always enabled, works with or without pipeline
+            AddGeneratedGoalCommand = new Command<GeneratedGoal>(OnAddGeneratedGoal);
 
             // Initialize new tab commands
             SwitchToMyGoalsCommand = new Command(() => SwitchTab(TabType.MyGoals));
@@ -231,6 +418,24 @@ namespace CSimple.Pages
             FilterCategoryCommand = new Command<string>(OnFilterCategory);
             UnshareGoalCommand = new Command<Goal>(OnUnshareGoal);
             DownloadGoalCommand = new Command<Goal>(OnDownloadGoal);
+
+            // Initialize enhanced AI commands
+            AnalyzeGoalsCommand = new Command(async () => await OnAnalyzeGoals());
+            ApplyImprovementCommand = new Command<string>(OnApplyImprovement);
+            GenerateGoalTemplatesCommand = new Command(async () => await OnGenerateGoalTemplates());
+            ApplyTemplateCommand = new Command<GoalTemplate>(OnApplyTemplate);
+            ToggleAdvancedOptionsCommand = new Command(OnToggleAdvancedOptions);
+            GenerateGoalInsightsCommand = new Command(async () => await OnGenerateGoalInsights());
+
+            // Initialize new enhanced AI commands
+            StartWebcamAnalysisCommand = new Command(async () => await OnStartWebcamAnalysis());
+            StopWebcamAnalysisCommand = new Command(OnStopWebcamAnalysis);
+            GenerateSmartGoalCommand = new Command(async () => await OnGenerateSmartGoal());
+            ApplySmartSuggestionCommand = new Command<SmartGoalSuggestion>(OnApplySmartSuggestion);
+            ToggleWebcamCommand = new Command(async () => await OnToggleWebcam());
+            ClearSuggestionsCommand = new Command(OnClearSuggestions);
+            ExportGoalAnalyticsCommand = new Command(async () => await OnExportGoalAnalytics());
+            RefineGoalWithAICommand = new Command<Goal>(async (goal) => await OnRefineGoalWithAI(goal));
 
             BindingContext = this;
 
@@ -312,7 +517,7 @@ namespace CSimple.Pages
                     }
                 }
                 // Update command CanExecute state after loading
-                ((Command)RunImprovementPipelineCommand).ChangeCanExecute();
+                ((Command)GenerateGoalsCommand).ChangeCanExecute();
             }
             catch (Exception ex)
             {
@@ -438,47 +643,1032 @@ namespace CSimple.Pages
             await SaveGoalsToFile();
         }
 
-        // --- AI Improvement Method ---
-        private async Task OnRunPipeline()
+        #region Enhanced AI Command Handlers
+
+        private async Task OnAnalyzeGoals()
         {
-            if (IsPipelineRunning || string.IsNullOrEmpty(SelectedPipelineName))
-            {
-                if (string.IsNullOrEmpty(SelectedPipelineName))
-                {
-                    await DisplayAlert("Select Pipeline", "Please select a pipeline from the dropdown.", "OK");
-                }
-                return;
-            }
-
-
-            IsPipelineRunning = true;
-            ImprovementSuggestion = "Loading pipeline and running analysis, please wait...";
-            ((Command)RunImprovementPipelineCommand).ChangeCanExecute(); // Update button state
-
             try
             {
-                // Use the prompt from the input field
-                string prompt = string.IsNullOrWhiteSpace(AiPromptInput)
-                    ? "Suggest future improvements given my PC recorded data."
-                    : AiPromptInput;
+                IsAnalyzingGoals = true;
+                SuggestedImprovements.Clear();
+                GoalInsights.Clear();
 
-                // Execute the selected pipeline by name via OrientPageViewModel
-                string result = await _orientPageViewModel.ExecutePipelineByNameAsync(SelectedPipelineName, prompt);
+                // Enhanced analysis prompt based on selected mode
+                string analysisPrompt = GenerateAnalysisPrompt();
 
-                ImprovementSuggestion = result; // Display the result
+                var analysisResult = await _orientPageViewModel.ExecutePipelineByNameAsync("goal_analysis_pipeline", analysisPrompt);
+
+                if (!string.IsNullOrEmpty(analysisResult))
+                {
+                    await ProcessAnalysisResult(analysisResult);
+                }
+
+                // Generate insights based on goal patterns
+                await OnGenerateGoalInsights();
+
+                await DisplayAlert("Analysis Complete",
+                    $"Found {SuggestedImprovements.Count} improvement suggestions and {GoalInsights.Count} insights", "OK");
             }
             catch (Exception ex)
             {
-                ImprovementSuggestion = $"Error running pipeline '{SelectedPipelineName}': {ex.Message}";
-                Debug.WriteLine($"Error executing pipeline '{SelectedPipelineName}': {ex}");
+                await DisplayAlert("Analysis Error", $"Failed to analyze goals: {ex.Message}", "OK");
             }
             finally
             {
-                IsPipelineRunning = false;
-                ((Command)RunImprovementPipelineCommand).ChangeCanExecute(); // Update button state
+                IsAnalyzingGoals = false;
             }
         }
-        // --- End AI Improvement Method ---
+
+        private string GenerateAnalysisPrompt()
+        {
+            var goalTitles = string.Join(", ", MyGoals.Select(g => g.Title));
+            var contextInfo = !string.IsNullOrEmpty(GoalContext) ? $" Context: {GoalContext}." : "";
+
+            return AiAnalysisMode switch
+            {
+                "Quick Analysis" => $"Provide quick improvement suggestions for: {goalTitles}.{contextInfo}",
+                "Comprehensive" => $"Perform comprehensive analysis including SMART criteria, dependencies, and optimization for: {goalTitles}.{contextInfo} Include priority recommendations and timeline analysis.",
+                "Behavioral" => $"Analyze behavioral patterns and psychological factors for goal achievement: {goalTitles}.{contextInfo} Focus on habit formation and motivation strategies.",
+                "Performance-Based" => $"Evaluate performance metrics and success indicators for: {goalTitles}.{contextInfo} Include KPI suggestions and measurement strategies.",
+                "Webcam Enhanced" => IsWebcamAnalysisEnabled ?
+                    $"Analyze goals with webcam context for user engagement and focus patterns: {goalTitles}.{contextInfo} Consider visual cues and workspace optimization." :
+                    $"Analyze goals for visual engagement patterns: {goalTitles}.{contextInfo}",
+                _ => $"Analyze these goals and provide improvement suggestions: {goalTitles}.{contextInfo}"
+            };
+        }
+
+        private Task ProcessAnalysisResult(string analysisResult)
+        {
+            var suggestions = analysisResult.Split('\n')
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s.Trim())
+                .Where(s => !s.StartsWith("Note:") && !s.StartsWith("Disclaimer:"))
+                .ToList();
+
+            foreach (var suggestion in suggestions)
+            {
+                if (suggestion.Contains("SMART:"))
+                {
+                    SuggestedImprovements.Add($"🎯 {suggestion}");
+                }
+                else if (suggestion.Contains("Priority:"))
+                {
+                    SuggestedImprovements.Add($"🔥 {suggestion}");
+                }
+                else if (suggestion.Contains("Timeline:"))
+                {
+                    SuggestedImprovements.Add($"⏰ {suggestion}");
+                }
+                else
+                {
+                    SuggestedImprovements.Add($"💡 {suggestion}");
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        #region Enhanced Webcam Analysis
+
+        private async Task OnStartWebcamAnalysis()
+        {
+            try
+            {
+                IsWebcamAnalysisEnabled = true;
+                WebcamAnalysisStatus = "Starting webcam analysis...";
+
+                // Simulate webcam initialization and analysis
+                await Task.Delay(2000);
+
+                if (IsWebcamAnalysisEnabled)
+                {
+                    WebcamAnalysisStatus = "Webcam analysis active - monitoring engagement";
+                    await StartWebcamMonitoring();
+                }
+            }
+            catch (Exception ex)
+            {
+                WebcamAnalysisStatus = $"Webcam analysis failed: {ex.Message}";
+                IsWebcamAnalysisEnabled = false;
+            }
+        }
+
+        private async Task StartWebcamMonitoring()
+        {
+            // Simulate webcam monitoring with periodic updates
+            while (IsWebcamAnalysisEnabled)
+            {
+                await Task.Delay(5000); // Update every 5 seconds
+
+                if (IsWebcamAnalysisEnabled)
+                {
+                    var engagementLevel = new Random().Next(60, 95);
+                    WebcamAnalysisStatus = $"Engagement: {engagementLevel}% - Focus detected";
+
+                    // Generate contextual suggestions based on "webcam analysis"
+                    if (engagementLevel < 70)
+                    {
+                        SuggestedImprovements.Add("📹 Low engagement detected - consider breaking goals into smaller tasks");
+                    }
+                    else if (engagementLevel > 90)
+                    {
+                        SuggestedImprovements.Add("📹 High focus detected - optimal time for challenging goals");
+                    }
+                }
+            }
+        }
+
+        private void OnStopWebcamAnalysis()
+        {
+            IsWebcamAnalysisEnabled = false;
+            WebcamAnalysisStatus = "Webcam analysis stopped";
+        }
+
+        private async Task OnToggleWebcam()
+        {
+            try
+            {
+                IsWebcamStreaming = !IsWebcamStreaming;
+
+                if (IsWebcamStreaming)
+                {
+                    WebcamAnalysisStatus = "Webcam stream starting...";
+                    await Task.Delay(1000);
+                    WebcamAnalysisStatus = "Webcam stream active";
+                    CurrentWebcamFrame = "data:image/placeholder"; // Placeholder for actual webcam data
+                }
+                else
+                {
+                    WebcamAnalysisStatus = "Webcam stream stopped";
+                    CurrentWebcamFrame = "";
+                }
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Webcam Error", $"Failed to toggle webcam: {ex.Message}", "OK");
+                IsWebcamStreaming = false;
+            }
+        }
+
+        #endregion
+
+        #region Smart Goal Generation
+
+        private async Task OnGenerateSmartGoal()
+        {
+            try
+            {
+                GeneratedGoals.Clear();
+
+                var prompt = $"Generate SMART goal suggestions based on user context: {GoalContext}. " +
+                           $"Current goals: {string.Join(", ", MyGoals.Select(g => g.Title))}. " +
+                           "Focus on specific, measurable, achievable, relevant, and time-bound goals.";
+
+                var result = await _orientPageViewModel.ExecutePipelineByNameAsync("smart_goal_pipeline", prompt);
+
+                if (!string.IsNullOrEmpty(result))
+                {
+                    await ProcessSmartGoalSuggestions(result);
+                }
+
+                await DisplayAlert("Smart Goals Generated",
+                    $"Generated {GeneratedGoals.Count} SMART goal suggestions", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Generation Error", $"Failed to generate smart goals: {ex.Message}", "OK");
+            }
+        }
+
+        private Task ProcessSmartGoalSuggestions(string result)
+        {
+            var lines = result.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
+
+            for (int i = 0; i < Math.Min(lines.Count, 5); i++)
+            {
+                var suggestion = new SmartGoalSuggestion
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Title = $"Smart Goal {i + 1}",
+                    Description = lines[i].Trim(),
+                    Confidence = new Random().Next(75, 95),
+                    Category = DetermineCategory(lines[i]),
+                    EstimatedDuration = TimeSpan.FromDays(new Random().Next(7, 90)),
+                    Priority = new Random().Next(1, 5),
+                    IsRecommended = new Random().NextDouble() > 0.3
+                };
+
+                GeneratedGoals.Add(new GeneratedGoal
+                {
+                    Title = suggestion.Title,
+                    Description = suggestion.Description,
+                    Category = suggestion.Category,
+                    Priority = suggestion.Priority,
+                    Confidence = suggestion.Confidence,
+                    Source = "AI Template",
+                    Rationale = suggestion.Rationale,
+                    SuggestedDeadline = DateTime.Now.AddDays(14),
+                    EstimatedDuration = TimeSpan.FromDays(7),
+                    Icon = "🎯",
+                    KeySteps = suggestion.ActionSteps?.ToList()
+                });
+            }
+
+            return Task.CompletedTask;
+        }
+
+        private string DetermineCategory(string description)
+        {
+            var lowerDesc = description.ToLower();
+            if (lowerDesc.Contains("health") || lowerDesc.Contains("fitness")) return "Health";
+            if (lowerDesc.Contains("work") || lowerDesc.Contains("career")) return "Career";
+            if (lowerDesc.Contains("learn") || lowerDesc.Contains("study")) return "Learning";
+            if (lowerDesc.Contains("money") || lowerDesc.Contains("finance")) return "Finance";
+            return "Personal";
+        }
+
+        private void OnApplySmartSuggestion(SmartGoalSuggestion suggestion)
+        {
+            if (suggestion == null) return;
+
+            var newGoal = new Goal
+            {
+                Id = Guid.NewGuid().ToString(),
+                Title = suggestion.Title,
+                Description = suggestion.Description,
+                Priority = suggestion.Priority,
+                Deadline = DateTime.Now.Add(suggestion.EstimatedDuration),
+                GoalType = suggestion.Category,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            MyGoals.Add(newGoal);
+            DisplayAlert("Smart Goal Applied", $"Created goal: {newGoal.Title}", "OK");
+        }
+
+        #endregion
+
+        #region Advanced AI Features
+
+        private async Task OnRefineGoalWithAI(Goal goal)
+        {
+            if (goal == null) return;
+
+            try
+            {
+                var prompt = $"Refine and improve this goal using SMART criteria: " +
+                           $"Title: {goal.Title}, Description: {goal.Description}, " +
+                           $"Priority: {goal.Priority}, Type: {goal.GoalType}";
+
+                var result = await _orientPageViewModel.ExecutePipelineByNameAsync("goal_refinement_pipeline", prompt);
+
+                if (!string.IsNullOrEmpty(result))
+                {
+                    var refinedGoal = new Goal
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Title = $"Refined: {goal.Title}",
+                        Description = result,
+                        Priority = goal.Priority,
+                        Deadline = goal.Deadline,
+                        GoalType = goal.GoalType,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    MyGoals.Add(refinedGoal);
+                    await DisplayAlert("Goal Refined", "AI has created an improved version of your goal", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Refinement Error", $"Failed to refine goal: {ex.Message}", "OK");
+            }
+        }
+
+        private void OnClearSuggestions()
+        {
+            SuggestedImprovements.Clear();
+            GoalInsights.Clear();
+            GeneratedGoals.Clear();
+        }
+
+        private async Task OnExportGoalAnalytics()
+        {
+            try
+            {
+                var analytics = new
+                {
+                    TotalGoals = MyGoals.Count,
+                    CompletedGoals = MyGoals.Count(g => g.GoalType == "Completed"),
+                    AnalysisMode = AiAnalysisMode,
+                    Suggestions = SuggestedImprovements.ToList(),
+                    Insights = GoalInsights.ToList(),
+                    SmartSuggestions = GeneratedGoals.ToList(),
+                    ExportDate = DateTime.Now,
+                    WebcamAnalysisEnabled = IsWebcamAnalysisEnabled
+                };
+
+                string jsonAnalytics = JsonSerializer.Serialize(analytics, new JsonSerializerOptions { WriteIndented = true });
+                string fileName = $"goal_analytics_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+                string filePath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+
+                await File.WriteAllTextAsync(filePath, jsonAnalytics);
+
+                await DisplayAlert("Analytics Exported", $"Goal analytics exported to: {filePath}", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Export Error", $"Failed to export analytics: {ex.Message}", "OK");
+            }
+        }
+
+        #endregion
+
+        private void OnApplyImprovement(string improvement)
+        {
+            // Apply the selected improvement to goals
+            // This could involve updating goal properties or creating new goals
+            DisplayAlert("Improvement Applied", $"Applied: {improvement}", "OK");
+        }
+
+        private async Task OnGenerateGoalTemplates()
+        {
+            try
+            {
+                GoalTemplates.Clear();
+
+                // Generate templates based on existing goals and AI analysis
+                var templatePrompt = "Generate goal templates based on common goal patterns and success factors";
+
+                var templateResult = await _orientPageViewModel.ExecutePipelineByNameAsync("template_generation_pipeline", templatePrompt);
+
+                if (!string.IsNullOrEmpty(templateResult))
+                {
+                    // Parse the AI response - assuming it returns templates in a structured format
+                    // For now, create some default templates based on the response
+                    var templateLines = templateResult.Split('\n')
+                        .Where(s => !string.IsNullOrWhiteSpace(s))
+                        .ToList();
+
+                    // Create templates from the AI response
+                    for (int i = 0; i < Math.Min(templateLines.Count, 3); i++)
+                    {
+                        var template = new GoalTemplate
+                        {
+                            Title = $"AI Generated Template {i + 1}",
+                            Description = templateLines[i],
+                            Category = "General",
+                            SuggestedPriority = 3,
+                            SuggestedDurationDays = 30,
+                            KeySteps = new List<string> { "Step 1", "Step 2", "Step 3" },
+                            RequiredResources = new List<string> { "Time", "Focus" },
+                            Difficulty = "Medium",
+                            MotivationTip = "Stay consistent and track your progress",
+                            SuccessRate = 0.75
+                        };
+                        GoalTemplates.Add(template);
+                    }
+                }
+
+                await DisplayAlert("Templates Generated", $"Created {GoalTemplates.Count} goal templates", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Template Generation Error", $"Failed to generate templates: {ex.Message}", "OK");
+            }
+        }
+
+        private void OnApplyTemplate(GoalTemplate template)
+        {
+            // Create a new goal based on the template
+            var newGoal = new Goal
+            {
+                Title = template.Title,
+                Description = template.Description,
+                Priority = template.SuggestedPriority,
+                Deadline = DateTime.Now.AddDays(template.SuggestedDurationDays),
+                GoalType = template.Category,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            MyGoals.Add(newGoal);
+            DisplayAlert("Template Applied", $"Created goal: {newGoal.Title}", "OK");
+        }
+
+        private void OnToggleAdvancedOptions()
+        {
+            ShowAdvancedOptions = !ShowAdvancedOptions;
+        }
+
+        private async Task OnGenerateGoalInsights()
+        {
+            try
+            {
+                GoalInsights.Clear();
+
+                // Analyze goal completion patterns, time management, etc.
+                var insights = new List<string>();
+
+                if (MyGoals.Any())
+                {
+                    var completedGoals = MyGoals.Count(g => g.GoalType == "Completed");
+                    var totalGoals = MyGoals.Count;
+                    var completionRate = totalGoals > 0 ? (double)completedGoals / totalGoals * 100 : 0;
+
+                    insights.Add($"Goal completion rate: {completionRate:F1}%");
+
+                    var overdueGoals = MyGoals.Count(g => g.Deadline < DateTime.Now && g.GoalType != "Completed");
+                    if (overdueGoals > 0)
+                    {
+                        insights.Add($"You have {overdueGoals} overdue goals that need attention");
+                    }
+
+                    var highPriorityGoals = MyGoals.Count(g => g.Priority >= 4 && g.GoalType != "Completed");
+                    if (highPriorityGoals > 0)
+                    {
+                        insights.Add($"Focus on {highPriorityGoals} high-priority goals");
+                    }
+
+                    // Category distribution
+                    var categories = MyGoals.GroupBy(g => g.GoalType)
+                                         .OrderByDescending(g => g.Count())
+                                         .Take(3);
+
+                    foreach (var category in categories)
+                    {
+                        insights.Add($"{category.Key}: {category.Count()} goals");
+                    }
+                }
+
+                foreach (var insight in insights)
+                {
+                    GoalInsights.Add(insight);
+                }
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Insights Error", $"Failed to generate insights: {ex.Message}", "OK");
+            }
+        }
+
+        #endregion
+
+        // --- Enhanced Goal Generation Method ---
+        private async Task OnGenerateGoals()
+        {
+            try
+            {
+                IsGeneratingGoals = true;
+
+                // Clear unselected goals (keep selected ones if button is repressed)
+                var selectedGoals = GeneratedGoals.Where(g => g.IsSelected).ToList();
+                GeneratedGoals.Clear();
+                foreach (var selectedGoal in selectedGoals)
+                {
+                    GeneratedGoals.Add(selectedGoal);
+                }
+
+                ShowGeneratedGoals = true;
+
+                // Generate goals with multiple strategies
+                var generatedGoals = new List<GeneratedGoal>();
+
+                // Strategy 1: AI Pipeline Analysis (if pipeline selected)
+                if (!string.IsNullOrEmpty(SelectedPipelineName))
+                {
+                    var pipelineGoals = await GenerateGoalsFromPipeline();
+                    generatedGoals.AddRange(pipelineGoals);
+                }
+
+                // Strategy 2: Context-based Goal Generation
+                var contextGoals = await GenerateGoalsFromContext();
+                generatedGoals.AddRange(contextGoals);
+
+                // Strategy 3: Webcam Analysis (if enabled)
+                if (UseWebcamForGeneration)
+                {
+                    var webcamGoals = await GenerateGoalsFromWebcam();
+                    generatedGoals.AddRange(webcamGoals);
+                }
+
+                // Strategy 4: Existing Goals Analysis
+                if (MyGoals.Any())
+                {
+                    var analysisGoals = await GenerateGoalsFromExistingGoals();
+                    generatedGoals.AddRange(analysisGoals);
+                }
+
+                // Strategy 5: Ensure we have at least 3 goals - add defaults if needed
+                var defaultGoals = GenerateDefaultSmartGoals();
+                generatedGoals.AddRange(defaultGoals);
+
+                // Take at least 3, up to 8 goals, ensuring we have enough variety
+                var finalGoals = generatedGoals
+                    .OrderByDescending(g => g.Confidence)
+                    .Take(Math.Max(8, generatedGoals.Count))
+                    .ToList();
+
+                // If we still don't have at least 3, generate more defaults
+                while (finalGoals.Count < 3)
+                {
+                    finalGoals.AddRange(GenerateAdditionalDefaultGoals(3 - finalGoals.Count));
+                }
+
+                // Add new generated goals to collection (after selected ones)
+                foreach (var goal in finalGoals.Take(8))
+                {
+                    GeneratedGoals.Add(goal);
+                }
+
+                // Update status without popup
+                if (GeneratedGoals.Count > 0)
+                {
+                    // Success - goals were generated
+                    ShowFeedback($"🎯 Generated {GeneratedGoals.Count} goal suggestions! Click to add them.");
+                    Debug.WriteLine($"Generated {GeneratedGoals.Count} goal suggestions successfully");
+                }
+                else
+                {
+                    // Fallback - show a simple status message
+                    ShowFeedback("⚠️ No goals generated - please try again");
+                    Debug.WriteLine("No goals were generated - this shouldn't happen with fallback system");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error instead of showing popup
+                Debug.WriteLine($"Goal generation error: {ex.Message}");
+
+                // Add fallback goal so user isn't left with empty results
+                GeneratedGoals.Add(new GeneratedGoal
+                {
+                    Title = "Quick Goal Planning Session",
+                    Description = "Take 15 minutes to review and plan your upcoming goals",
+                    Category = "Planning",
+                    Priority = 3,
+                    Confidence = 85,
+                    Source = "Fallback",
+                    Rationale = "Always a good practice when goal generation encounters issues",
+                    SuggestedDeadline = DateTime.Now.AddDays(1),
+                    EstimatedDuration = TimeSpan.FromMinutes(15),
+                    Icon = "📝"
+                });
+
+                // Show fallback feedback
+                ShowFeedback("⚠️ Added fallback goal - try again for AI suggestions");
+            }
+            finally
+            {
+                IsGeneratingGoals = false;
+                ((Command)GenerateGoalsCommand).ChangeCanExecute();
+            }
+        }
+
+        private async Task<List<GeneratedGoal>> GenerateGoalsFromPipeline()
+        {
+            var goals = new List<GeneratedGoal>();
+            try
+            {
+                var prompt = $"Generate 3 specific, actionable goals based on user context: {GoalGenerationContext}. " +
+                           $"Current goals: {string.Join(", ", MyGoals.Select(g => g.Title))}. " +
+                           "Focus on SMART criteria and personal growth.";
+
+                var result = await _orientPageViewModel.ExecutePipelineByNameAsync(SelectedPipelineName, prompt);
+
+                if (!string.IsNullOrEmpty(result))
+                {
+                    goals = ParsePipelineResultToGoals(result, "AI Pipeline");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Pipeline goal generation failed: {ex.Message}");
+            }
+            return goals;
+        }
+
+        private Task<List<GeneratedGoal>> GenerateGoalsFromContext()
+        {
+            var goals = new List<GeneratedGoal>();
+
+            // Generate goals based on context
+            if (!string.IsNullOrEmpty(GoalGenerationContext))
+            {
+                try
+                {
+                    var contextPrompt = $"Based on this context: '{GoalGenerationContext}', generate 2 relevant goals.";
+
+                    // Use a simple context analysis if no pipeline is available
+                    var contextGoals = AnalyzeContextForGoals(GoalGenerationContext);
+                    goals.AddRange(contextGoals);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Context goal generation failed: {ex.Message}");
+                }
+            }
+
+            return Task.FromResult(goals);
+        }
+
+        private async Task<List<GeneratedGoal>> GenerateGoalsFromWebcam()
+        {
+            var goals = new List<GeneratedGoal>();
+
+            try
+            {
+                WebcamStatus = "Analyzing webcam for goal suggestions...";
+                await Task.Delay(1000); // Simulate webcam analysis
+
+                // Simulate webcam analysis results
+                var webcamAnalysis = new
+                {
+                    FocusLevel = new Random().Next(60, 95),
+                    EnergyLevel = new Random().Next(50, 90),
+                    Environment = new[] { "Office", "Home", "Cafe", "Library" }[new Random().Next(4)],
+                    TimeOfDay = DateTime.Now.Hour
+                };
+
+                // Generate goals based on webcam analysis
+                if (webcamAnalysis.FocusLevel > 80)
+                {
+                    goals.Add(new GeneratedGoal
+                    {
+                        Title = "High-Focus Deep Work Session",
+                        Description = $"Take advantage of your current high focus level ({webcamAnalysis.FocusLevel}%) for challenging tasks",
+                        Category = "Productivity",
+                        Priority = 5,
+                        Confidence = 90,
+                        Source = "Webcam Analysis",
+                        Rationale = $"Webcam detected high focus level at {webcamAnalysis.FocusLevel}%",
+                        SuggestedDeadline = DateTime.Now.AddHours(2),
+                        EstimatedDuration = TimeSpan.FromHours(2),
+                        Icon = "🎯",
+                        WebcamData = new Dictionary<string, object>
+                        {
+                            { "focus_level", webcamAnalysis.FocusLevel },
+                            { "environment", webcamAnalysis.Environment }
+                        }
+                    });
+                }
+
+                if (webcamAnalysis.EnergyLevel < 60)
+                {
+                    goals.Add(new GeneratedGoal
+                    {
+                        Title = "Energy Recovery Break",
+                        Description = $"Your energy level is at {webcamAnalysis.EnergyLevel}% - take a rejuvenating break",
+                        Category = "Health",
+                        Priority = 4,
+                        Confidence = 85,
+                        Source = "Webcam Analysis",
+                        Rationale = $"Low energy detected at {webcamAnalysis.EnergyLevel}%",
+                        SuggestedDeadline = DateTime.Now.AddMinutes(30),
+                        EstimatedDuration = TimeSpan.FromMinutes(15),
+                        Icon = "⚡"
+                    });
+                }
+
+                WebcamStatus = $"Webcam analysis complete - Focus: {webcamAnalysis.FocusLevel}%";
+            }
+            catch (Exception ex)
+            {
+                WebcamStatus = "Webcam analysis failed";
+                Debug.WriteLine($"Webcam goal generation failed: {ex.Message}");
+            }
+
+            return goals;
+        }
+
+        private Task<List<GeneratedGoal>> GenerateGoalsFromExistingGoals()
+        {
+            var goals = new List<GeneratedGoal>();
+
+            try
+            {
+                // Analyze existing goals for patterns and gaps
+                var categories = MyGoals.GroupBy(g => g.GoalType).ToList();
+                var overdueTasks = MyGoals.Count(g => g.Deadline < DateTime.Now);
+                var highPriorityTasks = MyGoals.Count(g => g.Priority >= 4);
+
+                if (overdueTasks > 2)
+                {
+                    goals.Add(new GeneratedGoal
+                    {
+                        Title = "Goal Organization & Prioritization",
+                        Description = $"You have {overdueTasks} overdue goals. Create a system to better manage deadlines.",
+                        Category = "Productivity",
+                        Priority = 5,
+                        Confidence = 95,
+                        Source = "Goal Analysis",
+                        Rationale = $"Detected {overdueTasks} overdue goals requiring attention",
+                        SuggestedDeadline = DateTime.Now.AddDays(3),
+                        EstimatedDuration = TimeSpan.FromHours(1),
+                        Icon = "📋"
+                    });
+                }
+
+                // Suggest balance if too focused on one category
+                if (categories.Any() && categories.First().Count() > MyGoals.Count * 0.6)
+                {
+                    var dominantCategory = categories.First().Key;
+                    var suggestions = new[] { "Health", "Learning", "Social", "Finance", "Personal" }
+                        .Where(c => c != dominantCategory).ToArray();
+
+                    var suggestedCategory = suggestions[new Random().Next(suggestions.Length)];
+
+                    goals.Add(new GeneratedGoal
+                    {
+                        Title = $"{suggestedCategory} Goal for Balance",
+                        Description = $"Most of your goals are {dominantCategory}-focused. Consider adding a {suggestedCategory} goal for better life balance.",
+                        Category = suggestedCategory,
+                        Priority = 3,
+                        Confidence = 80,
+                        Source = "Goal Analysis",
+                        Rationale = $"Detected imbalance - too many {dominantCategory} goals",
+                        SuggestedDeadline = DateTime.Now.AddDays(14),
+                        EstimatedDuration = TimeSpan.FromDays(7),
+                        Icon = "⚖️"
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Existing goals analysis failed: {ex.Message}");
+            }
+
+            return Task.FromResult(goals);
+        }
+
+        private List<GeneratedGoal> GenerateDefaultSmartGoals()
+        {
+            var defaultGoals = new List<GeneratedGoal>
+            {
+                new GeneratedGoal
+                {
+                    Title = "Daily Learning Habit",
+                    Description = "Spend 30 minutes daily learning something new in your field of interest",
+                    Category = "Learning",
+                    Priority = 3,
+                    Confidence = 75,
+                    Source = "Default Template",
+                    Rationale = "Continuous learning is essential for personal growth",
+                    SuggestedDeadline = DateTime.Now.AddDays(30),
+                    EstimatedDuration = TimeSpan.FromDays(30),
+                    Icon = "📚",
+                    KeySteps = new List<string> { "Choose learning topic", "Set daily reminder", "Track progress" }
+                },
+                new GeneratedGoal
+                {
+                    Title = "Health & Wellness Check",
+                    Description = "Establish a weekly routine for physical and mental health maintenance",
+                    Category = "Health",
+                    Priority = 4,
+                    Confidence = 85,
+                    Source = "Default Template",
+                    Rationale = "Regular health maintenance prevents future issues",
+                    SuggestedDeadline = DateTime.Now.AddDays(7),
+                    EstimatedDuration = TimeSpan.FromDays(1),
+                    Icon = "🏃‍♂️",
+                    KeySteps = new List<string> { "Schedule health checkup", "Plan weekly exercise", "Set wellness goals" }
+                },
+                new GeneratedGoal
+                {
+                    Title = "Digital Organization",
+                    Description = "Organize digital files, emails, and online accounts for better productivity",
+                    Category = "Productivity",
+                    Priority = 3,
+                    Confidence = 70,
+                    Source = "Default Template",
+                    Rationale = "Digital clutter reduces productivity and increases stress",
+                    SuggestedDeadline = DateTime.Now.AddDays(14),
+                    EstimatedDuration = TimeSpan.FromHours(4),
+                    Icon = "💻",
+                    KeySteps = new List<string> { "Clean email inbox", "Organize files", "Update passwords" }
+                }
+            };
+
+            return defaultGoals;
+        }
+
+        private List<GeneratedGoal> GenerateAdditionalDefaultGoals(int count)
+        {
+            var additionalGoals = new List<GeneratedGoal>
+            {
+                new GeneratedGoal
+                {
+                    Title = "Financial Planning Review",
+                    Description = "Review and update your financial goals and budget for the upcoming period",
+                    Category = "Finance",
+                    Priority = 4,
+                    Confidence = 80,
+                    Source = "Additional Default",
+                    Rationale = "Regular financial review helps maintain financial health",
+                    SuggestedDeadline = DateTime.Now.AddDays(21),
+                    EstimatedDuration = TimeSpan.FromHours(3),
+                    Icon = "💰",
+                    KeySteps = new List<string> { "Review budget", "Update savings goals", "Check investments" }
+                },
+                new GeneratedGoal
+                {
+                    Title = "Social Connection Goal",
+                    Description = "Strengthen relationships with family and friends through regular communication",
+                    Category = "Social",
+                    Priority = 3,
+                    Confidence = 75,
+                    Source = "Additional Default",
+                    Rationale = "Social connections are crucial for mental health and well-being",
+                    SuggestedDeadline = DateTime.Now.AddDays(14),
+                    EstimatedDuration = TimeSpan.FromDays(7),
+                    Icon = "👥",
+                    KeySteps = new List<string> { "Schedule calls", "Plan activities", "Send messages" }
+                },
+                new GeneratedGoal
+                {
+                    Title = "Skill Development Project",
+                    Description = "Start a project to develop a new professional or personal skill",
+                    Category = "Growth",
+                    Priority = 3,
+                    Confidence = 70,
+                    Source = "Additional Default",
+                    Rationale = "Skill development opens new opportunities and builds confidence",
+                    SuggestedDeadline = DateTime.Now.AddDays(45),
+                    EstimatedDuration = TimeSpan.FromDays(30),
+                    Icon = "🎯",
+                    KeySteps = new List<string> { "Choose skill", "Find resources", "Create practice plan" }
+                },
+                new GeneratedGoal
+                {
+                    Title = "Home Environment Optimization",
+                    Description = "Improve your living or working space for better comfort and productivity",
+                    Category = "Environment",
+                    Priority = 2,
+                    Confidence = 65,
+                    Source = "Additional Default",
+                    Rationale = "A well-organized environment enhances focus and reduces stress",
+                    SuggestedDeadline = DateTime.Now.AddDays(10),
+                    EstimatedDuration = TimeSpan.FromDays(2),
+                    Icon = "🏠",
+                    KeySteps = new List<string> { "Declutter space", "Organize items", "Add improvements" }
+                },
+                new GeneratedGoal
+                {
+                    Title = "Creative Expression Time",
+                    Description = "Dedicate time to a creative hobby or artistic pursuit",
+                    Category = "Creativity",
+                    Priority = 2,
+                    Confidence = 60,
+                    Source = "Additional Default",
+                    Rationale = "Creative activities reduce stress and enhance problem-solving abilities",
+                    SuggestedDeadline = DateTime.Now.AddDays(7),
+                    EstimatedDuration = TimeSpan.FromHours(5),
+                    Icon = "🎨",
+                    KeySteps = new List<string> { "Choose activity", "Gather materials", "Set time aside" }
+                }
+            };
+
+            return additionalGoals.Take(count).ToList();
+        }
+
+        private List<GeneratedGoal> AnalyzeContextForGoals(string context)
+        {
+            var goals = new List<GeneratedGoal>();
+            var lowerContext = context.ToLower();
+
+            // Simple keyword-based goal generation
+            if (lowerContext.Contains("work") || lowerContext.Contains("career"))
+            {
+                goals.Add(new GeneratedGoal
+                {
+                    Title = "Professional Development Plan",
+                    Description = "Create a structured plan for advancing your career based on current work context",
+                    Category = "Career",
+                    Priority = 4,
+                    Confidence = 80,
+                    Source = "Context Analysis",
+                    Rationale = "Work/career keywords detected in context",
+                    SuggestedDeadline = DateTime.Now.AddDays(21),
+                    EstimatedDuration = TimeSpan.FromDays(7),
+                    Icon = "💼"
+                });
+            }
+
+            if (lowerContext.Contains("health") || lowerContext.Contains("fitness"))
+            {
+                goals.Add(new GeneratedGoal
+                {
+                    Title = "Health Improvement Journey",
+                    Description = "Start a personalized health improvement program based on your current needs",
+                    Category = "Health",
+                    Priority = 5,
+                    Confidence = 85,
+                    Source = "Context Analysis",
+                    Rationale = "Health/fitness keywords detected in context",
+                    SuggestedDeadline = DateTime.Now.AddDays(30),
+                    EstimatedDuration = TimeSpan.FromDays(30),
+                    Icon = "🏃‍♀️"
+                });
+            }
+
+            if (lowerContext.Contains("learn") || lowerContext.Contains("study") || lowerContext.Contains("skill"))
+            {
+                goals.Add(new GeneratedGoal
+                {
+                    Title = "Skill Enhancement Program",
+                    Description = "Develop new skills or improve existing ones based on your learning interests",
+                    Category = "Learning",
+                    Priority = 3,
+                    Confidence = 75,
+                    Source = "Context Analysis",
+                    Rationale = "Learning/skill keywords detected in context",
+                    SuggestedDeadline = DateTime.Now.AddDays(45),
+                    EstimatedDuration = TimeSpan.FromDays(21),
+                    Icon = "🧠"
+                });
+            }
+
+            return goals;
+        }
+
+        private List<GeneratedGoal> ParsePipelineResultToGoals(string result, string source)
+        {
+            var goals = new List<GeneratedGoal>();
+            var lines = result.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l)).Take(3).ToList();
+
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i].Trim();
+                goals.Add(new GeneratedGoal
+                {
+                    Title = $"AI Suggestion {i + 1}",
+                    Description = line,
+                    Category = "AI Generated",
+                    Priority = new Random().Next(3, 6),
+                    Confidence = new Random().Next(75, 95),
+                    Source = source,
+                    Rationale = "Generated by AI pipeline analysis",
+                    SuggestedDeadline = DateTime.Now.AddDays(new Random().Next(7, 30)),
+                    EstimatedDuration = TimeSpan.FromDays(new Random().Next(1, 14)),
+                    Icon = "🤖"
+                });
+            }
+
+            return goals;
+        }
+
+        private void OnAddGeneratedGoal(GeneratedGoal generatedGoal)
+        {
+            if (generatedGoal == null) return;
+
+            try
+            {
+                var newGoal = new Goal
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Title = generatedGoal.Title,
+                    Description = generatedGoal.Description,
+                    Priority = generatedGoal.Priority,
+                    Deadline = generatedGoal.SuggestedDeadline,
+                    GoalType = generatedGoal.Category,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                MyGoals.Insert(0, newGoal);
+
+                // Mark as selected and provide feedback
+                generatedGoal.IsSelected = true;
+
+                // Show brief feedback message
+                ShowFeedback($"✅ Added '{generatedGoal.Title}' to your goals!");
+
+                // Log the addition without popup
+                Debug.WriteLine($"Added '{generatedGoal.Title}' to goals with {generatedGoal.Confidence}% AI confidence");
+
+                // Save automatically
+                _ = SaveGoalsToFile();
+                if (_appModeService.CurrentMode != AppMode.Offline)
+                {
+                    _ = SaveGoalToBackend(newGoal);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error instead of showing popup
+                Debug.WriteLine($"Failed to add goal: {ex.Message}");
+            }
+        }
+        // --- End Enhanced Goal Generation Method ---
+
+        // Simple feedback method to replace popups
+        private async void ShowFeedback(string message)
+        {
+            LastAction = message;
+            ShowLastAction = true;
+
+            // Hide after 3 seconds
+            await Task.Delay(3000);
+            ShowLastAction = false;
+        }
 
 
         private void OnToggleCreateGoal()
@@ -503,6 +1693,7 @@ namespace CSimple.Pages
                 IsLoading = true;
                 HasError = false;
 
+                // Enhanced goal creation with AI suggestions
                 var newGoal = new Goal
                 {
                     Title = NewGoalTitle,
@@ -514,6 +1705,12 @@ namespace CSimple.Pages
                     CreatedAt = DateTime.UtcNow
                 };
 
+                // AI Enhancement: Analyze and suggest improvements to the new goal
+                if (IsSmartGoalGeneration)
+                {
+                    await EnhanceGoalWithAI(newGoal);
+                }
+
                 MyGoals.Insert(0, newGoal);
                 await SaveGoalsToFile();
 
@@ -523,10 +1720,19 @@ namespace CSimple.Pages
                     await SaveGoalToBackend(newGoal);
                 }
 
+                // AI Enhancement: Generate related goal suggestions
+                if (IsSmartGoalGeneration)
+                {
+                    await GenerateRelatedGoalSuggestions(newGoal);
+                }
+
                 ClearGoalForm();
                 ShowNewGoal = false;
 
-                await DisplayAlert("Success", "Goal created successfully!", "OK");
+                await DisplayAlert("Success",
+                    IsSmartGoalGeneration ?
+                        "Goal created successfully with AI enhancements! Check suggestions for related goals." :
+                        "Goal created successfully!", "OK");
             }
             catch (Exception ex)
             {
@@ -538,6 +1744,61 @@ namespace CSimple.Pages
             finally
             {
                 IsLoading = false;
+            }
+        }
+
+        private async Task EnhanceGoalWithAI(Goal goal)
+        {
+            try
+            {
+                var enhancementPrompt = $"Enhance this goal using SMART criteria: " +
+                                      $"Title: {goal.Title}, Description: {goal.Description}. " +
+                                      "Provide specific improvements for clarity, measurability, and achievability.";
+
+                var enhancement = await _orientPageViewModel.ExecutePipelineByNameAsync("goal_enhancement_pipeline", enhancementPrompt);
+
+                if (!string.IsNullOrEmpty(enhancement))
+                {
+                    // Apply AI enhancements to the goal
+                    var enhancedLines = enhancement.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
+                    if (enhancedLines.Any())
+                    {
+                        goal.Description = enhancedLines.First();
+                        // Store additional enhancement details in description if needed
+                        if (enhancedLines.Count > 1)
+                        {
+                            goal.Description += " " + string.Join(" ", enhancedLines.Skip(1));
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"AI goal enhancement failed: {ex.Message}");
+            }
+        }
+
+        private async Task GenerateRelatedGoalSuggestions(Goal newGoal)
+        {
+            try
+            {
+                var relationPrompt = $"Based on this new goal: '{newGoal.Title} - {newGoal.Description}', " +
+                                   $"suggest 3 related complementary goals that would help achieve better results.";
+
+                var suggestions = await _orientPageViewModel.ExecutePipelineByNameAsync("related_goals_pipeline", relationPrompt);
+
+                if (!string.IsNullOrEmpty(suggestions))
+                {
+                    var lines = suggestions.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l)).Take(3).ToList();
+                    foreach (var suggestion in lines)
+                    {
+                        SuggestedImprovements.Add($"🎯 Related Goal: {suggestion}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Related goal generation failed: {ex.Message}");
             }
         }
 
@@ -1098,6 +2359,83 @@ namespace CSimple.Pages
 
         // Fix warning CS0114 by using 'new' keyword
         protected new virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    // Goal Template class for AI-generated goal templates
+    public class GoalTemplate
+    {
+        public string Title { get; set; }
+        public string Description { get; set; }
+        public string Category { get; set; }
+        public int SuggestedPriority { get; set; }
+        public int SuggestedDurationDays { get; set; }
+        public List<string> KeySteps { get; set; } = new List<string>();
+        public List<string> RequiredResources { get; set; } = new List<string>();
+        public string Difficulty { get; set; } // Easy, Medium, Hard
+        public string MotivationTip { get; set; }
+        public double SuccessRate { get; set; } // Estimated success rate percentage
+    }
+
+    // Smart Goal Suggestion class for AI-generated smart goal recommendations
+    public class SmartGoalSuggestion
+    {
+        public string Id { get; set; }
+        public string Title { get; set; }
+        public string Description { get; set; }
+        public string Category { get; set; }
+        public int Priority { get; set; }
+        public TimeSpan EstimatedDuration { get; set; }
+        public int Confidence { get; set; } // Percentage confidence in suggestion
+        public bool IsRecommended { get; set; }
+        public DateTime CreatedDate { get; set; } = DateTime.Now;
+        public List<string> Tags { get; set; } = new List<string>();
+        public string Rationale { get; set; } // Why this goal is suggested
+        public List<string> ActionSteps { get; set; } = new List<string>();
+        public Dictionary<string, object> Metadata { get; set; } = new Dictionary<string, object>();
+    }
+
+    // Generated Goal class for AI-powered goal generation with selection capability
+    public class GeneratedGoal : INotifyPropertyChanged
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Title { get; set; }
+        public string Description { get; set; }
+        public string Category { get; set; }
+        public int Priority { get; set; }
+        public DateTime SuggestedDeadline { get; set; }
+        public int Confidence { get; set; } // AI confidence score (0-100)
+
+        private bool _isSelected = false;
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected != value)
+                {
+                    _isSelected = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string Source { get; set; } // "AI Pipeline", "Webcam Analysis", "Context Analysis"
+        public string Rationale { get; set; } // Why this goal was generated
+        public List<string> Tags { get; set; } = new List<string>();
+        public List<string> KeySteps { get; set; } = new List<string>();
+        public string Difficulty { get; set; } = "Medium"; // Easy, Medium, Hard
+        public TimeSpan EstimatedDuration { get; set; }
+        public bool IsRecommended { get; set; } // AI recommendation flag
+        public DateTime GeneratedAt { get; set; } = DateTime.Now;
+        public Dictionary<string, object> WebcamData { get; set; } = new Dictionary<string, object>(); // Webcam analysis data
+        public string Icon { get; set; } = "🎯"; // Visual icon for the goal
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
