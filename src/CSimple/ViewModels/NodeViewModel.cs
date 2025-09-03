@@ -50,6 +50,7 @@ namespace CSimple.ViewModels
         private string _goalText = ""; // Added for Goal classification text
         private string _planText = ""; // Added for Plan classification text  
         private string _actionText = ""; // Added for Action classification text
+        private string _textToAudioPrompt = ""; // Added for TextToAudio classification prompt
         private string _modelPath; // Added for model path storage
         private string _originalName; // Added to store name before classification suffix
         private string _saveFilePath; // Added for file node save path
@@ -167,6 +168,12 @@ namespace CSimple.ViewModels
         // --- Text Model Classification ---
         public bool IsTextModel => IsModel && (DataType?.Equals("text", StringComparison.OrdinalIgnoreCase) ?? false);
 
+        // Property to identify text-to-audio models specifically
+        public bool IsTextToAudioModel => IsModel && (IsTextToAudioModelByName() || Classification == "TextToAudio");
+
+        // Property to identify models that can be classified (text or text-to-audio)
+        public bool IsClassifiableModel => IsTextModel || IsTextToAudioModel;
+
         public string Classification
         {
             get => _classification;
@@ -199,6 +206,12 @@ namespace CSimple.ViewModels
             set => SetProperty(ref _actionText, value);
         }
 
+        public string TextToAudioPrompt
+        {
+            get => _textToAudioPrompt;
+            set => SetProperty(ref _textToAudioPrompt, value);
+        }
+
         // Helper property to get the current classification text
         public string CurrentClassificationText
         {
@@ -209,6 +222,7 @@ namespace CSimple.ViewModels
                     "Goal" => GoalText,
                     "Plan" => PlanText,
                     "Action" => ActionText,
+                    "TextToAudio" => TextToAudioPrompt,
                     _ => ""
                 };
             }
@@ -217,7 +231,7 @@ namespace CSimple.ViewModels
 
 
         // Modified Constructor to accept ID as string and handle OriginalName and SaveFilePath
-        public NodeViewModel(string id, string name, NodeType type, PointF position, string dataType = "unknown", string originalModelId = null, string modelPath = null, string classification = null, string originalName = null, string saveFilePath = null, string goalText = "", string planText = "", string actionText = "")
+        public NodeViewModel(string id, string name, NodeType type, PointF position, string dataType = "unknown", string originalModelId = null, string modelPath = null, string classification = null, string originalName = null, string saveFilePath = null, string goalText = "", string planText = "", string actionText = "", string textToAudioPrompt = "")
         {
             Id = id ?? Guid.NewGuid().ToString(); // Use provided ID or generate new
             Type = type;
@@ -232,6 +246,7 @@ namespace CSimple.ViewModels
             _goalText = goalText ?? ""; // Initialize goal text
             _planText = planText ?? ""; // Initialize plan text
             _actionText = actionText ?? ""; // Initialize action text
+            _textToAudioPrompt = textToAudioPrompt ?? ""; // Initialize text-to-audio prompt
             Name = name; // Set initial name (might be updated immediately if classification exists)
 
             // Update name based on initial classification if provided
@@ -327,6 +342,27 @@ namespace CSimple.ViewModels
                 OnPropertyChanged(nameof(SelectedEnsembleMethod));
             }
             OnPropertyChanged(nameof(AvailableEnsembleMethods)); // Notify collection changed
+        }
+
+        // Helper method to identify text-to-audio models by name
+        private bool IsTextToAudioModelByName()
+        {
+            if (string.IsNullOrEmpty(Name) && string.IsNullOrEmpty(OriginalModelId))
+                return false;
+
+            string nameLower = Name?.ToLowerInvariant() ?? "";
+            string modelIdLower = OriginalModelId?.ToLowerInvariant() ?? "";
+
+            // Check for common text-to-audio model names/patterns
+            string[] textToAudioKeywords = {
+                "chatterbox", "tts", "text-to-speech", "speech-synthesis",
+                "speecht5", "tacotron", "wavenet", "fastspeech",
+                "voicebox", "bark", "tortoise", "coqui",
+                "espeak", "festival", "mary", "flite"
+            };
+
+            return textToAudioKeywords.Any(keyword =>
+                nameLower.Contains(keyword) || modelIdLower.Contains(keyword));
         }
 
 
