@@ -162,6 +162,15 @@ namespace CSimple.Services
             availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "openai/whisper-base", ModelId = "Audio Recognizer (Whisper)" });
             availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "deepseek-ai/deepseek-coder-1.3b-instruct", ModelId = "DeepSeek Coder" });
             availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "meta-llama/Meta-Llama-3-8B-Instruct", ModelId = "Llama 3 8B Instruct" });
+
+            // Add TTS models that are known to work well and are more reliable
+            availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "facebook/mms-tts-eng", ModelId = "MMS TTS English (Meta)" });
+            availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "suno/bark", ModelId = "Bark TTS (Suno)" });
+            availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "facebook/fastspeech2-en-ljspeech", ModelId = "FastSpeech2 TTS (Facebook)" });
+            availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "microsoft/DitriBERT-base", ModelId = "DitriBERT TTS (Microsoft)" });
+            availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "espnet/kan-bayashi_ljspeech_vits", ModelId = "VITS TTS (ESPnet)" });
+            // Keep SpeechT5 as backup option but with warning in name
+            availableModels.Add(new CSimple.Models.HuggingFaceModel { Id = "microsoft/speecht5_tts", ModelId = "SpeechT5 TTS (Experimental)" });
         }
 
         public async Task AddModelNodeAsync(

@@ -170,6 +170,10 @@ def detect_model_type(model_id: str) -> str:
     if any(name in model_id_lower for name in ["wav2vec", "hubert", "speecht5_asr"]):
         return "automatic-speech-recognition"
     
+    # Text-to-Speech models
+    if any(name in model_id_lower for name in ["tts", "speecht5_tts", "mms-tts", "bark", "vibevoice"]):
+        return "text-to-speech"
+    
     # Vision/Image models
     if "blip" in model_id_lower:
         return "image-to-text"
@@ -290,6 +294,224 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any], 
         
     except Exception as e:
         return f"ERROR: {str(e)}"
+
+
+        
+
+def run_text_to_speech(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
+    """Run text-to-speech synthesis on input text."""
+    try:
+        print(f"Processing text-to-speech with model: {model_id}", file=sys.stderr)
+        print(f"Input text received: {input_text[:100]}{'...' if len(input_text) > 100 else ''}", file=sys.stderr)
+        
+        # Clean input text
+        clean_input = input_text.strip()
+        if not clean_input:
+            return "ERROR: No text provided for speech synthesis"
+        
+        # Handle specific TTS models with different approaches
+        if "vibevoice" in model_id.lower():
+            # VibeVoice model - handle the unsupported architecture error
+            return f"ERROR: The VibeVoice model architecture is not yet supported in this version of Transformers. Please try using an alternative TTS model like 'microsoft/speecht5_tts' or 'facebook/mms-tts-eng'."
+        
+        elif "speecht5" in model_id.lower():
+            return run_speecht5_tts(model_id, clean_input, params, local_model_path)
+        
+        elif "mms-tts" in model_id.lower():
+            return run_mms_tts(model_id, clean_input, params, local_model_path)
+        
+        elif "bark" in model_id.lower():
+            return run_bark_tts(model_id, clean_input, params, local_model_path)
+        
+        else:
+            # Generic TTS handling
+            return run_generic_tts(model_id, clean_input, params, local_model_path)
+            
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Error in text-to-speech synthesis: {error_msg}", file=sys.stderr)
+        
+        if "vibevoice" in error_msg.lower():
+            return "ERROR: The VibeVoice model architecture is not yet supported. Try using 'microsoft/speecht5_tts' instead."
+        elif "trust_remote_code" in error_msg.lower():
+            return "ERROR: Model requires trust_remote_code=True but was blocked for security."
+        else:
+            return f"ERROR: {error_msg}"
+
+
+def run_speecht5_tts(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
+    """Run SpeechT5 TTS model."""
+    try:
+        from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
+        import soundfile as sf
+        import numpy as np
+        import os
+        from datetime import datetime
+        
+        # Determine model path
+        model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
+        
+        print("Loading SpeechT5 TTS model and processor...", file=sys.stderr)
+        processor = SpeechT5Processor.from_pretrained(model_path_to_use)
+        model = SpeechT5ForTextToSpeech.from_pretrained(model_path_to_use)
+        vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
+        
+        # Prepare inputs
+        inputs = processor(text=input_text, return_tensors="pt")
+        
+        # Load speaker embeddings (using default speaker)
+        speaker_embeddings = torch.tensor([[ 0.0000,  0.0000,  0.0000, ...]]).unsqueeze(0)  # Default speaker embedding
+        
+        # Generate speech
+        speech = model.generate_speech(inputs["input_ids"], speaker_embeddings, vocoder=vocoder)
+        
+        # Save audio file
+        output_dir = "C:\\Users\\tanne\\Documents\\CSimple\\Resources\\Audio"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = os.path.join(output_dir, f"tts_output_{timestamp}.wav")
+        
+        sf.write(output_file, speech.numpy(), samplerate=16000)
+        
+        return f"Speech synthesis completed. Audio saved to: {output_file}"
+        
+    except ImportError as e:
+        return f"ERROR: Required library not installed: {e}. Try: pip install soundfile"
+    except Exception as e:
+        return f"ERROR: SpeechT5 TTS failed: {e}"
+
+
+def run_mms_tts(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
+    """Run MMS TTS model."""
+    try:
+        from transformers import VitsModel, AutoTokenizer
+        import soundfile as sf
+        import os
+        from datetime import datetime
+        
+        # Determine model path
+        model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
+        
+        print("Loading MMS TTS model...", file=sys.stderr)
+        model = VitsModel.from_pretrained(model_path_to_use)
+        tokenizer = AutoTokenizer.from_pretrained(model_path_to_use)
+        
+        # Prepare inputs
+        inputs = tokenizer(input_text, return_tensors="pt")
+        
+        # Generate speech
+        with torch.no_grad():
+            outputs = model(**inputs)
+        
+        # Extract waveform
+        waveform = outputs.waveform[0].cpu().numpy()
+        
+        # Save audio file
+        output_dir = "C:\\Users\\tanne\\Documents\\CSimple\\Resources\\Audio"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = os.path.join(output_dir, f"mms_tts_output_{timestamp}.wav")
+        
+        sf.write(output_file, waveform, samplerate=22050)
+        
+        return f"MMS TTS synthesis completed. Audio saved to: {output_file}"
+        
+    except ImportError as e:
+        return f"ERROR: Required library not installed: {e}. Try: pip install soundfile"
+    except Exception as e:
+        return f"ERROR: MMS TTS failed: {e}"
+
+
+def run_bark_tts(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
+    """Run Bark TTS model."""
+    try:
+        from transformers import AutoProcessor, BarkModel
+        import soundfile as sf
+        import os
+        from datetime import datetime
+        
+        # Determine model path
+        model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
+        
+        print("Loading Bark TTS model...", file=sys.stderr)
+        processor = AutoProcessor.from_pretrained(model_path_to_use)
+        model = BarkModel.from_pretrained(model_path_to_use)
+        
+        # Prepare inputs with speaker preset
+        inputs = processor(input_text, voice_preset="v2/en_speaker_6")
+        
+        # Generate speech
+        with torch.no_grad():
+            audio_array = model.generate(**inputs)
+        
+        # Convert to numpy
+        audio_array = audio_array.cpu().numpy().squeeze()
+        
+        # Save audio file
+        output_dir = "C:\\Users\\tanne\\Documents\\CSimple\\Resources\\Audio"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = os.path.join(output_dir, f"bark_tts_output_{timestamp}.wav")
+        
+        sf.write(output_file, audio_array, samplerate=model.generation_config.sample_rate)
+        
+        return f"Bark TTS synthesis completed. Audio saved to: {output_file}"
+        
+    except ImportError as e:
+        return f"ERROR: Required library not installed: {e}. Try: pip install soundfile"
+    except Exception as e:
+        return f"ERROR: Bark TTS failed: {e}"
+
+
+def run_generic_tts(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
+    """Run generic TTS model using transformers pipeline."""
+    try:
+        from transformers import pipeline
+        import soundfile as sf
+        import os
+        from datetime import datetime
+        
+        # Determine model path
+        model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
+        
+        print("Loading generic TTS model...", file=sys.stderr)
+        
+        # Create TTS pipeline
+        tts_pipeline = pipeline(
+            "text-to-speech",
+            model=model_path_to_use,
+            trust_remote_code=params.get("trust_remote_code", True)
+        )
+        
+        # Generate speech
+        result = tts_pipeline(input_text)
+        
+        # Extract audio data
+        if isinstance(result, dict) and "audio" in result:
+            audio_data = result["audio"]
+            sample_rate = result.get("sampling_rate", 22050)
+        else:
+            audio_data = result
+            sample_rate = 22050
+        
+        # Save audio file
+        output_dir = "C:\\Users\\tanne\\Documents\\CSimple\\Resources\\Audio"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = os.path.join(output_dir, f"generic_tts_output_{timestamp}.wav")
+        
+        sf.write(output_file, audio_data, samplerate=sample_rate)
+        
+        return f"TTS synthesis completed. Audio saved to: {output_file}"
+        
+    except ImportError as e:
+        return f"ERROR: Required library not installed: {e}. Try: pip install soundfile"
+    except Exception as e:
+        return f"ERROR: Generic TTS failed: {e}"
 
 
 def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
@@ -837,6 +1059,10 @@ def get_or_load_model(model_id: str, params: Dict[str, Any], local_model_path: O
     if cache_key in _model_cache and cache_key in _tokenizer_cache:
         return _model_cache[cache_key], _tokenizer_cache[cache_key]
     
+    # Special handling for problematic models
+    if "vibevoice" in model_id.lower():
+        raise Exception("The VibeVoice model architecture is not yet supported. Please try using an alternative TTS model like 'microsoft/speecht5_tts' or 'facebook/mms-tts-eng'.")
+    
     # Use global imports for better performance
     from transformers import AutoTokenizer, AutoModelForCausalLM
     
@@ -887,6 +1113,10 @@ def get_or_load_model(model_id: str, params: Dict[str, Any], local_model_path: O
     try:
         model = AutoModelForCausalLM.from_pretrained(model_path_to_use, **model_kwargs)
     except Exception as e:
+        # Check for specific unsupported architecture errors
+        if "vibevoice" in str(e).lower() or "does not recognize this architecture" in str(e).lower():
+            raise Exception("The checkpoint you are trying to load has an unsupported model architecture. Consider using an alternative model like 'microsoft/speecht5_tts' for text-to-speech or updating your transformers library.")
+        
         # Fallback to CPU if GPU loading fails
         if not force_cpu:
             print(f"GPU loading failed, falling back to CPU: {e}", file=sys.stderr)
@@ -1004,6 +1234,8 @@ def main() -> int:
             result = run_speech_recognition(args.model_id, args.input, params, args.local_model_path)
         elif model_type == "image-to-text":
             result = run_image_to_text(args.model_id, args.input, params, args.local_model_path)
+        elif model_type == "text-to-speech":
+            result = run_text_to_speech(args.model_id, args.input, params, args.local_model_path)
         else:
             # Fast fallback for unknown types
             result = f"Model type '{model_type}' not fully implemented yet. Basic response: Processed '{args.input}' with {args.model_id}"
