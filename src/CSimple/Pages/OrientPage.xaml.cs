@@ -561,12 +561,6 @@ namespace CSimple.Pages
             }
             else if (node.Type == NodeType.Model)
             {
-                // First check if the model has a TextToAudio classification
-                if (node.Classification == "TextToAudio")
-                {
-                    return audioDataColor;
-                }
-
                 // Text-processing model keywords
                 if (nameLower.Contains("llm") || nameLower.Contains("language") || nameLower.Contains("text") || nameLower.Contains("gpt") ||
                     nameLower.Contains("bert") || nameLower.Contains("llama") || nameLower.Contains("mistral") || nameLower.Contains("t5") ||
@@ -582,13 +576,10 @@ namespace CSimple.Pages
                 {
                     return imageDataColor;
                 }
-                // Audio-processing model keywords (including text-to-audio models)
+                // Audio-processing model keywords
                 if (nameLower.Contains("audio") || nameLower.Contains("speech") || nameLower.Contains("voice") || nameLower.Contains("sound") ||
                     nameLower.Contains("whisper") || nameLower.Contains("wav2vec") || nameLower.Contains("tts") || nameLower.Contains("asr") ||
-                    nameLower.Contains("acoustic") || nameLower.Contains("speaker") || nameLower.Contains("chatterbox") ||
-                    nameLower.Contains("speecht5") || nameLower.Contains("tacotron") || nameLower.Contains("wavenet") ||
-                    nameLower.Contains("fastspeech") || nameLower.Contains("voicebox") || nameLower.Contains("bark") ||
-                    nameLower.Contains("tortoise") || nameLower.Contains("coqui"))
+                    nameLower.Contains("acoustic") || nameLower.Contains("speaker"))
                 {
                     return audioDataColor;
                 }

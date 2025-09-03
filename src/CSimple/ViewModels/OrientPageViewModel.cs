@@ -68,7 +68,7 @@ namespace CSimple.ViewModels
                 if (SetProperty(ref _selectedNode, value))
                 {
                     // Update the SelectedClassification when the node changes
-                    if (value != null && value.IsClassifiableModel)
+                    if (value != null && value.IsTextModel)
                     {
                         _selectedClassification = value.Classification;
                         OnPropertyChanged(nameof(SelectedClassification));
@@ -94,9 +94,9 @@ namespace CSimple.ViewModels
             {
                 if (SetProperty(ref _selectedClassification, value))
                 {
-                    // If we have a selected node and it's a classifiable model,
+                    // If we have a selected node and it's a text model,
                     // update its classification when this property changes
-                    if (SelectedNode != null && SelectedNode.IsClassifiableModel)
+                    if (SelectedNode != null && SelectedNode.IsTextModel)
                     {
                         SetNodeClassification(SelectedNode, value);
                     }
@@ -109,8 +109,7 @@ namespace CSimple.ViewModels
             "", // Empty option to clear classification
             "Goal",
             "Plan",
-            "Action",
-            "TextToAudio" // Added for text-to-audio models like Chatterbox
+            "Action"
         };
 
         // Pipeline Management Properties
@@ -601,7 +600,6 @@ namespace CSimple.ViewModels
             // Initialize Audio commands
             PlayAudioCommand = new Command(() => PlayAudio(), CanPlayAudio);
             StopAudioCommand = new Command(() => StopAudio(), CanStopAudio);
-            SaveAudioCommand = new Command(() => SaveAudio(), CanSaveAudio);
         }
 
         /// Start background warmup to avoid delays during execution
@@ -1389,7 +1387,6 @@ namespace CSimple.ViewModels
                     // Update audio command states when relevant properties change
                     ((Command)PlayAudioCommand)?.ChangeCanExecute();
                     ((Command)StopAudioCommand)?.ChangeCanExecute();
-                    ((Command)SaveAudioCommand)?.ChangeCanExecute();
                     break;
             }
         }
@@ -1599,13 +1596,6 @@ namespace CSimple.ViewModels
             set => SetProperty(ref _stepContent, value);
         }
 
-        private string _audioInfo;
-        public string AudioInfo
-        {
-            get => _audioInfo;
-            set => SetProperty(ref _audioInfo, value);
-        }
-
         private List<string> _stepContentImages = new List<string>();
         public List<string> StepContentImages
         {
@@ -1636,7 +1626,6 @@ namespace CSimple.ViewModels
 
         public ICommand PlayAudioCommand { get; private set; }
         public ICommand StopAudioCommand { get; private set; }
-        public ICommand SaveAudioCommand { get; private set; }
 
         public OrientPageViewModel()
         {
@@ -1653,20 +1642,9 @@ namespace CSimple.ViewModels
                 StepContent = result.Content;
                 StepContentImages = result.Images;
 
-                // Update AudioInfo when the content type is audio
-                if (result.ContentType?.ToLowerInvariant() == "audio")
-                {
-                    AudioInfo = _audioStepContentService.GetAudioInfo(result.Content, result.ContentType);
-                }
-                else
-                {
-                    AudioInfo = null; // Clear audio info for non-audio content
-                }
-
                 OnPropertyChanged(nameof(StepContentType));
                 OnPropertyChanged(nameof(StepContent));
                 OnPropertyChanged(nameof(StepContentImages));
-                OnPropertyChanged(nameof(AudioInfo));
                 OnPropertyChanged(nameof(HasMultipleImages));
                 OnPropertyChanged(nameof(FirstImage));
                 OnPropertyChanged(nameof(SecondImage));
@@ -1681,12 +1659,10 @@ namespace CSimple.ViewModels
                 StepContentType = null;
                 StepContent = null;
                 StepContentImages = new List<string>();
-                AudioInfo = null;
 
                 OnPropertyChanged(nameof(StepContentType));
                 OnPropertyChanged(nameof(StepContent));
                 OnPropertyChanged(nameof(StepContentImages));
-                OnPropertyChanged(nameof(AudioInfo));
                 OnPropertyChanged(nameof(HasMultipleImages));
                 OnPropertyChanged(nameof(FirstImage));
                 OnPropertyChanged(nameof(SecondImage));
@@ -3167,16 +3143,6 @@ namespace CSimple.ViewModels
                 string resultContentType = DetermineResultContentType(correspondingModel, result);
                 StepContentType = resultContentType;
 
-                // Update AudioInfo if the result is audio content
-                if (resultContentType?.ToLowerInvariant() == "audio")
-                {
-                    AudioInfo = _audioStepContentService.GetAudioInfo(result, resultContentType);
-                }
-                else
-                {
-                    AudioInfo = null; // Clear audio info for non-audio content
-                }
-
                 Debug.WriteLine($"📋 [ExecuteGenerateAsync] Set StepContentType to: {StepContentType}");
 
                 // Store the generated output in the model node so it persists when switching nodes
@@ -3404,7 +3370,6 @@ namespace CSimple.ViewModels
             Debug.WriteLine("Audio playback started");
             ((Command)PlayAudioCommand)?.ChangeCanExecute();
             ((Command)StopAudioCommand)?.ChangeCanExecute();
-            ((Command)SaveAudioCommand)?.ChangeCanExecute();
         }
 
         private void OnAudioPlaybackStopped()
@@ -3412,7 +3377,6 @@ namespace CSimple.ViewModels
             Debug.WriteLine("Audio playback stopped");
             ((Command)PlayAudioCommand)?.ChangeCanExecute();
             ((Command)StopAudioCommand)?.ChangeCanExecute();
-            ((Command)SaveAudioCommand)?.ChangeCanExecute();
         }
 
         private bool CanPlayAudio()
@@ -3425,16 +3389,6 @@ namespace CSimple.ViewModels
             bool result = _audioStepContentService?.IsPlaying == true;
             // Debug.WriteLine($"[CanStopAudio] Result: {result}, IsPlaying: {_audioStepContentService?.IsPlaying}");
             return result;
-        }
-
-        private async void SaveAudio()
-        {
-            await _audioStepContentService.SaveAudioAsync(StepContent, StepContentType, SelectedNode);
-        }
-
-        private bool CanSaveAudio()
-        {
-            return _audioStepContentService.CanSaveAudio(StepContent, StepContentType);
         }
 
         // Debug method to check RunAllModelsCommand state
