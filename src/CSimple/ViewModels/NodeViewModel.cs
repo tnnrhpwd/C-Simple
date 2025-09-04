@@ -55,6 +55,7 @@ namespace CSimple.ViewModels
         private string _originalName; // Added to store name before classification suffix
         private string _saveFilePath; // Added for file node save path
         private ExecutionState _executionState = ExecutionState.Pending; // Added for execution state tracking
+        private bool _readAloudOnCompletion = false; // Added for TTS toggle functionality
 
         public string Id { get; }
         public string Name { get; set; } // Allow setting name if needed
@@ -212,6 +213,15 @@ namespace CSimple.ViewModels
             set => SetProperty(ref _textToAudioPrompt, value);
         }
 
+        /// <summary>
+        /// Toggle for automatically reading text content aloud when the node completes execution
+        /// </summary>
+        public bool ReadAloudOnCompletion
+        {
+            get => _readAloudOnCompletion;
+            set => SetProperty(ref _readAloudOnCompletion, value);
+        }
+
         // Helper property to get the current classification text
         public string CurrentClassificationText
         {
@@ -231,7 +241,7 @@ namespace CSimple.ViewModels
 
 
         // Modified Constructor to accept ID as string and handle OriginalName and SaveFilePath
-        public NodeViewModel(string id, string name, NodeType type, PointF position, string dataType = "unknown", string originalModelId = null, string modelPath = null, string classification = null, string originalName = null, string saveFilePath = null, string goalText = "", string planText = "", string actionText = "", string textToAudioPrompt = "")
+        public NodeViewModel(string id, string name, NodeType type, PointF position, string dataType = "unknown", string originalModelId = null, string modelPath = null, string classification = null, string originalName = null, string saveFilePath = null, string goalText = "", string planText = "", string actionText = "", string textToAudioPrompt = "", bool readAloudOnCompletion = false)
         {
             Id = id ?? Guid.NewGuid().ToString(); // Use provided ID or generate new
             Type = type;
@@ -247,6 +257,7 @@ namespace CSimple.ViewModels
             _planText = planText ?? ""; // Initialize plan text
             _actionText = actionText ?? ""; // Initialize action text
             _textToAudioPrompt = textToAudioPrompt ?? ""; // Initialize text-to-audio prompt
+            _readAloudOnCompletion = readAloudOnCompletion; // Initialize read-aloud toggle
             Name = name; // Set initial name (might be updated immediately if classification exists)
 
             // Update name based on initial classification if provided

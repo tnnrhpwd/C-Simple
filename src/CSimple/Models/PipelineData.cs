@@ -39,6 +39,7 @@ namespace CSimple.Models
         public string OriginalName { get; set; } // ADDED: Store original name without classification
         public string SaveFilePath { get; set; } // ADDED: Store save file path for file nodes
         public List<(string Type, string Value)> ActionSteps { get; set; } = new List<(string, string)>(); // ADDED: Store generated outputs
+        public bool ReadAloudOnCompletion { get; set; } // ADDED: Store read-aloud toggle state
 
         // Parameterless constructor for deserialization
         public SerializableNode() { }
@@ -62,6 +63,7 @@ namespace CSimple.Models
             OriginalName = vm.OriginalName; // Assign OriginalName
             SaveFilePath = vm.SaveFilePath; // Assign SaveFilePath for file nodes
             ActionSteps = vm.ActionSteps?.ToList() ?? new List<(string, string)>(); // Copy ActionSteps
+            ReadAloudOnCompletion = vm.ReadAloudOnCompletion; // Assign read-aloud toggle state
         }
 
         // Method to convert back to NodeViewModel
@@ -81,7 +83,9 @@ namespace CSimple.Models
                 this.SaveFilePath, // Pass SaveFilePath for file nodes
                 this.GoalText, // Pass GoalText
                 this.PlanText, // Pass PlanText
-                this.ActionText // Pass ActionText
+                this.ActionText, // Pass ActionText
+                "", // textToAudioPrompt - empty string default
+                this.ReadAloudOnCompletion // Pass ReadAloudOnCompletion
             )
             {
                 // Set properties not handled by constructor (Size is handled by constructor default)
