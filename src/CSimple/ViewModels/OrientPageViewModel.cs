@@ -2802,6 +2802,9 @@ namespace CSimple.ViewModels
                 // Check if this is an Action-classified model and handle automated action simulation
                 if (modelNode.Classification == "Action")
                 {
+                    // Read action content aloud using TTS
+                    _ = Task.Run(async () => await ReadActionContentAloudAsync(modelNode, result, resultContentType));
+
                     if (ActionsEnabled)
                     {
                         Debug.WriteLine($"🎯 [ExecuteModelForStepAsync] Action-classified model '{modelNode.Name}' produced output. ActionsEnabled=true, proceeding with automated simulation (if applicable).");
@@ -3145,6 +3148,12 @@ namespace CSimple.ViewModels
 
                 Debug.WriteLine($"📋 [ExecuteGenerateAsync] Set StepContentType to: {StepContentType}");
 
+                // Read action content aloud if this is an action model
+                if (SelectedNode?.Classification?.ToLowerInvariant() == "action" && resultContentType?.ToLowerInvariant() == "text")
+                {
+                    _ = Task.Run(async () => await ReadActionContentAloudAsync(SelectedNode, result, resultContentType));
+                }
+
                 // Store the generated output in the model node so it persists when switching nodes
                 int currentStep = CurrentActionStep + 1; // Convert to 1-based index
                 SelectedNode.SetStepOutput(currentStep, resultContentType, result);
@@ -3389,6 +3398,37 @@ namespace CSimple.ViewModels
             bool result = _audioStepContentService?.IsPlaying == true;
             // Debug.WriteLine($"[CanStopAudio] Result: {result}, IsPlaying: {_audioStepContentService?.IsPlaying}");
             return result;
+        }
+
+        private async void SaveAudio()
+        {
+            await _audioStepContentService.SaveAudioAsync(StepContent, StepContentType, SelectedNode);
+        }
+
+        private bool CanSaveAudio()
+        {
+            return _audioStepContentService.CanSaveAudio(StepContent, StepContentType);
+        }
+
+        /// <summary>
+        /// Automatically reads action model step content aloud using TTS
+        /// </summary>
+        private async Task ReadActionContentAloudAsync(NodeViewModel actionNode, string content, string contentType)
+        {
+            try
+            {
+                if (actionNode?.Classification?.ToLowerInvariant() == "action" &&
+                    contentType?.ToLowerInvariant() == "text" &&
+                    !string.IsNullOrWhiteSpace(content))
+                {
+                    Debug.WriteLine($"[ReadActionContentAloud] Reading action content aloud: {content.Substring(0, Math.Min(content.Length, 100))}...");
+                    await _audioStepContentService.PlayStepContentAsync(content, contentType, actionNode);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ReadActionContentAloud] Error reading action content aloud: {ex.Message}");
+            }
         }
 
         // Debug method to check RunAllModelsCommand state
