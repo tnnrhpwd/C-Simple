@@ -63,12 +63,12 @@ namespace CSimple.Services
                 _ensembleModelService.ClearModelNodeActionSteps(nodes);
                 Debug.WriteLine($"[ActionReviewNavigationService.LoadSelectedAction] Cleared step content cache and model ActionSteps for action change");
 
-                // Use the ActionStepNavigationService to load the action
+                // Use the ActionStepNavigationService to load the action (without updating commands yet)
                 var result = await _actionStepNavigationService.LoadSelectedActionAsync(
                     selectedActionName,
                     nodes,
                     setCurrentActionStepAsync,
-                    updateCommandStates);
+                    null); // Don't update commands yet - we'll do it after setting action items
 
                 var newActionItems = result.ActionItems;
                 setCurrentActionItems(newActionItems);
@@ -83,6 +83,10 @@ namespace CSimple.Services
 
                 // Explicit refresh of all node ActionSteps to ensure UI updates
                 refreshAllNodeStepContent();
+
+                // NOW update command states after action items are properly set
+                updateCommandStates();
+                Debug.WriteLine($"[ActionReviewNavigationService.LoadSelectedAction] Updated command states after setting action items");
 
                 // Notify UI that step content might have changed
                 notifyPropertyChanged();

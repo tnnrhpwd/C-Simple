@@ -2819,6 +2819,11 @@ namespace CSimple.ViewModels
                         // Model output is still saved and processed normally, but no automated actions are triggered
                     }
                 }
+                // Check if user has enabled TTS for non-action models with text output
+                else if (resultContentType?.ToLowerInvariant() == "text" && modelNode.ReadAloudOnCompletion == true)
+                {
+                    _ = Task.Run(async () => await ReadActionContentAloudAsync(modelNode, result, resultContentType));
+                }
 
                 // Save individual result to file
                 await SaveStepResultAsync(runDir, modelNode.Name, stepIndex, input, result, resultContentType, actionItems);
@@ -3148,10 +3153,17 @@ namespace CSimple.ViewModels
 
                 Debug.WriteLine($"📋 [ExecuteGenerateAsync] Set StepContentType to: {StepContentType}");
 
-                // Read action content aloud if this is an action model
-                if (SelectedNode?.Classification?.ToLowerInvariant() == "action" && resultContentType?.ToLowerInvariant() == "text")
+                // Read action content aloud if this is an action model OR if ReadAloudOnCompletion is enabled for text output
+                if (resultContentType?.ToLowerInvariant() == "text")
                 {
-                    _ = Task.Run(async () => await ReadActionContentAloudAsync(SelectedNode, result, resultContentType));
+                    // Check if this is an action model (automatic TTS) or if user has enabled TTS toggle
+                    bool shouldReadAloud = (SelectedNode?.Classification?.ToLowerInvariant() == "action") ||
+                                         (SelectedNode?.ReadAloudOnCompletion == true);
+
+                    if (shouldReadAloud)
+                    {
+                        _ = Task.Run(async () => await ReadActionContentAloudAsync(SelectedNode, result, resultContentType));
+                    }
                 }
 
                 // Store the generated output in the model node so it persists when switching nodes

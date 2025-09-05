@@ -183,9 +183,25 @@ namespace CSimple.Services
 
             if (selectedNode == null)
             {
-                stepContentData.Content = "No node selected. Please select a node to view its step content.";
-                stepContentData.ContentType = "text";
-                // Debug.WriteLine("[ActionReviewService.UpdateStepContent] No node selected, returning default message.");
+                // When no node is selected, show general action step information
+                if (currentActionItems != null && currentActionStep >= 0 && currentActionStep < currentActionItems.Count)
+                {
+                    var actionItem = currentActionItems[currentActionStep];
+                    stepContentData.Content = $"Action Step {currentActionStep + 1} of {currentActionItems.Count}:\n\n" +
+                                            $"Event Type: 0x{actionItem.EventType:X4}\n" +
+                                            $"Timestamp: {actionItem.Timestamp}\n" +
+                                            $"Duration: {actionItem.Duration}ms\n" +
+                                            $"Details: {actionItem.ToString()}\n\n" +
+                                            "Select a node to view step-specific content.";
+                    stepContentData.ContentType = "text";
+                    Debug.WriteLine($"[ActionReviewService.UpdateStepContent] No node selected, showing general action step info for step {currentActionStep + 1}");
+                }
+                else
+                {
+                    stepContentData.Content = "No node selected and no valid action step data available.";
+                    stepContentData.ContentType = "text";
+                    Debug.WriteLine("[ActionReviewService.UpdateStepContent] No node selected and no action step data.");
+                }
                 return stepContentData;
             }
 

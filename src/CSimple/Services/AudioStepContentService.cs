@@ -58,6 +58,13 @@ namespace CSimple.Services
                 // Handle text content with TTS (for Action model nodes)
                 if (stepContentType?.ToLowerInvariant() == "text")
                 {
+                    // Check if this is a placeholder message that shouldn't be read aloud
+                    if (IsPlaceholderContent(stepContent))
+                    {
+                        Debug.WriteLine($"[AudioStepContentService] Skipping TTS for placeholder content: {stepContent.Substring(0, Math.Min(stepContent.Length, 100))}...");
+                        return false;
+                    }
+
                     if (_ttsService != null)
                     {
                         Debug.WriteLine($"[AudioStepContentService] Reading text aloud using TTS: {stepContent.Substring(0, Math.Min(stepContent.Length, 100))}...");
@@ -171,8 +178,14 @@ namespace CSimple.Services
             }
             else if (stepContentType.ToLowerInvariant() == "text")
             {
+                // Check if this is placeholder content that shouldn't be played
+                if (IsPlaceholderContent(stepContent))
+                {
+                    result = false;
+                    reason = "Placeholder content - not generated output";
+                }
                 // Text content can be played via TTS if service is available
-                if (_ttsService != null)
+                else if (_ttsService != null)
                 {
                     result = true;
                     reason = "Text content can be read aloud via TTS";
@@ -263,6 +276,20 @@ namespace CSimple.Services
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Determines if the content is a placeholder message that shouldn't be read aloud via TTS
+        /// </summary>
+        private bool IsPlaceholderContent(string content)
+        {
+            if (string.IsNullOrEmpty(content))
+                return false;
+
+            // Check for common placeholder patterns
+            return content.Contains("No output generated yet") ||
+                   content.Contains("Use 'Generate' or 'Run All Models'") ||
+                   content.StartsWith("Model:") && content.Contains("No output generated");
         }
 
         private void OnAudioPlaybackStarted()

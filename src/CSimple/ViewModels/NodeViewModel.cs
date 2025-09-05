@@ -50,6 +50,7 @@ namespace CSimple.ViewModels
         private string _goalText = ""; // Added for Goal classification text
         private string _planText = ""; // Added for Plan classification text  
         private string _actionText = ""; // Added for Action classification text
+        private string _textToAudioPrompt = ""; // Added for text-to-audio prompt functionality
         private string _modelPath; // Added for model path storage
         private string _originalName; // Added to store name before classification suffix
         private string _saveFilePath; // Added for file node save path

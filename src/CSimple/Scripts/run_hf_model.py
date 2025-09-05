@@ -348,10 +348,16 @@ def run_speecht5_tts(model_id: str, input_text: str, params: Dict[str, Any], loc
         import os
         from datetime import datetime
         
-        # Determine model path
-        model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
-        
         print("Loading SpeechT5 TTS model and processor...", file=sys.stderr)
+        
+        # Determine model path - CRITICAL FIX: Don't use local path if it's empty
+        if local_model_path and os.path.exists(local_model_path) and os.listdir(local_model_path):
+            model_path_to_use = local_model_path
+            print(f"Using valid local model path: {local_model_path}", file=sys.stderr)
+        else:
+            model_path_to_use = model_id
+            print(f"Using HuggingFace Hub model: {model_id} (local path invalid or empty)", file=sys.stderr)
+        
         processor = SpeechT5Processor.from_pretrained(model_path_to_use)
         model = SpeechT5ForTextToSpeech.from_pretrained(model_path_to_use)
         vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
@@ -629,8 +635,13 @@ def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any
         # Import transformers pipeline
         from transformers import pipeline
         
-        # Determine model path
-        model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
+        # Determine model path - CRITICAL FIX: Don't use local path if it's empty
+        if local_model_path and os.path.exists(local_model_path) and os.listdir(local_model_path):
+            model_path_to_use = local_model_path
+            print(f"Using valid local model path: {local_model_path}", file=sys.stderr)
+        else:
+            model_path_to_use = model_id
+            print(f"Using HuggingFace Hub model: {model_id} (local path invalid or empty)", file=sys.stderr)
         print(f"Using model path: {model_path_to_use}", file=sys.stderr)
         
         # Create speech recognition pipeline
@@ -827,8 +838,13 @@ def run_image_to_text(model_id: str, input_text: str, params: Dict[str, Any], lo
         # Import transformers components
         from transformers import AutoProcessor, BlipForConditionalGeneration
         
-        # Determine model path
-        model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
+        # Determine model path - CRITICAL FIX: Don't use local path if it's empty
+        if local_model_path and os.path.exists(local_model_path) and os.listdir(local_model_path):
+            model_path_to_use = local_model_path
+            print(f"Using valid local model path: {local_model_path}", file=sys.stderr)
+        else:
+            model_path_to_use = model_id
+            print(f"Using HuggingFace Hub model: {model_id} (local path invalid or empty)", file=sys.stderr)
         print(f"Using model path: {model_path_to_use}", file=sys.stderr)
         
         # Load processor and model
@@ -1066,7 +1082,14 @@ def get_or_load_model(model_id: str, params: Dict[str, Any], local_model_path: O
     # Use global imports for better performance
     from transformers import AutoTokenizer, AutoModelForCausalLM
     
-    model_path_to_use = local_model_path if local_model_path and os.path.exists(local_model_path) else model_id
+    # CRITICAL FIX: Don't use local_model_path if it doesn't exist or is empty
+    # This was causing the "preprocessor_config.json" not found errors
+    if local_model_path and os.path.exists(local_model_path) and os.listdir(local_model_path):
+        model_path_to_use = local_model_path
+        print(f"Using valid local model path: {local_model_path}", file=sys.stderr)
+    else:
+        model_path_to_use = model_id
+        print(f"Using HuggingFace Hub model: {model_id} (local path invalid or empty)", file=sys.stderr)
     
     # Optimized tokenizer loading
     try:
@@ -1197,14 +1220,14 @@ def main() -> int:
                 print("WARNING: Some models failed to preload", file=sys.stderr)
         
         # Skip expensive cache validation in fast mode
-        if not args.local_model_path or not os.path.exists(args.local_model_path):
+        if not args.local_model_path or not (os.path.exists(args.local_model_path) and os.listdir(args.local_model_path)):
             if not args.fast_mode:
                 # Only do cache validation in non-fast mode
                 cache_valid = check_model_cache_status(args.model_id)
                 if not cache_valid:
-                    if not force_download_model(args.model_id):
-                        print(f"ERROR: Failed to download model {args.model_id}", file=sys.stderr)
-                        return 1
+                    print(f"Downloading model {args.model_id} from HuggingFace Hub...", file=sys.stderr)
+                    # Don't fail if download fails - let the model loading handle it
+                    force_download_model(args.model_id)
         
         # Detect model type once
         model_type = detect_model_type(args.model_id)

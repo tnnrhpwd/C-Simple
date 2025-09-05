@@ -182,9 +182,16 @@ namespace CSimple.Services
         /// </summary>
         public bool CanStepForward(string selectedReviewActionName, List<ActionItem> currentActionItems, int currentActionStep)
         {
-            return !string.IsNullOrEmpty(selectedReviewActionName) &&
-                   currentActionItems != null &&
-                   currentActionStep < currentActionItems.Count - 1;
+            bool hasAction = !string.IsNullOrEmpty(selectedReviewActionName);
+            bool hasItems = currentActionItems != null;
+            int itemCount = currentActionItems?.Count ?? 0;
+            bool canStep = hasAction && hasItems && currentActionStep < itemCount - 1;
+
+            Debug.WriteLine($"[CanStepForward] Action: '{selectedReviewActionName ?? "null"}', " +
+                          $"Items: {itemCount}, Step: {currentActionStep}, " +
+                          $"CanStep: {canStep} (hasAction: {hasAction}, hasItems: {hasItems}, stepCheck: {currentActionStep} < {itemCount - 1})");
+
+            return canStep;
         }
 
         /// <summary>
@@ -192,7 +199,13 @@ namespace CSimple.Services
         /// </summary>
         public bool CanStepBackward(string selectedReviewActionName, int currentActionStep)
         {
-            return !string.IsNullOrEmpty(selectedReviewActionName) && currentActionStep > 0;
+            bool hasAction = !string.IsNullOrEmpty(selectedReviewActionName);
+            bool canStep = hasAction && currentActionStep > 0;
+
+            Debug.WriteLine($"[CanStepBackward] Action: '{selectedReviewActionName ?? "null"}', " +
+                          $"Step: {currentActionStep}, CanStep: {canStep} (hasAction: {hasAction}, stepCheck: {currentActionStep} > 0)");
+
+            return canStep;
         }
 
         /// <summary>
