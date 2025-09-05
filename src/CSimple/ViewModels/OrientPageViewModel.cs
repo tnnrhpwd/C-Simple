@@ -65,8 +65,20 @@ namespace CSimple.ViewModels
             get => _selectedNode;
             set
             {
+                // Unsubscribe from the old node's PropertyChanged event
+                if (_selectedNode != null)
+                {
+                    _selectedNode.PropertyChanged -= OnSelectedNodePropertyChanged;
+                }
+
                 if (SetProperty(ref _selectedNode, value))
                 {
+                    // Subscribe to the new node's PropertyChanged event
+                    if (_selectedNode != null)
+                    {
+                        _selectedNode.PropertyChanged += OnSelectedNodePropertyChanged;
+                    }
+
                     // Update the SelectedClassification when the node changes
                     if (value != null && value.IsTextModel)
                     {
@@ -598,7 +610,7 @@ namespace CSimple.ViewModels
                 () => SelectedNode?.IsFileNode == true);
 
             // Initialize Audio commands
-            PlayAudioCommand = new Command(() => PlayAudio(), CanPlayAudio);
+            PlayAudioCommand = new Command(() => ToggleAudio(), CanPlayAudio);
             StopAudioCommand = new Command(() => StopAudio(), CanStopAudio);
         }
 
@@ -737,6 +749,32 @@ namespace CSimple.ViewModels
             {
                 Debug.WriteLine("NetPageViewModel.AvailableModels changed, updating node classifications");
                 await UpdateNodeClassificationsAsync();
+            }
+        }
+
+        private async void OnSelectedNodePropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(NodeViewModel.ReadAloudOnCompletion))
+            {
+                Debug.WriteLine($"ReadAloudOnCompletion changed for node '{SelectedNode?.Name}' to: {SelectedNode?.ReadAloudOnCompletion}");
+
+                // Auto-save the pipeline when TTS setting changes
+                if (!string.IsNullOrEmpty(CurrentPipelineName))
+                {
+                    try
+                    {
+                        await _pipelineManagementService.SaveCurrentPipelineAsync(CurrentPipelineName, Nodes, Connections);
+                        Debug.WriteLine($"Pipeline '{CurrentPipelineName}' auto-saved after ReadAloudOnCompletion change");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error auto-saving pipeline after ReadAloudOnCompletion change: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("No current pipeline name set, ReadAloudOnCompletion change not saved");
+                }
             }
         }
 
@@ -1627,6 +1665,21 @@ namespace CSimple.ViewModels
         public ICommand PlayAudioCommand { get; private set; }
         public ICommand StopAudioCommand { get; private set; }
 
+        /// <summary>
+        /// Gets whether audio is currently playing
+        /// </summary>
+        public bool IsAudioPlaying => _audioStepContentService?.IsPlaying == true;
+
+        /// <summary>
+        /// Gets the text for the audio toggle button
+        /// </summary>
+        public string AudioButtonText => IsAudioPlaying ? "Stop" : "Play";
+
+        /// <summary>
+        /// Gets the icon for the audio toggle button
+        /// </summary>
+        public string AudioButtonIcon => IsAudioPlaying ? "⏹" : "▶";
+
         public OrientPageViewModel()
         {
             // This constructor may be used by XAML designer or tests
@@ -1675,6 +1728,18 @@ namespace CSimple.ViewModels
         private void RefreshAllNodeStepContent()
         {
             _stepContentManagementService.RefreshAllNodeStepContent(GetAllNodes());
+        }
+
+        private async void ToggleAudio()
+        {
+            if (_audioStepContentService?.IsPlaying == true)
+            {
+                await _audioStepContentService.StopAudioAsync();
+            }
+            else
+            {
+                await _audioStepContentService.PlayStepContentAsync(StepContent, StepContentType, SelectedNode);
+            }
         }
 
         private async void PlayAudio()
@@ -3350,6 +3415,12 @@ namespace CSimple.ViewModels
 
         public void Dispose()
         {
+            // Unsubscribe from selected node PropertyChanged event
+            if (_selectedNode != null)
+            {
+                _selectedNode.PropertyChanged -= OnSelectedNodePropertyChanged;
+            }
+
             // Unsubscribe from service events
             if (_executionStatusTrackingService != null)
             {
@@ -3389,20 +3460,56 @@ namespace CSimple.ViewModels
         private void OnAudioPlaybackStarted()
         {
             Debug.WriteLine("Audio playback started");
-            ((Command)PlayAudioCommand)?.ChangeCanExecute();
-            ((Command)StopAudioCommand)?.ChangeCanExecute();
+
+            // Ensure UI updates happen on the main thread
+            Microsoft.Maui.Controls.Application.Current?.Dispatcher.Dispatch(() =>
+            {
+                try
+                {
+                    ((Command)PlayAudioCommand)?.ChangeCanExecute();
+                    ((Command)StopAudioCommand)?.ChangeCanExecute();
+
+                    // Notify UI of audio state changes
+                    OnPropertyChanged(nameof(IsAudioPlaying));
+                    OnPropertyChanged(nameof(AudioButtonText));
+                    OnPropertyChanged(nameof(AudioButtonIcon));
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[OnAudioPlaybackStarted] Error updating UI commands: {ex.Message}");
+                }
+            });
         }
 
         private void OnAudioPlaybackStopped()
         {
             Debug.WriteLine("Audio playback stopped");
-            ((Command)PlayAudioCommand)?.ChangeCanExecute();
-            ((Command)StopAudioCommand)?.ChangeCanExecute();
+
+            // Ensure UI updates happen on the main thread
+            Microsoft.Maui.Controls.Application.Current?.Dispatcher.Dispatch(() =>
+            {
+                try
+                {
+                    ((Command)PlayAudioCommand)?.ChangeCanExecute();
+                    ((Command)StopAudioCommand)?.ChangeCanExecute();
+
+                    // Notify UI of audio state changes
+                    OnPropertyChanged(nameof(IsAudioPlaying));
+                    OnPropertyChanged(nameof(AudioButtonText));
+                    OnPropertyChanged(nameof(AudioButtonIcon));
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[OnAudioPlaybackStopped] Error updating UI commands: {ex.Message}");
+                }
+            });
         }
 
         private bool CanPlayAudio()
         {
-            return _audioStepContentService.CanPlayStepContent(StepContent, StepContentType);
+            // Can always toggle - either to play (if not playing and can play) or to stop (if playing)
+            return _audioStepContentService?.IsPlaying == true ||
+                   _audioStepContentService.CanPlayStepContent(StepContent, StepContentType);
         }
 
         private bool CanStopAudio()

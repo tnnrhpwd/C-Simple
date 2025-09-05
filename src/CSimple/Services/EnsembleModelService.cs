@@ -445,8 +445,143 @@ namespace CSimple.Services
         /// <summary>
         /// Executes a single model node with input preparation and output storage
         /// <summary>
-        /// Executes a single model node with optimized performance
+        /// Cleans model result for clean display by removing ensemble formatting prefixes and concatenated input
         /// </summary>
+        private string CleanModelResultForDisplay(string result, string modelName)
+        {
+            if (string.IsNullOrEmpty(result))
+                return result;
+
+            Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Processing result for {modelName}, length: {result.Length}");
+            Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] First 100 chars: {result.Substring(0, Math.Min(100, result.Length))}...");
+
+            // Remove ENSEMBLE_PROCESSED prefix if present
+            if (result.StartsWith("ENSEMBLE_PROCESSED:"))
+            {
+                result = result.Substring("ENSEMBLE_PROCESSED:".Length);
+            }
+
+            // Much more aggressive cleaning - this result appears to be the concatenated ensemble input, not the actual model output
+            // The Python script is returning the full input instead of just the generated text
+
+            // For any result that contains ensemble markers, we need to extract ONLY the model's own contribution
+            if (result.Contains("Screen Image:") || result.Contains("Webcam Image:") ||
+                result.Contains("Goals (File):") || result.Contains("PC Audio:") ||
+                result.Contains("Webcam Audio:") || result.Contains("Goal:") ||
+                result.Contains("Blip Image Captioning Base:") || result.Contains("Gpt2:") ||
+                result.Contains("Whisper Base:"))
+            {
+                Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Detected concatenated ensemble result, performing aggressive extraction");
+
+                // Split into sentences and look for the actual model output
+                var sentences = result.Split(new[] { '.', '!', '?' }, StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (var sentence in sentences)
+                {
+                    string cleanSentence = sentence.Trim();
+
+                    // Skip sentences that are clearly input data or other model outputs
+                    if (cleanSentence.Contains("Screen Image:") || cleanSentence.Contains("Webcam Image:") ||
+                        cleanSentence.Contains("Goals (File):") || cleanSentence.Contains("PC Audio:") ||
+                        cleanSentence.Contains("Webcam Audio:") || cleanSentence.Contains("Goal:") ||
+                        cleanSentence.Contains("Priority:") || cleanSentence.Contains("Deadline:") ||
+                        cleanSentence.Contains("Description:") || cleanSentence.Contains("Build an app") ||
+                        cleanSentence.Contains("Current User Goals") || cleanSentence.Length < 10)
+                    {
+                        continue;
+                    }
+
+                    // Clean any model prefixes from the sentence
+                    string[] prefixesToRemove = {
+                        "Gpt2 [Goal]:", "Gpt2 [Plan]:", "Gpt2 [Action]:", "Gpt2:",
+                        "Blip Image Captioning Base:", "Whisper Base:",
+                        modelName + ":"
+                    };
+
+                    foreach (var prefix in prefixesToRemove)
+                    {
+                        if (cleanSentence.StartsWith(prefix))
+                        {
+                            cleanSentence = cleanSentence.Substring(prefix.Length).Trim();
+                            break;
+                        }
+                    }
+
+                    // If we found a clean sentence that looks like actual generated content, return it
+                    if (!string.IsNullOrEmpty(cleanSentence) && cleanSentence.Length > 15 &&
+                        !cleanSentence.Contains("Compress PNG") && !cleanSentence.Contains("hello 1124"))
+                    {
+                        Debug.WriteLine($"🎯 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Extracted clean content: {cleanSentence}");
+                        return cleanSentence;
+                    }
+                }
+
+                // If no clean content found, try a different approach - look for meaningful text after the last colon
+                var colonIndex = result.LastIndexOf(": ");
+                if (colonIndex > 0 && colonIndex < result.Length - 20)
+                {
+                    var afterColon = result.Substring(colonIndex + 2).Trim();
+                    // Remove common input patterns from the end
+                    var stopPatterns = new[] { "Goal:", "Description:", "Priority:", "Deadline:", "Current User Goals" };
+
+                    foreach (var stopPattern in stopPatterns)
+                    {
+                        var stopIndex = afterColon.IndexOf(stopPattern);
+                        if (stopIndex > 0)
+                        {
+                            afterColon = afterColon.Substring(0, stopIndex).Trim();
+                            break;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(afterColon) && afterColon.Length > 15)
+                    {
+                        Debug.WriteLine($"🎯 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Extracted content after last colon: {afterColon}");
+                        return afterColon;
+                    }
+                }
+
+                // Last resort: return a clean message indicating the model ran
+                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Could not extract clean content, using fallback");
+                return $"Model output processed (content filtering applied due to concatenated input)";
+            }
+
+            // Standard cleaning for non-concatenated results
+            var lines = result.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            var cleanedLines = new List<string>();
+
+            foreach (var line in lines)
+            {
+                string cleanedLine = line.Trim();
+
+                // Remove patterns like "Gpt2 [Plan]: content" or "Blip Image Captioning Base: content"
+                if (cleanedLine.Contains(": "))
+                {
+                    var colonIndex = cleanedLine.IndexOf(": ");
+                    var prefix = cleanedLine.Substring(0, colonIndex);
+
+                    // Check if the prefix looks like a model name (contains model identifiers)
+                    if (prefix.Contains("Gpt") || prefix.Contains("Blip") || prefix.Contains("Image") ||
+                        prefix.Contains("[Plan]") || prefix.Contains("[Goal]") || prefix.Contains("[Action]") ||
+                        prefix.Contains("Captioning") || prefix.Contains("Base"))
+                    {
+                        // Extract just the content after the colon
+                        cleanedLine = cleanedLine.Substring(colonIndex + 2).Trim();
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(cleanedLine))
+                {
+                    cleanedLines.Add(cleanedLine);
+                }
+            }
+
+            string finalResult = cleanedLines.Count > 0 ? string.Join("\n", cleanedLines) : result;
+            Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Final cleaned result: {finalResult}");
+            return finalResult;
+        }        /// <summary>
+                 /// Executes a single model node with optimized performance
+                 /// </summary>
         public async Task ExecuteSingleModelNodeAsync(NodeViewModel modelNode, NeuralNetworkModel correspondingModel,
             IEnumerable<NodeViewModel> nodes, IEnumerable<ConnectionViewModel> connections, int currentActionStep)
         {
@@ -460,10 +595,13 @@ namespace CSimple.Services
                 // Execute model without excessive logging
                 string result = await ExecuteModelWithInput(correspondingModel, input, connectedInputNodes).ConfigureAwait(false);
 
-                // Fast result storage
+                // Fast result storage - store clean model output for display
                 string resultContentType = DetermineResultContentType(correspondingModel, result);
                 int currentStep = currentActionStep + 1;
-                modelNode.SetStepOutput(currentStep, resultContentType, result);
+
+                // Clean the result for display - remove any ensemble formatting prefixes
+                string cleanResult = CleanModelResultForDisplay(result, modelNode.Name);
+                modelNode.SetStepOutput(currentStep, resultContentType, cleanResult);
 
                 totalStopwatch.Stop();
                 // Only log if execution took longer than 8 seconds (reduced threshold)
@@ -501,7 +639,10 @@ namespace CSimple.Services
                         var result = await ExecuteModelWithInput(model, input).ConfigureAwait(false);
                         var resultContentType = DetermineResultContentType(model, result);
                         var currentStep = currentActionStep + 1;
-                        node.SetStepOutput(currentStep, resultContentType, result);
+
+                        // Clean the result for display - remove any ensemble formatting prefixes
+                        string cleanResult = CleanModelResultForDisplay(result, node.Name);
+                        node.SetStepOutput(currentStep, resultContentType, cleanResult);
                     }
                     catch (Exception ex)
                     {

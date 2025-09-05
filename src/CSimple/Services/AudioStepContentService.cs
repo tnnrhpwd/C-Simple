@@ -28,7 +28,7 @@ namespace CSimple.Services
             _audioPlaybackService.PlaybackStopped += OnAudioPlaybackStopped;
             _audioPlaybackService.PlaybackError += OnAudioPlaybackError;
 
-            // Initialize TTS service
+            // Initialize TTS service with better error handling
             try
             {
                 _ttsService = new WindowsTtsService();
@@ -37,9 +37,21 @@ namespace CSimple.Services
                 _ttsService.SpeechError += OnTtsError;
                 Debug.WriteLine("[AudioStepContentService] TTS service initialized successfully");
             }
+            catch (PlatformNotSupportedException ex)
+            {
+                Debug.WriteLine($"[AudioStepContentService] TTS not supported on this platform: {ex.Message}");
+                _ttsService = null;
+            }
+            catch (InvalidOperationException ex)
+            {
+                Debug.WriteLine($"[AudioStepContentService] TTS service unavailable: {ex.Message}");
+                _ttsService = null;
+            }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[AudioStepContentService] Failed to initialize TTS service: {ex.Message}");
+                Debug.WriteLine($"[AudioStepContentService] TTS Exception details: {ex}");
+                _ttsService = null;
                 // Continue without TTS - audio playback will still work
             }
         }
@@ -77,12 +89,21 @@ namespace CSimple.Services
                             Debug.WriteLine($"[AudioStepContentService] Action model node detected - announcing action");
                         }
 
-                        bool success = await _ttsService.SpeakTextAsync(textToSpeak);
-                        if (!success)
+                        try
                         {
-                            Debug.WriteLine("Failed to start text-to-speech");
+                            bool success = await _ttsService.SpeakTextAsync(textToSpeak);
+                            if (!success)
+                            {
+                                Debug.WriteLine("Failed to start text-to-speech");
+                            }
+                            return success;
                         }
-                        return success;
+                        catch (Exception ttsEx)
+                        {
+                            Debug.WriteLine($"[AudioStepContentService] TTS error: {ttsEx.Message}");
+                            PlaybackError?.Invoke(ttsEx);
+                            return false;
+                        }
                     }
                     else
                     {
@@ -312,20 +333,41 @@ namespace CSimple.Services
 
         private void OnTtsStarted()
         {
-            Debug.WriteLine("TTS started via AudioStepContentService");
-            PlaybackStarted?.Invoke();
+            try
+            {
+                Debug.WriteLine("TTS started via AudioStepContentService");
+                PlaybackStarted?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AudioStepContentService] Error in OnTtsStarted: {ex.Message}");
+            }
         }
 
         private void OnTtsStopped()
         {
-            Debug.WriteLine("TTS completed via AudioStepContentService");
-            PlaybackStopped?.Invoke();
+            try
+            {
+                Debug.WriteLine("TTS completed via AudioStepContentService");
+                PlaybackStopped?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AudioStepContentService] Error in OnTtsStopped: {ex.Message}");
+            }
         }
 
         private void OnTtsError(Exception ex)
         {
-            Debug.WriteLine($"TTS error via AudioStepContentService: {ex.Message}");
-            PlaybackError?.Invoke(ex);
+            try
+            {
+                Debug.WriteLine($"TTS error via AudioStepContentService: {ex.Message}");
+                PlaybackError?.Invoke(ex);
+            }
+            catch (Exception handlerEx)
+            {
+                Debug.WriteLine($"[AudioStepContentService] Error in OnTtsError handler: {handlerEx.Message}");
+            }
         }
 
         public async Task<bool> SaveAudioAsync(string stepContent, string stepContentType, NodeViewModel selectedNode)

@@ -36,20 +36,52 @@ namespace CSimple.Services
             try
             {
 #if WINDOWS
-                _synthesizer = new SpeechSynthesizer();
-                _mediaPlayer = new MediaPlayer();
-                _mediaPlayer.MediaEnded += OnMediaEnded;
-                _mediaPlayer.MediaOpened += OnMediaOpened;
-                _mediaPlayer.MediaFailed += OnMediaFailed;
+                try
+                {
+                    _synthesizer = new SpeechSynthesizer();
+                    Debug.WriteLine("[WindowsTtsService] SpeechSynthesizer initialized successfully");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WindowsTtsService] Failed to initialize SpeechSynthesizer: {ex.Message}");
+                    throw new InvalidOperationException("Failed to initialize Speech Synthesizer", ex);
+                }
+
+                try
+                {
+                    _mediaPlayer = new MediaPlayer();
+                    _mediaPlayer.MediaEnded += OnMediaEnded;
+                    _mediaPlayer.MediaOpened += OnMediaOpened;
+                    _mediaPlayer.MediaFailed += OnMediaFailed;
+                    Debug.WriteLine("[WindowsTtsService] MediaPlayer initialized successfully");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WindowsTtsService] Failed to initialize MediaPlayer: {ex.Message}");
+
+                    // Clean up synthesizer if media player fails
+                    try
+                    {
+                        _synthesizer?.Dispose();
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        Debug.WriteLine($"[WindowsTtsService] Error during cleanup: {cleanupEx.Message}");
+                    }
+
+                    throw new InvalidOperationException("Failed to initialize Media Player", ex);
+                }
 
                 Debug.WriteLine("[WindowsTtsService] Initialized with Windows Runtime Speech Synthesis");
 #else
                 Debug.WriteLine("[WindowsTtsService] Warning: Windows TTS is only available on Windows platform");
+                throw new PlatformNotSupportedException("Windows TTS is only available on Windows platform");
 #endif
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WindowsTtsService] Failed to initialize: {ex.Message}");
+                Debug.WriteLine($"[WindowsTtsService] Exception details: {ex}");
                 throw new InvalidOperationException("Windows Speech Synthesis is not available on this system", ex);
             }
         }
@@ -85,22 +117,72 @@ namespace CSimple.Services
                 Debug.WriteLine($"[WindowsTtsService] Speaking text: {text.Substring(0, Math.Min(text.Length, 100))}...");
 
                 // Generate speech stream
-                var speechStream = await _synthesizer.SynthesizeTextToStreamAsync(text);
+                SpeechSynthesisStream speechStream = null;
+                try
+                {
+                    speechStream = await _synthesizer.SynthesizeTextToStreamAsync(text);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WindowsTtsService] Error synthesizing text: {ex.Message}");
+                    SpeechError?.Invoke(ex);
+                    return false;
+                }
+
+                if (speechStream == null)
+                {
+                    Debug.WriteLine("[WindowsTtsService] Failed to generate speech stream");
+                    return false;
+                }
 
                 // Create media source and play
-                var mediaSource = MediaSource.CreateFromStream(speechStream, speechStream.ContentType);
-                _mediaPlayer.Source = mediaSource;
+                MediaSource mediaSource = null;
+                try
+                {
+                    mediaSource = MediaSource.CreateFromStream(speechStream, speechStream.ContentType);
+                    _mediaPlayer.Source = mediaSource;
 
-                IsSpeaking = true;
-                _mediaPlayer.Play();
+                    IsSpeaking = true;
+                    _mediaPlayer.Play();
 
-                return true;
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WindowsTtsService] Error setting up media playback: {ex.Message}");
+                    IsSpeaking = false;
+
+                    // Clean up resources
+                    try
+                    {
+                        speechStream?.Dispose();
+                        mediaSource?.Dispose();
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        Debug.WriteLine($"[WindowsTtsService] Error during cleanup: {cleanupEx.Message}");
+                    }
+
+                    SpeechError?.Invoke(ex);
+                    return false;
+                }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WindowsTtsService] Error speaking text: {ex.Message}");
-                SpeechError?.Invoke(ex);
+                Debug.WriteLine($"[WindowsTtsService] Unexpected error speaking text: {ex.Message}");
+                Debug.WriteLine($"[WindowsTtsService] Exception details: {ex}");
                 IsSpeaking = false;
+
+                // Safely invoke error event
+                try
+                {
+                    SpeechError?.Invoke(ex);
+                }
+                catch (Exception eventEx)
+                {
+                    Debug.WriteLine($"[WindowsTtsService] Error invoking SpeechError event: {eventEx.Message}");
+                }
+
                 return false;
             }
 #else
@@ -235,22 +317,70 @@ namespace CSimple.Services
 
         private void OnMediaOpened(MediaPlayer sender, object args)
         {
-            Debug.WriteLine("[WindowsTtsService] Speech started");
-            SpeechStarted?.Invoke();
+            try
+            {
+                Debug.WriteLine("[WindowsTtsService] Speech started");
+
+                // Safely invoke the event
+                try
+                {
+                    SpeechStarted?.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WindowsTtsService] Error in SpeechStarted event: {ex.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WindowsTtsService] Error in OnMediaOpened: {ex.Message}");
+            }
         }
 
         private void OnMediaEnded(MediaPlayer sender, object args)
         {
-            Debug.WriteLine("[WindowsTtsService] Speech completed");
-            IsSpeaking = false;
-            SpeechCompleted?.Invoke();
+            try
+            {
+                Debug.WriteLine("[WindowsTtsService] Speech completed");
+                IsSpeaking = false;
+
+                // Safely invoke the event
+                try
+                {
+                    SpeechCompleted?.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WindowsTtsService] Error in SpeechCompleted event: {ex.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WindowsTtsService] Error in OnMediaEnded: {ex.Message}");
+            }
         }
 
         private void OnMediaFailed(MediaPlayer sender, MediaPlayerFailedEventArgs args)
         {
-            Debug.WriteLine($"[WindowsTtsService] Speech failed: {args.ErrorMessage}");
-            IsSpeaking = false;
-            SpeechError?.Invoke(new Exception(args.ErrorMessage));
+            try
+            {
+                Debug.WriteLine($"[WindowsTtsService] Speech failed: {args.ErrorMessage}");
+                IsSpeaking = false;
+
+                // Safely invoke the event
+                try
+                {
+                    SpeechError?.Invoke(new Exception(args.ErrorMessage));
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WindowsTtsService] Error in SpeechError event: {ex.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WindowsTtsService] Error in OnMediaFailed: {ex.Message}");
+            }
         }
 
         public void Dispose()

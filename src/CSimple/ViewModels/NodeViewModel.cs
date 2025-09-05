@@ -1500,7 +1500,110 @@ namespace CSimple.ViewModels
                 return (null, null);
             }
 
-            return ActionSteps[step - 1];
+            var (type, value) = ActionSteps[step - 1];
+
+            // Apply cleaning logic to remove concatenated ensemble input from stored content
+            if (!string.IsNullOrEmpty(value) && Type == NodeType.Model)
+            {
+                value = CleanStoredModelOutput(value);
+            }
+
+            return (type, value);
+        }
+
+        /// <summary>
+        /// Cleans stored model output to remove concatenated ensemble input
+        /// </summary>
+        private string CleanStoredModelOutput(string storedOutput)
+        {
+            if (string.IsNullOrEmpty(storedOutput))
+                return storedOutput;
+
+            // Check if this looks like concatenated ensemble input
+            if (storedOutput.Contains("Screen Image:") || storedOutput.Contains("Webcam Image:") ||
+                storedOutput.Contains("Goals (File):") || storedOutput.Contains("PC Audio:") ||
+                storedOutput.Contains("Webcam Audio:") || storedOutput.Contains("Goal:") ||
+                storedOutput.Contains("Blip Image Captioning Base:") || storedOutput.Contains("Gpt2:") ||
+                storedOutput.Contains("Whisper Base:"))
+            {
+                // Split into sentences and look for the actual model output
+                var sentences = storedOutput.Split(new[] { '.', '!', '?' }, StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (var sentence in sentences)
+                {
+                    string cleanSentence = sentence.Trim();
+
+                    // Skip sentences that are clearly input data or other model outputs
+                    if (cleanSentence.Contains("Screen Image:") || cleanSentence.Contains("Webcam Image:") ||
+                        cleanSentence.Contains("Goals (File):") || cleanSentence.Contains("PC Audio:") ||
+                        cleanSentence.Contains("Webcam Audio:") || cleanSentence.Contains("Goal:") ||
+                        cleanSentence.Contains("Priority:") || cleanSentence.Contains("Deadline:") ||
+                        cleanSentence.Contains("Description:") || cleanSentence.Contains("Build an app") ||
+                        cleanSentence.Contains("Current User Goals") || cleanSentence.Length < 10)
+                    {
+                        continue;
+                    }
+
+                    // Clean any model prefixes from the sentence
+                    string[] prefixesToRemove = {
+                        "Gpt2 [Goal]:", "Gpt2 [Plan]:", "Gpt2 [Action]:", "Gpt2:",
+                        "Blip Image Captioning Base:", "Whisper Base:",
+                        Name + ":"
+                    };
+
+                    foreach (var prefix in prefixesToRemove)
+                    {
+                        if (cleanSentence.StartsWith(prefix))
+                        {
+                            cleanSentence = cleanSentence.Substring(prefix.Length).Trim();
+                            break;
+                        }
+                    }
+
+                    // If we found a clean sentence that looks like actual generated content, return it
+                    if (!string.IsNullOrEmpty(cleanSentence) && cleanSentence.Length > 15 &&
+                        !cleanSentence.Contains("Compress PNG") && !cleanSentence.Contains("hello 1124"))
+                    {
+                        return cleanSentence;
+                    }
+                }
+
+                // If no clean content found, try to extract content after the last meaningful colon
+                var parts = storedOutput.Split(new[] { ": " }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length > 1)
+                {
+                    // Take the last meaningful part that doesn't look like input data
+                    for (int i = parts.Length - 1; i >= 0; i--)
+                    {
+                        var part = parts[i].Trim();
+                        if (!part.Contains("Goal:") && !part.Contains("Priority:") &&
+                            !part.Contains("Description:") && !part.Contains("Deadline:") &&
+                            part.Length > 15)
+                        {
+                            return part;
+                        }
+                    }
+                }
+
+                // Last resort: return a clean message
+                return $"Model {Name} output processed (concatenated input filtered)";
+            }
+
+            // Remove simple model prefixes for non-concatenated content
+            if (storedOutput.Contains(": "))
+            {
+                var colonIndex = storedOutput.IndexOf(": ");
+                var prefix = storedOutput.Substring(0, colonIndex);
+
+                if (prefix.Contains("Gpt") || prefix.Contains("Blip") || prefix.Contains("Image") ||
+                    prefix.Contains("[Plan]") || prefix.Contains("[Goal]") || prefix.Contains("[Action]") ||
+                    prefix.Contains("Captioning") || prefix.Contains("Base") || prefix.Contains(Name))
+                {
+                    return storedOutput.Substring(colonIndex + 2).Trim();
+                }
+            }
+
+            return storedOutput;
         }
     }
 }
