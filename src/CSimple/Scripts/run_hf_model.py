@@ -54,7 +54,7 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run inference using HuggingFace models")
     parser.add_argument("--model_id", type=str, required=True, help="HuggingFace model ID")
     parser.add_argument("--input", type=str, required=True, help="Input text for the model")
-    parser.add_argument("--max_length", type=int, default=100, help="Maximum length of generated text (capped at 100 tokens)")
+    parser.add_argument("--max_length", type=int, default=250, help="Maximum length of generated text (default: 250 tokens, can be higher)")
     parser.add_argument("--temperature", type=float, default=0.7, help="Temperature for sampling")
     parser.add_argument("--top_p", type=float, default=0.9, help="Top-p sampling parameter")
     parser.add_argument("--trust_remote_code", action="store_true", default=True, help="Trust remote code")
@@ -234,7 +234,7 @@ def run_text_generation(model_id: str, input_text: str, params: Dict[str, Any], 
         inputs = {k: v.to(device, non_blocking=True) for k, v in inputs.items()}
         
         # Ultra-optimized generation parameters with 100 token hard limit
-        max_new_tokens = 10 if fast_mode else min(params.get("max_length", 25), 100)  # Hard cap at 100 tokens
+        max_new_tokens = 20 if fast_mode else min(params.get("max_length", 150), 500)  # Increased cap to 500 tokens
         
         # Fastest possible generation settings with randomness enabled
         generation_kwargs = {
@@ -911,7 +911,7 @@ def run_image_to_text(model_id: str, input_text: str, params: Dict[str, Any], lo
                 
                 # Generate caption
                 with torch.no_grad():
-                    out = model.generate(**inputs, max_length=params.get("max_length", 50), num_beams=5)
+                    out = model.generate(**inputs, max_length=params.get("max_length", 100), num_beams=5)
                 
                 # Decode caption
                 caption = processor.decode(out[0], skip_special_tokens=True)

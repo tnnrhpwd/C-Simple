@@ -70,9 +70,21 @@ namespace CSimple.Services
 
             try
             {
-                // Ultra-fast input processing
+                // Ultra-fast input processing with robust escaping
                 string cleanedInput = inputText?.Trim()?.Replace("\r\n", " ")?.Replace("\n", " ")?.Replace("\r", " ") ?? "";
-                string escapedInput = cleanedInput.Replace("\"", "\\\"");
+
+                // More robust escaping for complex inputs with JSON, URLs, and special characters
+                string escapedInput = cleanedInput
+                    .Replace("\\", "\\\\")  // Escape backslashes first
+                    .Replace("\"", "\\\"")  // Escape quotes
+                    .Replace("!", "\\!")    // Escape exclamation marks (PowerShell issues)
+                    .Replace("`", "\\`")    // Escape backticks
+                    .Replace("$", "\\$")    // Escape dollar signs
+                    .Replace("&", "\\&")    // Escape ampersands
+                    .Replace("|", "\\|")    // Escape pipes
+                    .Replace(";", "\\;")    // Escape semicolons
+                    .Replace("<", "\\<")    // Escape less than
+                    .Replace(">", "\\>");   // Escape greater than
 
                 // Optimized argument building
                 var argumentsBuilder = new StringBuilder(512); // Pre-allocate
@@ -87,8 +99,8 @@ namespace CSimple.Services
                 // Performance optimizations with randomness for varied outputs
                 argumentsBuilder.Append(" --cpu_optimize --temperature 0.8 --top_p 0.9"); // Higher temperature for more randomness
 
-                // Limit to maximum 100 tokens for all model execution
-                int maxLength = Math.Min(100, Math.Min(40, inputText?.Split(' ')?.Length + 10 ?? 10)); // Cap at 100 tokens max
+                // Increased token limit for better text generation - allow up to 500 tokens
+                int maxLength = Math.Min(500, Math.Max(100, (inputText?.Split(' ')?.Length ?? 10) + 150)); // Min 100, max 500 tokens
                 argumentsBuilder.Append($" --max_length {maxLength}");
 
                 if (_appModeService.CurrentMode == AppMode.Offline)

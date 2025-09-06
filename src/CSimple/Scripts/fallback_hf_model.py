@@ -15,7 +15,7 @@ def main():
         parser = argparse.ArgumentParser(description="Fallback HuggingFace inference")
         parser.add_argument("--model_id", type=str, required=True, help="HuggingFace model ID")
         parser.add_argument("--input", type=str, required=True, help="Input text for the model")
-        parser.add_argument("--max_length", type=int, default=100, help="Maximum token length")
+        parser.add_argument("--max_length", type=int, default=250, help="Maximum token length (default: 250)")
         args = parser.parse_args()
         
         # Try to import required modules

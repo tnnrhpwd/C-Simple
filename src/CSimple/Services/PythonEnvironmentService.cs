@@ -281,7 +281,7 @@ def main():
                 task = 'text-generation'  # Default
             
             pipe = pipeline(task, model=args.model_id, trust_remote_code=True)
-            result = pipe(args.input, max_length=150, do_sample=True, temperature=0.7)
+            result = pipe(args.input, max_length=300, do_sample=True, temperature=0.7)
             
             if isinstance(result, list):
                 output = result[0].get('generated_text', str(result[0]));
@@ -314,7 +314,7 @@ def main():
                         # For causal LM (GPT-like models)
                         outputs = model.generate(
                             inputs['input_ids'], 
-                            max_length=inputs['input_ids'].shape[1] + 50,
+                            max_length=inputs['input_ids'].shape[1] + 200,  # Increased from +50 to +200
                             temperature=0.8,
                             do_sample=True,
                             pad_token_id=tokenizer.eos_token_id
@@ -326,7 +326,7 @@ def main():
                         # For seq2seq models
                         outputs = model.generate(
                             inputs['input_ids'],
-                            max_length=100,
+                            max_length=300,  # Increased from 100 to 300
                             temperature=0.8,
                             do_sample=True
                         )
