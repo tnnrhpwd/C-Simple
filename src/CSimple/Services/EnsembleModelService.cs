@@ -307,7 +307,13 @@ namespace CSimple.Services
                 }
 
                 var result = await netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, processedInput);
-                return result ?? "No output generated";
+                var rawResult = result ?? "No output generated";
+
+                // Clean the result to remove concatenated ensemble input before returning
+                var cleanedResult = CleanModelResultForDisplay(rawResult, model.Name);
+                Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] Cleaned result for {model.Name}: {cleanedResult?.Substring(0, Math.Min(cleanedResult?.Length ?? 0, 100))}...");
+
+                return cleanedResult;
             }
             catch (Exception ex)
             {
@@ -447,7 +453,7 @@ namespace CSimple.Services
         /// <summary>
         /// Cleans model result for clean display by removing ensemble formatting prefixes and concatenated input
         /// </summary>
-        private string CleanModelResultForDisplay(string result, string modelName)
+        public string CleanModelResultForDisplay(string result, string modelName)
         {
             if (string.IsNullOrEmpty(result))
                 return result;
@@ -486,7 +492,14 @@ namespace CSimple.Services
                         cleanSentence.Contains("Webcam Audio:") || cleanSentence.Contains("Goal:") ||
                         cleanSentence.Contains("Priority:") || cleanSentence.Contains("Deadline:") ||
                         cleanSentence.Contains("Description:") || cleanSentence.Contains("Build an app") ||
-                        cleanSentence.Contains("Current User Goals") || cleanSentence.Length < 10)
+                        cleanSentence.Contains("Current User Goals") || cleanSentence.Length < 10 ||
+                        cleanSentence.Contains("[Client thread/INFO]") || cleanSentence.Contains("Loading skin images") ||
+                        cleanSentence.Contains("Config file") || cleanSentence.Contains("AppData") ||
+                        cleanSentence.Contains("Roaming") || cleanSentence.Contains("GEMFILE") ||
+                        cleanSentence.Contains("ItemID=") || cleanSentence.Contains("CBE") ||
+                        cleanSentence.Contains("FFTs are still in play") || cleanSentence.Contains("RUNABLE TO OBJECTIONED") ||
+                        cleanSentence.Contains("Dec ") || cleanSentence.Contains("Nov ") || cleanSentence.Contains("Oct ") ||
+                        cleanSentence.Contains("If there were any mistakes") || cleanSentence.Contains("sooner rather than later"))
                     {
                         continue;
                     }
@@ -522,7 +535,7 @@ namespace CSimple.Services
                 {
                     var afterColon = result.Substring(colonIndex + 2).Trim();
                     // Remove common input patterns from the end
-                    var stopPatterns = new[] { "Goal:", "Description:", "Priority:", "Deadline:", "Current User Goals" };
+                    var stopPatterns = new[] { "Goal:", "Description:", "Priority:", "Deadline:", "Current User Goals", "Gpt2:", "Whisper Base:", "Goals (File):" };
 
                     foreach (var stopPattern in stopPatterns)
                     {
@@ -538,6 +551,29 @@ namespace CSimple.Services
                     {
                         Debug.WriteLine($"🎯 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Extracted content after last colon: {afterColon}");
                         return afterColon;
+                    }
+                }
+
+                // Alternative approach: look for image descriptions (for image captioning models)
+                if (modelName.Contains("Blip") || modelName.Contains("Image") || modelName.Contains("Caption"))
+                {
+                    // Look for content that looks like image descriptions - typically short descriptive phrases
+                    var parts = result.Split(new[] { "  ", ": " }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var part in parts)
+                    {
+                        var cleanPart = part.Trim();
+                        // Image descriptions are usually about people, objects, scenes
+                        if (cleanPart.Length > 20 && cleanPart.Length < 200 &&
+                            (cleanPart.Contains("man") || cleanPart.Contains("woman") || cleanPart.Contains("person") ||
+                             cleanPart.Contains("sitting") || cleanPart.Contains("standing") || cleanPart.Contains("wearing") ||
+                             cleanPart.Contains("desk") || cleanPart.Contains("keyboard") || cleanPart.Contains("computer") ||
+                             cleanPart.Contains("room") || cleanPart.Contains("field") || cleanPart.Contains("group")) &&
+                            !cleanPart.Contains("Gpt2") && !cleanPart.Contains("Whisper") && !cleanPart.Contains("Goals") &&
+                            !cleanPart.Contains("[") && !cleanPart.Contains("Config") && !cleanPart.Contains("thread"))
+                        {
+                            Debug.WriteLine($"🎯 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Found image description: {cleanPart}");
+                            return cleanPart;
+                        }
                     }
                 }
 

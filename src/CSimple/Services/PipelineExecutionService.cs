@@ -18,6 +18,7 @@ namespace CSimple.Services
     {
         private readonly EnsembleModelService _ensembleModelService;
         private readonly Func<NodeViewModel, NeuralNetworkModel> _findCorrespondingModelFunc;
+        private readonly AudioStepContentService _audioStepContentService;
 
         // Performance optimization caches
         private readonly Dictionary<string, NodeViewModel> _nodeCache = new Dictionary<string, NodeViewModel>();
@@ -32,10 +33,11 @@ namespace CSimple.Services
         private bool _executionCacheValid = false;
 #pragma warning restore CS0414
 
-        public PipelineExecutionService(EnsembleModelService ensembleModelService, Func<NodeViewModel, NeuralNetworkModel> findCorrespondingModelFunc)
+        public PipelineExecutionService(EnsembleModelService ensembleModelService, Func<NodeViewModel, NeuralNetworkModel> findCorrespondingModelFunc, AudioStepContentService audioStepContentService = null)
         {
             _ensembleModelService = ensembleModelService ?? throw new ArgumentNullException(nameof(ensembleModelService));
             _findCorrespondingModelFunc = findCorrespondingModelFunc ?? throw new ArgumentNullException(nameof(findCorrespondingModelFunc));
+            _audioStepContentService = audioStepContentService; // Optional - can be null if TTS not available
         }
 
         /// <summary>
@@ -937,6 +939,9 @@ namespace CSimple.Services
                                             {
                                                 modelNode.SetStepOutput(currentActionStep + 1, "text", result);
 
+                                                // Trigger TTS autoplay if enabled
+                                                await TriggerTtsAutoplayIfEnabledAsync(modelNode, result, "text");
+
                                                 // Propagate output to connected File nodes for memory saving
                                                 await PropagateOutputToConnectedFileNodesAsync(modelNode, result, currentActionStep, connections, nodes);
 
@@ -1177,6 +1182,9 @@ namespace CSimple.Services
                     string resultContentType = _ensembleModelService.DetermineResultContentType(model, result);
                     modelNode.SetStepOutput(stepIndex, resultContentType, result);
 
+                    // Trigger TTS autoplay if enabled
+                    await TriggerTtsAutoplayIfEnabledAsync(modelNode, result, resultContentType);
+
                     // Propagate output to connected File nodes for memory saving
                     await PropagateOutputToConnectedFileNodesAsync(modelNode, result, currentActionStep, connections, nodes);
 
@@ -1367,6 +1375,69 @@ namespace CSimple.Services
             {
                 Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [AppendOutputToFileNode] Error appending to file node '{fileNode.Name}': {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Triggers TTS autoplay if enabled for the model node
+        /// </summary>
+        private Task TriggerTtsAutoplayIfEnabledAsync(NodeViewModel modelNode, string result, string resultContentType)
+        {
+            try
+            {
+                // Check if TTS service is available
+                if (_audioStepContentService == null)
+                {
+                    return Task.CompletedTask; // TTS not available, skip
+                }
+
+                // Check if content should be read aloud - either action node OR user enabled autoplay
+                bool shouldReadAloud = false;
+                string reason = "";
+
+                if (resultContentType?.ToLowerInvariant() == "text" && !string.IsNullOrWhiteSpace(result))
+                {
+                    // Check for action classification (automatic TTS)
+                    if (modelNode?.Classification?.ToLowerInvariant() == "action")
+                    {
+                        shouldReadAloud = true;
+                        reason = "Action-classified model";
+                    }
+                    // Check for user-enabled autoplay toggle
+                    else if (modelNode?.ReadAloudOnCompletion == true)
+                    {
+                        shouldReadAloud = true;
+                        reason = "User-enabled autoplay";
+                    }
+                }
+
+                if (shouldReadAloud)
+                {
+                    Debug.WriteLine($"[PipelineExecutionService] Reading content aloud ({reason}): {result.Substring(0, Math.Min(result.Length, 100))}...");
+
+                    // Run TTS in background to avoid blocking pipeline execution
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _audioStepContentService.PlayStepContentAsync(result, resultContentType, modelNode);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[PipelineExecutionService] Error during TTS playback: {ex.Message}");
+                        }
+                    });
+                }
+                else
+                {
+                    Debug.WriteLine($"[PipelineExecutionService] Skipping TTS - not action node and autoplay not enabled for '{modelNode?.Name}'");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[PipelineExecutionService] Error in TTS autoplay logic: {ex.Message}");
+            }
+
+            return Task.CompletedTask;
         }
 
     }

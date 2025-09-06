@@ -273,6 +273,73 @@ namespace CSimple.Services
             }
         }
 
+        // Model State Persistence Methods
+        public async Task SaveModelActivationStatesAsync(Dictionary<string, bool> activationStates)
+        {
+            try
+            {
+                var jsonData = System.Text.Json.JsonSerializer.Serialize(activationStates);
+                await SecureStorage.SetAsync("modelActivationStates", jsonData);
+                Debug.WriteLine($"Saved activation states for {activationStates.Count} models");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving model activation states: {ex.Message}");
+            }
+        }
+
+        public async Task<Dictionary<string, bool>> LoadModelActivationStatesAsync()
+        {
+            try
+            {
+                var jsonData = await SecureStorage.GetAsync("modelActivationStates");
+                if (!string.IsNullOrEmpty(jsonData))
+                {
+                    var states = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, bool>>(jsonData);
+                    Debug.WriteLine($"Loaded activation states for {states?.Count ?? 0} models");
+                    return states ?? new Dictionary<string, bool>();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading model activation states: {ex.Message}");
+            }
+            return new Dictionary<string, bool>();
+        }
+
+        public async Task SaveModelDownloadStatesAsync(Dictionary<string, bool> downloadStates)
+        {
+            try
+            {
+                var jsonData = System.Text.Json.JsonSerializer.Serialize(downloadStates);
+                await SecureStorage.SetAsync("modelDownloadStates", jsonData);
+                Debug.WriteLine($"Saved download states for {downloadStates.Count} models");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving model download states: {ex.Message}");
+            }
+        }
+
+        public async Task<Dictionary<string, bool>> LoadModelDownloadStatesAsync()
+        {
+            try
+            {
+                var jsonData = await SecureStorage.GetAsync("modelDownloadStates");
+                if (!string.IsNullOrEmpty(jsonData))
+                {
+                    var states = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, bool>>(jsonData);
+                    Debug.WriteLine($"Loaded download states for {states?.Count ?? 0} models");
+                    return states ?? new Dictionary<string, bool>();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading model download states: {ex.Message}");
+            }
+            return new Dictionary<string, bool>();
+        }
+
         public async Task<Dictionary<string, bool>> GetFeatureStatesAsync()
         {
             try

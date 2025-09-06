@@ -18,6 +18,8 @@
         <converters:EnumToDisplayStringConverter x:Key="EnumToDisplayStringConverter" />
         <converters:EnumToIndexConverter x:Key="EnumToIndexConverter" />
         <converters:SafeImageSourceConverter x:Key="SafeImageSourceConverter" />
+        <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+        <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
     </ContentPage.Resources>
     <ContentPage.Content>
         <ScrollView>
@@ -517,10 +519,32 @@
                                                        FontAttributes="Bold" />
                                                 <Label Text="{Binding Description}"
                                                        FontSize="{StaticResource FontSizeSmall}" />
-                                                <!-- Optional: Display brief status -->
-                                                <Label Text="{Binding TrainingStatus, StringFormat='Status: {0}'}"
-                                                       FontSize="{StaticResource FontSizeCaption}"
-                                                       TextColor="{StaticResource TextSecondary}" />
+                                                <!-- Enhanced status display with activation and download indicators -->
+                                                <StackLayout Orientation="Horizontal"
+                                                             Spacing="10">
+                                                    <Label Text="{Binding TrainingStatus, StringFormat='Status: {0}'}"
+                                                           FontSize="{StaticResource FontSizeCaption}"
+                                                           TextColor="{StaticResource TextSecondary}" />
+                                                    <!-- Activation Status Indicator -->
+                                                    <Border BackgroundColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter=Green|LightGray}"
+                                                            WidthRequest="10"
+                                                            HeightRequest="10"
+                                                            StrokeShape="RoundRectangle 5"
+                                                            ToolTipProperties.Text="{Binding IsActive, StringFormat='Active: {0}'}" />
+                                                    <!-- Download Status Indicator -->
+                                                    <Border BackgroundColor="{Binding IsDownloaded, Converter={StaticResource BoolToColorConverter}, ConverterParameter=Blue|LightGray}"
+                                                            WidthRequest="10"
+                                                            HeightRequest="10"
+                                                            StrokeShape="RoundRectangle 5"
+                                                            ToolTipProperties.Text="{Binding IsDownloaded, StringFormat='Downloaded: {0}'}" />
+                                                    <!-- Status Text Labels -->
+                                                    <Label Text="{Binding IsActive, StringFormat='Active: {0}'}"
+                                                           FontSize="{StaticResource FontSizeCaption}"
+                                                           TextColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter=Green|Gray}" />
+                                                    <Label Text="{Binding IsDownloaded, StringFormat='Downloaded: {0}'}"
+                                                           FontSize="{StaticResource FontSizeCaption}"
+                                                           TextColor="{Binding IsDownloaded, Converter={StaticResource BoolToColorConverter}, ConverterParameter=Blue|Gray}" />
+                                                </StackLayout>
                                             </VerticalStackLayout>
                                             <!-- Input Type Dropdown -->
                                             <VerticalStackLayout Grid.Column="1"
@@ -590,12 +614,12 @@
                                                     BackgroundColor="{StaticResource Tertiary}"
                                                     TextColor="{StaticResource TextOnPrimary}"
                                                     VerticalOptions="Center" />
-                                            <!-- Activate Button -->
+                                            <!-- Activate/Deactivate Button with dynamic text and color -->
                                             <Button Grid.Column="5"
-                                                    Text="Activate"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ActivateModelCommand}"
+                                                    Text="{Binding IsActive, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Deactivate|Activate'}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ToggleModelActivationCommand}"
                                                     CommandParameter="{Binding .}"
-                                                    BackgroundColor="{StaticResource Primary}"
+                                                    BackgroundColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter=Orange|{StaticResource Primary}}"
                                                     TextColor="{StaticResource TextOnPrimary}"
                                                     VerticalOptions="Center" />
                                             <!-- Open in File Explorer Button -->

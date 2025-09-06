@@ -93,6 +93,8 @@ namespace CSimple.ViewModels
                     (GenerateCommand as Command)?.ChangeCanExecute();
                     (SelectSaveFileCommand as Command)?.ChangeCanExecute();
                     (CreateNewMemoryFileCommand as Command)?.ChangeCanExecute();
+                    (DeleteSelectedNodeCommand as Command)?.ChangeCanExecute();
+                    (ChangeNodeTypeCommand as Command)?.ChangeCanExecute();
                 }
             }
         }
@@ -190,6 +192,7 @@ namespace CSimple.ViewModels
         public ICommand AddModelNodeCommand { get; private set; }
         public ICommand AddFileNodeCommand { get; private set; }
         public ICommand DeleteSelectedNodeCommand { get; private set; }
+        public ICommand ChangeNodeTypeCommand { get; private set; }
         public ICommand CreateNewPipelineCommand { get; private set; }
         public ICommand RenamePipelineCommand { get; private set; }
         public ICommand DeletePipelineCommand { get; private set; }
@@ -430,7 +433,8 @@ namespace CSimple.ViewModels
             // Initialize pipeline execution service with dependency injection
             _pipelineExecutionService = new PipelineExecutionService(
                 _ensembleModelService,
-                (node) => FindCorrespondingModel(((App)Application.Current)?.NetPageViewModel, node)
+                (node) => FindCorrespondingModel(((App)Application.Current)?.NetPageViewModel, node),
+                _audioStepContentService  // Pass the TTS service for autoplay functionality
             );
 
             // Subscribe to audio playback events
@@ -506,6 +510,7 @@ namespace CSimple.ViewModels
             AddModelNodeCommand = new Command<HuggingFaceModel>(async (model) => await AddModelNode(model), (model) => model != null);
             AddFileNodeCommand = new Command<FileNodeInfo>(async (fileInfo) => await AddFileNode(fileInfo), (fileInfo) => fileInfo != null);
             DeleteSelectedNodeCommand = new Command(async () => await DeleteSelectedNode(), () => SelectedNode != null);
+            ChangeNodeTypeCommand = new Command<HuggingFaceModel>(async (model) => await ChangeNodeType(model), (model) => model != null && SelectedNode != null);
             // Modify CreateNewPipelineCommand to handle save and select sequence
             CreateNewPipelineCommand = new Command(async () =>
             {
@@ -998,6 +1003,75 @@ namespace CSimple.ViewModels
             else
             {
                 await ShowAlert?.Invoke("Info", "No node selected to delete.", "OK");
+            }
+        }
+
+        public async Task ChangeNodeType(CSimple.Models.HuggingFaceModel newModel)
+        {
+            if (SelectedNode == null)
+            {
+                await ShowAlert?.Invoke("Info", "No node selected to change.", "OK");
+                return;
+            }
+
+            if (newModel == null)
+            {
+                await ShowAlert?.Invoke("Info", "Please select a new model type.", "OK");
+                return;
+            }
+
+            try
+            {
+                Debug.WriteLine($"🔄 [ChangeNodeType] Changing node '{SelectedNode.Name}' to '{newModel.Name}'");
+
+                // Store the current node's position and connections for reference
+                var nodePosition = SelectedNode.Position;
+                var currentConnections = Connections.Where(c => c.SourceNodeId == SelectedNode.Id || c.TargetNodeId == SelectedNode.Id).ToList();
+
+                // Store classification and custom text if it's a text model
+                string currentClassification = SelectedNode.Classification;
+                string currentGoalText = SelectedNode.GoalText;
+                string currentPlanText = SelectedNode.PlanText;
+                string currentActionText = SelectedNode.ActionText;
+
+                // Update the node properties to match the new model
+                SelectedNode.Name = newModel.Name;
+                SelectedNode.OriginalModelId = newModel.Id;
+                SelectedNode.DataType = "text"; // Default to text for HuggingFace models
+
+                // Preserve classification and custom text if the new model is also a text model
+                if (SelectedNode.IsTextModel)
+                {
+                    SelectedNode.Classification = currentClassification;
+                    SelectedNode.GoalText = currentGoalText;
+                    SelectedNode.PlanText = currentPlanText;
+                    SelectedNode.ActionText = currentActionText;
+                }
+                else
+                {
+                    // Clear classification for non-text models
+                    SelectedNode.Classification = null;
+                    SelectedNode.GoalText = "";
+                    SelectedNode.PlanText = "";
+                    SelectedNode.ActionText = "";
+                }
+
+                Debug.WriteLine($"🔄 [ChangeNodeType] Successfully changed node to '{newModel.Name}', preserving {currentConnections.Count} connections");
+
+                // Save the pipeline and refresh the display
+                await SaveCurrentPipelineAsync();
+                InvalidateCanvas?.Invoke();
+
+                // Update command states
+                (RunAllModelsCommand as Command)?.ChangeCanExecute();
+                (RunAllNodesCommand as Command)?.ChangeCanExecute();
+
+                await ShowAlert?.Invoke("Success", $"Node type changed to '{newModel.Name}' while preserving connections.", "OK");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ [ChangeNodeType] Error changing node type: {ex.Message}");
+                await ShowAlert?.Invoke("Error", $"Failed to change node type: {ex.Message}", "OK");
             }
         }
 
@@ -3206,9 +3280,11 @@ namespace CSimple.ViewModels
                     result = await ExecuteModelWithInput(correspondingModel, combinedInput);
                 }
 
-                Debug.WriteLine($"🎉 [ExecuteGenerateAsync] Model execution result: {result?.Substring(0, Math.Min(result?.Length ?? 0, 200))}...");
+                // Clean the result to remove concatenated ensemble input before displaying/storing
+                result = _ensembleModelService?.CleanModelResultForDisplay(result, SelectedNode.Name) ?? result;
+                Debug.WriteLine($"🧹 [ExecuteGenerateAsync] Cleaned result: {result?.Substring(0, Math.Min(result?.Length ?? 0, 200))}...");
 
-                // Update step content with the result
+                // Update step content with the cleaned result
                 StepContent = result;
 
                 // Determine the correct content type based on the result
@@ -3219,6 +3295,7 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"📋 [ExecuteGenerateAsync] Set StepContentType to: {StepContentType}");
 
                 // Read action content aloud if this is an action model OR if ReadAloudOnCompletion is enabled for text output
+                // Use the cleaned result for TTS to avoid reading concatenated ensemble input
                 if (resultContentType?.ToLowerInvariant() == "text")
                 {
                     // Check if this is an action model (automatic TTS) or if user has enabled TTS toggle
@@ -3536,12 +3613,34 @@ namespace CSimple.ViewModels
         {
             try
             {
-                if (actionNode?.Classification?.ToLowerInvariant() == "action" &&
-                    contentType?.ToLowerInvariant() == "text" &&
-                    !string.IsNullOrWhiteSpace(content))
+                // Check if content should be read aloud - either action node OR user enabled autoplay
+                bool shouldReadAloud = false;
+                string reason = "";
+
+                if (contentType?.ToLowerInvariant() == "text" && !string.IsNullOrWhiteSpace(content))
                 {
-                    Debug.WriteLine($"[ReadActionContentAloud] Reading action content aloud: {content.Substring(0, Math.Min(content.Length, 100))}...");
+                    // Check for action classification (automatic TTS)
+                    if (actionNode?.Classification?.ToLowerInvariant() == "action")
+                    {
+                        shouldReadAloud = true;
+                        reason = "Action-classified model";
+                    }
+                    // Check for user-enabled autoplay toggle
+                    else if (actionNode?.ReadAloudOnCompletion == true)
+                    {
+                        shouldReadAloud = true;
+                        reason = "User-enabled autoplay";
+                    }
+                }
+
+                if (shouldReadAloud)
+                {
+                    Debug.WriteLine($"[ReadActionContentAloud] Reading content aloud ({reason}): {content.Substring(0, Math.Min(content.Length, 100))}...");
                     await _audioStepContentService.PlayStepContentAsync(content, contentType, actionNode);
+                }
+                else
+                {
+                    Debug.WriteLine($"[ReadActionContentAloud] Skipping TTS - not action node and autoplay not enabled for '{actionNode?.Name}'");
                 }
             }
             catch (Exception ex)

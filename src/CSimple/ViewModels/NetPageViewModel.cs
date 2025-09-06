@@ -390,6 +390,7 @@ namespace CSimple.ViewModels
         public ICommand ToggleSpecificModeCommand { get; }
         public ICommand ActivateModelCommand { get; }
         public ICommand DeactivateModelCommand { get; }
+        public ICommand ToggleModelActivationCommand { get; }
         public ICommand LoadSpecificGoalCommand { get; }
         public ICommand ShareModelCommand { get; }
         public ICommand CommunicateWithModelCommand { get; }
@@ -504,6 +505,7 @@ namespace CSimple.ViewModels
             ToggleSpecificModeCommand = new Command(ToggleSpecificMode);
             ActivateModelCommand = new Command<NeuralNetworkModel>(ActivateModel);
             DeactivateModelCommand = new Command<NeuralNetworkModel>(DeactivateModel);
+            ToggleModelActivationCommand = new Command<NeuralNetworkModel>(ToggleModelActivation);
             LoadSpecificGoalCommand = new Command<SpecificGoal>(LoadSpecificGoal);
             ShareModelCommand = new Command<NeuralNetworkModel>(ShareModel);
             CommunicateWithModelCommand = new Command<string>(async (message) => await CommunicateWithModelAsync(message)); // Make async
@@ -716,8 +718,46 @@ namespace CSimple.ViewModels
             // No longer maintain a cached list - IsModelDownloaded now checks directly
             // This method remains for compatibility but just triggers UI updates
 
-            // Update all models' download button text
+            // Update all models' download button text AND sync IsDownloaded with actual disk state
             UpdateAllModelsDownloadButtonText();
+            SyncModelDownloadStatesWithDisk();
+        }
+
+        private void SyncModelDownloadStatesWithDisk()
+        {
+            try
+            {
+                bool anyChanges = false;
+
+                if (AvailableModels != null)
+                {
+                    foreach (var model in AvailableModels)
+                    {
+                        if (!string.IsNullOrEmpty(model.HuggingFaceModelId))
+                        {
+                            bool actuallyDownloaded = IsModelDownloaded(model.HuggingFaceModelId);
+
+                            if (model.IsDownloaded != actuallyDownloaded)
+                            {
+                                model.IsDownloaded = actuallyDownloaded;
+                                anyChanges = true;
+                                Debug.WriteLine($"🔄 Synced model '{model.Name}' download state to {actuallyDownloaded} (was {!actuallyDownloaded})");
+                            }
+                        }
+                    }
+                }
+
+                // Save the corrected states if any changes were made
+                if (anyChanges)
+                {
+                    _ = SaveModelStatesAsync();
+                    Debug.WriteLine($"💾 Saved corrected download states after disk sync");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ Error syncing model download states with disk: {ex.Message}");
+            }
         }
         private void UpdateAllModelsDownloadButtonText()
         {
@@ -762,6 +802,9 @@ namespace CSimple.ViewModels
 
             // Refresh downloaded models list from disk to sync with actual state
             RefreshDownloadedModelsList();
+
+            // Save enhanced model states after download
+            _ = SaveModelStatesAsync();
         }
 
         private async Task DeleteModelAsync(NeuralNetworkModel model)
@@ -774,6 +817,9 @@ namespace CSimple.ViewModels
                 RefreshDownloadedModelsList,
                 NotifyModelDownloadStatusChanged
             );
+
+            // Save enhanced model states after deletion
+            _ = SaveModelStatesAsync();
         }
 
         private async Task DownloadOrDeleteModelAsync(NeuralNetworkModel model)
@@ -899,10 +945,14 @@ namespace CSimple.ViewModels
 
             await LoadPersistedModelsAsync();
 
+            // Load enhanced model states (activation/download status) from settings
+            await LoadModelStatesAsync();
+
             // Load available pipelines from OrientPage
             await RefreshPipelinesAsync();
 
             // Refresh downloaded models list to sync UI with actual disk state
+            // This will correct any discrepancies between saved states and actual files on disk
             RefreshDownloadedModelsList();
 
             LoadSampleGoals(); // Load sample goals separately
@@ -1111,6 +1161,7 @@ namespace CSimple.ViewModels
 
                     // Save the active state to persist across app restarts
                     SavePersistedModelsDebounced();
+                    _ = SaveModelStatesAsync(); // Save enhanced state tracking
                 }
             }
             catch (Exception ex)
@@ -1136,11 +1187,26 @@ namespace CSimple.ViewModels
 
                     // Save the inactive state to persist across app restarts
                     SavePersistedModelsDebounced();
+                    _ = SaveModelStatesAsync(); // Save enhanced state tracking
                 }
             }
             catch (Exception ex)
             {
                 HandleError($"Error deactivating model: {model?.Name}", ex);
+            }
+        }
+
+        private void ToggleModelActivation(NeuralNetworkModel model)
+        {
+            if (model == null) return;
+
+            if (model.IsActive)
+            {
+                DeactivateModel(model);
+            }
+            else
+            {
+                ActivateModel(model);
             }
         }
 
@@ -1813,6 +1879,103 @@ namespace CSimple.ViewModels
                         Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error in debounced save: {ex.Message}");
                     }
                 }, token);
+            }
+        }
+
+        // Enhanced Model State Persistence Methods
+        private async Task SaveModelStatesAsync()
+        {
+            try
+            {
+                // Save activation states
+                var activationStates = new Dictionary<string, bool>();
+                var downloadStates = new Dictionary<string, bool>();
+
+                if (AvailableModels != null)
+                {
+                    foreach (var model in AvailableModels)
+                    {
+                        if (!string.IsNullOrEmpty(model.Id))
+                        {
+                            activationStates[model.Id] = model.IsActive;
+                            downloadStates[model.Id] = model.IsDownloaded;
+                        }
+                    }
+                }
+
+                await _settingsService.SaveModelActivationStatesAsync(activationStates);
+                await _settingsService.SaveModelDownloadStatesAsync(downloadStates);
+
+                Debug.WriteLine($"💾 Saved model states for {activationStates.Count} models");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ Error saving model states: {ex.Message}");
+            }
+        }
+
+        private async Task LoadModelStatesAsync()
+        {
+            try
+            {
+                var activationStates = await _settingsService.LoadModelActivationStatesAsync();
+                var downloadStates = await _settingsService.LoadModelDownloadStatesAsync();
+
+                if (AvailableModels != null)
+                {
+                    foreach (var model in AvailableModels)
+                    {
+                        if (!string.IsNullOrEmpty(model.Id))
+                        {
+                            // Restore activation state
+                            if (activationStates.TryGetValue(model.Id, out bool isActive))
+                            {
+                                model.IsActive = isActive;
+                                if (isActive && !ActiveModels.Any(m => m?.Id == model.Id))
+                                {
+                                    ActiveModels.Add(model);
+                                }
+                            }
+
+                            // Restore download state
+                            if (downloadStates.TryGetValue(model.Id, out bool isDownloaded))
+                            {
+                                model.IsDownloaded = isDownloaded;
+                            }
+                        }
+                    }
+                }
+
+                // Update UI properties
+                OnPropertyChanged(nameof(ActiveModelsCount));
+
+                Debug.WriteLine($"🔄 Loaded model states for {activationStates.Count} activation states and {downloadStates.Count} download states");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ Error loading model states: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Synchronizes all model download states with actual files on disk
+        /// This ensures the UI reflects the real state of downloaded models
+        /// </summary>
+        public void SyncAllModelStatesWithDisk()
+        {
+            try
+            {
+                Debug.WriteLine($"🔄 Starting full sync of model states with disk...");
+
+                SyncModelDownloadStatesWithDisk();
+                UpdateAllModelsDownloadButtonText();
+                NotifyModelDownloadStatusChanged();
+
+                Debug.WriteLine($"✅ Completed full sync of model states with disk");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ Error during full model state sync: {ex.Message}");
             }
         }
 

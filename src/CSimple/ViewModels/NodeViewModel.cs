@@ -431,13 +431,15 @@ namespace CSimple.ViewModels
                 // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Warning: Step data type '{stepData.Type}' from ActionSteps[{step - 1}] does not match node's DataType '{this.DataType}'. Returning content as is.");
             }
 
-            // For Model nodes, if we have stored output (generated content), return it directly
+            // For Model nodes, if we have stored output (generated content), return it with cleaning applied
             // without trying to find image/audio files, as the stored content is the actual generated output
             // This prevents issues where generated text like "Image Caption: ..." gets parsed as timestamp data
             if (Type == NodeType.Model && !string.IsNullOrEmpty(stepData.Value))
             {
-                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Model node has stored output, returning directly: Type='{stepData.Type}', Value length={stepData.Value.Length}");
-                return (stepData.Type, stepData.Value);
+                // Use GetStepOutput to ensure consistent cleaning logic is applied
+                var cleanedOutput = GetStepOutput(step);
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Model node has stored output, returning cleaned version: Type='{cleanedOutput.Type}', Value length={cleanedOutput.Value?.Length ?? 0}");
+                return cleanedOutput;
             }
 
             // Return based on the Type field within the ActionStep tuple
@@ -1539,7 +1541,14 @@ namespace CSimple.ViewModels
                         cleanSentence.Contains("Webcam Audio:") || cleanSentence.Contains("Goal:") ||
                         cleanSentence.Contains("Priority:") || cleanSentence.Contains("Deadline:") ||
                         cleanSentence.Contains("Description:") || cleanSentence.Contains("Build an app") ||
-                        cleanSentence.Contains("Current User Goals") || cleanSentence.Length < 10)
+                        cleanSentence.Contains("Current User Goals") || cleanSentence.Length < 10 ||
+                        cleanSentence.Contains("[Client thread/INFO]") || cleanSentence.Contains("Loading skin images") ||
+                        cleanSentence.Contains("Config file") || cleanSentence.Contains("AppData") ||
+                        cleanSentence.Contains("Roaming") || cleanSentence.Contains("GEMFILE") ||
+                        cleanSentence.Contains("ItemID=") || cleanSentence.Contains("CBE") ||
+                        cleanSentence.Contains("FFTs are still in play") || cleanSentence.Contains("RUNABLE TO OBJECTIONED") ||
+                        cleanSentence.Contains("Dec ") || cleanSentence.Contains("Nov ") || cleanSentence.Contains("Oct ") ||
+                        cleanSentence.Contains("If there were any mistakes") || cleanSentence.Contains("sooner rather than later"))
                     {
                         continue;
                     }

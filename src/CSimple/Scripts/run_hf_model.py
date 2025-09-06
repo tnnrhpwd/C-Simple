@@ -19,6 +19,21 @@ import time
 import json
 import re
 import logging
+
+# Fix Windows console encoding issues for Unicode characters
+if sys.platform.startswith('win'):
+    import codecs
+    # Ensure stdout can handle UTF-8 encoding
+    if hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        except:
+            pass
+    elif hasattr(sys.stdout, 'buffer'):
+        try:
+            sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, errors='replace')
+        except:
+            pass
 from pathlib import Path
 from typing import Dict, Any, Optional
 import importlib.util
@@ -1266,8 +1281,17 @@ def main() -> int:
         # Minimal output processing for speed
         clean_result = result.strip() if result else "No output generated"
         
-        # Direct output with flush for immediate response
-        print(clean_result, flush=True)
+        # Handle Unicode encoding issues on Windows by encoding to UTF-8 and handling errors gracefully
+        try:
+            # Try to encode to detect and handle Unicode issues
+            encoded_result = clean_result.encode('utf-8', errors='replace').decode('utf-8')
+            # Remove or replace problematic Unicode characters for Windows console compatibility
+            safe_result = encoded_result.encode('ascii', errors='replace').decode('ascii')
+            print(safe_result, flush=True)
+        except UnicodeError:
+            # Fallback: Remove all non-ASCII characters
+            safe_result = ''.join(char for char in clean_result if ord(char) < 128)
+            print(safe_result, flush=True)
         return 0
         
     except KeyboardInterrupt:

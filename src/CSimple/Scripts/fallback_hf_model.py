@@ -9,6 +9,21 @@ import argparse
 import json
 import traceback
 
+# Fix Windows console encoding issues for Unicode characters
+if sys.platform.startswith('win'):
+    import codecs
+    # Ensure stdout can handle UTF-8 encoding
+    if hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        except:
+            pass
+    elif hasattr(sys.stdout, 'buffer'):
+        try:
+            sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, errors='replace')
+        except:
+            pass
+
 def main():
     try:
         # Parse command line arguments
@@ -62,7 +77,18 @@ def main():
         
         # Decode and return the generated text
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        print(generated_text)
+        
+        # Handle Unicode encoding issues on Windows by encoding safely
+        try:
+            # Try to encode to detect and handle Unicode issues
+            encoded_result = generated_text.encode('utf-8', errors='replace').decode('utf-8')
+            # Remove or replace problematic Unicode characters for Windows console compatibility
+            safe_result = encoded_result.encode('ascii', errors='replace').decode('ascii')
+            print(safe_result)
+        except UnicodeError:
+            # Fallback: Remove all non-ASCII characters
+            safe_result = ''.join(char for char in generated_text if ord(char) < 128)
+            print(safe_result)
         return 0
     
     except Exception as e:
