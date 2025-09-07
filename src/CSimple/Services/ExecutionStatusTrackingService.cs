@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Timers;
+using System.Windows.Input;
 
 namespace CSimple.Services
 {
@@ -18,6 +19,7 @@ namespace CSimple.Services
         private Timer _executionTimer;
         private DateTime _executionStartTime;
         private DateTime _groupExecutionStartTime;
+        private readonly SystemMonitoringService _systemMonitoringService;
 
         // --- Properties ---
         private bool _isExecutingModels;
@@ -151,13 +153,69 @@ namespace CSimple.Services
 
         public ObservableCollection<ExecutionGroupInfo> ExecutionGroups { get; } = new ObservableCollection<ExecutionGroupInfo>();
 
+        // --- System Monitoring Properties ---
+        public bool IsSystemMonitoringEnabled
+        {
+            get => _systemMonitoringService.IsSystemMonitoringEnabled;
+            set => _systemMonitoringService.IsSystemMonitoringEnabled = value;
+        }
+
+        public string SystemUsageDisplay => _systemMonitoringService.SystemUsageDisplay;
+
+        public double CpuUsagePercent => _systemMonitoringService.CpuUsagePercent;
+        public double RamUsagePercent => _systemMonitoringService.RamUsagePercent;
+        public double GpuUsagePercent => _systemMonitoringService.GpuUsagePercent;
+
+        // --- Commands ---
+        public ICommand ToggleSystemMonitoringCommand { get; private set; }
+
         // --- Constructor ---
         public ExecutionStatusTrackingService()
         {
+            _systemMonitoringService = new SystemMonitoringService();
+
+            // Subscribe to system monitoring property changes
+            _systemMonitoringService.PropertyChanged += OnSystemMonitoringPropertyChanged;
+
             InitializeExecutionTimer();
+            InitializeCommands();
         }
 
         // --- Timer Methods ---
+        /// <summary>
+        /// Initialize commands for system monitoring
+        /// </summary>
+        private void InitializeCommands()
+        {
+            ToggleSystemMonitoringCommand = new Microsoft.Maui.Controls.Command(() => _systemMonitoringService.ToggleMonitoring());
+        }
+
+        /// <summary>
+        /// Handle property changes from the system monitoring service
+        /// </summary>
+        private void OnSystemMonitoringPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            // Forward relevant property change notifications
+            switch (e.PropertyName)
+            {
+                case nameof(SystemMonitoringService.IsSystemMonitoringEnabled):
+                    OnPropertyChanged(nameof(IsSystemMonitoringEnabled));
+                    break;
+                case nameof(SystemMonitoringService.SystemUsageDisplay):
+                    OnPropertyChanged(nameof(SystemUsageDisplay));
+                    break;
+                case nameof(SystemMonitoringService.CpuUsagePercent):
+                    OnPropertyChanged(nameof(CpuUsagePercent));
+                    break;
+                case nameof(SystemMonitoringService.RamUsagePercent):
+                    OnPropertyChanged(nameof(RamUsagePercent));
+                    break;
+                case nameof(SystemMonitoringService.GpuUsagePercent):
+                    OnPropertyChanged(nameof(GpuUsagePercent));
+                    break;
+            }
+        }
+
         /// <summary>
         /// Initialize the execution timer for tracking model execution duration
         /// </summary>
@@ -357,6 +415,13 @@ namespace CSimple.Services
             _executionTimer?.Stop();
             _executionTimer?.Dispose();
             _executionTimer = null;
+
+            // Dispose system monitoring service
+            if (_systemMonitoringService != null)
+            {
+                _systemMonitoringService.PropertyChanged -= OnSystemMonitoringPropertyChanged;
+                _systemMonitoringService.Dispose();
+            }
         }
     }
 }

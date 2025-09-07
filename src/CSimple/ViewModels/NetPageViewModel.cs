@@ -759,6 +759,158 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"❌ Error syncing model download states with disk: {ex.Message}");
             }
         }
+
+        private async Task DiscoverDownloadedModelsAsync()
+        {
+            try
+            {
+                string cacheDirectory = @"C:\Users\tanne\Documents\CSimple\Resources\HFModels";
+
+                if (!Directory.Exists(cacheDirectory))
+                {
+                    Debug.WriteLine($"📂 Model cache directory not found: {cacheDirectory}");
+                    return;
+                }
+
+                var modelDirectories = Directory.GetDirectories(cacheDirectory);
+                Debug.WriteLine($"🔍 Found {modelDirectories.Length} directories in model cache");
+
+                int addedCount = 0;
+
+                foreach (var modelDir in modelDirectories)
+                {
+                    var dirName = Path.GetFileName(modelDir);
+
+                    // Skip if directory is too small (less than 5KB)
+                    long totalSize = GetDirectorySize(modelDir);
+                    if (totalSize <= 5120)
+                    {
+                        continue;
+                    }
+
+                    // Convert directory name back to model ID
+                    string modelId = ConvertDirectoryNameToModelId(dirName);
+
+                    if (string.IsNullOrEmpty(modelId))
+                    {
+                        continue;
+                    }
+
+                    // Check if this model is already in our collection
+                    bool alreadyExists = AvailableModels.Any(m =>
+                        string.Equals(m.HuggingFaceModelId, modelId, StringComparison.OrdinalIgnoreCase));
+
+                    if (!alreadyExists)
+                    {
+                        // Create a new model entry for this discovered model
+                        var discoveredModel = new NeuralNetworkModel
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Name = GetFriendlyModelName(modelId),
+                            HuggingFaceModelId = modelId,
+                            Type = ModelType.General, // Default type, could be improved with better detection
+                            IsDownloaded = true,
+                            IsActive = false,
+                            DownloadButtonText = "Remove from Device",
+                            InputType = GuessInputTypeFromModelId(modelId)
+                        };
+
+                        MainThread.BeginInvokeOnMainThread(() =>
+                        {
+                            AvailableModels.Add(discoveredModel);
+                        });
+
+                        addedCount++;
+                        Debug.WriteLine($"📥 Discovered and added model: {modelId} ({totalSize:N0} bytes)");
+                    }
+                }
+
+                if (addedCount > 0)
+                {
+                    Debug.WriteLine($"✅ Discovered and added {addedCount} previously unknown downloaded models");
+                    // Save the updated model collection
+                    await SaveModelStatesAsync();
+                }
+                else
+                {
+                    Debug.WriteLine($"ℹ️ No new downloaded models discovered");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ Error discovering downloaded models: {ex.Message}");
+            }
+        }
+
+        private string ConvertDirectoryNameToModelId(string dirName)
+        {
+            try
+            {
+                // Handle "models--org--model" format
+                if (dirName.StartsWith("models--") && dirName.Contains("--"))
+                {
+                    var parts = dirName.Substring(8).Split(new[] { "--" }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 2)
+                    {
+                        return string.Join("/", parts);
+                    }
+                }
+
+                // Handle "org_model" format
+                if (dirName.Contains("_"))
+                {
+                    return dirName.Replace("_", "/");
+                }
+
+                // Handle simple model names without organization
+                return dirName;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private ModelInputType GuessInputTypeFromModelId(string modelId)
+        {
+            if (string.IsNullOrEmpty(modelId))
+                return ModelInputType.Text;
+
+            var lowerModelId = modelId.ToLowerInvariant();
+
+            // Image models
+            if (lowerModelId.Contains("vision") || lowerModelId.Contains("image") ||
+                lowerModelId.Contains("clip") || lowerModelId.Contains("vit") ||
+                lowerModelId.Contains("resnet") || lowerModelId.Contains("convnext"))
+            {
+                return ModelInputType.Image;
+            }
+
+            // Audio models
+            if (lowerModelId.Contains("whisper") || lowerModelId.Contains("audio") ||
+                lowerModelId.Contains("speech") || lowerModelId.Contains("wav2vec") ||
+                lowerModelId.Contains("hubert"))
+            {
+                return ModelInputType.Audio;
+            }
+
+            // Default to text for most models
+            return ModelInputType.Text;
+        }
+
+        private string GetFriendlyModelName(string modelId)
+        {
+            if (string.IsNullOrEmpty(modelId))
+                return "Unknown Model";
+
+            // Extract just the model name from org/model format
+            var parts = modelId.Split('/');
+            var modelName = parts.Length > 1 ? parts.Last() : modelId;
+
+            // Convert to friendly format
+            return modelName.Replace("-", " ").Replace("_", " ");
+        }
+
         private void UpdateAllModelsDownloadButtonText()
         {
             foreach (var model in AvailableModels)
@@ -950,6 +1102,9 @@ namespace CSimple.ViewModels
 
             // Load available pipelines from OrientPage
             await RefreshPipelinesAsync();
+
+            // Discover and add any downloaded models that aren't in the collection yet
+            await DiscoverDownloadedModelsAsync();
 
             // Refresh downloaded models list to sync UI with actual disk state
             // This will correct any discrepancies between saved states and actual files on disk
@@ -1937,10 +2092,25 @@ namespace CSimple.ViewModels
                                 }
                             }
 
-                            // Restore download state
-                            if (downloadStates.TryGetValue(model.Id, out bool isDownloaded))
+                            // Restore download state - but verify against actual disk state
+                            if (downloadStates.TryGetValue(model.Id, out bool persistedDownloadState))
                             {
-                                model.IsDownloaded = isDownloaded;
+                                // Check actual disk state for this model
+                                bool actualDiskState = IsModelDownloaded(model.HuggingFaceModelId ?? model.Id);
+
+                                // Use actual disk state, not persisted state
+                                model.IsDownloaded = actualDiskState;
+
+                                // Log discrepancies for debugging
+                                if (persistedDownloadState != actualDiskState)
+                                {
+                                    Debug.WriteLine($"🔄 Model '{model.Name}' download state corrected: persisted={persistedDownloadState}, actual={actualDiskState}");
+                                }
+                            }
+                            else
+                            {
+                                // No persisted state, check disk directly
+                                model.IsDownloaded = IsModelDownloaded(model.HuggingFaceModelId ?? model.Id);
                             }
                         }
                     }
@@ -1948,6 +2118,9 @@ namespace CSimple.ViewModels
 
                 // Update UI properties
                 OnPropertyChanged(nameof(ActiveModelsCount));
+
+                // Update all download button texts to reflect actual disk states
+                UpdateAllModelsDownloadButtonText();
 
                 Debug.WriteLine($"🔄 Loaded model states for {activationStates.Count} activation states and {downloadStates.Count} download states");
             }
@@ -1988,13 +2161,6 @@ namespace CSimple.ViewModels
             return result.OrderBy(f => f.Length).Take(5).ToList();
         }
 
-        private string GetFriendlyModelName(string modelId)
-        {
-            // Logic moved from NetPage.xaml.cs
-            var name = modelId.Contains('/') ? modelId.Split('/').Last() : modelId;
-            name = name.Replace("-", " ").Replace("_", " ");
-            return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name);
-        }
         private string GetModelDirectoryPath(string modelId)
         {
             string safeModelId = (modelId ?? "unknown_model").Replace("/", "_").Replace("\\", "_");

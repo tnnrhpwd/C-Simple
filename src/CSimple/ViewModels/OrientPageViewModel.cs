@@ -277,6 +277,23 @@ namespace CSimple.ViewModels
 
         public ObservableCollection<ExecutionGroupInfo> ExecutionGroups => _executionStatusTrackingService.ExecutionGroups;
 
+        // --- System Monitoring Properties (Delegated to ExecutionStatusTrackingService) ---
+        public bool IsSystemMonitoringEnabled
+        {
+            get => _executionStatusTrackingService.IsSystemMonitoringEnabled;
+            set => _executionStatusTrackingService.IsSystemMonitoringEnabled = value;
+        }
+
+        public string SystemUsageDisplay => _executionStatusTrackingService.SystemUsageDisplay;
+
+        public double CpuUsagePercent => _executionStatusTrackingService.CpuUsagePercent;
+
+        public double RamUsagePercent => _executionStatusTrackingService.RamUsagePercent;
+
+        public double GpuUsagePercent => _executionStatusTrackingService.GpuUsagePercent;
+
+        public ICommand ToggleSystemMonitoringCommand => _executionStatusTrackingService.ToggleSystemMonitoringCommand;
+
         // Automated action simulation toggle state (for Action-classified model nodes)
         private bool _actionsEnabled = false;
         public bool ActionsEnabled
@@ -1037,7 +1054,9 @@ namespace CSimple.ViewModels
                 // Update the node properties to match the new model
                 SelectedNode.Name = newModel.Name;
                 SelectedNode.OriginalModelId = newModel.Id;
-                SelectedNode.DataType = "text"; // Default to text for HuggingFace models
+                SelectedNode.ModelPath = newModel.Id; // Set ModelPath to the new model's ID
+                SelectedNode.OriginalName = newModel.Name; // Set OriginalName to the new model's name
+                SelectedNode.DataType = DetermineDataTypeFromName(newModel.Name); // Set DataType based on the new model's name
 
                 // Preserve classification and custom text if the new model is also a text model
                 if (SelectedNode.IsTextModel)
@@ -1057,6 +1076,9 @@ namespace CSimple.ViewModels
                 }
 
                 Debug.WriteLine($"🔄 [ChangeNodeType] Successfully changed node to '{newModel.Name}', preserving {currentConnections.Count} connections");
+
+                // CRITICAL: Ensure the new model is available in NetPageViewModel for execution
+                await EnsureModelAvailableForExecution(newModel);
 
                 // Save the pipeline and refresh the display
                 await SaveCurrentPipelineAsync();
@@ -1406,6 +1428,90 @@ namespace CSimple.ViewModels
 
             // Fallback to the provided parameter if the Application instance isn't available
             return _nodeManagementService.FindCorrespondingModel(netPageVM?.AvailableModels, node);
+        }
+
+        /// <summary>
+        /// Ensures that a HuggingFaceModel from the dropdown is available as a NeuralNetworkModel in NetPageViewModel for execution
+        /// </summary>
+        private Task EnsureModelAvailableForExecution(CSimple.Models.HuggingFaceModel huggingFaceModel)
+        {
+            try
+            {
+                var netPageVM = ((App)Application.Current)?.NetPageViewModel;
+                if (netPageVM?.AvailableModels == null)
+                {
+                    Debug.WriteLine($"⚠️ [EnsureModelAvailableForExecution] NetPageViewModel or AvailableModels is null");
+                    return Task.CompletedTask;
+                }
+
+                // Check if the model already exists in NetPageViewModel.AvailableModels
+                bool modelExists = netPageVM.AvailableModels.Any(m =>
+                    string.Equals(m.HuggingFaceModelId, huggingFaceModel.Id, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(m.Name, huggingFaceModel.Name, StringComparison.OrdinalIgnoreCase));
+
+                if (modelExists)
+                {
+                    Debug.WriteLine($"✅ [EnsureModelAvailableForExecution] Model '{huggingFaceModel.Name}' already exists in NetPageViewModel");
+                    return Task.CompletedTask;
+                }
+
+                // Convert HuggingFaceModel to NeuralNetworkModel and add it to NetPageViewModel
+                var neuralNetworkModel = new NeuralNetworkModel
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Name = huggingFaceModel.Name,
+                    HuggingFaceModelId = huggingFaceModel.Id,
+                    Type = huggingFaceModel.RecommendedModelType,
+                    IsDownloaded = netPageVM.IsModelDownloaded(huggingFaceModel.Id),
+                    IsActive = false, // Don't auto-activate, just make available for execution
+                    DownloadButtonText = netPageVM.IsModelDownloaded(huggingFaceModel.Id) ? "Remove from Device" : "Download to Device",
+                    InputType = DetermineInputTypeFromHuggingFaceModel(huggingFaceModel)
+                };
+
+                // Add to NetPageViewModel.AvailableModels on the main thread
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    netPageVM.AvailableModels.Add(neuralNetworkModel);
+                });
+
+                Debug.WriteLine($"✅ [EnsureModelAvailableForExecution] Added model '{huggingFaceModel.Name}' to NetPageViewModel for execution");
+
+                return Task.CompletedTask;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ [EnsureModelAvailableForExecution] Error ensuring model availability: {ex.Message}");
+                return Task.CompletedTask;
+            }
+        }
+
+        /// <summary>
+        /// Helper method to determine ModelInputType from HuggingFaceModel
+        /// </summary>
+        private ModelInputType DetermineInputTypeFromHuggingFaceModel(CSimple.Models.HuggingFaceModel model)
+        {
+            if (string.IsNullOrEmpty(model.Pipeline_tag))
+                return ModelInputType.Text; // Default
+
+            var tag = model.Pipeline_tag.ToLowerInvariant();
+            var modelName = (model.Name ?? model.Id ?? "").ToLowerInvariant();
+
+            // Image models
+            if (tag.Contains("image") || tag.Contains("vision") || tag.Contains("object-detection") ||
+                modelName.Contains("clip") || modelName.Contains("vit") || modelName.Contains("resnet"))
+            {
+                return ModelInputType.Image;
+            }
+
+            // Audio models  
+            if (tag.Contains("audio") || tag.Contains("speech") || tag.Contains("whisper") ||
+                modelName.Contains("wav2vec") || modelName.Contains("hubert"))
+            {
+                return ModelInputType.Audio;
+            }
+
+            // Default to text for most models
+            return ModelInputType.Text;
         }
 
         // --- Pipeline Execution Logic ---
