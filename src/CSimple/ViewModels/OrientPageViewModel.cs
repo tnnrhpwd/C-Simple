@@ -294,6 +294,37 @@ namespace CSimple.ViewModels
 
         public ICommand ToggleSystemMonitoringCommand => _executionStatusTrackingService.ToggleSystemMonitoringCommand;
 
+        // Raw Transcript properties
+        private bool _isRawTranscriptVisible = false;
+        public bool IsRawTranscriptVisible
+        {
+            get => _isRawTranscriptVisible;
+            set
+            {
+                if (_isRawTranscriptVisible != value)
+                {
+                    _isRawTranscriptVisible = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        private string _rawTranscript = "";
+        public string RawTranscript
+        {
+            get => _rawTranscript;
+            set
+            {
+                if (_rawTranscript != value)
+                {
+                    _rawTranscript = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public ICommand ToggleRawTranscriptCommand { get; private set; }
+
         // Automated action simulation toggle state (for Action-classified model nodes)
         private bool _actionsEnabled = false;
         public bool ActionsEnabled
@@ -612,6 +643,9 @@ namespace CSimple.ViewModels
 
             // Initialize ToggleConcurrentRenderCommand
             ToggleConcurrentRenderCommand = new Command(() => ConcurrentRenderEnabled = !ConcurrentRenderEnabled);
+
+            // Initialize ToggleRawTranscriptCommand
+            ToggleRawTranscriptCommand = new Command(() => IsRawTranscriptVisible = !IsRawTranscriptVisible);
 
             // Initialize SelectSaveFileCommand
             SelectSaveFileCommand = new Command(async () =>
@@ -1617,6 +1651,7 @@ namespace CSimple.ViewModels
         {
             _executionStatusTrackingService.InitializeExecutionStatus();
             ExecutionResults.Clear();
+            ClearRawTranscript();
             AddExecutionResult($"[{DateTime.Now:HH:mm:ss}] System initialized");
         }
 
@@ -1650,6 +1685,77 @@ namespace CSimple.ViewModels
             {
                 ExecutionResults.RemoveAt(0);
             }
+        }
+
+        /// Clear and reset raw transcript for new execution
+        private void ClearRawTranscript()
+        {
+            RawTranscript = "";
+        }
+
+        /// Collect raw transcript from all nodes in pipeline execution order
+        private void UpdateRawTranscript()
+        {
+            var transcript = new StringBuilder();
+            transcript.AppendLine($"=== Pipeline Execution Transcript ({DateTime.Now:yyyy-MM-dd HH:mm:ss}) ===\n");
+
+            // Group nodes by their execution order (assuming group field or similar logic)
+            var nodesByGroup = Nodes.Where(n => n.Type == NodeType.File || n.Type == NodeType.Model)
+                                  .GroupBy(n => GetNodeExecutionGroup(n))
+                                  .OrderBy(g => g.Key);
+
+            foreach (var group in nodesByGroup)
+            {
+                transcript.AppendLine($"--- Group {group.Key} Nodes ---");
+
+                foreach (var node in group.OrderBy(n => n.Name))
+                {
+                    if (node.Type == NodeType.File)
+                    {
+                        // For file nodes, show file name/path
+                        transcript.AppendLine($"[{node.Name}] File Input: {node.SaveFilePath ?? node.AudioFilePath ?? node.Name}");
+                    }
+                    else if (node.Type == NodeType.Model && node.ActionSteps.Any())
+                    {
+                        // For model nodes, show raw step content from ActionSteps
+                        transcript.AppendLine($"[{node.Name}] Raw Outputs:");
+                        for (int i = 0; i < node.ActionSteps.Count; i++)
+                        {
+                            var step = node.ActionSteps[i];
+                            transcript.AppendLine($"  Step {i + 1} ({step.Type}): {step.Value}");
+                        }
+                    }
+                    transcript.AppendLine(); // Add spacing between nodes
+                }
+                transcript.AppendLine(); // Add spacing between groups
+            }
+
+            RawTranscript = transcript.ToString();
+        }
+
+        /// Determine execution group for a node (simplified logic)
+        private int GetNodeExecutionGroup(NodeViewModel node)
+        {
+            // Simple heuristic: file nodes are group 0, model nodes are based on dependencies
+            if (node.Type == NodeType.File) return 0;
+
+            // For model nodes, count the maximum depth from file nodes
+            return CalculateNodeDepth(node);
+        }
+
+        /// Calculate execution depth of a node based on its dependencies
+        private int CalculateNodeDepth(NodeViewModel node)
+        {
+            if (node.Type == NodeType.File) return 0;
+
+            var incomingConnections = Connections.Where(c => c.TargetNodeId == node.Id).ToList();
+            if (!incomingConnections.Any()) return 1;
+
+            var sourceNodes = incomingConnections.Select(c => Nodes.FirstOrDefault(n => n.Id == c.SourceNodeId))
+                                                .Where(n => n != null);
+
+            var maxDepth = sourceNodes.Any() ? sourceNodes.Max(n => CalculateNodeDepth(n)) : 0;
+            return maxDepth + 1;
         }
 
         // ADDED: Method to calculate and update ensemble input counts for all nodes
@@ -2413,6 +2519,7 @@ namespace CSimple.ViewModels
                 ModelsExecutedCount = 0;
                 ExecutionProgress = 0;
                 ExecutionResults.Clear();
+                ClearRawTranscript();
 
                 // Reset all model nodes to Pending state for visual feedback
                 var allModelNodes = Nodes.Where(n => n.Type == NodeType.Model).ToList();
@@ -2588,6 +2695,9 @@ namespace CSimple.ViewModels
                 // Stop execution timer
                 _executionStatusTrackingService.StopExecutionTimer();
 
+                // Update raw transcript with execution results
+                UpdateRawTranscript();
+
                 // Complete any remaining group execution
                 if (CurrentExecutionGroup > 0)
                 {
@@ -2676,6 +2786,7 @@ namespace CSimple.ViewModels
                 ModelsExecutedCount = 0;
                 ExecutionProgress = 0;
                 ExecutionResults.Clear();
+                ClearRawTranscript();
                 _executionStatusTrackingService.StartExecutionTimer();
 
                 int totalSteps = currentActionItems.Count;
@@ -2809,6 +2920,9 @@ namespace CSimple.ViewModels
                 IsExecutingModels = false;
                 _executionStatusTrackingService.StopExecutionTimer();
 
+                // Update raw transcript with execution results
+                UpdateRawTranscript();
+
                 // Complete any remaining group execution
                 if (CurrentExecutionGroup > 0)
                 {
@@ -2888,6 +3002,9 @@ namespace CSimple.ViewModels
             finally
             {
                 IsExecutingModels = false;
+
+                // Update raw transcript with execution results
+                UpdateRawTranscript();
 
                 // Reset progress after delay
                 _ = Task.Run(async () =>
@@ -3196,6 +3313,7 @@ namespace CSimple.ViewModels
                 ModelsExecutedCount = 0;
                 ExecutionProgress = 0;
                 ExecutionResults.Clear();
+                ClearRawTranscript();
 
                 // Start execution timer
                 _executionStatusTrackingService.StartExecutionTimer();

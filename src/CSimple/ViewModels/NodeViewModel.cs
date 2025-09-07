@@ -50,6 +50,7 @@ namespace CSimple.ViewModels
         private string _goalText = ""; // Added for Goal classification text
         private string _planText = ""; // Added for Plan classification text  
         private string _actionText = ""; // Added for Action classification text
+        private string _appendText = ""; // Added for general text appending to all text model nodes
         private string _textToAudioPrompt = ""; // Added for text-to-audio prompt functionality
         private string _modelPath; // Added for model path storage
         private string _originalName; // Added to store name before classification suffix
@@ -201,6 +202,12 @@ namespace CSimple.ViewModels
             set => SetProperty(ref _actionText, value);
         }
 
+        public string AppendText
+        {
+            get => _appendText;
+            set => SetProperty(ref _appendText, value);
+        }
+
         public string TextToAudioPrompt
         {
             get => _textToAudioPrompt;
@@ -234,7 +241,7 @@ namespace CSimple.ViewModels
 
 
         // Modified Constructor to accept ID as string and handle OriginalName and SaveFilePath
-        public NodeViewModel(string id, string name, NodeType type, PointF position, string dataType = "unknown", string originalModelId = null, string modelPath = null, string classification = null, string originalName = null, string saveFilePath = null, string goalText = "", string planText = "", string actionText = "", string textToAudioPrompt = "", bool readAloudOnCompletion = false)
+        public NodeViewModel(string id, string name, NodeType type, PointF position, string dataType = "unknown", string originalModelId = null, string modelPath = null, string classification = null, string originalName = null, string saveFilePath = null, string goalText = "", string planText = "", string actionText = "", string appendText = "", string textToAudioPrompt = "", bool readAloudOnCompletion = false)
         {
             Id = id ?? Guid.NewGuid().ToString(); // Use provided ID or generate new
             Type = type;
@@ -249,6 +256,7 @@ namespace CSimple.ViewModels
             _goalText = goalText ?? ""; // Initialize goal text
             _planText = planText ?? ""; // Initialize plan text
             _actionText = actionText ?? ""; // Initialize action text
+            _appendText = appendText ?? ""; // Initialize append text
             _textToAudioPrompt = textToAudioPrompt ?? ""; // Initialize text-to-audio prompt
             _readAloudOnCompletion = readAloudOnCompletion; // Initialize read-aloud toggle
             Name = name; // Set initial name (might be updated immediately if classification exists)

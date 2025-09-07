@@ -36,6 +36,7 @@ namespace CSimple.Models
         public string GoalText { get; set; } // ADDED: Store goal text
         public string PlanText { get; set; } // ADDED: Store plan text  
         public string ActionText { get; set; } // ADDED: Store action text
+        public string AppendText { get; set; } // ADDED: Store general append text for all text model nodes
         public string OriginalName { get; set; } // ADDED: Store original name without classification
         public string SaveFilePath { get; set; } // ADDED: Store save file path for file nodes
         public List<(string Type, string Value)> ActionSteps { get; set; } = new List<(string, string)>(); // ADDED: Store generated outputs
@@ -60,6 +61,7 @@ namespace CSimple.Models
             GoalText = vm.GoalText; // Assign goal text
             PlanText = vm.PlanText; // Assign plan text
             ActionText = vm.ActionText; // Assign action text
+            AppendText = vm.AppendText; // Assign append text
             OriginalName = vm.OriginalName; // Assign OriginalName
             SaveFilePath = vm.SaveFilePath; // Assign SaveFilePath for file nodes
             ActionSteps = vm.ActionSteps?.ToList() ?? new List<(string, string)>(); // Copy ActionSteps
@@ -84,6 +86,7 @@ namespace CSimple.Models
                 this.GoalText, // Pass GoalText
                 this.PlanText, // Pass PlanText
                 this.ActionText, // Pass ActionText
+                this.AppendText ?? "", // Pass AppendText
                 "", // textToAudioPrompt - empty string default
                 this.ReadAloudOnCompletion // Pass ReadAloudOnCompletion
             )
