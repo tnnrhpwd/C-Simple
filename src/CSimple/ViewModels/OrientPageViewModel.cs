@@ -1712,17 +1712,98 @@ namespace CSimple.ViewModels
                 {
                     if (node.Type == NodeType.File)
                     {
-                        // For file nodes, show file name/path
-                        transcript.AppendLine($"[{node.Name}] File Input: {node.SaveFilePath ?? node.AudioFilePath ?? node.Name}");
+                        // For file nodes, show actual file content when possible
+                        transcript.AppendLine($"[{node.Name}] File Input:");
+                        var fileContent = GetFileContentForTranscript(node);
+                        transcript.AppendLine(fileContent);
                     }
                     else if (node.Type == NodeType.Model && node.ActionSteps.Any())
                     {
-                        // For model nodes, show raw step content from ActionSteps
+                        // For model nodes, show classification inputs and raw step content from ActionSteps
+                        transcript.AppendLine($"[{node.Name}] Model Inputs:");
+
+                        // Show classification-specific inputs
+                        if (!string.IsNullOrEmpty(node.GoalText))
+                            transcript.AppendLine($"  Goal Input: {node.GoalText}");
+                        if (!string.IsNullOrEmpty(node.PlanText))
+                            transcript.AppendLine($"  Plan Input: {node.PlanText}");
+                        if (!string.IsNullOrEmpty(node.ActionText))
+                            transcript.AppendLine($"  Action Input: {node.ActionText}");
+                        if (!string.IsNullOrEmpty(node.AppendText))
+                            transcript.AppendLine($"  Append Text: {node.AppendText}");
+
                         transcript.AppendLine($"[{node.Name}] Raw Outputs:");
                         for (int i = 0; i < node.ActionSteps.Count; i++)
                         {
                             var step = node.ActionSteps[i];
-                            transcript.AppendLine($"  Step {i + 1} ({step.Type}): {step.Value}");
+                            transcript.AppendLine($"  Step {i + 1} ({step.Type}):");
+
+                            // Show raw, uncleaned step content
+                            var rawContent = step.Value ?? "";
+
+                            // Handle different step types
+                            switch (step.Type?.ToLowerInvariant())
+                            {
+                                case "image":
+                                    // For image steps, try to find and display actual image files
+                                    var imageFiles = node.FindClosestImageFiles(rawContent, step.Type, null);
+                                    if (imageFiles?.Any() == true)
+                                    {
+                                        transcript.AppendLine($"    Images Found ({imageFiles.Count} files):");
+                                        foreach (var imageFile in imageFiles)
+                                        {
+                                            transcript.AppendLine($"      📷 {Path.GetFileName(imageFile)}");
+                                            transcript.AppendLine($"         Path: {imageFile}");
+                                            // Add image size info if possible
+                                            try
+                                            {
+                                                var fileInfo = new FileInfo(imageFile);
+                                                if (fileInfo.Exists)
+                                                {
+                                                    transcript.AppendLine($"         Size: {fileInfo.Length / 1024.0:F1} KB");
+                                                }
+                                            }
+                                            catch { /* Ignore file access errors */ }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        transcript.AppendLine($"    🖼️ Image step (no files found)");
+                                    }
+                                    // Also show raw content for debugging
+                                    if (!string.IsNullOrEmpty(rawContent))
+                                    {
+                                        transcript.AppendLine($"    Raw Content: {rawContent}");
+                                    }
+                                    break;
+
+                                case "audio":
+                                    transcript.AppendLine($"    🔊 Audio Content:");
+                                    transcript.AppendLine($"{IndentText(rawContent, "      ")}");
+                                    break;
+
+                                case "text":
+                                default:
+                                    // For text and other types, show full raw content without any cleaning
+                                    transcript.AppendLine($"    Raw Text Content:");
+                                    transcript.AppendLine($"{IndentText(rawContent, "      ")}");
+                                    break;
+                            }
+                        }
+
+                        // Also show any connected input nodes for context
+                        var inputConnections = Connections.Where(c => c.TargetNodeId == node.Id).ToList();
+                        if (inputConnections.Any())
+                        {
+                            transcript.AppendLine($"[{node.Name}] Connected Inputs:");
+                            foreach (var connection in inputConnections)
+                            {
+                                var sourceNode = Nodes.FirstOrDefault(n => n.Id == connection.SourceNodeId);
+                                if (sourceNode != null)
+                                {
+                                    transcript.AppendLine($"  ← {sourceNode.Name} ({sourceNode.Type})");
+                                }
+                            }
                         }
                     }
                     transcript.AppendLine(); // Add spacing between nodes
@@ -1733,7 +1814,89 @@ namespace CSimple.ViewModels
             RawTranscript = transcript.ToString();
         }
 
-        /// Determine execution group for a node (simplified logic)
+        /// Get actual file content for transcript display
+        private string GetFileContentForTranscript(NodeViewModel fileNode)
+        {
+            try
+            {
+                var filePath = fileNode.SaveFilePath ?? fileNode.AudioFilePath;
+                if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+                {
+                    return $"  File: {filePath ?? fileNode.Name} (file not found)";
+                }
+
+                var extension = Path.GetExtension(filePath).ToLowerInvariant();
+
+                // Handle different file types
+                switch (extension)
+                {
+                    case ".json":
+                        var jsonContent = File.ReadAllText(filePath);
+                        // Pretty print JSON if possible
+                        try
+                        {
+                            var formatted = JsonSerializer.Serialize(JsonSerializer.Deserialize<object>(jsonContent), new JsonSerializerOptions { WriteIndented = true });
+                            return $"  JSON Content:\n{IndentText(formatted, "    ")}";
+                        }
+                        catch
+                        {
+                            return $"  JSON Content (raw):\n{IndentText(jsonContent, "    ")}";
+                        }
+
+                    case ".txt":
+                    case ".md":
+                        var textContent = File.ReadAllText(filePath);
+                        return $"  Text Content:\n{IndentText(textContent, "    ")}";
+
+                    case ".jpg":
+                    case ".jpeg":
+                    case ".png":
+                    case ".bmp":
+                    case ".gif":
+                        return $"  Image File: {Path.GetFileName(filePath)} ({extension.ToUpper()})";
+
+                    case ".wav":
+                    case ".mp3":
+                    case ".m4a":
+                    case ".ogg":
+                        return $"  Audio File: {Path.GetFileName(filePath)} ({extension.ToUpper()})";
+
+                    default:
+                        // For unknown file types, try to read as text if small enough
+                        var fileInfo = new FileInfo(filePath);
+                        if (fileInfo.Length < 10000) // Less than 10KB
+                        {
+                            try
+                            {
+                                var content = File.ReadAllText(filePath);
+                                return $"  File Content:\n{IndentText(content, "    ")}";
+                            }
+                            catch
+                            {
+                                return $"  Binary File: {Path.GetFileName(filePath)} ({fileInfo.Length} bytes)";
+                            }
+                        }
+                        else
+                        {
+                            return $"  Large File: {Path.GetFileName(filePath)} ({fileInfo.Length} bytes)";
+                        }
+                }
+            }
+            catch (Exception ex)
+            {
+                return $"  Error reading file: {ex.Message}";
+            }
+        }
+
+        /// Helper method to indent text for better transcript formatting
+        private string IndentText(string text, string indent)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+
+            var lines = text.Split('\n');
+            var indentedLines = lines.Select(line => indent + line);
+            return string.Join('\n', indentedLines);
+        }        /// Determine execution group for a node (simplified logic)
         private int GetNodeExecutionGroup(NodeViewModel node)
         {
             // Simple heuristic: file nodes are group 0, model nodes are based on dependencies
