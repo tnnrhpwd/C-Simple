@@ -365,15 +365,17 @@
                         <Grid ColumnDefinitions="*,*"
                               ColumnSpacing="{StaticResource SpacingMedium}">
                             <!-- Recording Settings -->
-                            <Frame Grid.Column="0"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
-                                   CornerRadius="{StaticResource CornerRadiusSmall}"
-                                   Padding="{StaticResource CardContentPadding}">
+                            <Border Grid.Column="0"
+                                    BackgroundColor="Transparent"
+                                    Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                    StrokeThickness="2"
+                                    StrokeShape="RoundRectangle 8"
+                                    Padding="{StaticResource CardContentPadding}">
                                 <VerticalStackLayout Spacing="{StaticResource SpacingTiny}">
                                     <Label Text="Recording Settings"
                                            FontSize="{StaticResource FontSizeSmall}"
                                            FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                                     <Grid ColumnDefinitions="Auto,*"
                                           RowDefinitions="Auto,Auto"
                                           RowSpacing="4"
@@ -398,17 +400,19 @@
                                                VerticalOptions="Center" />
                                     </Grid>
                                 </VerticalStackLayout>
-                            </Frame>
+                            </Border>
                             <!-- Pipeline Status -->
-                            <Frame Grid.Column="1"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryExtraLight}, Dark={StaticResource SecondaryDark}}"
-                                   CornerRadius="{StaticResource CornerRadiusSmall}"
-                                   Padding="{StaticResource CardContentPadding}">
+                            <Border Grid.Column="1"
+                                    BackgroundColor="Transparent"
+                                    Stroke="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
+                                    StrokeThickness="2"
+                                    StrokeShape="RoundRectangle 8"
+                                    Padding="{StaticResource CardContentPadding}">
                                 <VerticalStackLayout Spacing="{StaticResource SpacingTiny}">
                                     <Label Text="Pipeline Status"
                                            FontSize="{StaticResource FontSizeSmall}"
                                            FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                                           TextColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}" />
                                     <Label Text="{Binding SelectedPipelineStatus}"
                                            FontSize="{StaticResource FontSizeCaption}"
                                            TextColor="{Binding PipelineStatusColor}" />
@@ -419,7 +423,7 @@
                                            FontSize="{StaticResource FontSizeCaption}"
                                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
                                 </VerticalStackLayout>
-                            </Frame>
+                            </Border>
                         </Grid>
                     </VerticalStackLayout>
                 </Frame>
@@ -434,48 +438,60 @@
                         <!-- Network Stats -->
                         <Grid ColumnDefinitions="*,*,*"
                               RowDefinitions="Auto,Auto">
-                            <Frame Grid.Column="0"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryExtraLight}, Dark={StaticResource PrimaryDark}}"
-                                   Padding="{StaticResource CardContentPadding}"
-                                   Margin="{StaticResource SpacingTiny}"
-                                   CornerRadius="{StaticResource CornerRadiusSmall}">
+                            <Border Grid.Column="0"
+                                    BackgroundColor="Transparent"
+                                    Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                    StrokeThickness="2"
+                                    StrokeShape="RoundRectangle 8"
+                                    Padding="{StaticResource CardContentPadding}"
+                                    Margin="{StaticResource SpacingTiny}">
                                 <VerticalStackLayout>
                                     <Label Text="Active Models"
-                                           FontSize="{StaticResource FontSizeCaption}" />
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                           FontAttributes="Bold" />
                                     <Label Text="{Binding ActiveModelsCount}"
                                            FontSize="{StaticResource FontSizeTitle}"
                                            HorizontalOptions="Center"
                                            TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                                 </VerticalStackLayout>
-                            </Frame>
-                            <Frame Grid.Column="1"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource ErrorLight}, Dark={StaticResource Error}}"
-                                   Padding="{StaticResource CardContentPadding}"
-                                   Margin="{StaticResource SpacingTiny}"
-                                   CornerRadius="{StaticResource CornerRadiusSmall}">
+                            </Border>
+                            <Border Grid.Column="1"
+                                    BackgroundColor="Transparent"
+                                    Stroke="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource Error}}"
+                                    StrokeThickness="2"
+                                    StrokeShape="RoundRectangle 8"
+                                    Padding="{StaticResource CardContentPadding}"
+                                    Margin="{StaticResource SpacingTiny}">
                                 <VerticalStackLayout>
                                     <Label Text="Available Models"
-                                           FontSize="{StaticResource FontSizeCaption}" />
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource Error}}"
+                                           FontAttributes="Bold" />
                                     <Label Text="{Binding AvailableModels.Count}"
                                            FontSize="{StaticResource FontSizeTitle}"
                                            HorizontalOptions="Center"
-                                           TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorLight}}" />
+                                           TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource Error}}" />
                                 </VerticalStackLayout>
-                            </Frame>
-                            <Frame Grid.Column="2"
-                                   BackgroundColor="{AppThemeBinding Light={StaticResource TertiaryLight}, Dark={StaticResource TertiaryDark}}"
-                                   Padding="{StaticResource CardContentPadding}"
-                                   Margin="{StaticResource SpacingTiny}"
-                                   CornerRadius="{StaticResource CornerRadiusSmall}">
+                            </Border>
+                            <Border Grid.Column="2"
+                                    BackgroundColor="Transparent"
+                                    Stroke="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
+                                    StrokeThickness="2"
+                                    StrokeShape="RoundRectangle 8"
+                                    Padding="{StaticResource CardContentPadding}"
+                                    Margin="{StaticResource SpacingTiny}">
                                 <VerticalStackLayout>
                                     <Label Text="Available Goals"
-                                           FontSize="{StaticResource FontSizeCaption}" />
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           TextColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
+                                           FontAttributes="Bold" />
                                     <Label Text="{Binding AvailableGoals.Count}"
                                            FontSize="{StaticResource FontSizeTitle}"
                                            HorizontalOptions="Center"
-                                           TextColor="{AppThemeBinding Light={StaticResource TertiaryDark}, Dark={StaticResource Tertiary}}" />
+                                           TextColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}" />
                                 </VerticalStackLayout>
-                            </Frame>
+                            </Border>
                         </Grid>
                         <!-- Active Models List -->
                         <Label Text="Currently Active Models"
