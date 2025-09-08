@@ -791,80 +791,80 @@
                             <Label Text="2. Curate Training Datasets"
                                    FontAttributes="Bold"
                                    FontSize="{StaticResource FontSizeSmall}" />
-                            <!-- Training Dataset -->
-                            <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                            <!-- Training Dataset (Required) -->
+                            <Grid ColumnDefinitions="*,Auto,Auto"
                                   ColumnSpacing="{StaticResource SpacingSmall}">
-                                <Label Grid.Column="0"
-                                       Text="Training"
-                                       VerticalOptions="Center"
-                                       FontSize="{StaticResource FontSizeSmall}" />
-                                <Label Grid.Column="1"
-                                       Text="{Binding TrainingDatasetPath, StringFormat='Dataset: {0}', TargetNullValue='No dataset selected'}"
-                                       VerticalOptions="Center"
-                                       FontSize="{StaticResource FontSizeSmall}"
-                                       LineBreakMode="TailTruncation" />
-                                <Button Grid.Column="2"
-                                        Text="Select File"
+                                <VerticalStackLayout Grid.Column="0"
+                                                     VerticalOptions="Center">
+                                    <Label Text="{Binding TrainingDatasetPath, TargetNullValue='No training dataset selected'}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           LineBreakMode="TailTruncation" />
+                                    <Label Text="Training dataset (required)"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           TextColor="{StaticResource TextSecondary}" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1"
+                                        Text="Select Training Dataset"
                                         Command="{Binding SelectTrainingDatasetCommand}"
                                         BackgroundColor="Transparent"
                                         BorderColor="{StaticResource Primary}"
                                         BorderWidth="2"
                                         TextColor="{StaticResource Primary}"
                                         FontSize="{StaticResource FontSizeSmall}"
-                                        WidthRequest="90" />
-                                <Button Grid.Column="3"
-                                        Text="Create"
+                                        WidthRequest="160" />
+                                <Button Grid.Column="2"
+                                        Text="Create New"
                                         Command="{Binding CreateDatasetCommand}"
                                         BackgroundColor="Transparent"
                                         BorderColor="{StaticResource Tertiary}"
                                         BorderWidth="2"
                                         TextColor="{StaticResource Tertiary}"
                                         FontSize="{StaticResource FontSizeSmall}"
-                                        WidthRequest="70" />
+                                        WidthRequest="100" />
                             </Grid>
                             <!-- Validation Dataset (Optional) -->
-                            <Grid ColumnDefinitions="Auto,*,Auto"
+                            <Grid ColumnDefinitions="*,Auto"
                                   ColumnSpacing="{StaticResource SpacingSmall}">
-                                <Label Grid.Column="0"
-                                       Text="Validation"
-                                       VerticalOptions="Center"
-                                       FontSize="{StaticResource FontSizeSmall}" />
-                                <Label Grid.Column="1"
-                                       Text="{Binding ValidationDatasetPath, StringFormat='Dataset: {0}', TargetNullValue='Optional - No dataset selected'}"
-                                       VerticalOptions="Center"
-                                       FontSize="{StaticResource FontSizeSmall}"
-                                       LineBreakMode="TailTruncation" />
-                                <Button Grid.Column="2"
-                                        Text="Select File"
+                                <VerticalStackLayout Grid.Column="0"
+                                                     VerticalOptions="Center">
+                                    <Label Text="{Binding ValidationDatasetPath, TargetNullValue='No validation dataset selected'}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           LineBreakMode="TailTruncation" />
+                                    <Label Text="Validation dataset (optional)"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           TextColor="{StaticResource TextSecondary}" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1"
+                                        Text="Select Validation Dataset"
                                         Command="{Binding SelectValidationDatasetCommand}"
                                         BackgroundColor="Transparent"
-                                        BorderColor="{StaticResource Primary}"
+                                        BorderColor="{StaticResource Secondary}"
                                         BorderWidth="2"
-                                        TextColor="{StaticResource Primary}"
+                                        TextColor="{StaticResource Secondary}"
                                         FontSize="{StaticResource FontSizeSmall}"
-                                        WidthRequest="90" />
+                                        WidthRequest="180" />
                             </Grid>
                             <!-- Test Dataset (Optional) -->
-                            <Grid ColumnDefinitions="Auto,*,Auto"
+                            <Grid ColumnDefinitions="*,Auto"
                                   ColumnSpacing="{StaticResource SpacingSmall}">
-                                <Label Grid.Column="0"
-                                       Text="Test"
-                                       VerticalOptions="Center"
-                                       FontSize="{StaticResource FontSizeSmall}" />
-                                <Label Grid.Column="1"
-                                       Text="{Binding TestDatasetPath, StringFormat='Dataset: {0}', TargetNullValue='Optional - No dataset selected'}"
-                                       VerticalOptions="Center"
-                                       FontSize="{StaticResource FontSizeCaption}"
-                                       LineBreakMode="TailTruncation" />
-                                <Button Grid.Column="2"
-                                        Text="Select File"
+                                <VerticalStackLayout Grid.Column="0"
+                                                     VerticalOptions="Center">
+                                    <Label Text="{Binding TestDatasetPath, TargetNullValue='No test dataset selected'}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           LineBreakMode="TailTruncation" />
+                                    <Label Text="Test dataset (optional)"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           TextColor="{StaticResource TextSecondary}" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1"
+                                        Text="Select Test Dataset"
                                         Command="{Binding SelectTestDatasetCommand}"
                                         BackgroundColor="Transparent"
-                                        BorderColor="{StaticResource Primary}"
+                                        BorderColor="{StaticResource Secondary}"
                                         BorderWidth="2"
-                                        TextColor="{StaticResource Primary}"
+                                        TextColor="{StaticResource Secondary}"
                                         FontSize="{StaticResource FontSizeSmall}"
-                                        WidthRequest="90" />
+                                        WidthRequest="160" />
                             </Grid>
                         </VerticalStackLayout>
                         <!-- Fine-Tuning Method -->
