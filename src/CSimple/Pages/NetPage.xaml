@@ -13,6 +13,7 @@
         <converters:StringFormatConverter x:Key="StringFormatConverter" />
         <converters:BoolConverter x:Key="BoolConverter" />
         <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
+        <converters:BoolToTextConverter x:Key="BoolToTextConverter" />
         <converters:ModelDownloadButtonTextConverter x:Key="ModelDownloadButtonTextConverter" />
         <converters:ModelInputTypeDisplayConverter x:Key="ModelInputTypeDisplayConverter" />
         <converters:EnumToDisplayStringConverter x:Key="EnumToDisplayStringConverter" />
@@ -51,7 +52,7 @@
                                 <Label Text="Active Models:"
                                        FontSize="{StaticResource FontSizeSmall}" />
                                 <Label Text="{Binding ActiveModelsCount, StringFormat='{0} models running'}"
-                                       TextColor="{Binding ActiveModelsCount, Converter={StaticResource IntToColorConverter}, ConverterParameter=0|{StaticResource Error}|{StaticResource Success}}" />
+                                       TextColor="{Binding ActiveModelsCount, Converter={StaticResource IntToColorConverter}, ConverterParameter=0|#C00|#4CAF50}" />
                             </VerticalStackLayout>
                         </Frame>
                         <!-- Pipeline Selector and Intelligence Toggle -->
@@ -203,14 +204,18 @@
                                     Text="Send"
                                     Command="{Binding SendGoalCommand}"
                                     CommandParameter="{Binding Source={x:Reference GoalTextInput}, Path=Text}"
-                                    BackgroundColor="{StaticResource Primary}"
-                                    TextColor="{StaticResource TextOnPrimary}"
+                                    BackgroundColor="Transparent"
+                                    BorderColor="{StaticResource Primary}"
+                                    BorderWidth="2"
+                                    TextColor="{StaticResource Primary}"
                                     IsEnabled="{Binding CanSendGoal}" />
                             <Button Grid.Column="2"
                                     Text="Clear"
                                     Command="{Binding ClearPipelineChatCommand}"
-                                    BackgroundColor="{StaticResource Error}"
-                                    TextColor="{StaticResource TextOnPrimary}"
+                                    BackgroundColor="Transparent"
+                                    BorderColor="{StaticResource Error}"
+                                    BorderWidth="2"
+                                    TextColor="{StaticResource Error}"
                                     FontSize="{StaticResource FontSizeSmall}" />
                         </Grid>
                         <!-- Media Input Options -->
@@ -228,28 +233,36 @@
                                                    Spacing="{StaticResource SpacingSmall}">
                                 <Button Text="Upload File"
                                         Command="{Binding SelectFileCommand}"
-                                        BackgroundColor="{StaticResource Primary}"
-                                        TextColor="{StaticResource TextOnPrimary}"
+                                        BackgroundColor="Transparent"
+                                        BorderColor="{StaticResource Primary}"
+                                        BorderWidth="2"
+                                        TextColor="{StaticResource Primary}"
                                         FontSize="{StaticResource FontSizeSmall}"
                                         WidthRequest="120" />
                                 <Button Text="📷 Image"
                                         Command="{Binding SelectImageCommand}"
-                                        BackgroundColor="{StaticResource Secondary}"
-                                        TextColor="{StaticResource TextOnSecondary}"
+                                        BackgroundColor="Transparent"
+                                        BorderColor="{StaticResource Secondary}"
+                                        BorderWidth="2"
+                                        TextColor="{StaticResource Secondary}"
                                         FontSize="{StaticResource FontSizeSmall}"
                                         WidthRequest="80"
                                         IsVisible="{Binding SupportsImageInput}" />
                                 <Button Text="🎤 Audio"
                                         Command="{Binding SelectAudioCommand}"
-                                        BackgroundColor="{StaticResource Tertiary}"
-                                        TextColor="{StaticResource TextOnPrimary}"
+                                        BackgroundColor="Transparent"
+                                        BorderColor="{StaticResource Tertiary}"
+                                        BorderWidth="2"
+                                        TextColor="{StaticResource Tertiary}"
                                         FontSize="{StaticResource FontSizeSmall}"
                                         WidthRequest="80"
                                         IsVisible="{Binding SupportsAudioInput}" />
                                 <Button Text="🗑️ Clear"
                                         Command="{Binding ClearMediaCommand}"
-                                        BackgroundColor="{StaticResource Error}"
-                                        TextColor="{StaticResource TextOnPrimary}"
+                                        BackgroundColor="Transparent"
+                                        BorderColor="{StaticResource Error}"
+                                        BorderWidth="2"
+                                        TextColor="{StaticResource Error}"
                                         FontSize="{StaticResource FontSizeSmall}"
                                         WidthRequest="70"
                                         IsVisible="{Binding HasSelectedMedia}" />
@@ -485,8 +498,10 @@
                                         </VerticalStackLayout>
                                         <Button Grid.Column="1"
                                                 Text="Stop"
-                                                BackgroundColor="{StaticResource Error}"
-                                                TextColor="{StaticResource TextOnPrimary}"
+                                                BackgroundColor="Transparent"
+                                                BorderColor="{StaticResource Error}"
+                                                BorderWidth="2"
+                                                TextColor="{StaticResource Error}"
                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeactivateModelCommand}"
                                                 CommandParameter="{Binding .}"
                                                 VerticalOptions="Center" />
@@ -507,7 +522,7 @@
                             </CollectionView.ItemsLayout>
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="models:NeuralNetworkModel">
-                                    <Frame BorderColor="LightGray"
+                                    <Frame BorderColor="{AppThemeBinding Light={StaticResource MidGray}, Dark={StaticResource Background_Mid}}"
                                            Padding="{StaticResource CardContentPadding}"
                                            Margin="{StaticResource MarginTiny}"
                                            CornerRadius="{StaticResource CornerRadiusSmall}">
@@ -526,13 +541,13 @@
                                                            FontSize="{StaticResource FontSizeCaption}"
                                                            TextColor="{StaticResource TextSecondary}" />
                                                     <!-- Activation Status Indicator -->
-                                                    <Border BackgroundColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter=Green|LightGray}"
+                                                    <Border BackgroundColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#0078D4|#D3D3D3}"
                                                             WidthRequest="10"
                                                             HeightRequest="10"
                                                             StrokeShape="RoundRectangle 5"
                                                             ToolTipProperties.Text="{Binding IsActive, StringFormat='Active: {0}'}" />
                                                     <!-- Download Status Indicator -->
-                                                    <Border BackgroundColor="{Binding IsDownloaded, Converter={StaticResource BoolToColorConverter}, ConverterParameter=Blue|LightGray}"
+                                                    <Border BackgroundColor="{Binding IsDownloaded, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#2B0B98|#D3D3D3}"
                                                             WidthRequest="10"
                                                             HeightRequest="10"
                                                             StrokeShape="RoundRectangle 5"
@@ -540,10 +555,10 @@
                                                     <!-- Status Text Labels -->
                                                     <Label Text="{Binding IsActive, StringFormat='Active: {0}'}"
                                                            FontSize="{StaticResource FontSizeCaption}"
-                                                           TextColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter=Green|Gray}" />
+                                                           TextColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#0078D4|#808080}" />
                                                     <Label Text="{Binding IsDownloaded, StringFormat='Downloaded: {0}'}"
                                                            FontSize="{StaticResource FontSizeCaption}"
-                                                           TextColor="{Binding IsDownloaded, Converter={StaticResource BoolToColorConverter}, ConverterParameter=Blue|Gray}" />
+                                                           TextColor="{Binding IsDownloaded, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#2B0B98|#808080}" />
                                                 </StackLayout>
                                             </VerticalStackLayout>
                                             <!-- Input Type Dropdown -->
@@ -568,8 +583,10 @@
                                                 <Button Text="{Binding DownloadButtonText}"
                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=DownloadOrDeleteModelCommand}"
                                                         CommandParameter="{Binding .}"
-                                                        BackgroundColor="{StaticResource Secondary}"
-                                                        TextColor="{StaticResource TextOnSecondary}"
+                                                        BackgroundColor="Transparent"
+                                                        BorderColor="{StaticResource Primary}"
+                                                        BorderWidth="2"
+                                                        TextColor="{StaticResource Primary}"
                                                         IsVisible="{Binding IsHuggingFaceReference}"
                                                         WidthRequest="180"
                                                         HeightRequest="40" />
@@ -584,7 +601,7 @@
                                                        Margin="0,44,0,0">
                                                     <ProgressBar Progress="{Binding DownloadProgress}"
                                                                  ProgressColor="{StaticResource Primary}"
-                                                                 BackgroundColor="LightGray"
+                                                                 BackgroundColor="{AppThemeBinding Light={StaticResource NeutralLight}, Dark={StaticResource NeutralDark}}"
                                                                  HeightRequest="4" />
                                                 </Frame>
                                                 <!-- Download status label - positioned below progress bar -->
@@ -602,8 +619,10 @@
                                                     Text="Delete Ref"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=DeleteModelReferenceCommand}"
                                                     CommandParameter="{Binding .}"
-                                                    BackgroundColor="{StaticResource Error}"
-                                                    TextColor="{StaticResource TextOnPrimary}"
+                                                    BackgroundColor="Transparent"
+                                                    BorderColor="{StaticResource Error}"
+                                                    BorderWidth="2"
+                                                    TextColor="{StaticResource Error}"
                                                     VerticalOptions="Center"
                                                     IsVisible="{Binding IsHuggingFaceReference}" />
                                             <!-- Train/Refine Button -->
@@ -611,24 +630,30 @@
                                                     Text="Train"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=GoToOrientCommand}"
                                                     CommandParameter="{Binding .}"
-                                                    BackgroundColor="{StaticResource Tertiary}"
-                                                    TextColor="{StaticResource TextOnPrimary}"
+                                                    BackgroundColor="Transparent"
+                                                    BorderColor="{StaticResource Primary}"
+                                                    BorderWidth="2"
+                                                    TextColor="{StaticResource Primary}"
                                                     VerticalOptions="Center" />
                                             <!-- Activate/Deactivate Button with dynamic text and color -->
                                             <Button Grid.Column="5"
                                                     Text="{Binding IsActive, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Deactivate|Activate'}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ToggleModelActivationCommand}"
                                                     CommandParameter="{Binding .}"
-                                                    BackgroundColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter=Orange|{StaticResource Primary}}"
-                                                    TextColor="{StaticResource TextOnPrimary}"
+                                                    BackgroundColor="Transparent"
+                                                    BorderColor="{StaticResource Primary}"
+                                                    BorderWidth="2"
+                                                    TextColor="{StaticResource Primary}"
                                                     VerticalOptions="Center" />
                                             <!-- Open in File Explorer Button -->
                                             <Button Grid.Column="6"
                                                     Text="File Explorer"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=OpenModelInExplorerCommand}"
                                                     CommandParameter="{Binding .}"
-                                                    BackgroundColor="{StaticResource Tertiary}"
-                                                    TextColor="{StaticResource TextOnPrimary}"
+                                                    BackgroundColor="Transparent"
+                                                    BorderColor="{StaticResource Primary}"
+                                                    BorderWidth="2"
+                                                    TextColor="{StaticResource Primary}"
                                                     VerticalOptions="Center"
                                                     ToolTipProperties.Text="Open in File Explorer" />
                                         </Grid>
@@ -645,7 +670,7 @@
                                         EmptyView="No goals available.">
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="models:SpecificGoal">
-                                    <Frame BorderColor="LightGray"
+                                    <Frame BorderColor="{AppThemeBinding Light={StaticResource MidGray}, Dark={StaticResource Background_Mid}}"
                                            Padding="{StaticResource CardContentPadding}"
                                            Margin="{StaticResource MarginTiny}"
                                            CornerRadius="{StaticResource CornerRadiusSmall}">
@@ -660,8 +685,10 @@
                                                     Text="Load Goal"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.LoadSpecificGoalCommand}"
                                                     CommandParameter="{Binding .}"
-                                                    BackgroundColor="{StaticResource Secondary}"
-                                                    TextColor="{StaticResource TextOnSecondary}" />
+                                                    BackgroundColor="Transparent"
+                                                    BorderColor="{StaticResource Secondary}"
+                                                    BorderWidth="2"
+                                                    TextColor="{StaticResource Secondary}" />
                                         </Grid>
                                     </Frame>
                                 </DataTemplate>
@@ -671,32 +698,28 @@
                         <Label Text="Model Sharing"
                                FontAttributes="Bold"
                                Margin="{StaticResource MarginTopMedium}" />
-                        <Picker Title="Select Model to Share"
-                                ItemDisplayBinding="{Binding Name}"
-                                ItemsSource="{Binding AvailableModels}"
-                                x:Name="ShareModelPicker" />
                         <Grid ColumnDefinitions="*,*"
                               ColumnSpacing="{StaticResource SpacingSmall}">
                             <Button Grid.Column="0"
-                                    Text="Share Model"
+                                    Text="Share Local Model"
                                     Command="{Binding ShareModelCommand}"
-                                    CommandParameter="{Binding Source={x:Reference ShareModelPicker}, Path=SelectedItem}"
-                                    BackgroundColor="{StaticResource Tertiary}"
-                                    TextColor="{StaticResource TextOnPrimary}" />
+                                    BackgroundColor="Transparent"
+                                    BorderColor="{StaticResource Primary}"
+                                    BorderWidth="2"
+                                    TextColor="{StaticResource Primary}" />
                             <Button Grid.Column="1"
-                                    Text="Import Model"
+                                    Text="Import Local Model"
                                     Clicked="OnImportModelClicked"
                                     IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}"
-                                    BackgroundColor="{StaticResource Primary}"
-                                    TextColor="{StaticResource TextOnPrimary}" />
+                                    BackgroundColor="Transparent"
+                                    BorderColor="{StaticResource Primary}"
+                                    BorderWidth="2"
+                                    TextColor="{StaticResource Primary}" />
                         </Grid>
                         <ActivityIndicator IsRunning="{Binding IsLoading}"
                                            IsVisible="{Binding IsLoading}"
                                            HorizontalOptions="Center"
                                            Margin="{StaticResource MarginTopSmall}" />
-                        <Entry Placeholder="Enter share code to import model"
-                               Margin="{StaticResource MarginTopMedium}"
-                               IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}" />
                         <Label Text="HuggingFace Model Import"
                                FontAttributes="Bold"
                                Margin="{StaticResource MarginTopMedium}" />
@@ -708,18 +731,209 @@
                             <Button Grid.Column="1"
                                     Text="Search"
                                     Clicked="OnHuggingFaceSearchClicked"
-                                    BackgroundColor="{StaticResource Secondary}"
-                                    TextColor="{StaticResource TextOnPrimary}" />
+                                    BackgroundColor="Transparent"
+                                    BorderColor="{StaticResource Secondary}"
+                                    BorderWidth="2"
+                                    TextColor="{StaticResource Secondary}" />
                         </Grid>
-                        <Picker Title="Model Category"
-                                ItemsSource="{Binding HuggingFaceCategories}"
-                                SelectedItem="{Binding SelectedHuggingFaceCategory}"
-                                Margin="{StaticResource MarginTopSmall}" />
-                        <Button Text="Import from HuggingFace by ID"
-                                Clicked="OnImportFromHuggingFaceClicked"
-                                BackgroundColor="{StaticResource Success}"
-                                TextColor="{StaticResource TextOnPrimary}"
-                                Margin="{StaticResource MarginTopSmall}" />
+                    </VerticalStackLayout>
+                </Frame>
+                <!-- Model Training/Alignment Section -->
+                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                       CornerRadius="{StaticResource CornerRadiusLarge}"
+                       Padding="{StaticResource CardPadding}">
+                    <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
+                        <Label Text="Model Training &amp; Alignment"
+                               FontSize="{StaticResource FontSizeSubtitle}"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        <!-- Model Selection -->
+                        <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                            <Label Text="1. Select Pretrained Model (Text-to-Text only)"
+                                   FontAttributes="Bold"
+                                   FontSize="{StaticResource FontSizeSmall}" />
+                            <Grid ColumnDefinitions="*,Auto"
+                                  ColumnSpacing="{StaticResource SpacingSmall}">
+                                <Label Grid.Column="0"
+                                       Text="{Binding TrainingModelName}"
+                                       VerticalOptions="Center"
+                                       Padding="8"
+                                       BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
+                                       TextColor="{StaticResource TextSecondary}" />
+                                <Button Grid.Column="1"
+                                        Text="Select Model"
+                                        Command="{Binding SelectTrainingModelCommand}"
+                                        BackgroundColor="Transparent"
+                                        BorderColor="{StaticResource Secondary}"
+                                        BorderWidth="2"
+                                        TextColor="{StaticResource Secondary}"
+                                        WidthRequest="120" />
+                            </Grid>
+                        </VerticalStackLayout>
+                        <!-- Dataset Curation -->
+                        <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                            <Label Text="2. Curate Training Datasets"
+                                   FontAttributes="Bold"
+                                   FontSize="{StaticResource FontSizeSmall}" />
+                            <!-- Training Dataset -->
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                                  ColumnSpacing="{StaticResource SpacingSmall}">
+                                <Label Grid.Column="0"
+                                       Text="Training"
+                                       VerticalOptions="Center"
+                                       FontSize="{StaticResource FontSizeSmall}" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding TrainingDatasetPath, StringFormat='Dataset: {0}', TargetNullValue='No dataset selected'}"
+                                       VerticalOptions="Center"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       LineBreakMode="TailTruncation" />
+                                <Button Grid.Column="2"
+                                        Text="Select File"
+                                        Command="{Binding SelectTrainingDatasetCommand}"
+                                        BackgroundColor="Transparent"
+                                        BorderColor="{StaticResource Primary}"
+                                        BorderWidth="2"
+                                        TextColor="{StaticResource Primary}"
+                                        FontSize="{StaticResource FontSizeSmall}"
+                                        WidthRequest="90" />
+                                <Button Grid.Column="3"
+                                        Text="Create"
+                                        Command="{Binding CreateDatasetCommand}"
+                                        BackgroundColor="Transparent"
+                                        BorderColor="{StaticResource Tertiary}"
+                                        BorderWidth="2"
+                                        TextColor="{StaticResource Tertiary}"
+                                        FontSize="{StaticResource FontSizeSmall}"
+                                        WidthRequest="70" />
+                            </Grid>
+                            <!-- Validation Dataset (Optional) -->
+                            <Grid ColumnDefinitions="Auto,*,Auto"
+                                  ColumnSpacing="{StaticResource SpacingSmall}">
+                                <Label Grid.Column="0"
+                                       Text="Validation"
+                                       VerticalOptions="Center"
+                                       FontSize="{StaticResource FontSizeSmall}" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding ValidationDatasetPath, StringFormat='Dataset: {0}', TargetNullValue='Optional - No dataset selected'}"
+                                       VerticalOptions="Center"
+                                       FontSize="{StaticResource FontSizeSmall}"
+                                       LineBreakMode="TailTruncation" />
+                                <Button Grid.Column="2"
+                                        Text="Select File"
+                                        Command="{Binding SelectValidationDatasetCommand}"
+                                        BackgroundColor="Transparent"
+                                        BorderColor="{StaticResource Primary}"
+                                        BorderWidth="2"
+                                        TextColor="{StaticResource Primary}"
+                                        FontSize="{StaticResource FontSizeSmall}"
+                                        WidthRequest="90" />
+                            </Grid>
+                            <!-- Test Dataset (Optional) -->
+                            <Grid ColumnDefinitions="Auto,*,Auto"
+                                  ColumnSpacing="{StaticResource SpacingSmall}">
+                                <Label Grid.Column="0"
+                                       Text="Test"
+                                       VerticalOptions="Center"
+                                       FontSize="{StaticResource FontSizeSmall}" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding TestDatasetPath, StringFormat='Dataset: {0}', TargetNullValue='Optional - No dataset selected'}"
+                                       VerticalOptions="Center"
+                                       FontSize="{StaticResource FontSizeCaption}"
+                                       LineBreakMode="TailTruncation" />
+                                <Button Grid.Column="2"
+                                        Text="Select File"
+                                        Command="{Binding SelectTestDatasetCommand}"
+                                        BackgroundColor="Transparent"
+                                        BorderColor="{StaticResource Primary}"
+                                        BorderWidth="2"
+                                        TextColor="{StaticResource Primary}"
+                                        FontSize="{StaticResource FontSizeSmall}"
+                                        WidthRequest="90" />
+                            </Grid>
+                        </VerticalStackLayout>
+                        <!-- Fine-Tuning Method -->
+                        <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                            <Label Text="3. Choose Fine-Tuning Method"
+                                   FontAttributes="Bold"
+                                   FontSize="{StaticResource FontSizeSmall}" />
+                            <Picker ItemsSource="{Binding FineTuningMethods}"
+                                    SelectedItem="{Binding SelectedFineTuningMethod}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}" />
+                        </VerticalStackLayout>
+                        <!-- Hyperparameters -->
+                        <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                            <Label Text="4. Set Hyperparameters"
+                                   FontAttributes="Bold"
+                                   FontSize="{StaticResource FontSizeSmall}" />
+                            <Grid ColumnDefinitions="*,*,*"
+                                  ColumnSpacing="{StaticResource SpacingMedium}">
+                                <VerticalStackLayout Grid.Column="0">
+                                    <Label Text="Learning Rate"
+                                           FontSize="{StaticResource FontSizeCaption}" />
+                                    <Entry Text="{Binding LearningRate}"
+                                           Keyboard="Numeric"
+                                           FontSize="{StaticResource FontSizeSmall}" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1">
+                                    <Label Text="Epochs"
+                                           FontSize="{StaticResource FontSizeCaption}" />
+                                    <Entry Text="{Binding Epochs}"
+                                           Keyboard="Numeric"
+                                           FontSize="{StaticResource FontSizeSmall}" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="2">
+                                    <Label Text="Batch Size"
+                                           FontSize="{StaticResource FontSizeCaption}" />
+                                    <Entry Text="{Binding BatchSize}"
+                                           Keyboard="Numeric"
+                                           FontSize="{StaticResource FontSizeSmall}" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </VerticalStackLayout>
+                        <!-- New Model Name -->
+                        <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                            <Label Text="5. Name Your Aligned Model"
+                                   FontAttributes="Bold"
+                                   FontSize="{StaticResource FontSizeSmall}" />
+                            <Grid ColumnDefinitions="*,Auto"
+                                  ColumnSpacing="{StaticResource SpacingSmall}">
+                                <Entry Grid.Column="0"
+                                       Text="{Binding NewModelName}"
+                                       Placeholder="Enter name for the new aligned model..."
+                                       BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}" />
+                                <Button Grid.Column="1"
+                                        Text="{Binding IsTraining, Converter={StaticResource BoolToTextConverter}, ConverterParameter=Stop Training|Start Training}"
+                                        Command="{Binding ToggleTrainingCommand}"
+                                        IsEnabled="{Binding CanToggleTraining}"
+                                        BackgroundColor="Transparent"
+                                        BorderColor="{Binding IsTraining, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#C00|#4CAF50}"
+                                        BorderWidth="2"
+                                        TextColor="{Binding IsTraining, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#C00|#4CAF50}"
+                                        WidthRequest="120" />
+                            </Grid>
+                        </VerticalStackLayout>
+                        <!-- Training Progress -->
+                        <Frame IsVisible="{Binding IsTraining}"
+                               BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
+                               CornerRadius="{StaticResource CornerRadiusSmall}"
+                               Padding="{StaticResource CardContentPadding}">
+                            <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                                <Label Text="Training Progress"
+                                       FontAttributes="Bold"
+                                       FontSize="{StaticResource FontSizeSmall}" />
+                                <ProgressBar Progress="{Binding TrainingProgress}"
+                                             ProgressColor="{StaticResource Primary}"
+                                             BackgroundColor="{AppThemeBinding Light={StaticResource NeutralLight}, Dark={StaticResource NeutralDark}}" />
+                                <Label Text="{Binding TrainingStatusDisplay}"
+                                       FontSize="{StaticResource FontSizeCaption}"
+                                       HorizontalOptions="Center" />
+                            </VerticalStackLayout>
+                        </Frame>
+                        <!-- Training Status -->
+                        <Label Text="{Binding TrainingStatus}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                               HorizontalOptions="Center" />
                     </VerticalStackLayout>
                 </Frame>
                 <!-- Safety & Security -->
@@ -759,8 +973,10 @@
                                     OnColor="{StaticResource Primary}" />
                         </Grid>
                         <Button Text="Reset Permissions"
-                                BackgroundColor="{StaticResource Error}"
-                                TextColor="{StaticResource TextOnPrimary}"
+                                BackgroundColor="Transparent"
+                                BorderColor="{StaticResource Error}"
+                                BorderWidth="2"
+                                TextColor="{StaticResource Error}"
                                 Margin="{StaticResource MarginTopMedium}" />
                     </VerticalStackLayout>
                 </Frame>

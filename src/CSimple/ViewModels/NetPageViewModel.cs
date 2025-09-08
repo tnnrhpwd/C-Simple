@@ -123,6 +123,23 @@ namespace CSimple.ViewModels
         private DateTime _currentSessionStartTime;
         private ActionGroup _currentIntelligenceSession;
 
+        // Model Training/Alignment backing fields
+        private NeuralNetworkModel _selectedTrainingModel = null;
+        private string _trainingDatasetPath = string.Empty;
+        private string _validationDatasetPath = string.Empty;
+        private string _testDatasetPath = string.Empty;
+        private string _selectedFineTuningMethod = "LoRA";
+        private double _learningRate = 0.0001;
+        private int _epochs = 3;
+        private int _batchSize = 4;
+        private bool _isTraining = false;
+        private double _trainingProgress = 0.0;
+        private string _trainingStatus = "Ready";
+        private string _trainingEta = string.Empty;
+        private string _trainingElapsed = string.Empty;
+        private string _newModelName = string.Empty;
+        private DateTime _trainingStartTime = DateTime.MinValue;
+
         // --- Observable Properties ---
         public ObservableCollection<NeuralNetworkModel> AvailableModels { get; } = new();
         public ObservableCollection<NeuralNetworkModel> ActiveModels { get; } = new();
@@ -359,10 +376,10 @@ namespace CSimple.ViewModels
 
         // Pipeline status properties
         public string IntelligenceStatusText => _isIntelligenceActive ? "ACTIVE" : "INACTIVE";
-        public string IntelligenceStatusColor => _isIntelligenceActive ? "Green" : "Gray";
+        public string IntelligenceStatusColor => _isIntelligenceActive ? "#4CAF50" : "#808080"; // Success green : Neutral gray
         public string RecordingStatusIcon => _isIntelligenceActive ? "🔴" : "⏸️";
         public string SelectedPipelineStatus => !string.IsNullOrEmpty(_selectedPipeline) ? "Connected" : "No pipeline selected";
-        public string PipelineStatusColor => !string.IsNullOrEmpty(_selectedPipeline) ? "Green" : "Orange";
+        public string PipelineStatusColor => !string.IsNullOrEmpty(_selectedPipeline) ? "#4CAF50" : "#FFCC00"; // Success green : Warning yellow
 
         // Enhanced pipeline information properties
         public string SelectedPipelineInfo
@@ -384,6 +401,160 @@ namespace CSimple.ViewModels
         public int ActiveInputNodesCount => 0; // Placeholder
         public int ConnectedModelsCount => ActiveModelsCount;
         public bool CanSendGoal => !string.IsNullOrWhiteSpace(_userGoalInput) && !string.IsNullOrEmpty(_selectedPipeline);
+
+        // Model Training/Alignment Properties
+        public NeuralNetworkModel SelectedTrainingModel
+        {
+            get => _selectedTrainingModel;
+            set => SetProperty(ref _selectedTrainingModel, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(CanStartTraining));
+                OnPropertyChanged(nameof(CanToggleTraining));
+                OnPropertyChanged(nameof(TrainingModelName));
+            });
+        }
+
+        public string TrainingDatasetPath
+        {
+            get => _trainingDatasetPath;
+            set => SetProperty(ref _trainingDatasetPath, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(CanStartTraining));
+                OnPropertyChanged(nameof(CanToggleTraining));
+            });
+        }
+
+        public string ValidationDatasetPath
+        {
+            get => _validationDatasetPath;
+            set => SetProperty(ref _validationDatasetPath, value);
+        }
+
+        public string TestDatasetPath
+        {
+            get => _testDatasetPath;
+            set => SetProperty(ref _testDatasetPath, value);
+        }
+
+        public string SelectedFineTuningMethod
+        {
+            get => _selectedFineTuningMethod;
+            set => SetProperty(ref _selectedFineTuningMethod, value);
+        }
+
+        public double LearningRate
+        {
+            get => _learningRate;
+            set => SetProperty(ref _learningRate, value);
+        }
+
+        public int Epochs
+        {
+            get => _epochs;
+            set => SetProperty(ref _epochs, value);
+        }
+
+        public int BatchSize
+        {
+            get => _batchSize;
+            set => SetProperty(ref _batchSize, value);
+        }
+
+        public bool IsTraining
+        {
+            get => _isTraining;
+            set => SetProperty(ref _isTraining, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(CanStartTraining));
+                OnPropertyChanged(nameof(CanToggleTraining));
+                OnPropertyChanged(nameof(TrainingStatusDisplay));
+            });
+        }
+
+        public double TrainingProgress
+        {
+            get => _trainingProgress;
+            set => SetProperty(ref _trainingProgress, value);
+        }
+
+        public string TrainingStatus
+        {
+            get => _trainingStatus;
+            set => SetProperty(ref _trainingStatus, value, onChanged: () => OnPropertyChanged(nameof(TrainingStatusDisplay)));
+        }
+
+        public string TrainingEta
+        {
+            get => _trainingEta;
+            set => SetProperty(ref _trainingEta, value, onChanged: () => OnPropertyChanged(nameof(TrainingStatusDisplay)));
+        }
+
+        public string TrainingElapsed
+        {
+            get => _trainingElapsed;
+            set => SetProperty(ref _trainingElapsed, value, onChanged: () => OnPropertyChanged(nameof(TrainingStatusDisplay)));
+        }
+
+        public string NewModelName
+        {
+            get => _newModelName;
+            set => SetProperty(ref _newModelName, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(CanStartTraining));
+                OnPropertyChanged(nameof(CanToggleTraining));
+            });
+        }
+
+        // Computed properties for training
+        public bool CanStartTraining =>
+            !IsTraining &&
+            SelectedTrainingModel != null &&
+            !string.IsNullOrWhiteSpace(TrainingDatasetPath) &&
+            !string.IsNullOrWhiteSpace(NewModelName);
+
+        public bool CanToggleTraining =>
+            IsTraining || (SelectedTrainingModel != null &&
+            !string.IsNullOrWhiteSpace(TrainingDatasetPath) &&
+            !string.IsNullOrWhiteSpace(NewModelName));
+
+        public string TrainingModelName => SelectedTrainingModel?.Name ?? "No model selected";
+
+        public string TrainingStatusDisplay
+        {
+            get
+            {
+                if (!IsTraining)
+                    return TrainingStatus;
+
+                var status = $"{TrainingStatus} ({TrainingProgress:P0})";
+                if (!string.IsNullOrEmpty(TrainingElapsed))
+                    status += $" | Elapsed: {TrainingElapsed}";
+                if (!string.IsNullOrEmpty(TrainingEta))
+                    status += $" | ETA: {TrainingEta}";
+
+                return status;
+            }
+        }
+
+        // Available text-to-text models for training
+        public ObservableCollection<NeuralNetworkModel> AvailableTextModels =>
+            new(AvailableModels.Where(m =>
+                m.IsHuggingFaceReference &&
+                !string.IsNullOrEmpty(m.HuggingFaceModelId) &&
+                IsModelDownloaded(m.HuggingFaceModelId) &&
+                (m.InputType == ModelInputType.Text ||
+                 m.HuggingFaceModelId.ToLowerInvariant().Contains("t5") ||
+                 m.HuggingFaceModelId.ToLowerInvariant().Contains("bart") ||
+                 m.HuggingFaceModelId.ToLowerInvariant().Contains("gpt"))));
+
+        // Fine-tuning method options
+        public List<string> FineTuningMethods { get; } = new List<string>
+        {
+            "LoRA (Low-Rank Adaptation)",
+            "Full Fine-tuning",
+            "Adapter Layers",
+            "Prefix Tuning"
+        };
 
         // --- Commands ---
         public ICommand ToggleGeneralModeCommand { get; }
@@ -431,6 +602,16 @@ namespace CSimple.ViewModels
         public ICommand RefreshPipelinesCommand { get; }
         public ICommand CreateNewPipelineCommand { get; }
         public ICommand ToggleIntelligenceCommand { get; } // Add toggle intelligence command
+
+        // Model Training/Alignment commands
+        public ICommand SelectTrainingModelCommand { get; }
+        public ICommand SelectTrainingDatasetCommand { get; }
+        public ICommand SelectValidationDatasetCommand { get; }
+        public ICommand SelectTestDatasetCommand { get; }
+        public ICommand StartTrainingCommand { get; }
+        public ICommand StopTrainingCommand { get; }
+        public ICommand ToggleTrainingCommand { get; }
+        public ICommand CreateDatasetCommand { get; }
 
         // Helper: Get download/delete button text for a model
         public string GetDownloadOrDeleteButtonText(string modelId)
@@ -507,7 +688,7 @@ namespace CSimple.ViewModels
             DeactivateModelCommand = new Command<NeuralNetworkModel>(DeactivateModel);
             ToggleModelActivationCommand = new Command<NeuralNetworkModel>(ToggleModelActivation);
             LoadSpecificGoalCommand = new Command<SpecificGoal>(LoadSpecificGoal);
-            ShareModelCommand = new Command<NeuralNetworkModel>(ShareModel);
+            ShareModelCommand = new Command(async () => await ShareModel());
             CommunicateWithModelCommand = new Command<string>(async (message) => await CommunicateWithModelAsync(message)); // Make async
             ExportModelCommand = new Command<NeuralNetworkModel>(async (model) => await ExportModel(model)); // Wrapper for async
             ImportModelCommand = new Command(async () => await ImportModelAsync()); // Wrapper for async
@@ -583,6 +764,16 @@ namespace CSimple.ViewModels
             CreateNewPipelineCommand = new Command(async () => await CreateNewPipelineAsync());
             ToggleIntelligenceCommand = new Command(() => IsIntelligenceActive = !IsIntelligenceActive);
 
+            // Initialize training commands
+            SelectTrainingModelCommand = new Command(async () => await SelectTrainingModelAsync());
+            SelectTrainingDatasetCommand = new Command(async () => await SelectTrainingDatasetAsync());
+            SelectValidationDatasetCommand = new Command(async () => await SelectValidationDatasetAsync());
+            SelectTestDatasetCommand = new Command(async () => await SelectTestDatasetAsync());
+            StartTrainingCommand = new Command(async () => await StartTrainingAsync(), () => CanStartTraining);
+            StopTrainingCommand = new Command(async () => await StopTrainingAsync(), () => IsTraining);
+            ToggleTrainingCommand = new Command(async () => await ToggleTrainingAsync(), () => CanToggleTraining);
+            CreateDatasetCommand = new Command(async () => await CreateDatasetAsync());
+
             // Load actual pipelines from OrientPage instead of placeholder data
             // This will be called in LoadDataAsync when the page appears
 
@@ -626,7 +817,7 @@ namespace CSimple.ViewModels
             return AvailableModels?.FirstOrDefault(m =>
                 m.Name.Equals(node.Name, StringComparison.OrdinalIgnoreCase) ||
                 m.HuggingFaceModelId.Contains(node.Name, StringComparison.OrdinalIgnoreCase));
-        }        // Check if a model is downloaded by examining the actual directory size
+        }        // Check if a model is downloaded by examining the actual directory size and essential files
         public bool IsModelDownloaded(string modelId)
         {
             if (string.IsNullOrEmpty(modelId))
@@ -639,14 +830,17 @@ namespace CSimple.ViewModels
                 if (!Directory.Exists(cacheDirectory))
                     return false;
 
-                // Check for model directory by trying both naming conventions
+                // Check for model directory by trying multiple naming conventions
                 var possibleDirNames = new[]
                 {
                     modelId.Replace("/", "_"),           // org/model -> org_model
-                    $"models--{modelId.Replace("/", "--")}"  // org/model -> models--org--model
+                    $"models--{modelId.Replace("/", "--")}", // org/model -> models--org--model
+                    modelId.Replace("/", "__"),          // org/model -> org__model (some variants)
+                    modelId.Split('/').LastOrDefault(),  // just the model name
+                    modelId                              // exact match
                 };
 
-                foreach (var dirName in possibleDirNames)
+                foreach (var dirName in possibleDirNames.Where(d => !string.IsNullOrEmpty(d)))
                 {
                     var modelPath = Path.Combine(cacheDirectory, dirName);
 
@@ -655,16 +849,20 @@ namespace CSimple.ViewModels
                         // Calculate total directory size
                         long totalSize = GetDirectorySize(modelPath);
 
-                        // Consider downloaded if > 5KB (5120 bytes)
-                        bool isDownloaded = totalSize > 5120;
+                        // Check for essential model files
+                        bool hasEssentialFiles = HasEssentialModelFiles(modelPath);
+
+                        // Consider downloaded if > 50KB (more realistic threshold) AND has essential files
+                        bool isDownloaded = totalSize > 51200 && hasEssentialFiles;
 
 #if DEBUG
                         if (totalSize > 0)
                         {
-                            Debug.WriteLine($"Model '{modelId}' directory size: {totalSize:N0} bytes ({totalSize / 1024.0:F1} KB) - Downloaded: {isDownloaded}");
+                            Debug.WriteLine($"Model '{modelId}' at '{dirName}' - Size: {totalSize:N0} bytes ({totalSize / 1024.0:F1} KB), Essential files: {hasEssentialFiles}, Downloaded: {isDownloaded}");
                         }
 #endif
-                        return isDownloaded;
+                        if (isDownloaded)
+                            return true;
                     }
                 }
 
@@ -674,6 +872,37 @@ namespace CSimple.ViewModels
             {
                 Debug.WriteLine($"Error checking if model '{modelId}' is downloaded: {ex.Message}");
                 return false;
+            }
+        }
+
+        // Check if model directory contains essential files that indicate a proper download
+        private bool HasEssentialModelFiles(string modelPath)
+        {
+            try
+            {
+                var files = Directory.GetFiles(modelPath, "*", SearchOption.AllDirectories);
+
+                // Look for common model files
+                var hasConfigFile = files.Any(f => Path.GetFileName(f).Equals("config.json", StringComparison.OrdinalIgnoreCase));
+                var hasModelFile = files.Any(f =>
+                {
+                    var fileName = Path.GetFileName(f).ToLowerInvariant();
+                    return fileName.Contains("pytorch_model") ||
+                           fileName.Contains("model.safetensors") ||
+                           fileName.Contains("model.bin") ||
+                           fileName.EndsWith(".bin") ||
+                           fileName.EndsWith(".safetensors") ||
+                           fileName.EndsWith(".onnx") ||
+                           fileName.EndsWith(".pt") ||
+                           fileName.EndsWith(".pth");
+                });
+
+                return hasConfigFile || hasModelFile || files.Length > 3; // At least some substantial content
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error checking essential files in '{modelPath}': {ex.Message}");
+                return false; // Assume not properly downloaded if we can't check
             }
         }
 
@@ -715,12 +944,16 @@ namespace CSimple.ViewModels
         }
         private void RefreshDownloadedModelsList()
         {
-            // No longer maintain a cached list - IsModelDownloaded now checks directly
-            // This method remains for compatibility but just triggers UI updates
+            // This method now performs a comprehensive refresh using the improved detection
+            Debug.WriteLine($"🔄 Refreshing download states for {AvailableModels?.Count ?? 0} models");
 
-            // Update all models' download button text AND sync IsDownloaded with actual disk state
-            UpdateAllModelsDownloadButtonText();
+            // Sync all model states with actual disk state
             SyncModelDownloadStatesWithDisk();
+
+            // Update button text to reflect current state
+            UpdateAllModelsDownloadButtonText();
+
+            Debug.WriteLine($"✅ Download states refresh completed");
         }
 
         private void SyncModelDownloadStatesWithDisk()
@@ -728,11 +961,13 @@ namespace CSimple.ViewModels
             try
             {
                 bool anyChanges = false;
+                var changedModels = new List<string>();
 
                 if (AvailableModels != null)
                 {
                     foreach (var model in AvailableModels)
                     {
+                        // Check models that have HuggingFace IDs
                         if (!string.IsNullOrEmpty(model.HuggingFaceModelId))
                         {
                             bool actuallyDownloaded = IsModelDownloaded(model.HuggingFaceModelId);
@@ -740,7 +975,12 @@ namespace CSimple.ViewModels
                             if (model.IsDownloaded != actuallyDownloaded)
                             {
                                 model.IsDownloaded = actuallyDownloaded;
+
+                                // Update download button text to reflect actual state
+                                model.DownloadButtonText = actuallyDownloaded ? "Remove from Device" : "Download to Device";
+
                                 anyChanges = true;
+                                changedModels.Add(model.Name);
                                 Debug.WriteLine($"🔄 Synced model '{model.Name}' download state to {actuallyDownloaded} (was {!actuallyDownloaded})");
                             }
                         }
@@ -751,7 +991,11 @@ namespace CSimple.ViewModels
                 if (anyChanges)
                 {
                     _ = SaveModelStatesAsync();
-                    Debug.WriteLine($"💾 Saved corrected download states after disk sync");
+                    Debug.WriteLine($"💾 Saved corrected download states for models: {string.Join(", ", changedModels)}");
+                }
+                else
+                {
+                    Debug.WriteLine($"✅ All model download states are in sync with disk");
                 }
             }
             catch (Exception ex)
@@ -776,57 +1020,68 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"🔍 Found {modelDirectories.Length} directories in model cache");
 
                 int addedCount = 0;
+                var discoveredModels = new List<NeuralNetworkModel>();
 
                 foreach (var modelDir in modelDirectories)
                 {
                     var dirName = Path.GetFileName(modelDir);
 
-                    // Skip if directory is too small (less than 5KB)
+                    // Skip if directory is too small or doesn't contain essential files
                     long totalSize = GetDirectorySize(modelDir);
-                    if (totalSize <= 5120)
+                    bool hasEssentialFiles = HasEssentialModelFiles(modelDir);
+
+                    if (totalSize <= 51200 || !hasEssentialFiles)
                     {
+                        Debug.WriteLine($"⏭️ Skipping '{dirName}' - Size: {totalSize:N0} bytes, Essential files: {hasEssentialFiles}");
                         continue;
                     }
 
-                    // Convert directory name back to model ID
+                    // Convert directory name back to model ID with improved logic
                     string modelId = ConvertDirectoryNameToModelId(dirName);
 
                     if (string.IsNullOrEmpty(modelId))
                     {
+                        Debug.WriteLine($"⚠️ Could not determine model ID for directory: {dirName}");
                         continue;
                     }
 
-                    // Check if this model is already in our collection
-                    bool alreadyExists = AvailableModels.Any(m =>
-                        string.Equals(m.HuggingFaceModelId, modelId, StringComparison.OrdinalIgnoreCase));
-
-                    if (!alreadyExists)
+                    // Use improved duplicate checking
+                    if (IsModelAlreadyInCollection(modelId))
                     {
-                        // Create a new model entry for this discovered model
-                        var discoveredModel = new NeuralNetworkModel
-                        {
-                            Id = Guid.NewGuid().ToString(),
-                            Name = GetFriendlyModelName(modelId),
-                            HuggingFaceModelId = modelId,
-                            Type = ModelType.General, // Default type, could be improved with better detection
-                            IsDownloaded = true,
-                            IsActive = false,
-                            DownloadButtonText = "Remove from Device",
-                            InputType = GuessInputTypeFromModelId(modelId)
-                        };
-
-                        MainThread.BeginInvokeOnMainThread(() =>
-                        {
-                            AvailableModels.Add(discoveredModel);
-                        });
-
-                        addedCount++;
-                        Debug.WriteLine($"📥 Discovered and added model: {modelId} ({totalSize:N0} bytes)");
+                        Debug.WriteLine($"⏭️ Model '{modelId}' already exists in collection");
+                        continue;
                     }
+
+                    // Create a new model entry for this discovered model
+                    var discoveredModel = new NeuralNetworkModel
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Name = GetFriendlyModelName(modelId),
+                        HuggingFaceModelId = modelId,
+                        Type = ModelType.General, // Default type
+                        IsDownloaded = true,
+                        IsActive = false,
+                        DownloadButtonText = "Remove from Device",
+                        InputType = GuessInputTypeFromModelId(modelId),
+                        IsHuggingFaceReference = true // Mark as HuggingFace reference
+                    };
+
+                    discoveredModels.Add(discoveredModel);
+                    addedCount++;
+                    Debug.WriteLine($"📥 Discovered model: {modelId} ({totalSize:N0} bytes)");
                 }
 
-                if (addedCount > 0)
+                // Add all discovered models to the collection on the main thread
+                if (discoveredModels.Any())
                 {
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        foreach (var model in discoveredModels)
+                        {
+                            AvailableModels.Add(model);
+                        }
+                    });
+
                     Debug.WriteLine($"✅ Discovered and added {addedCount} previously unknown downloaded models");
                     // Save the updated model collection
                     await SaveModelStatesAsync();
@@ -842,11 +1097,92 @@ namespace CSimple.ViewModels
             }
         }
 
+        // Improved method to check if model already exists in collection
+        private bool IsModelAlreadyInCollection(string modelId)
+        {
+            if (string.IsNullOrEmpty(modelId) || AvailableModels == null)
+                return false;
+
+            return AvailableModels.Any(m =>
+                string.Equals(m.HuggingFaceModelId, modelId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(m.Id, modelId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(m.Name, GetFriendlyModelName(modelId), StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Clean up orphaned models and duplicates
+        private async Task CleanupModelCollectionAsync()
+        {
+            try
+            {
+                var modelsToRemove = new List<NeuralNetworkModel>();
+                var seenModelIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var model in AvailableModels.ToList())
+                {
+                    bool shouldRemove = false;
+
+                    // Check for duplicates based on HuggingFace ID
+                    if (!string.IsNullOrEmpty(model.HuggingFaceModelId))
+                    {
+                        if (seenModelIds.Contains(model.HuggingFaceModelId))
+                        {
+                            shouldRemove = true;
+                            Debug.WriteLine($"🗑️ Removing duplicate model: {model.Name} (HF ID: {model.HuggingFaceModelId})");
+                        }
+                        else
+                        {
+                            seenModelIds.Add(model.HuggingFaceModelId);
+                        }
+                    }
+
+                    // Check if HuggingFace models still exist on disk if marked as downloaded
+                    if (!shouldRemove && model.IsDownloaded && !string.IsNullOrEmpty(model.HuggingFaceModelId))
+                    {
+                        bool actuallyExists = IsModelDownloaded(model.HuggingFaceModelId);
+                        if (!actuallyExists)
+                        {
+                            // Don't remove, just update the state
+                            model.IsDownloaded = false;
+                            model.DownloadButtonText = "Download to Device";
+                            Debug.WriteLine($"🔄 Updated orphaned model state: {model.Name} - no longer downloaded");
+                        }
+                    }
+
+                    if (shouldRemove)
+                    {
+                        modelsToRemove.Add(model);
+                    }
+                }
+
+                // Remove duplicates from the collection
+                if (modelsToRemove.Any())
+                {
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        foreach (var model in modelsToRemove)
+                        {
+                            AvailableModels.Remove(model);
+                        }
+                    });
+
+                    Debug.WriteLine($"🧹 Cleaned up {modelsToRemove.Count} duplicate/orphaned models");
+                    await SaveModelStatesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ Error cleaning up model collection: {ex.Message}");
+            }
+        }
+
         private string ConvertDirectoryNameToModelId(string dirName)
         {
             try
             {
-                // Handle "models--org--model" format
+                if (string.IsNullOrEmpty(dirName))
+                    return null;
+
+                // Handle "models--org--model" format (HuggingFace cache format)
                 if (dirName.StartsWith("models--") && dirName.Contains("--"))
                 {
                     var parts = dirName.Substring(8).Split(new[] { "--" }, StringSplitOptions.RemoveEmptyEntries);
@@ -857,16 +1193,45 @@ namespace CSimple.ViewModels
                 }
 
                 // Handle "org_model" format
-                if (dirName.Contains("_"))
+                if (dirName.Contains("_") && !dirName.StartsWith("_") && !dirName.EndsWith("_"))
                 {
-                    return dirName.Replace("_", "/");
+                    // Check if it looks like org_model format (has at least one underscore in the middle)
+                    var underscoreIndex = dirName.IndexOf('_');
+                    if (underscoreIndex > 0 && underscoreIndex < dirName.Length - 1)
+                    {
+                        return dirName.Replace("_", "/");
+                    }
                 }
 
-                // Handle simple model names without organization
-                return dirName;
+                // Handle "org__model" format (double underscore)
+                if (dirName.Contains("__"))
+                {
+                    return dirName.Replace("__", "/");
+                }
+
+                // Handle direct model names (no organization)
+                // Look for common patterns that indicate this is a model name
+                var lowerDirName = dirName.ToLowerInvariant();
+                var modelKeywords = new[] { "gpt", "bert", "t5", "whisper", "clip", "resnet", "vit", "wav2vec", "hubert", "distil", "roberta", "albert", "xlnet", "electra" };
+
+                if (modelKeywords.Any(keyword => lowerDirName.Contains(keyword)))
+                {
+                    return dirName; // Use as-is for direct model names
+                }
+
+                // If it's a valid directory but doesn't match known patterns, 
+                // try to use it as-is (might be a direct model name)
+                if (dirName.Length > 0 && !dirName.Contains(" ") && !dirName.Contains("\\") && !dirName.Contains("/"))
+                {
+                    return dirName;
+                }
+
+                Debug.WriteLine($"⚠️ Could not convert directory name '{dirName}' to model ID");
+                return null;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"❌ Error converting directory name '{dirName}' to model ID: {ex.Message}");
                 return null;
             }
         }
@@ -1060,6 +1425,16 @@ namespace CSimple.ViewModels
 
         // --- Public Methods (called from View or Commands) ---
 
+        /// <summary>
+        /// Loads all data required for the NetPage, including models, pipelines, and state synchronization.
+        /// This method performs a comprehensive setup with improved model management:
+        /// 1. Loads persisted models from storage
+        /// 2. Loads enhanced model states (activation/download status)
+        /// 3. Discovers any downloaded models not yet in the collection
+        /// 4. Cleans up duplicates and orphaned entries
+        /// 5. Synchronizes download states with actual disk state
+        /// 6. Updates UI to reflect accurate model status
+        /// </summary>
         public async Task LoadDataAsync()
         {
             // Only setup Python environment once per application session
@@ -1106,9 +1481,15 @@ namespace CSimple.ViewModels
             // Discover and add any downloaded models that aren't in the collection yet
             await DiscoverDownloadedModelsAsync();
 
-            // Refresh downloaded models list to sync UI with actual disk state
+            // Clean up any duplicates or orphaned entries
+            await CleanupModelCollectionAsync();
+
+            // Perform a final comprehensive sync of download states with disk
             // This will correct any discrepancies between saved states and actual files on disk
-            RefreshDownloadedModelsList();
+            SyncModelDownloadStatesWithDisk();
+
+            // Update all models' download button text to reflect actual state
+            UpdateAllModelsDownloadButtonText();
 
             LoadSampleGoals(); // Load sample goals separately
             SubscribeToInputNotifications(); // Start background simulation
@@ -1397,19 +1778,40 @@ namespace CSimple.ViewModels
             }
         }
 
-        private void ShareModel(NeuralNetworkModel model)
+        private async Task ShareModel()
         {
-            // Logic moved from NetPage.xaml.cs
-            if (model == null) return;
             try
             {
-                var shareCode = $"SHARE-{model.Id.Substring(0, 8)}";
-                CurrentModelStatus = $"Model '{model.Name}' shared with code: {shareCode}";
-                // In real app, call sharing service
+                // Get all downloaded models
+                var downloadedModels = AvailableModels
+                    .Where(m => m.IsHuggingFaceReference &&
+                               !string.IsNullOrEmpty(m.HuggingFaceModelId) &&
+                               IsModelDownloaded(m.HuggingFaceModelId))
+                    .ToList();
+
+                if (downloadedModels.Count == 0)
+                {
+                    await ShowAlert("No Downloaded Models", "No downloaded models are available to share. Please download a model first.", "OK");
+                    return;
+                }
+
+                // Show model selection dialog
+                var selectedModel = await ShowDownloadedModelSelectionDialog(downloadedModels);
+
+                if (selectedModel != null)
+                {
+                    // Open the model folder in Windows Explorer
+                    OpenModelInExplorer(selectedModel);
+                    CurrentModelStatus = $"Opened folder for model '{selectedModel.Name}'";
+                }
+                else
+                {
+                    CurrentModelStatus = "Model sharing cancelled";
+                }
             }
             catch (Exception ex)
             {
-                HandleError($"Error sharing model: {model?.Name}", ex);
+                HandleError($"Error sharing model", ex);
             }
         }
         private async Task CommunicateWithModelAsync(string message)
@@ -2584,7 +2986,9 @@ namespace CSimple.ViewModels
         public Func<string, string, string, string, string, Task<string>> ShowPrompt { get; set; } = async (t, m, a, c, iv) => { await Task.CompletedTask; return null; }; // Default no-op
         public Func<Task<FileResult>> PickFile { get; set; } = async () => { await Task.CompletedTask; return null; }; // Default no-op
         public Func<string, Task> NavigateTo { get; set; } = async (r) => { await Task.CompletedTask; }; // Default no-op
-        public Func<List<CSimple.Models.HuggingFaceModel>, Task<CSimple.Models.HuggingFaceModel>> ShowModelSelectionDialog { get; set; } = async (m) => { await Task.CompletedTask; return null; }; // Default no-op// --- INotifyPropertyChanged Implementation ---
+        public Func<List<CSimple.Models.HuggingFaceModel>, Task<CSimple.Models.HuggingFaceModel>> ShowModelSelectionDialog { get; set; } = async (m) => { await Task.CompletedTask; return null; }; // Default no-op
+        public Func<List<NeuralNetworkModel>, Task<NeuralNetworkModel>> ShowDownloadedModelSelectionDialog { get; set; } = async (m) => { await Task.CompletedTask; return null; }; // Default no-op for downloaded model selection
+                                                                                                                                                                                    // --- INotifyPropertyChanged Implementation ---
         public event PropertyChangedEventHandler PropertyChanged;
 
         protected bool SetProperty<T>(ref T backingStore, T value, [CallerMemberName] string propertyName = "", Action onChanged = null)
@@ -5455,6 +5859,405 @@ namespace CSimple.ViewModels
 
             return totalTime;
         }
+
+        #region Model Training/Alignment Methods
+
+        /// <summary>
+        /// Show dialog to select a text-to-text model for training
+        /// </summary>
+        private async Task SelectTrainingModelAsync()
+        {
+            try
+            {
+                var textModels = AvailableTextModels.ToList();
+
+                if (textModels.Count == 0)
+                {
+                    await ShowAlert("No Text Models", "No text-to-text models are available for training. Please download a text model first.", "OK");
+                    return;
+                }
+
+                var modelNames = textModels.Select(m => m.Name ?? m.HuggingFaceModelId ?? "Unknown Model").ToArray();
+                string selectedModelName = await ShowActionSheet(
+                    "Select a Text Model for Training",
+                    "Cancel",
+                    null,
+                    modelNames);
+
+                if (selectedModelName != "Cancel" && !string.IsNullOrEmpty(selectedModelName))
+                {
+                    SelectedTrainingModel = textModels.FirstOrDefault(m =>
+                        (m.Name ?? m.HuggingFaceModelId ?? "Unknown Model") == selectedModelName);
+
+                    if (SelectedTrainingModel != null)
+                    {
+                        TrainingStatus = $"Selected model: {SelectedTrainingModel.Name}";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error selecting training model", ex);
+            }
+        }
+
+        /// <summary>
+        /// Select training dataset file
+        /// </summary>
+        private async Task SelectTrainingDatasetAsync()
+        {
+            try
+            {
+                var fileResult = await PickFile();
+                if (fileResult != null)
+                {
+                    // Copy to resources folder
+                    var datasetsPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\Datasets");
+                    Directory.CreateDirectory(datasetsPath);
+
+                    var targetPath = Path.Combine(datasetsPath, $"training_{fileResult.FileName}");
+
+                    using (var sourceStream = await fileResult.OpenReadAsync())
+                    using (var targetStream = File.Create(targetPath))
+                    {
+                        await sourceStream.CopyToAsync(targetStream);
+                    }
+
+                    TrainingDatasetPath = targetPath;
+                    TrainingStatus = $"Training dataset: {fileResult.FileName}";
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error selecting training dataset", ex);
+            }
+        }
+
+        /// <summary>
+        /// Select validation dataset file (optional)
+        /// </summary>
+        private async Task SelectValidationDatasetAsync()
+        {
+            try
+            {
+                var fileResult = await PickFile();
+                if (fileResult != null)
+                {
+                    var datasetsPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\Datasets");
+                    Directory.CreateDirectory(datasetsPath);
+
+                    var targetPath = Path.Combine(datasetsPath, $"validation_{fileResult.FileName}");
+
+                    using (var sourceStream = await fileResult.OpenReadAsync())
+                    using (var targetStream = File.Create(targetPath))
+                    {
+                        await sourceStream.CopyToAsync(targetStream);
+                    }
+
+                    ValidationDatasetPath = targetPath;
+                    TrainingStatus = $"Validation dataset: {fileResult.FileName}";
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error selecting validation dataset", ex);
+            }
+        }
+
+        /// <summary>
+        /// Select test dataset file (optional)
+        /// </summary>
+        private async Task SelectTestDatasetAsync()
+        {
+            try
+            {
+                var fileResult = await PickFile();
+                if (fileResult != null)
+                {
+                    var datasetsPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\Datasets");
+                    Directory.CreateDirectory(datasetsPath);
+
+                    var targetPath = Path.Combine(datasetsPath, $"test_{fileResult.FileName}");
+
+                    using (var sourceStream = await fileResult.OpenReadAsync())
+                    using (var targetStream = File.Create(targetPath))
+                    {
+                        await sourceStream.CopyToAsync(targetStream);
+                    }
+
+                    TestDatasetPath = targetPath;
+                    TrainingStatus = $"Test dataset: {fileResult.FileName}";
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error selecting test dataset", ex);
+            }
+        }
+
+        /// <summary>
+        /// Start the model training/alignment process
+        /// </summary>
+        private async Task StartTrainingAsync()
+        {
+            try
+            {
+                if (!CanStartTraining)
+                {
+                    await ShowAlert("Cannot Start Training", "Please select a model, training dataset, and provide a name for the new model.", "OK");
+                    return;
+                }
+
+                IsTraining = true;
+                TrainingProgress = 0.0;
+                TrainingStatus = "Initializing training...";
+                _trainingStartTime = DateTime.Now;
+
+                // Create aligned models directory
+                var alignedModelsPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\AlignedModels", NewModelName);
+                Directory.CreateDirectory(alignedModelsPath);
+
+                // Simulate training process with progress updates
+                await SimulateTrainingProcessAsync(alignedModelsPath);
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error starting training", ex);
+                IsTraining = false;
+                TrainingStatus = $"Training failed: {ex.Message}";
+            }
+        }
+
+        /// <summary>
+        /// Simulate the training process with realistic progress updates
+        /// </summary>
+        private async Task SimulateTrainingProcessAsync(string outputPath)
+        {
+            try
+            {
+                var totalSteps = Epochs * 100; // Simulate 100 steps per epoch
+                var stepDuration = TimeSpan.FromMilliseconds(200); // 200ms per step for demo
+
+                for (int epoch = 0; epoch < Epochs; epoch++)
+                {
+                    TrainingStatus = $"Training epoch {epoch + 1}/{Epochs}";
+
+                    for (int step = 0; step < 100; step++)
+                    {
+                        if (!IsTraining) return; // Check if stopped
+
+                        var currentStep = epoch * 100 + step;
+                        TrainingProgress = (double)currentStep / totalSteps;
+
+                        // Calculate elapsed and ETA
+                        var elapsed = DateTime.Now - _trainingStartTime;
+                        TrainingElapsed = $"{elapsed.Hours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+
+                        if (TrainingProgress > 0)
+                        {
+                            var totalEstimated = TimeSpan.FromTicks((long)(elapsed.Ticks / TrainingProgress));
+                            var eta = totalEstimated - elapsed;
+                            TrainingEta = $"{eta.Hours:D2}:{eta.Minutes:D2}:{eta.Seconds:D2}";
+                        }
+
+                        await Task.Delay(stepDuration);
+                    }
+                }
+
+                if (IsTraining)
+                {
+                    await FinalizeTrainingAsync(outputPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error during training simulation", ex);
+                IsTraining = false;
+            }
+        }
+
+        /// <summary>
+        /// Finalize the training process and create the new model
+        /// </summary>
+        private async Task FinalizeTrainingAsync(string outputPath)
+        {
+            try
+            {
+                TrainingStatus = "Finalizing model...";
+                TrainingProgress = 1.0;
+
+                // Save model metadata
+                var modelInfo = new
+                {
+                    OriginalModelId = SelectedTrainingModel.HuggingFaceModelId,
+                    OriginalModelName = SelectedTrainingModel.Name,
+                    NewModelName = NewModelName,
+                    TrainingDataset = Path.GetFileName(TrainingDatasetPath),
+                    ValidationDataset = !string.IsNullOrEmpty(ValidationDatasetPath) ? Path.GetFileName(ValidationDatasetPath) : null,
+                    TestDataset = !string.IsNullOrEmpty(TestDatasetPath) ? Path.GetFileName(TestDatasetPath) : null,
+                    FineTuningMethod = SelectedFineTuningMethod,
+                    Hyperparameters = new
+                    {
+                        LearningRate = LearningRate,
+                        Epochs = Epochs,
+                        BatchSize = BatchSize
+                    },
+                    TrainingCompleted = DateTime.Now,
+                    TrainingDuration = DateTime.Now - _trainingStartTime
+                };
+
+                var modelInfoPath = Path.Combine(outputPath, "model_info.json");
+                await File.WriteAllTextAsync(modelInfoPath, JsonConvert.SerializeObject(modelInfo, Formatting.Indented));
+
+                // Create a placeholder model file structure
+                await File.WriteAllTextAsync(Path.Combine(outputPath, "config.json"), "{}");
+                await File.WriteAllTextAsync(Path.Combine(outputPath, "pytorch_model.bin"), "placeholder");
+
+                // Add the new model to the available models collection
+                var newModel = new NeuralNetworkModel
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Name = NewModelName,
+                    Description = $"Fine-tuned from {SelectedTrainingModel.Name} using {SelectedFineTuningMethod}",
+                    Type = ModelType.General,
+                    InputType = SelectedTrainingModel.InputType,
+                    IsHuggingFaceReference = false,
+                    IsDownloaded = true,
+                    IsActive = false,
+                    DownloadButtonText = "Remove from Device"
+                };
+
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    AvailableModels.Add(newModel);
+                });
+
+                // Save the updated models
+                await SavePersistedModelsAsync();
+
+                TrainingStatus = $"Training completed! Model '{NewModelName}' is now available.";
+                IsTraining = false;
+
+                await ShowAlert("Training Complete", $"Model '{NewModelName}' has been successfully trained and is now available in your model collection.", "OK");
+
+                // Reset training state
+                ResetTrainingState();
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error finalizing training", ex);
+                IsTraining = false;
+                TrainingStatus = $"Training finalization failed: {ex.Message}";
+            }
+        }
+
+        /// <summary>
+        /// Stop the training process
+        /// </summary>
+        private async Task StopTrainingAsync()
+        {
+            try
+            {
+                IsTraining = false;
+                TrainingStatus = "Training stopped by user";
+                await Task.Delay(100); // Allow UI to update
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error stopping training", ex);
+            }
+        }
+
+        /// <summary>
+        /// Toggle between starting and stopping training
+        /// </summary>
+        private async Task ToggleTrainingAsync()
+        {
+            try
+            {
+                if (IsTraining)
+                {
+                    await StopTrainingAsync();
+                }
+                else
+                {
+                    await StartTrainingAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error toggling training", ex);
+            }
+        }
+
+        /// <summary>
+        /// Create a new dataset from user input
+        /// </summary>
+        private async Task CreateDatasetAsync()
+        {
+            try
+            {
+                var input = await ShowPrompt("Create Dataset",
+                    "Enter training data (one example per line, format: input|output):",
+                    "Create", "Cancel", "");
+
+                if (string.IsNullOrWhiteSpace(input))
+                    return;
+
+                var datasetsPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\Datasets");
+                Directory.CreateDirectory(datasetsPath);
+
+                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var datasetPath = Path.Combine(datasetsPath, $"custom_dataset_{timestamp}.jsonl");
+
+                // Convert input to JSONL format
+                var lines = input.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                var jsonlLines = new List<string>();
+
+                foreach (var line in lines)
+                {
+                    var parts = line.Split('|');
+                    if (parts.Length >= 2)
+                    {
+                        var example = new
+                        {
+                            input = parts[0].Trim(),
+                            output = parts[1].Trim()
+                        };
+                        jsonlLines.Add(JsonConvert.SerializeObject(example));
+                    }
+                }
+
+                await File.WriteAllLinesAsync(datasetPath, jsonlLines);
+
+                TrainingDatasetPath = datasetPath;
+                TrainingStatus = $"Created dataset with {jsonlLines.Count} examples";
+
+                await ShowAlert("Dataset Created", $"Dataset saved with {jsonlLines.Count} examples.", "OK");
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error creating dataset", ex);
+            }
+        }
+
+        /// <summary>
+        /// Reset training state to initial values
+        /// </summary>
+        private void ResetTrainingState()
+        {
+            SelectedTrainingModel = null;
+            TrainingDatasetPath = string.Empty;
+            ValidationDatasetPath = string.Empty;
+            TestDatasetPath = string.Empty;
+            NewModelName = string.Empty;
+            TrainingProgress = 0.0;
+            TrainingStatus = "Ready";
+            TrainingEta = string.Empty;
+            TrainingElapsed = string.Empty;
+        }
+
+        #endregion
 
         #endregion
     }

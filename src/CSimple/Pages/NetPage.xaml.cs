@@ -41,7 +41,9 @@ namespace CSimple.Pages
             _viewModel.ShowActionSheet = (title, cancel, destruction, buttons) => DisplayActionSheet(title, cancel, destruction, buttons);
             _viewModel.ShowPrompt = (title, message, accept, cancel, initialValue) => DisplayPromptAsync(title, message, accept, cancel, initialValue: initialValue);
             _viewModel.PickFile = async () => await FilePicker.Default.PickAsync(new PickOptions()); _viewModel.NavigateTo = async (route) => await Shell.Current.GoToAsync(route);
-            _viewModel.ShowModelSelectionDialog = ShowHuggingFaceModelSelection; // Custom method for this UI            // Set up chat scroll functionality
+            _viewModel.ShowModelSelectionDialog = ShowHuggingFaceModelSelection; // Custom method for this UI
+            _viewModel.ShowDownloadedModelSelectionDialog = ShowDownloadedModelSelection; // Custom method for downloaded model selection
+            // Set up chat scroll functionality
             _viewModel.ScrollToBottom = () =>
             {
                 MainThread.BeginInvokeOnMainThread(() =>
@@ -388,6 +390,25 @@ namespace CSimple.Pages
             if (selectedModelName != "Cancel" && !string.IsNullOrEmpty(selectedModelName))
             {
                 return searchResults.FirstOrDefault(m => (m.ModelId ?? m.Id) == selectedModelName);
+            }
+            return null;
+        }
+
+        private async Task<CSimple.Models.NeuralNetworkModel> ShowDownloadedModelSelection(List<CSimple.Models.NeuralNetworkModel> downloadedModels)
+        {
+            if (downloadedModels == null || downloadedModels.Count == 0) return null;
+
+            var modelNames = downloadedModels.Select(m => m.Name ?? m.HuggingFaceModelId ?? "Unknown Model").ToArray();
+            string selectedModelName = await DisplayActionSheet(
+                "Select a Downloaded Model to Share",
+                "Cancel",
+                null,
+                modelNames);
+
+            if (selectedModelName != "Cancel" && !string.IsNullOrEmpty(selectedModelName))
+            {
+                return downloadedModels.FirstOrDefault(m =>
+                    (m.Name ?? m.HuggingFaceModelId ?? "Unknown Model") == selectedModelName);
             }
             return null;
         }
