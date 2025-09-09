@@ -1866,6 +1866,9 @@ namespace CSimple.ViewModels
             // Load available pipelines from OrientPage
             await RefreshPipelinesAsync();
 
+            // Load available action sessions for model training
+            await RefreshActionSessionsAsync();
+
             // Discover and add any downloaded models that aren't in the collection yet
             await DiscoverDownloadedModelsAsync();
 
@@ -8126,39 +8129,56 @@ namespace CSimple.ViewModels
             {
                 AvailableActionSessions.Clear();
 
-                // Get action sessions from captured data directory
-                var sessionsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CSimple", "CapturedActions");
+                // Get action sessions from the same data sources used by ActionPage
+                var allDataItems = new List<DataItem>();
 
-                if (Directory.Exists(sessionsDirectory))
+                // Load from standard data items file
+                var dataItems = await _fileService.LoadDataItemsAsync();
+                if (dataItems != null)
                 {
-                    var sessionFiles = Directory.GetFiles(sessionsDirectory, "*.json", SearchOption.AllDirectories);
+                    allDataItems.AddRange(dataItems);
+                }
 
-                    foreach (var sessionFile in sessionFiles)
+                // Load from local data items file
+                var localDataItems = await _fileService.LoadLocalDataItemsAsync();
+                if (localDataItems != null)
+                {
+                    allDataItems.AddRange(localDataItems);
+                }
+
+                // Extract ActionGroups from DataItems and deduplicate
+                var actionGroupsDict = new Dictionary<string, ActionGroup>();
+
+                foreach (var dataItem in allDataItems)
+                {
+                    if (dataItem?.Data?.ActionGroupObject != null)
                     {
-                        try
-                        {
-                            var json = await File.ReadAllTextAsync(sessionFile);
-                            var actionGroup = System.Text.Json.JsonSerializer.Deserialize<ActionGroup>(json);
+                        var actionGroup = dataItem.Data.ActionGroupObject;
 
-                            if (actionGroup != null)
-                            {
-                                AvailableActionSessions.Add(actionGroup);
-                            }
-                        }
-                        catch (Exception ex)
+                        // Use action name as key for deduplication, preferring newer items
+                        var key = actionGroup.ActionName;
+                        if (!string.IsNullOrEmpty(key))
                         {
-                            Debug.WriteLine($"Error loading action session {sessionFile}: {ex.Message}");
+                            if (!actionGroupsDict.ContainsKey(key) ||
+                                actionGroup.CreatedAt > actionGroupsDict[key].CreatedAt)
+                            {
+                                actionGroupsDict[key] = actionGroup;
+                            }
                         }
                     }
                 }
 
-                // Sort by timestamp descending (newest first)
-                var sortedSessions = AvailableActionSessions.OrderByDescending(s => s.CreatedAt).ToList();
-                AvailableActionSessions.Clear();
+                // Add all unique action groups to the collection
+                var sortedSessions = actionGroupsDict.Values
+                    .OrderByDescending(s => s.CreatedAt)
+                    .ToList();
+
                 foreach (var session in sortedSessions)
                 {
                     AvailableActionSessions.Add(session);
                 }
+
+                Debug.WriteLine($"Refreshed action sessions: Found {AvailableActionSessions.Count} sessions");
             }
             catch (Exception ex)
             {
