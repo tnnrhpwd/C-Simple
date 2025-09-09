@@ -13,7 +13,11 @@ namespace CSimple.Services
     public class AudioCaptureService
     {
         #region Events
+
+#pragma warning disable CS0067 // Event is never used
         public event Action<string> DebugMessageLogged;
+#pragma warning restore CS0067
+
         public event Action<string> FileCaptured;
         public event Action<float> PCLevelChanged;
         public event Action<float> WebcamLevelChanged;

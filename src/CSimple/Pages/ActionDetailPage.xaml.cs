@@ -83,7 +83,6 @@ namespace CSimple.Pages
         private readonly DataService _dataService; // Add DataService
         private readonly FileService _fileService; // Add FileService for local operations
         private readonly ActionService _actionService; // Add ActionService reference
-        private readonly NetPageViewModel _netPageViewModel; // Add NetPageViewModel reference for AI models
         private readonly AppPathService _appPathService; // Add AppPathService for dynamic paths
 
         // Basic properties

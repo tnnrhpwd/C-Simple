@@ -37,9 +37,6 @@ namespace CSimple.ViewModels
         // Static property to hold current ActionItems for access across nodes
         public static List<ActionItem> CurrentActionItems { get; set; } = new List<ActionItem>();
 
-        private string _id;
-        private string _name;
-        private NodeType _type;
         private bool _isSelected;
         private PointF _position;
         private SizeF _size;
@@ -519,7 +516,7 @@ namespace CSimple.ViewModels
                         // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] No corresponding audio file found.");
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetStepContent] Error getting audio segment: {ex.Message}");
                 }
@@ -750,7 +747,7 @@ namespace CSimple.ViewModels
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestImageFiles] Error finding closest image files: {ex.Message}");
                 return new List<string>();
@@ -901,7 +898,7 @@ namespace CSimple.ViewModels
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Error finding closest audio file: {ex.Message}");
                 return null;
@@ -1184,7 +1181,7 @@ namespace CSimple.ViewModels
                 // Default: return the original value
                 return stepData.Value;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetTextContent] Error generating text content: {ex.Message}");
                 return stepData.Value;

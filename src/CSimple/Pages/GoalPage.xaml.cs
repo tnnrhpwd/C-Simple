@@ -1297,7 +1297,7 @@ namespace CSimple.Pages
                     !string.IsNullOrEmpty(m.HuggingFaceModelId) &&
                     IsTextGenerationModel(m)).ToList();
 
-                if (activeModels == null || activeModels.Count <= 1) 
+                if (activeModels == null || activeModels.Count <= 1)
                 {
                     // If only one model available, try it again with different prompts
                     var primaryModel = GetBestTextGenerationModel(activeModels ?? new List<NeuralNetworkModel>());
@@ -1314,7 +1314,7 @@ namespace CSimple.Pages
                 var alternativeModels = activeModels.Where(m =>
                 {
                     var modelId = m.HuggingFaceModelId?.ToLowerInvariant() ?? "";
-                    return modelId.Contains("deepseek") || modelId.Contains("qwen") || 
+                    return modelId.Contains("deepseek") || modelId.Contains("qwen") ||
                            !modelId.Contains("gpt2"); // Try any model that's not GPT-2
                 }).Take(2);
 
@@ -1356,7 +1356,7 @@ namespace CSimple.Pages
                 var perspectives = new[]
                 {
                     "focus on personal growth and self-improvement",
-                    "emphasize productivity and efficiency", 
+                    "emphasize productivity and efficiency",
                     "consider wellness and work-life balance"
                 };
 
@@ -1705,7 +1705,7 @@ Generate 3 goals now:";
             return goals;
         }
 
-        private async Task<List<GeneratedGoal>> GenerateGoalsFromFallbackSources()
+        private Task<List<GeneratedGoal>> GenerateGoalsFromFallbackSources()
         {
             var goals = new List<GeneratedGoal>();
 
@@ -1723,7 +1723,7 @@ Generate 3 goals now:";
                 Debug.WriteLine($"📋 Fallback goal generation failed: {ex.Message}");
             }
 
-            return goals;
+            return Task.FromResult(goals);
         }
 
         private List<GeneratedGoal> AnalyzeContextForSmartGoals(string context)

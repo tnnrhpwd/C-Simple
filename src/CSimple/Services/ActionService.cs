@@ -27,7 +27,6 @@ namespace CSimple.Services
         private bool _leftButtonDown = false;
         private bool _rightButtonDown = false;
         private bool _middleButtonDown = false;
-        private bool _isDragging = false;
 
         public bool UseInterpolation { get; set; } = true;
         public int MovementSteps { get; set; } = 25;
@@ -286,13 +285,10 @@ namespace CSimple.Services
                     _leftButtonDown = false;
                     _rightButtonDown = false;
                     _middleButtonDown = false;
-                    _isDragging = false;
 
                     cancel_simulation = false;
                     DateTime? previousActionTime = null;
-                    bool prevLeftButtonDown = false; // Renamed to avoid conflict with class member
                     bool prevRightButtonDown = false;
-                    bool prevMiddleButtonDown = false;
 
                     LowLevelInputSimulator.GetCursorPos(out LowLevelInputSimulator.POINT startPoint); // Use utility class
                     int currentX = startPoint.X;
@@ -301,8 +297,6 @@ namespace CSimple.Services
                     Dictionary<int, bool> pressedKeys = new Dictionary<int, bool>();
 
                     Random random = new Random();
-                    const int MIN_KEY_DOWN_DURATION = 50;
-                    const int MAX_KEY_DOWN_DURATION = 150;
 
                     foreach (var action in actionGroup.ActionArray)
                     {
@@ -580,7 +574,6 @@ namespace CSimple.Services
                     }
                     // Note: prevMiddleButtonDown was not used consistently, switched to checking _middleButtonDown state
 
-                    _isDragging = false;
                 }
                 catch (Exception ex)
                 {
@@ -596,7 +589,7 @@ namespace CSimple.Services
                         if (_rightButtonDown) LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Right, true, currentPoint.X, currentPoint.Y);
                         // Use Input.MouseButton explicitly
                         if (_middleButtonDown) LowLevelInputSimulator.SendLowLevelMouseClick(Input.MouseButton.Middle, true, currentPoint.X, currentPoint.Y);
-                        _leftButtonDown = _rightButtonDown = _middleButtonDown = _isDragging = false;
+                        _leftButtonDown = _rightButtonDown = _middleButtonDown = false;
                     }
                     catch { }
 

@@ -162,7 +162,7 @@ public partial class App : Application
         DependencyService.Register<DataService>();
     }
 
-    private async Task ExtractBundledScriptsAsync()
+    private Task ExtractBundledScriptsAsync()
     {
         try
         {
@@ -196,6 +196,7 @@ public partial class App : Application
         {
             CSimple.Utilities.DebugConsole.Error($"Error extracting bundled scripts: {ex.Message}");
         }
+        return Task.CompletedTask;
     }
 
     private void UpdateNavigationMode()

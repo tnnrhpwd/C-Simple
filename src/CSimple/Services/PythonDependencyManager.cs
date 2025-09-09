@@ -388,7 +388,6 @@ namespace CSimple.Services
                 {
                     UpdateStatus("Downloading missing Python core DLLs...");
                     // URL to a repo with Python DLLs or use a CDN service to host them
-                    string dllUrl = "https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.9.16+20230116-i686-pc-windows-msvc-shared-install_only.tar.gz";
                     string dllsArchivePath = Path.Combine(_appDataPath, "python_dlls.tar.gz");
 
                     // This is a placeholder - in a real implementation, you would download the DLL files
@@ -563,7 +562,7 @@ accelerate==0.21.0
             File.WriteAllText(_packageRequirementsPath, requirements.Trim());
         }
 
-        public async Task<bool> CopyScriptsToAppDataAsync(string sourceScriptsDir)
+        public Task<bool> CopyScriptsToAppDataAsync(string sourceScriptsDir)
         {
             try
             {
@@ -576,12 +575,12 @@ accelerate==0.21.0
                     File.Copy(file, destPath, true);
                 }
 
-                return true;
+                return Task.FromResult(true);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error copying scripts: {ex}");
-                return false;
+                return Task.FromResult(false);
             }
         }
 

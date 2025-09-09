@@ -18,7 +18,11 @@ namespace CSimple.Services
         #region Events
         public event Action<string> TranscriptionCompleted;
         public event Action<string> CommandRecognized;
+
+#pragma warning disable CS0067 // Event is never used
         public event Action<string> DebugMessageLogged;
+#pragma warning restore CS0067
+
         public event Action<float> AudioLevelChanged;
         public event Action<bool> ListeningStateChanged;
         public event Action<string, bool> ActionExecuted;
@@ -37,7 +41,11 @@ namespace CSimple.Services
         private CancellationTokenSource _listeningCts;
         private CancellationTokenSource _processingCts;
         private MemoryStream _audioBuffer;
+
+#pragma warning disable CS0649 // Field is never assigned to, and will always have its default value
         private WaveFileWriter _waveWriter;
+#pragma warning restore CS0649
+
         private string _currentAudioPath;
         private ISpeechRecognitionService _speechRecognitionService;
         private bool _useOnlineServices => _appModeService?.CurrentMode == AppModeService.AppMode.Online;
@@ -126,7 +134,7 @@ namespace CSimple.Services
 
                 if (_audioBuffer.Length > 0)
                 {
-                    ProcessAudioAsync();
+                    _ = ProcessAudioAsync();
                 }
                 else
                 {

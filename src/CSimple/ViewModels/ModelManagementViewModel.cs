@@ -38,7 +38,7 @@ namespace CSimple.ViewModels
                     _selectedModel = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(IsModelSelected));
-                    LoadAssociatedActions();
+                    _ = LoadAssociatedActions();
                 }
             }
         }

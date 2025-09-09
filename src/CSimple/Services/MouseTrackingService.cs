@@ -44,7 +44,6 @@ namespace CSimple.Services
         private bool _isTracking;
         private Point _lastPosition;
         private readonly Stopwatch _frameTimer = new Stopwatch();
-        private int _skippedFrames = 0;
         private const int PROCESS_EVERY_N_FRAMES = 1; // Changed from 2 to 1 for better responsiveness
         private const int MIN_MOVEMENT_THRESHOLD = 0; // Changed from 1 to 0 for higher precision
 
@@ -174,15 +173,9 @@ namespace CSimple.Services
                         // Get the mouse button flags
                         ushort buttonFlags = rawInput.mouse.usButtonFlags;
 
-                        // Track button states - this is key to fixing the issue
-                        bool leftButtonDown = false;
-                        bool rightButtonDown = false;
-                        bool middleButtonDown = false;
-
                         // Check for left button down/up
                         if ((buttonFlags & 0x0001) != 0) // RI_MOUSE_LEFT_BUTTON_DOWN
                         {
-                            leftButtonDown = true;
                             EnqueueMouseEvent(new Point(0, 0), 0x0201, true, false, false); // WM_LBUTTONDOWN
                             Debug.WriteLine("Left mouse button DOWN detected");
                         }
@@ -195,7 +188,6 @@ namespace CSimple.Services
                         // Check for right button down/up
                         if ((buttonFlags & 0x0004) != 0) // RI_MOUSE_RIGHT_BUTTON_DOWN
                         {
-                            rightButtonDown = true;
                             EnqueueMouseEvent(new Point(0, 0), 0x0204, false, true, false); // WM_RBUTTONDOWN
                             Debug.WriteLine("Right mouse button DOWN detected");
                         }
@@ -208,7 +200,6 @@ namespace CSimple.Services
                         // Check for middle button down/up
                         if ((buttonFlags & 0x0010) != 0) // RI_MOUSE_MIDDLE_BUTTON_DOWN
                         {
-                            middleButtonDown = true;
                             EnqueueMouseEvent(new Point(0, 0), 0x0207, false, false, true); // WM_MBUTTONDOWN
                             Debug.WriteLine("Middle mouse button DOWN detected");
                         }

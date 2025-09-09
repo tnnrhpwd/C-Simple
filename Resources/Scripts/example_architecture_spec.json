@@ -1,0 +1,13 @@
+{
+  "Type": "Vision Transformer (ViT)",
+  "HiddenSize": 768,
+  "Layers": 12,
+  "AttentionHeads": 12,
+  "VocabSize": 50000,
+  "MaxSequenceLength": 512,
+  "CustomParameters": {
+    "image_size": 224,
+    "patch_size": 16,
+    "num_classes": 1000
+  }
+}

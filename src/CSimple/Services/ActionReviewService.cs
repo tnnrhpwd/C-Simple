@@ -126,7 +126,7 @@ namespace CSimple.Services
 
                 return actionReviewData;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Debug.WriteLine($"[ActionReviewService.LoadSelectedActionAsync] Error: {ex.Message}\nStackTrace: {ex.StackTrace}");
                 return new ActionReviewData();

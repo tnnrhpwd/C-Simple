@@ -81,7 +81,7 @@ namespace CSimple.Services
             // await SaveCurrentPipelineAsync(); // Ensure this is called from the ViewModel
         }
 
-        public async Task DeleteSelectedNodeAsync(ObservableCollection<NodeViewModel> nodes, ObservableCollection<ConnectionViewModel> connections, NodeViewModel selectedNode, Action InvalidateCanvas)
+        public Task DeleteSelectedNodeAsync(ObservableCollection<NodeViewModel> nodes, ObservableCollection<ConnectionViewModel> connections, NodeViewModel selectedNode, Action InvalidateCanvas)
         {
             if (selectedNode != null)
             {
@@ -106,6 +106,7 @@ namespace CSimple.Services
             {
                 Debug.WriteLine("Info: No node selected to delete.");
             }
+            return Task.CompletedTask;
         }
 
         public void UpdateNodePosition(NodeViewModel node, PointF newPosition)

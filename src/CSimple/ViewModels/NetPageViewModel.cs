@@ -15,6 +15,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -61,8 +62,6 @@ namespace CSimple.ViewModels
         // Declare the missing fields
         private string _pythonExecutablePath = "python"; // Default value
         private string _huggingFaceScriptPath = string.Empty; // Default value        // Add these new properties
-        private bool _useFallbackScript = false;
-        private string _fallbackScriptPath;
 
         // Python setup tracking to avoid repeated installations
         private static bool _isPythonEnvironmentSetup = false;
@@ -129,6 +128,9 @@ namespace CSimple.ViewModels
         private string _validationDatasetPath = string.Empty;
         private string _testDatasetPath = string.Empty;
         private string _selectedFineTuningMethod = "LoRA";
+        private string _selectedAlignmentTechnique = "Fine-tuning";
+        private string _selectedTrainingMode = "Align Pretrained Model";
+        private string _selectedModelArchitecture = "Transformer";
         private double _learningRate = 0.0001;
         private int _epochs = 3;
         private int _batchSize = 4;
@@ -139,6 +141,20 @@ namespace CSimple.ViewModels
         private string _trainingElapsed = string.Empty;
         private string _newModelName = string.Empty;
         private DateTime _trainingStartTime = DateTime.MinValue;
+        private string _selectedDatasetFormat = "Auto-detect";
+        private bool _useAdvancedConfig = false;
+        private string _customHyperparameters = string.Empty;
+
+        // ActionPage Integration backing fields
+        private bool _useRecordedActionsForTraining = false;
+        private ActionGroup _selectedActionSession = null;
+        private bool _includeScreenImages = true;
+        private bool _includeWebcamImages = false;
+        private bool _includePcAudio = false;
+        private bool _includeWebcamAudio = false;
+        private int _trainingDataPercentage = 70;
+        private int _validationDataPercentage = 20;
+        private int _testDataPercentage = 10;
 
         // --- Observable Properties ---
         public ObservableCollection<NeuralNetworkModel> AvailableModels { get; } = new();
@@ -150,6 +166,9 @@ namespace CSimple.ViewModels
         public ObservableCollection<string> AvailablePipelines { get; } = new();
         public ObservableCollection<ChatMessage> PipelineChatMessages { get; } = new();
         public ObservableCollection<PipelineData> AvailablePipelineData { get; } = new(); // Store full pipeline data
+
+        // ActionPage Integration collections
+        public ObservableCollection<ActionGroup> AvailableActionSessions { get; } = new();
 
         public bool IsGeneralModeActive
         {
@@ -442,6 +461,109 @@ namespace CSimple.ViewModels
             set => SetProperty(ref _selectedFineTuningMethod, value);
         }
 
+        public string SelectedAlignmentTechnique
+        {
+            get => _selectedAlignmentTechnique;
+            set => SetProperty(ref _selectedAlignmentTechnique, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(IsPretrainedModelMode));
+                OnPropertyChanged(nameof(IsTrainingFromScratchMode));
+                OnPropertyChanged(nameof(CanStartTraining));
+                OnPropertyChanged(nameof(CanToggleTraining));
+            });
+        }
+
+        public string SelectedTrainingMode
+        {
+            get => _selectedTrainingMode;
+            set => SetProperty(ref _selectedTrainingMode, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(IsPretrainedModelMode));
+                OnPropertyChanged(nameof(IsTrainingFromScratchMode));
+                OnPropertyChanged(nameof(CanStartTraining));
+                OnPropertyChanged(nameof(CanToggleTraining));
+            });
+        }
+
+        public string SelectedModelArchitecture
+        {
+            get => _selectedModelArchitecture;
+            set => SetProperty(ref _selectedModelArchitecture, value);
+        }
+
+        public string SelectedDatasetFormat
+        {
+            get => _selectedDatasetFormat;
+            set => SetProperty(ref _selectedDatasetFormat, value);
+        }
+
+        public bool UseAdvancedConfig
+        {
+            get => _useAdvancedConfig;
+            set => SetProperty(ref _useAdvancedConfig, value);
+        }
+
+        public string CustomHyperparameters
+        {
+            get => _customHyperparameters;
+            set => SetProperty(ref _customHyperparameters, value);
+        }
+
+        // ActionPage Integration Properties
+        public bool UseRecordedActionsForTraining
+        {
+            get => _useRecordedActionsForTraining;
+            set => SetProperty(ref _useRecordedActionsForTraining, value);
+        }
+
+        public ActionGroup SelectedActionSession
+        {
+            get => _selectedActionSession;
+            set => SetProperty(ref _selectedActionSession, value);
+        }
+
+        public bool IncludeScreenImages
+        {
+            get => _includeScreenImages;
+            set => SetProperty(ref _includeScreenImages, value);
+        }
+
+        public bool IncludeWebcamImages
+        {
+            get => _includeWebcamImages;
+            set => SetProperty(ref _includeWebcamImages, value);
+        }
+
+        public bool IncludePcAudio
+        {
+            get => _includePcAudio;
+            set => SetProperty(ref _includePcAudio, value);
+        }
+
+        public bool IncludeWebcamAudio
+        {
+            get => _includeWebcamAudio;
+            set => SetProperty(ref _includeWebcamAudio, value);
+        }
+
+        public int TrainingDataPercentage
+        {
+            get => _trainingDataPercentage;
+            set => SetProperty(ref _trainingDataPercentage, Math.Max(1, Math.Min(98, value)));
+        }
+
+        public int ValidationDataPercentage
+        {
+            get => _validationDataPercentage;
+            set => SetProperty(ref _validationDataPercentage, Math.Max(1, Math.Min(98, value)));
+        }
+
+        public int TestDataPercentage
+        {
+            get => _testDataPercentage;
+            set => SetProperty(ref _testDataPercentage, Math.Max(1, Math.Min(98, value)));
+        }
+
         public double LearningRate
         {
             get => _learningRate;
@@ -508,16 +630,16 @@ namespace CSimple.ViewModels
         // Computed properties for training
         public bool CanStartTraining =>
             !IsTraining &&
-            SelectedTrainingModel != null &&
+            ((IsPretrainedModelMode && SelectedTrainingModel != null) || IsTrainingFromScratchMode) &&
             !string.IsNullOrWhiteSpace(TrainingDatasetPath) &&
             !string.IsNullOrWhiteSpace(NewModelName);
 
         public bool CanToggleTraining =>
-            IsTraining || (SelectedTrainingModel != null &&
+            IsTraining || ((IsPretrainedModelMode && SelectedTrainingModel != null) || IsTrainingFromScratchMode) &&
             !string.IsNullOrWhiteSpace(TrainingDatasetPath) &&
-            !string.IsNullOrWhiteSpace(NewModelName));
+            !string.IsNullOrWhiteSpace(NewModelName);
 
-        public string TrainingModelName => SelectedTrainingModel?.Name ?? "No model selected";
+        public string TrainingModelName => SelectedTrainingModel?.Name ?? (IsTrainingFromScratchMode ? "New Model Architecture" : "No model selected");
 
         public string TrainingStatusDisplay
         {
@@ -536,24 +658,180 @@ namespace CSimple.ViewModels
             }
         }
 
-        // Available text-to-text models for training
-        public ObservableCollection<NeuralNetworkModel> AvailableTextModels =>
-            new(AvailableModels.Where(m =>
-                m.IsHuggingFaceReference &&
-                !string.IsNullOrEmpty(m.HuggingFaceModelId) &&
-                IsModelDownloaded(m.HuggingFaceModelId) &&
-                (m.InputType == ModelInputType.Text ||
-                 m.HuggingFaceModelId.ToLowerInvariant().Contains("t5") ||
-                 m.HuggingFaceModelId.ToLowerInvariant().Contains("bart") ||
-                 m.HuggingFaceModelId.ToLowerInvariant().Contains("gpt"))));
+        // Training mode properties
+        public bool IsPretrainedModelMode => SelectedTrainingMode == "Align Pretrained Model";
+        public bool IsTrainingFromScratchMode => SelectedTrainingMode == "Train From Scratch";
 
-        // Fine-tuning method options
+        // Available models for all types (not just text)
+        public ObservableCollection<NeuralNetworkModel> AvailableTrainingModels
+        {
+            get
+            {
+                try
+                {
+                    return new(AvailableModels.Where(m =>
+                        m.IsHuggingFaceReference &&
+                        !string.IsNullOrEmpty(m.HuggingFaceModelId) &&
+                        IsModelDownloaded(m.HuggingFaceModelId)));
+                }
+                catch (System.Runtime.InteropServices.COMException comEx)
+                {
+                    Debug.WriteLine($"COM Exception in AvailableTrainingModels property: {comEx.Message}");
+                    return new ObservableCollection<NeuralNetworkModel>();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Exception in AvailableTrainingModels property: {ex.Message}");
+                    return new ObservableCollection<NeuralNetworkModel>();
+                }
+            }
+        }
+
+        // Available text-to-text models for training (legacy compatibility)
+        public ObservableCollection<NeuralNetworkModel> AvailableTextModels
+        {
+            get
+            {
+                try
+                {
+                    return new(AvailableModels.Where(m =>
+                        m.IsHuggingFaceReference &&
+                        !string.IsNullOrEmpty(m.HuggingFaceModelId) &&
+                        IsModelDownloaded(m.HuggingFaceModelId) &&
+                        (m.InputType == ModelInputType.Text ||
+                         m.HuggingFaceModelId.ToLowerInvariant().Contains("t5") ||
+                         m.HuggingFaceModelId.ToLowerInvariant().Contains("bart") ||
+                         m.HuggingFaceModelId.ToLowerInvariant().Contains("gpt"))));
+                }
+                catch (System.Runtime.InteropServices.COMException comEx)
+                {
+                    Debug.WriteLine($"COM Exception in AvailableTextModels property: {comEx.Message}");
+                    return new ObservableCollection<NeuralNetworkModel>();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Exception in AvailableTextModels property: {ex.Message}");
+                    return new ObservableCollection<NeuralNetworkModel>();
+                }
+            }
+        }
+
+        // Available image models for alignment
+        public ObservableCollection<NeuralNetworkModel> AvailableImageModels
+        {
+            get
+            {
+                try
+                {
+                    return new(AvailableModels.Where(m =>
+                        m.IsHuggingFaceReference &&
+                        !string.IsNullOrEmpty(m.HuggingFaceModelId) &&
+                        IsModelDownloaded(m.HuggingFaceModelId) &&
+                        (m.InputType == ModelInputType.Image ||
+                         m.HuggingFaceModelId.ToLowerInvariant().Contains("vit") ||
+                         m.HuggingFaceModelId.ToLowerInvariant().Contains("clip") ||
+                         m.HuggingFaceModelId.ToLowerInvariant().Contains("blip") ||
+                         m.HuggingFaceModelId.ToLowerInvariant().Contains("resnet"))));
+                }
+                catch (System.Runtime.InteropServices.COMException comEx)
+                {
+                    Debug.WriteLine($"COM Exception in AvailableImageModels property: {comEx.Message}");
+                    return new ObservableCollection<NeuralNetworkModel>();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Exception in AvailableImageModels property: {ex.Message}");
+                    return new ObservableCollection<NeuralNetworkModel>();
+                }
+            }
+        }
+
+        // Available audio models for alignment
+        public ObservableCollection<NeuralNetworkModel> AvailableAudioModels
+        {
+            get
+            {
+                try
+                {
+                    return new(AvailableModels.Where(m =>
+                        m.IsHuggingFaceReference &&
+                        !string.IsNullOrEmpty(m.HuggingFaceModelId) &&
+                        IsModelDownloaded(m.HuggingFaceModelId) &&
+                        (m.InputType == ModelInputType.Audio ||
+                         m.HuggingFaceModelId.ToLowerInvariant().Contains("whisper") ||
+                         m.HuggingFaceModelId.ToLowerInvariant().Contains("wav2vec") ||
+                         m.HuggingFaceModelId.ToLowerInvariant().Contains("hubert"))));
+                }
+                catch (System.Runtime.InteropServices.COMException comEx)
+                {
+                    Debug.WriteLine($"COM Exception in AvailableAudioModels property: {comEx.Message}");
+                    return new ObservableCollection<NeuralNetworkModel>();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Exception in AvailableAudioModels property: {ex.Message}");
+                    return new ObservableCollection<NeuralNetworkModel>();
+                }
+            }
+        }
+
+        // Training mode options
+        public List<string> TrainingModes { get; } = new List<string>
+        {
+            "Align Pretrained Model",
+            "Train From Scratch"
+        };
+
+        // Alignment technique options for pretrained models
+        public List<string> AlignmentTechniques { get; } = new List<string>
+        {
+            "Fine-tuning",
+            "Instruction Tuning",
+            "RLHF (Reinforcement Learning from Human Feedback)",
+            "DPO (Direct Preference Optimization)",
+            "Constitutional AI",
+            "Parameter-Efficient Fine-tuning (PEFT)"
+        };
+
+        // Model architecture options for training from scratch
+        public List<string> ModelArchitectures { get; } = new List<string>
+        {
+            "Transformer",
+            "Vision Transformer (ViT)",
+            "Convolutional Neural Network (CNN)",
+            "Recurrent Neural Network (RNN/LSTM)",
+            "Generative Adversarial Network (GAN)",
+            "Diffusion Model",
+            "Custom Architecture"
+        };
+
+        // Dataset format options
+        public List<string> DatasetFormats { get; } = new List<string>
+        {
+            "Auto-detect",
+            "JSONL (Text)",
+            "CSV",
+            "HuggingFace Dataset",
+            "Image Classification",
+            "Object Detection (COCO)",
+            "Audio Classification",
+            "Speech Recognition",
+            "Multimodal (Image-Text)",
+            "Custom Format"
+        };
+
+        // Fine-tuning method options (enhanced)
         public List<string> FineTuningMethods { get; } = new List<string>
         {
             "LoRA (Low-Rank Adaptation)",
+            "QLoRA (Quantized LoRA)",
+            "AdaLoRA (Adaptive LoRA)",
             "Full Fine-tuning",
             "Adapter Layers",
-            "Prefix Tuning"
+            "Prefix Tuning",
+            "Prompt Tuning",
+            "P-Tuning v2",
+            "BitFit"
         };
 
         // --- Commands ---
@@ -612,6 +890,12 @@ namespace CSimple.ViewModels
         public ICommand StopTrainingCommand { get; }
         public ICommand ToggleTrainingCommand { get; }
         public ICommand CreateDatasetCommand { get; }
+        public ICommand SelectModelArchitectureCommand { get; }
+        public ICommand ValidateDatasetCommand { get; }
+
+        // ActionPage Integration Commands
+        public ICommand RefreshActionSessionsCommand { get; }
+        public ICommand ProcessRecordedActionsCommand { get; }
 
         // Helper: Get download/delete button text for a model
         public string GetDownloadOrDeleteButtonText(string modelId)
@@ -765,7 +1049,24 @@ namespace CSimple.ViewModels
             ToggleIntelligenceCommand = new Command(() => IsIntelligenceActive = !IsIntelligenceActive);
 
             // Initialize training commands
-            SelectTrainingModelCommand = new Command(async () => await SelectTrainingModelAsync());
+            SelectTrainingModelCommand = new Command(async () =>
+            {
+                try
+                {
+                    await SelectTrainingModelAsync();
+                }
+                catch (System.Runtime.InteropServices.COMException comEx)
+                {
+                    Debug.WriteLine($"COM Exception in SelectTrainingModelCommand: {comEx.Message}");
+                    Debug.WriteLine($"COM Exception HRESULT: 0x{comEx.HResult:X8}");
+                    Debug.WriteLine($"COM Exception Stack: {comEx.StackTrace}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Exception in SelectTrainingModelCommand: {ex.Message}");
+                    Debug.WriteLine($"Exception Stack: {ex.StackTrace}");
+                }
+            });
             SelectTrainingDatasetCommand = new Command(async () => await SelectTrainingDatasetAsync());
             SelectValidationDatasetCommand = new Command(async () => await SelectValidationDatasetAsync());
             SelectTestDatasetCommand = new Command(async () => await SelectTestDatasetAsync());
@@ -773,6 +1074,12 @@ namespace CSimple.ViewModels
             StopTrainingCommand = new Command(async () => await StopTrainingAsync(), () => IsTraining);
             ToggleTrainingCommand = new Command(async () => await ToggleTrainingAsync(), () => CanToggleTraining);
             CreateDatasetCommand = new Command(async () => await CreateDatasetAsync());
+            SelectModelArchitectureCommand = new Command(async () => await SelectModelArchitectureAsync());
+            ValidateDatasetCommand = new Command(async () => await ValidateDatasetAsync());
+
+            // Initialize ActionPage integration commands
+            RefreshActionSessionsCommand = new Command(async () => await RefreshActionSessionsAsync());
+            ProcessRecordedActionsCommand = new Command(async () => await ProcessRecordedActionsAsync());
 
             // Load actual pipelines from OrientPage instead of placeholder data
             // This will be called in LoadDataAsync when the page appears
@@ -1393,20 +1700,101 @@ namespace CSimple.ViewModels
         /// </summary>
         private void NotifyModelDownloadStatusChanged()
         {
-            // Reduce logging frequency - only log when models are present
-            if (AvailableModels.Count > 0)
+            try
             {
-#if DEBUG
-                Debug.WriteLine($"NotifyModelDownloadStatusChanged: Triggering UI refresh for {AvailableModels.Count} models");
-#endif
+                Debug.WriteLine("NotifyModelDownloadStatusChanged: Starting model status notification");
+
+                // Ensure this runs on the UI thread
+                if (Microsoft.Maui.Controls.Application.Current?.Dispatcher?.IsDispatchRequired == true)
+                {
+                    Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
+                    {
+                        try
+                        {
+                            NotifyModelDownloadStatusChangedInternal();
+                        }
+                        catch (System.Runtime.InteropServices.COMException comEx)
+                        {
+                            Debug.WriteLine($"COM Exception in dispatched NotifyModelDownloadStatusChangedInternal: {comEx.Message}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Exception in dispatched NotifyModelDownloadStatusChangedInternal: {ex.Message}");
+                        }
+                    });
+                }
+                else
+                {
+                    NotifyModelDownloadStatusChangedInternal();
+                }
             }
+            catch (System.Runtime.InteropServices.COMException comEx)
+            {
+                Debug.WriteLine($"COM Exception in NotifyModelDownloadStatusChanged: {comEx.Message}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Exception in NotifyModelDownloadStatusChanged: {ex.Message}");
+            }
+        }
 
-            // Update all models' download button text based on current download state
-            UpdateAllModelsDownloadButtonText();
+        private void NotifyModelDownloadStatusChangedInternal()
+        {
+            try
+            {
+                Debug.WriteLine("NotifyModelDownloadStatusChangedInternal: Starting internal notification");
 
-            // Force the UI to refresh by notifying that the AvailableModels collection has changed
-            // This will cause the converter to re-evaluate for all model buttons
-            OnPropertyChanged(nameof(AvailableModels));
+                // Reduce logging frequency - only log when models are present
+                if (AvailableModels.Count > 0)
+                {
+#if DEBUG
+                    Debug.WriteLine($"NotifyModelDownloadStatusChanged: Triggering UI refresh for {AvailableModels.Count} models");
+#endif
+                }
+
+                // Update all models' download button text based on current download state
+                try
+                {
+                    UpdateAllModelsDownloadButtonText();
+                    Debug.WriteLine("NotifyModelDownloadStatusChangedInternal: Successfully updated button text");
+                }
+                catch (System.Runtime.InteropServices.COMException comEx)
+                {
+                    Debug.WriteLine($"COM Exception in UpdateAllModelsDownloadButtonText: {comEx.Message}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Exception in UpdateAllModelsDownloadButtonText: {ex.Message}");
+                }
+
+                // Force the UI to refresh by notifying that the AvailableModels collection has changed
+                // This will cause the converter to re-evaluate for all model buttons
+                try
+                {
+                    OnPropertyChanged(nameof(AvailableModels));
+                    Debug.WriteLine("NotifyModelDownloadStatusChangedInternal: Successfully triggered AvailableModels property change");
+                }
+                catch (System.Runtime.InteropServices.COMException comEx)
+                {
+                    Debug.WriteLine($"COM Exception in OnPropertyChanged(AvailableModels): {comEx.Message}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Exception in OnPropertyChanged(AvailableModels): {ex.Message}");
+                }
+
+                Debug.WriteLine("NotifyModelDownloadStatusChangedInternal: Completed successfully");
+            }
+            catch (System.Runtime.InteropServices.COMException comEx)
+            {
+                Debug.WriteLine($"COM Exception in NotifyModelDownloadStatusChangedInternal: {comEx.Message}");
+                Debug.WriteLine($"COM Exception Stack Trace: {comEx.StackTrace}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Exception in NotifyModelDownloadStatusChangedInternal: {ex.Message}");
+                Debug.WriteLine($"Exception Stack Trace: {ex.StackTrace}");
+            }
         }
 
         // ADDED: List of available input types for binding to dropdown
@@ -2993,29 +3381,120 @@ namespace CSimple.ViewModels
 
         protected bool SetProperty<T>(ref T backingStore, T value, [CallerMemberName] string propertyName = "", Action onChanged = null)
         {
-            if (EqualityComparer<T>.Default.Equals(backingStore, value)) return false;
-            backingStore = value;
-            onChanged?.Invoke();
-            OnPropertyChanged(propertyName);
-
-            // Also notify dependent properties
-            if (propertyName == nameof(ActiveModels))
+            try
             {
-                OnPropertyChanged(nameof(ActiveModelsCount));
-                OnPropertyChanged(nameof(SupportsTextInput));
-                OnPropertyChanged(nameof(SupportsImageInput));
-                OnPropertyChanged(nameof(SupportsAudioInput));
-                OnPropertyChanged(nameof(HasCompatibleMediaSelected));
-                OnPropertyChanged(nameof(CurrentInputModeDescription));
-                OnPropertyChanged(nameof(SupportedInputTypesText));
-            }
-            if (propertyName == nameof(CurrentMessage) || propertyName == nameof(IsAiTyping) || propertyName == nameof(ActiveModels))
-                OnPropertyChanged(nameof(CanSendMessage));
+                if (EqualityComparer<T>.Default.Equals(backingStore, value)) return false;
+                backingStore = value;
+                onChanged?.Invoke();
+                OnPropertyChanged(propertyName);
 
-            return true;
+                // Also notify dependent properties
+                if (propertyName == nameof(ActiveModels))
+                {
+                    OnPropertyChanged(nameof(ActiveModelsCount));
+                    OnPropertyChanged(nameof(SupportsTextInput));
+                    OnPropertyChanged(nameof(SupportsImageInput));
+                    OnPropertyChanged(nameof(SupportsAudioInput));
+                    OnPropertyChanged(nameof(HasCompatibleMediaSelected));
+                    OnPropertyChanged(nameof(CurrentInputModeDescription));
+                    OnPropertyChanged(nameof(SupportedInputTypesText));
+                }
+                if (propertyName == nameof(CurrentMessage) || propertyName == nameof(IsAiTyping) || propertyName == nameof(ActiveModels))
+                    OnPropertyChanged(nameof(CanSendMessage));
+
+                return true;
+            }
+            catch (System.Runtime.InteropServices.COMException ex)
+            {
+                Debug.WriteLine($"COM Exception in SetProperty for {propertyName}: {ex.Message}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Exception in SetProperty for {propertyName}: {ex.Message}");
+                return false;
+            }
         }
-        protected void OnPropertyChanged([CallerMemberName] string propertyName = "") =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+        /// <summary>
+        /// Thread-safe method to add a model to AvailableModels collection
+        /// </summary>
+        private void AddModelToCollection(NeuralNetworkModel model)
+        {
+            if (Microsoft.Maui.Controls.Application.Current?.Dispatcher?.IsDispatchRequired == true)
+            {
+                Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
+                {
+                    AvailableModels.Add(model);
+                });
+            }
+            else
+            {
+                AvailableModels.Add(model);
+            }
+        }
+
+        /// <summary>
+        /// Thread-safe method to remove a model from AvailableModels collection
+        /// </summary>
+        private void RemoveModelFromCollection(NeuralNetworkModel model)
+        {
+            if (Microsoft.Maui.Controls.Application.Current?.Dispatcher?.IsDispatchRequired == true)
+            {
+                Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
+                {
+                    AvailableModels.Remove(model);
+                });
+            }
+            else
+            {
+                AvailableModels.Remove(model);
+            }
+        }
+
+        /// <summary>
+        /// Thread-safe method to clear AvailableModels collection
+        /// </summary>
+        private void ClearModelsCollection()
+        {
+            if (Microsoft.Maui.Controls.Application.Current?.Dispatcher?.IsDispatchRequired == true)
+            {
+                Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
+                {
+                    AvailableModels.Clear();
+                });
+            }
+            else
+            {
+                AvailableModels.Clear();
+            }
+        }
+
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = "")
+        {
+            try
+            {
+                if (Microsoft.Maui.Controls.Application.Current?.Dispatcher?.IsDispatchRequired == true)
+                {
+                    Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
+                    {
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+                    });
+                }
+                else
+                {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+                }
+            }
+            catch (System.Runtime.InteropServices.COMException ex)
+            {
+                Debug.WriteLine($"COM Exception in OnPropertyChanged for {propertyName}: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Exception in OnPropertyChanged for {propertyName}: {ex.Message}");
+            }
+        }
 
         /// <summary>
         /// Debug method to check model input types - only runs in DEBUG builds
@@ -4394,7 +4873,7 @@ namespace CSimple.ViewModels
                             }
                         }
                     }
-                    catch (JsonException ex)
+                    catch (Newtonsoft.Json.JsonException ex)
                     {
                         Debug.WriteLine($"Error deserializing input data as ActionItem: {ex.Message}");
                         // Still add as text data for comprehensive capture
@@ -5869,35 +6348,291 @@ namespace CSimple.ViewModels
         {
             try
             {
-                var textModels = AvailableTextModels.ToList();
+                Debug.WriteLine("Model selection: Starting SelectTrainingModelAsync");
 
-                if (textModels.Count == 0)
+                if (IsTrainingFromScratchMode)
                 {
-                    await ShowAlert("No Text Models", "No text-to-text models are available for training. Please download a text model first.", "OK");
+                    await ShowAlert("Training From Scratch", "When training from scratch, no pretrained model is needed. Configure the model architecture instead.", "OK");
                     return;
                 }
 
-                var modelNames = textModels.Select(m => m.Name ?? m.HuggingFaceModelId ?? "Unknown Model").ToArray();
-                string selectedModelName = await ShowActionSheet(
-                    "Select a Text Model for Training",
+                Debug.WriteLine("Model selection: Getting available training models");
+                List<NeuralNetworkModel> availableModels;
+                try
+                {
+                    // Get available models in a thread-safe manner
+                    availableModels = AvailableTrainingModels.ToList();
+                    Debug.WriteLine($"Model selection: Successfully retrieved {availableModels.Count} available models");
+                }
+                catch (System.Runtime.InteropServices.COMException comEx)
+                {
+                    Debug.WriteLine($"COM Exception when accessing AvailableTrainingModels: {comEx.Message}");
+                    await ShowAlert("Model Access Error", $"Failed to access available models due to a COM error: {comEx.Message}", "OK");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Exception when accessing AvailableTrainingModels: {ex.Message}");
+                    await ShowAlert("Model Access Error", $"Failed to access available models: {ex.Message}", "OK");
+                    return;
+                }
+
+                if (availableModels.Count == 0)
+                {
+                    await ShowAlert("No Models Available", "No downloaded models are available for training. Please download a model first.", "OK");
+                    return;
+                }
+
+                Debug.WriteLine($"Model selection: Found {availableModels.Count} available models");
+
+                // Group models by type for better selection
+                var modelGroups = new Dictionary<string, List<NeuralNetworkModel>>
+                {
+                    ["Text Models"] = availableModels.Where(m => m.InputType == ModelInputType.Text).ToList(),
+                    ["Image Models"] = availableModels.Where(m => m.InputType == ModelInputType.Image).ToList(),
+                    ["Audio Models"] = availableModels.Where(m => m.InputType == ModelInputType.Audio).ToList(),
+                    ["Multimodal Models"] = availableModels.Where(m =>
+                        m.HuggingFaceModelId?.ToLowerInvariant().Contains("clip") == true ||
+                        m.HuggingFaceModelId?.ToLowerInvariant().Contains("blip") == true ||
+                        m.HuggingFaceModelId?.ToLowerInvariant().Contains("flava") == true).ToList()
+                };
+
+                // Create selection options with model type information
+                var selectionOptions = new List<string>();
+                foreach (var group in modelGroups.Where(g => g.Value.Any()))
+                {
+                    selectionOptions.Add($"--- {group.Key} ---");
+                    foreach (var model in group.Value)
+                    {
+                        var displayName = $"{model.Name ?? model.HuggingFaceModelId}";
+                        if (!string.IsNullOrEmpty(model.HuggingFaceModelId))
+                            displayName += $" ({model.HuggingFaceModelId})";
+                        selectionOptions.Add(displayName);
+                    }
+                }
+
+                if (selectionOptions.Count == 0)
+                {
+                    await ShowAlert("No Models", "No suitable models found for training.", "OK");
+                    return;
+                }
+
+                string selectedOption = await ShowActionSheet(
+                    "Select a Model for Training/Alignment",
                     "Cancel",
                     null,
-                    modelNames);
+                    selectionOptions.ToArray());
 
-                if (selectedModelName != "Cancel" && !string.IsNullOrEmpty(selectedModelName))
+                if (selectedOption != "Cancel" && !string.IsNullOrEmpty(selectedOption) && !selectedOption.StartsWith("---"))
                 {
-                    SelectedTrainingModel = textModels.FirstOrDefault(m =>
-                        (m.Name ?? m.HuggingFaceModelId ?? "Unknown Model") == selectedModelName);
-
-                    if (SelectedTrainingModel != null)
+                    try
                     {
-                        TrainingStatus = $"Selected model: {SelectedTrainingModel.Name}";
+                        Debug.WriteLine($"Model selection: User selected '{selectedOption}'");
+
+                        // Find the selected model
+                        var selectedModel = availableModels.FirstOrDefault(m =>
+                        {
+                            var displayName = $"{m.Name ?? m.HuggingFaceModelId}";
+                            if (!string.IsNullOrEmpty(m.HuggingFaceModelId))
+                                displayName += $" ({m.HuggingFaceModelId})";
+                            return displayName == selectedOption;
+                        });
+
+                        if (selectedModel != null)
+                        {
+                            Debug.WriteLine($"Model selection: Found model '{selectedModel.Name}' with ID '{selectedModel.HuggingFaceModelId}'");
+
+                            // Set the selected model in a thread-safe manner
+                            try
+                            {
+                                SelectedTrainingModel = selectedModel;
+                                Debug.WriteLine($"Model selection: Successfully set SelectedTrainingModel");
+                            }
+                            catch (System.Runtime.InteropServices.COMException comEx)
+                            {
+                                Debug.WriteLine($"COM Exception when setting SelectedTrainingModel: {comEx.Message}");
+                                await ShowAlert("Model Selection Error", $"Failed to select model due to a COM error: {comEx.Message}", "OK");
+                                return;
+                            }
+
+                            try
+                            {
+                                TrainingStatus = $"Selected {selectedModel.InputType} model: {selectedModel.Name}";
+                                Debug.WriteLine($"Model selection: Successfully set TrainingStatus");
+                            }
+                            catch (System.Runtime.InteropServices.COMException comEx)
+                            {
+                                Debug.WriteLine($"COM Exception when setting TrainingStatus: {comEx.Message}");
+                            }
+
+                            // Suggest appropriate alignment techniques based on model type
+                            try
+                            {
+                                SuggestAlignmentTechniquesForModel();
+                                Debug.WriteLine($"Model selection: Successfully suggested alignment techniques");
+                            }
+                            catch (System.Runtime.InteropServices.COMException comEx)
+                            {
+                                Debug.WriteLine($"COM Exception in SuggestAlignmentTechniquesForModel: {comEx.Message}");
+                            }
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"Model selection: Could not find model for selection '{selectedOption}'");
+                            await ShowAlert("Model Not Found", "The selected model could not be found.", "OK");
+                        }
                     }
+                    catch (System.Runtime.InteropServices.COMException comEx)
+                    {
+                        Debug.WriteLine($"COM Exception in model selection process: {comEx.Message}");
+                        await ShowAlert("Selection Error", $"A COM error occurred during model selection: {comEx.Message}", "OK");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"General exception in model selection process: {ex.Message}");
+                        await ShowAlert("Selection Error", $"An error occurred during model selection: {ex.Message}", "OK");
+                    }
+                }
+            }
+            catch (System.Runtime.InteropServices.COMException comEx)
+            {
+                Debug.WriteLine($"COM Exception in SelectTrainingModelAsync: {comEx.Message}");
+                Debug.WriteLine($"COM Exception Stack Trace: {comEx.StackTrace}");
+                try
+                {
+                    await ShowAlert("COM Error", $"A COM exception occurred during model selection. This may be due to UI thread issues.\n\nError: {comEx.Message}", "OK");
+                }
+                catch
+                {
+                    Debug.WriteLine("Failed to show COM error alert");
                 }
             }
             catch (Exception ex)
             {
+                Debug.WriteLine($"General Exception in SelectTrainingModelAsync: {ex.Message}");
+                Debug.WriteLine($"General Exception Stack Trace: {ex.StackTrace}");
                 HandleError("Error selecting training model", ex);
+            }
+        }
+
+        /// <summary>
+        /// Suggest appropriate alignment techniques based on the selected model type
+        /// </summary>
+        private void SuggestAlignmentTechniquesForModel()
+        {
+            if (SelectedTrainingModel == null) return;
+
+            try
+            {
+                Debug.WriteLine($"SuggestAlignmentTechniquesForModel: Starting suggestions for model '{SelectedTrainingModel.Name}'");
+
+                var suggestions = new List<string>();
+                var modelType = SelectedTrainingModel.InputType;
+                var modelId = SelectedTrainingModel.HuggingFaceModelId?.ToLowerInvariant() ?? "";
+
+                Debug.WriteLine($"SuggestAlignmentTechniquesForModel: Model type is {modelType}, ID: {modelId}");
+
+                switch (modelType)
+                {
+                    case ModelInputType.Text:
+                        suggestions.AddRange(new[]
+                        {
+                            "• Instruction Tuning - For better following of instructions",
+                            "• RLHF - For alignment with human preferences",
+                            "• DPO - Direct preference optimization",
+                            "• LoRA - Parameter-efficient fine-tuning"
+                        });
+                        break;
+
+                    case ModelInputType.Image:
+                        suggestions.AddRange(new[]
+                        {
+                            "• Fine-tuning - For specific image classification tasks",
+                            "• Adapter Layers - For domain adaptation",
+                            "• LoRA - For efficient vision model adaptation",
+                            "• Prompt Tuning - For vision-language models"
+                        });
+                        break;
+
+                    case ModelInputType.Audio:
+                        suggestions.AddRange(new[]
+                        {
+                            "• Fine-tuning - For specific audio tasks",
+                            "• Adapter Layers - For new languages or domains",
+                            "• LoRA - For efficient audio model adaptation"
+                        });
+                        break;
+                }
+
+                if (modelId.Contains("clip") || modelId.Contains("blip"))
+                {
+                    suggestions.AddRange(new[]
+                    {
+                        "• Multimodal Alignment - For vision-language understanding",
+                        "• Constitutional AI - For safe multimodal responses"
+                    });
+                }
+
+                Debug.WriteLine($"SuggestAlignmentTechniquesForModel: Generated {suggestions.Count} suggestions");
+
+                if (suggestions.Any())
+                {
+                    var message = $"Recommended alignment techniques for {modelType} models:\n\n" +
+                        string.Join("\n", suggestions) +
+                        "\n\nChoose the technique that best fits your use case.";
+
+                    // Show as a non-blocking notification on the UI thread
+                    try
+                    {
+                        if (Microsoft.Maui.Controls.Application.Current?.Dispatcher != null)
+                        {
+                            Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(async () =>
+                            {
+                                try
+                                {
+                                    await ShowAlert?.Invoke("Alignment Technique Suggestions", message, "OK");
+                                    Debug.WriteLine($"SuggestAlignmentTechniquesForModel: Successfully showed alignment suggestions alert");
+                                }
+                                catch (System.Runtime.InteropServices.COMException comEx)
+                                {
+                                    Debug.WriteLine($"COM Exception when showing alignment suggestions alert: {comEx.Message}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.WriteLine($"Exception when showing alignment suggestions alert: {ex.Message}");
+                                }
+                            });
+                        }
+                        else
+                        {
+                            Debug.WriteLine("No dispatcher available for showing alignment suggestions alert");
+                        }
+                    }
+                    catch (System.Runtime.InteropServices.COMException comEx)
+                    {
+                        Debug.WriteLine($"COM Exception when dispatching alignment suggestions alert: {comEx.Message}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Exception when dispatching alignment suggestions alert: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"SuggestAlignmentTechniquesForModel: No suggestions generated for model type {modelType}");
+                }
+
+                Debug.WriteLine($"SuggestAlignmentTechniquesForModel: Completed successfully");
+            }
+            catch (System.Runtime.InteropServices.COMException comEx)
+            {
+                Debug.WriteLine($"COM Exception in SuggestAlignmentTechniquesForModel: {comEx.Message}");
+                Debug.WriteLine($"COM Exception Stack Trace: {comEx.StackTrace}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error suggesting alignment techniques: {ex.Message}");
+                Debug.WriteLine($"Exception Stack Trace: {ex.StackTrace}");
             }
         }
 
@@ -6004,21 +6739,59 @@ namespace CSimple.ViewModels
             {
                 if (!CanStartTraining)
                 {
-                    await ShowAlert("Cannot Start Training", "Please select a model, training dataset, and provide a name for the new model.", "OK");
+                    var message = IsTrainingFromScratchMode
+                        ? "Please provide training dataset and name for the new model."
+                        : "Please select a model, training dataset, and provide a name for the new model.";
+                    await ShowAlert("Cannot Start Training", message, "OK");
                     return;
                 }
 
                 IsTraining = true;
                 TrainingProgress = 0.0;
-                TrainingStatus = "Initializing training...";
+                TrainingStatus = IsTrainingFromScratchMode
+                    ? $"Initializing {SelectedModelArchitecture} architecture training..."
+                    : $"Initializing {SelectedAlignmentTechnique} alignment...";
                 _trainingStartTime = DateTime.Now;
 
-                // Create aligned models directory
-                var alignedModelsPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\AlignedModels", NewModelName);
-                Directory.CreateDirectory(alignedModelsPath);
+                // Create output directory based on training mode
+                string outputPath;
+                if (IsTrainingFromScratchMode)
+                {
+                    outputPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\TrainedModels", NewModelName);
+                }
+                else
+                {
+                    outputPath = Path.Combine(@"C:\Users\tanne\Documents\CSimple\Resources\AlignedModels", NewModelName);
+                }
+                Directory.CreateDirectory(outputPath);
 
-                // Simulate training process with progress updates
-                await SimulateTrainingProcessAsync(alignedModelsPath);
+                // Save training configuration
+                var trainingConfig = new TrainingConfiguration
+                {
+                    TrainingMode = SelectedTrainingMode,
+                    AlignmentTechnique = SelectedAlignmentTechnique,
+                    ModelArchitecture = SelectedModelArchitecture,
+                    DatasetFormat = SelectedDatasetFormat,
+                    FineTuningMethod = SelectedFineTuningMethod,
+                    LearningRate = LearningRate,
+                    Epochs = Epochs,
+                    BatchSize = BatchSize,
+                    UseAdvancedConfig = UseAdvancedConfig,
+                    CustomHyperparameters = CustomHyperparameters
+                };
+
+                var configPath = Path.Combine(outputPath, "training_config.json");
+                await File.WriteAllTextAsync(configPath, JsonConvert.SerializeObject(trainingConfig, Formatting.Indented));
+
+                // Start appropriate training process
+                if (IsTrainingFromScratchMode)
+                {
+                    await SimulateTrainingFromScratchAsync(outputPath);
+                }
+                else
+                {
+                    await SimulateModelAlignmentAsync(outputPath);
+                }
             }
             catch (Exception ex)
             {
@@ -6026,6 +6799,432 @@ namespace CSimple.ViewModels
                 IsTraining = false;
                 TrainingStatus = $"Training failed: {ex.Message}";
             }
+        }
+
+        /// <summary>
+        /// Simulate training a model from scratch
+        /// </summary>
+        private async Task SimulateTrainingFromScratchAsync(string outputPath)
+        {
+            try
+            {
+                TrainingStatus = $"Building {SelectedModelArchitecture} architecture...";
+                await Task.Delay(2000);
+
+                if (!IsTraining) return;
+
+                // Create model architecture specification
+                var architectureSpec = new ModelArchitectureSpec
+                {
+                    Name = NewModelName,
+                    Type = SelectedModelArchitecture
+                };
+
+                // Set architecture-specific parameters
+                switch (SelectedModelArchitecture)
+                {
+                    case "Transformer":
+                        architectureSpec.Layers = 12;
+                        architectureSpec.HiddenSize = 768;
+                        architectureSpec.AttentionHeads = 12;
+                        break;
+                    case "Vision Transformer (ViT)":
+                        architectureSpec.Layers = 12;
+                        architectureSpec.HiddenSize = 768;
+                        architectureSpec.AttentionHeads = 12;
+                        architectureSpec.CustomParameters["patch_size"] = 16;
+                        architectureSpec.CustomParameters["image_size"] = 224;
+                        break;
+                    case "Convolutional Neural Network (CNN)":
+                        architectureSpec.CustomParameters["conv_layers"] = 4;
+                        architectureSpec.CustomParameters["filters"] = new[] { 32, 64, 128, 256 };
+                        break;
+                }
+
+                var specPath = Path.Combine(outputPath, "architecture_spec.json");
+                await File.WriteAllTextAsync(specPath, JsonConvert.SerializeObject(architectureSpec, Formatting.Indented));
+
+                // Simulate training process with more detailed progress
+                var totalSteps = Epochs * 500; // More steps for training from scratch
+                var stepDuration = TimeSpan.FromMilliseconds(100);
+
+                for (int epoch = 0; epoch < Epochs; epoch++)
+                {
+                    TrainingStatus = $"Training epoch {epoch + 1}/{Epochs} - Building representations...";
+
+                    for (int step = 0; step < 500; step++)
+                    {
+                        if (!IsTraining) return;
+
+                        var currentStep = epoch * 500 + step;
+                        TrainingProgress = (double)currentStep / totalSteps;
+
+                        // Simulate different training phases
+                        if (step < 100)
+                            TrainingStatus = $"Epoch {epoch + 1}/{Epochs} - Forward pass";
+                        else if (step < 300)
+                            TrainingStatus = $"Epoch {epoch + 1}/{Epochs} - Backward pass";
+                        else if (step < 450)
+                            TrainingStatus = $"Epoch {epoch + 1}/{Epochs} - Parameter updates";
+                        else
+                            TrainingStatus = $"Epoch {epoch + 1}/{Epochs} - Validation";
+
+                        // Calculate elapsed and ETA
+                        var elapsed = DateTime.Now - _trainingStartTime;
+                        TrainingElapsed = $"{elapsed.Hours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+
+                        if (TrainingProgress > 0)
+                        {
+                            var totalEstimated = TimeSpan.FromTicks((long)(elapsed.Ticks / TrainingProgress));
+                            var eta = totalEstimated - elapsed;
+                            TrainingEta = $"{eta.Hours:D2}:{eta.Minutes:D2}:{eta.Seconds:D2}";
+                        }
+
+                        await Task.Delay(stepDuration);
+                    }
+                }
+
+                if (IsTraining)
+                {
+                    await FinalizeTrainingFromScratchAsync(outputPath, architectureSpec);
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error during training from scratch", ex);
+                IsTraining = false;
+            }
+        }
+
+        /// <summary>
+        /// Simulate model alignment process
+        /// </summary>
+        private async Task SimulateModelAlignmentAsync(string outputPath)
+        {
+            try
+            {
+                var modelType = SelectedTrainingModel?.InputType ?? ModelInputType.Text;
+                var alignmentPhases = GetAlignmentPhases(SelectedAlignmentTechnique, modelType);
+
+                var totalSteps = alignmentPhases.Sum(p => p.Steps);
+                var currentStepGlobal = 0;
+
+                foreach (var phase in alignmentPhases)
+                {
+                    TrainingStatus = phase.Name;
+
+                    for (int step = 0; step < phase.Steps; step++)
+                    {
+                        if (!IsTraining) return;
+
+                        currentStepGlobal++;
+                        TrainingProgress = (double)currentStepGlobal / totalSteps;
+
+                        // Calculate elapsed and ETA
+                        var elapsed = DateTime.Now - _trainingStartTime;
+                        TrainingElapsed = $"{elapsed.Hours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+
+                        if (TrainingProgress > 0)
+                        {
+                            var totalEstimated = TimeSpan.FromTicks((long)(elapsed.Ticks / TrainingProgress));
+                            var eta = totalEstimated - elapsed;
+                            TrainingEta = $"{eta.Hours:D2}:{eta.Minutes:D2}:{eta.Seconds:D2}";
+                        }
+
+                        await Task.Delay(phase.StepDuration);
+                    }
+                }
+
+                if (IsTraining)
+                {
+                    await FinalizeModelAlignmentAsync(outputPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error during model alignment", ex);
+                IsTraining = false;
+            }
+        }
+
+        /// <summary>
+        /// Get alignment phases based on technique and model type
+        /// </summary>
+        private List<TrainingPhase> GetAlignmentPhases(string technique, ModelInputType modelType)
+        {
+            var phases = new List<TrainingPhase>();
+
+            switch (technique)
+            {
+                case "Fine-tuning":
+                    phases.AddRange(new[]
+                    {
+                        new TrainingPhase("Loading pretrained model", 50, TimeSpan.FromMilliseconds(200)),
+                        new TrainingPhase("Preparing dataset", 100, TimeSpan.FromMilliseconds(150)),
+                        new TrainingPhase("Fine-tuning layers", 300, TimeSpan.FromMilliseconds(300)),
+                        new TrainingPhase("Validation", 50, TimeSpan.FromMilliseconds(200))
+                    });
+                    break;
+
+                case "Instruction Tuning":
+                    phases.AddRange(new[]
+                    {
+                        new TrainingPhase("Loading pretrained model", 50, TimeSpan.FromMilliseconds(200)),
+                        new TrainingPhase("Parsing instruction dataset", 150, TimeSpan.FromMilliseconds(100)),
+                        new TrainingPhase("Instruction fine-tuning", 400, TimeSpan.FromMilliseconds(250)),
+                        new TrainingPhase("Instruction validation", 100, TimeSpan.FromMilliseconds(150))
+                    });
+                    break;
+
+                case "RLHF (Reinforcement Learning from Human Feedback)":
+                    phases.AddRange(new[]
+                    {
+                        new TrainingPhase("Loading pretrained model", 50, TimeSpan.FromMilliseconds(200)),
+                        new TrainingPhase("Training reward model", 300, TimeSpan.FromMilliseconds(300)),
+                        new TrainingPhase("Policy optimization (PPO)", 500, TimeSpan.FromMilliseconds(400)),
+                        new TrainingPhase("Human preference alignment", 200, TimeSpan.FromMilliseconds(250))
+                    });
+                    break;
+
+                case "DPO (Direct Preference Optimization)":
+                    phases.AddRange(new[]
+                    {
+                        new TrainingPhase("Loading pretrained model", 50, TimeSpan.FromMilliseconds(200)),
+                        new TrainingPhase("Preparing preference dataset", 100, TimeSpan.FromMilliseconds(150)),
+                        new TrainingPhase("Direct preference optimization", 350, TimeSpan.FromMilliseconds(300)),
+                        new TrainingPhase("Preference validation", 100, TimeSpan.FromMilliseconds(200))
+                    });
+                    break;
+
+                case "Constitutional AI":
+                    phases.AddRange(new[]
+                    {
+                        new TrainingPhase("Loading pretrained model", 50, TimeSpan.FromMilliseconds(200)),
+                        new TrainingPhase("Constitutional principles setup", 100, TimeSpan.FromMilliseconds(150)),
+                        new TrainingPhase("Constitutional training", 400, TimeSpan.FromMilliseconds(350)),
+                        new TrainingPhase("Safety validation", 150, TimeSpan.FromMilliseconds(250))
+                    });
+                    break;
+
+                case "Parameter-Efficient Fine-tuning (PEFT)":
+                    phases.AddRange(new[]
+                    {
+                        new TrainingPhase("Loading pretrained model", 50, TimeSpan.FromMilliseconds(200)),
+                        new TrainingPhase("Initializing adapters", 80, TimeSpan.FromMilliseconds(100)),
+                        new TrainingPhase("Training adapters only", 250, TimeSpan.FromMilliseconds(200)),
+                        new TrainingPhase("Adapter validation", 70, TimeSpan.FromMilliseconds(150))
+                    });
+                    break;
+
+                default:
+                    phases.AddRange(new[]
+                    {
+                        new TrainingPhase("Loading pretrained model", 50, TimeSpan.FromMilliseconds(200)),
+                        new TrainingPhase("Alignment processing", 300, TimeSpan.FromMilliseconds(250)),
+                        new TrainingPhase("Validation", 100, TimeSpan.FromMilliseconds(200))
+                    });
+                    break;
+            }
+
+            // Adjust phases based on model type
+            if (modelType == ModelInputType.Image)
+            {
+                phases.Insert(1, new TrainingPhase("Processing vision data", 100, TimeSpan.FromMilliseconds(200)));
+            }
+            else if (modelType == ModelInputType.Audio)
+            {
+                phases.Insert(1, new TrainingPhase("Processing audio data", 120, TimeSpan.FromMilliseconds(250)));
+            }
+
+            return phases;
+        }
+
+        /// <summary>
+        /// Finalize training from scratch and create the new model
+        /// </summary>
+        private async Task FinalizeTrainingFromScratchAsync(string outputPath, ModelArchitectureSpec architectureSpec)
+        {
+            try
+            {
+                TrainingStatus = "Finalizing trained model...";
+                TrainingProgress = 1.0;
+
+                // Save final model metadata
+                var modelInfo = new
+                {
+                    ModelName = NewModelName,
+                    Architecture = architectureSpec,
+                    TrainingMode = "Train From Scratch",
+                    DatasetPath = Path.GetFileName(TrainingDatasetPath),
+                    ValidationDataset = !string.IsNullOrEmpty(ValidationDatasetPath) ? Path.GetFileName(ValidationDatasetPath) : null,
+                    TestDataset = !string.IsNullOrEmpty(TestDatasetPath) ? Path.GetFileName(TestDatasetPath) : null,
+                    Hyperparameters = new
+                    {
+                        LearningRate = LearningRate,
+                        Epochs = Epochs,
+                        BatchSize = BatchSize,
+                        CustomHyperparameters = CustomHyperparameters
+                    },
+                    TrainingCompleted = DateTime.Now,
+                    TrainingDuration = DateTime.Now - _trainingStartTime
+                };
+
+                var modelInfoPath = Path.Combine(outputPath, "model_info.json");
+                await File.WriteAllTextAsync(modelInfoPath, JsonConvert.SerializeObject(modelInfo, Formatting.Indented));
+
+                // Create model file structure
+                await File.WriteAllTextAsync(Path.Combine(outputPath, "config.json"),
+                    JsonConvert.SerializeObject(architectureSpec, Formatting.Indented));
+                await File.WriteAllTextAsync(Path.Combine(outputPath, "pytorch_model.bin"), "trained_model_placeholder");
+                await File.WriteAllTextAsync(Path.Combine(outputPath, "tokenizer.json"), "{}");
+
+                // Add the new model to the available models collection
+                var newModel = new NeuralNetworkModel
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Name = NewModelName,
+                    Description = $"Custom {SelectedModelArchitecture} model trained from scratch",
+                    Type = ModelType.General,
+                    InputType = DetermineInputTypeFromArchitecture(SelectedModelArchitecture),
+                    IsHuggingFaceReference = false,
+                    IsDownloaded = true,
+                    IsActive = false,
+                    DownloadButtonText = "Remove from Device"
+                };
+
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    AvailableModels.Add(newModel);
+                });
+
+                await SavePersistedModelsAsync();
+
+                TrainingStatus = $"Training from scratch completed! Model '{NewModelName}' is now available.";
+                IsTraining = false;
+
+                await ShowAlert("Training Complete",
+                    $"Custom {SelectedModelArchitecture} model '{NewModelName}' has been successfully trained from scratch and is now available in your model collection.",
+                    "OK");
+
+                ResetTrainingState();
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error finalizing training from scratch", ex);
+                IsTraining = false;
+                TrainingStatus = $"Training finalization failed: {ex.Message}";
+            }
+        }
+
+        /// <summary>
+        /// Finalize model alignment and create the aligned model
+        /// </summary>
+        private async Task FinalizeModelAlignmentAsync(string outputPath)
+        {
+            try
+            {
+                TrainingStatus = "Finalizing aligned model...";
+                TrainingProgress = 1.0;
+
+                // Save alignment metadata
+                var alignmentInfo = new
+                {
+                    OriginalModelId = SelectedTrainingModel.HuggingFaceModelId,
+                    OriginalModelName = SelectedTrainingModel.Name,
+                    NewModelName = NewModelName,
+                    AlignmentTechnique = SelectedAlignmentTechnique,
+                    ModelType = SelectedTrainingModel.InputType.ToString(),
+                    TrainingDataset = Path.GetFileName(TrainingDatasetPath),
+                    ValidationDataset = !string.IsNullOrEmpty(ValidationDatasetPath) ? Path.GetFileName(ValidationDatasetPath) : null,
+                    TestDataset = !string.IsNullOrEmpty(TestDatasetPath) ? Path.GetFileName(TestDatasetPath) : null,
+                    FineTuningMethod = SelectedFineTuningMethod,
+                    DatasetFormat = SelectedDatasetFormat,
+                    Hyperparameters = new
+                    {
+                        LearningRate = LearningRate,
+                        Epochs = Epochs,
+                        BatchSize = BatchSize,
+                        CustomHyperparameters = CustomHyperparameters
+                    },
+                    AlignmentCompleted = DateTime.Now,
+                    AlignmentDuration = DateTime.Now - _trainingStartTime
+                };
+
+                var alignmentInfoPath = Path.Combine(outputPath, "alignment_info.json");
+                await File.WriteAllTextAsync(alignmentInfoPath, JsonConvert.SerializeObject(alignmentInfo, Formatting.Indented));
+
+                // Create aligned model file structure
+                await File.WriteAllTextAsync(Path.Combine(outputPath, "config.json"), "{}");
+                await File.WriteAllTextAsync(Path.Combine(outputPath, "pytorch_model.bin"), "aligned_model_placeholder");
+
+                // Save alignment-specific files
+                switch (SelectedAlignmentTechnique)
+                {
+                    case "LoRA (Low-Rank Adaptation)":
+                    case "Parameter-Efficient Fine-tuning (PEFT)":
+                        await File.WriteAllTextAsync(Path.Combine(outputPath, "adapter_config.json"), "{}");
+                        await File.WriteAllTextAsync(Path.Combine(outputPath, "adapter_model.bin"), "adapter_weights_placeholder");
+                        break;
+                    case "RLHF (Reinforcement Learning from Human Feedback)":
+                        await File.WriteAllTextAsync(Path.Combine(outputPath, "reward_model.bin"), "reward_model_placeholder");
+                        await File.WriteAllTextAsync(Path.Combine(outputPath, "policy_model.bin"), "policy_model_placeholder");
+                        break;
+                    case "DPO (Direct Preference Optimization)":
+                        await File.WriteAllTextAsync(Path.Combine(outputPath, "preference_model.bin"), "preference_model_placeholder");
+                        break;
+                }
+
+                // Add the aligned model to the available models collection
+                var alignedModel = new NeuralNetworkModel
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Name = NewModelName,
+                    Description = $"Aligned from {SelectedTrainingModel.Name} using {SelectedAlignmentTechnique}",
+                    Type = ModelType.General,
+                    InputType = SelectedTrainingModel.InputType,
+                    IsHuggingFaceReference = false,
+                    IsDownloaded = true,
+                    IsActive = false,
+                    DownloadButtonText = "Remove from Device"
+                };
+
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    AvailableModels.Add(alignedModel);
+                });
+
+                await SavePersistedModelsAsync();
+
+                TrainingStatus = $"Model alignment completed! Model '{NewModelName}' is now available.";
+                IsTraining = false;
+
+                await ShowAlert("Alignment Complete",
+                    $"Model '{NewModelName}' has been successfully aligned using {SelectedAlignmentTechnique} and is now available in your model collection.",
+                    "OK");
+
+                ResetTrainingState();
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error finalizing model alignment", ex);
+                IsTraining = false;
+                TrainingStatus = $"Alignment finalization failed: {ex.Message}";
+            }
+        }
+
+        /// <summary>
+        /// Determine input type based on selected architecture
+        /// </summary>
+        private ModelInputType DetermineInputTypeFromArchitecture(string architecture)
+        {
+            return architecture switch
+            {
+                "Vision Transformer (ViT)" => ModelInputType.Image,
+                "Convolutional Neural Network (CNN)" => ModelInputType.Image,
+                "Recurrent Neural Network (RNN/LSTM)" => ModelInputType.Text,
+                "Transformer" => ModelInputType.Text,
+                _ => ModelInputType.Text
+            };
         }
 
         /// <summary>
@@ -6242,6 +7441,367 @@ namespace CSimple.ViewModels
         }
 
         /// <summary>
+        /// Select model architecture for training from scratch
+        /// </summary>
+        private async Task SelectModelArchitectureAsync()
+        {
+            try
+            {
+                if (!IsTrainingFromScratchMode)
+                {
+                    await ShowAlert("Not Training From Scratch", "Architecture selection is only available when training from scratch.", "OK");
+                    return;
+                }
+
+                string selectedArchitecture = await ShowActionSheet(
+                    "Select Model Architecture",
+                    "Cancel",
+                    null,
+                    ModelArchitectures.ToArray());
+
+                if (selectedArchitecture != "Cancel" && !string.IsNullOrEmpty(selectedArchitecture))
+                {
+                    SelectedModelArchitecture = selectedArchitecture;
+                    TrainingStatus = $"Selected architecture: {selectedArchitecture}";
+
+                    // Provide architecture-specific guidance
+                    await ProvideArchitectureGuidance(selectedArchitecture);
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error selecting model architecture", ex);
+            }
+        }
+
+        /// <summary>
+        /// Provide guidance for selected architecture
+        /// </summary>
+        private async Task ProvideArchitectureGuidance(string architecture)
+        {
+            try
+            {
+                var guidance = architecture switch
+                {
+                    "Transformer" => "Excellent for text generation, translation, and language understanding. Requires large text datasets.",
+                    "Vision Transformer (ViT)" => "Best for image classification and vision tasks. Requires large image datasets (10,000+ images).",
+                    "Convolutional Neural Network (CNN)" => "Traditional but effective for image tasks. Works well with smaller datasets.",
+                    "Recurrent Neural Network (RNN/LSTM)" => "Good for sequential data like time series or text. Consider Transformers for better performance.",
+                    "Generative Adversarial Network (GAN)" => "For generating synthetic data. Requires careful tuning and large datasets.",
+                    "Diffusion Model" => "State-of-the-art for image generation. Requires substantial computational resources.",
+                    "Custom Architecture" => "Define your own architecture. Requires deep understanding of neural networks.",
+                    _ => "Selected architecture will be configured with default parameters."
+                };
+
+                await ShowAlert("Architecture Guidance", guidance, "OK");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error providing architecture guidance: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Validate the selected dataset format and content
+        /// </summary>
+        private async Task ValidateDatasetAsync()
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(TrainingDatasetPath))
+                {
+                    await ShowAlert("No Dataset", "Please select a training dataset first.", "OK");
+                    return;
+                }
+
+                if (!File.Exists(TrainingDatasetPath))
+                {
+                    await ShowAlert("Dataset Not Found", "The selected dataset file does not exist.", "OK");
+                    return;
+                }
+
+                TrainingStatus = "Validating dataset...";
+
+                // Perform dataset validation based on format and model type
+                var validationResults = await PerformDatasetValidation();
+
+                var message = $"Dataset Validation Results:\n\n" +
+                    $"• File: {Path.GetFileName(TrainingDatasetPath)}\n" +
+                    $"• Size: {new FileInfo(TrainingDatasetPath).Length / 1024.0 / 1024.0:F2} MB\n" +
+                    $"• Format: {validationResults.DetectedFormat}\n" +
+                    $"• Examples: {validationResults.ExampleCount}\n" +
+                    $"• Status: {validationResults.Status}\n\n";
+
+                if (validationResults.Issues.Any())
+                {
+                    message += "Issues found:\n" + string.Join("\n", validationResults.Issues.Select(i => $"• {i}"));
+                }
+                else
+                {
+                    message += "✅ Dataset appears to be valid for training.";
+                }
+
+                await ShowAlert("Dataset Validation", message, "OK");
+                TrainingStatus = validationResults.Status;
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error validating dataset", ex);
+                TrainingStatus = "Dataset validation failed";
+            }
+        }
+
+        /// <summary>
+        /// Perform actual dataset validation
+        /// </summary>
+        private async Task<DatasetValidationResult> PerformDatasetValidation()
+        {
+            var result = new DatasetValidationResult
+            {
+                DetectedFormat = SelectedDatasetFormat,
+                Status = "Valid",
+                Issues = new List<string>(),
+                ExampleCount = 0
+            };
+
+            try
+            {
+                var fileContent = await File.ReadAllTextAsync(TrainingDatasetPath);
+                var lines = fileContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                result.ExampleCount = lines.Length;
+
+                // Auto-detect format if needed
+                if (SelectedDatasetFormat == "Auto-detect")
+                {
+                    result.DetectedFormat = DetectDatasetFormat(fileContent, lines);
+                }
+
+                // Validate based on format
+                switch (result.DetectedFormat)
+                {
+                    case "JSONL (Text)":
+                        ValidateJsonlFormat(lines, result);
+                        break;
+                    case "CSV":
+                        ValidateCsvFormat(lines, result);
+                        break;
+                    case "Image Classification":
+                        ValidateImageDataset(result);
+                        break;
+                    case "Audio Classification":
+                        ValidateAudioDataset(result);
+                        break;
+                    default:
+                        result.Issues.Add("Unknown or unsupported format");
+                        break;
+                }
+
+                // Validate dataset size
+                if (result.ExampleCount < 10)
+                {
+                    result.Issues.Add("Dataset is very small (< 10 examples). Consider adding more data.");
+                    result.Status = "Warning";
+                }
+                else if (result.ExampleCount < 100)
+                {
+                    result.Issues.Add("Small dataset (< 100 examples). Results may be limited.");
+                    result.Status = "Warning";
+                }
+
+                // Check if dataset matches selected model type
+                if (SelectedTrainingModel != null)
+                {
+                    ValidateDatasetModelCompatibility(result);
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Status = "Error";
+                result.Issues.Add($"Validation error: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Detect dataset format automatically
+        /// </summary>
+        private string DetectDatasetFormat(string content, string[] lines)
+        {
+            // Check for JSONL
+            if (lines.Take(5).All(line =>
+            {
+                try { JsonConvert.DeserializeObject(line); return true; }
+                catch { return false; }
+            }))
+            {
+                return "JSONL (Text)";
+            }
+
+            // Check for CSV
+            if (lines.Take(5).All(line => line.Contains(',') || line.Contains(';')))
+            {
+                return "CSV";
+            }
+
+            // Check for HuggingFace dataset indicators
+            if (content.Contains("Dataset(") || content.Contains("datasets."))
+            {
+                return "HuggingFace Dataset";
+            }
+
+            return "Custom Format";
+        }
+
+        /// <summary>
+        /// Validate JSONL format
+        /// </summary>
+        private void ValidateJsonlFormat(string[] lines, DatasetValidationResult result)
+        {
+            var validLines = 0;
+            var hasInputField = false;
+            var hasOutputField = false;
+
+            foreach (var line in lines.Take(100)) // Check first 100 lines
+            {
+                try
+                {
+                    var json = JsonConvert.DeserializeObject<Dictionary<string, object>>(line);
+                    validLines++;
+
+                    if (json.ContainsKey("input") || json.ContainsKey("text") || json.ContainsKey("prompt"))
+                        hasInputField = true;
+                    if (json.ContainsKey("output") || json.ContainsKey("completion") || json.ContainsKey("response"))
+                        hasOutputField = true;
+                }
+                catch
+                {
+                    result.Issues.Add($"Invalid JSON on line {Array.IndexOf(lines, line) + 1}");
+                }
+            }
+
+            if (!hasInputField)
+                result.Issues.Add("No input field found (expected: 'input', 'text', or 'prompt')");
+            if (!hasOutputField)
+                result.Issues.Add("No output field found (expected: 'output', 'completion', or 'response')");
+
+            if (validLines < lines.Length * 0.9)
+            {
+                result.Status = "Warning";
+                result.Issues.Add("Many lines contain invalid JSON");
+            }
+        }
+
+        /// <summary>
+        /// Validate CSV format
+        /// </summary>
+        private void ValidateCsvFormat(string[] lines, DatasetValidationResult result)
+        {
+            if (lines.Length < 2)
+            {
+                result.Issues.Add("CSV must have at least a header and one data row");
+                return;
+            }
+
+            var header = lines[0];
+            var columns = header.Split(',', ';');
+
+            if (columns.Length < 2)
+            {
+                result.Issues.Add("CSV must have at least 2 columns (input and output)");
+            }
+
+            // Check for common column names
+            var hasInputCol = columns.Any(c => c.ToLower().Contains("input") || c.ToLower().Contains("text"));
+            var hasOutputCol = columns.Any(c => c.ToLower().Contains("output") || c.ToLower().Contains("label"));
+
+            if (!hasInputCol)
+                result.Issues.Add("No input column found in CSV header");
+            if (!hasOutputCol)
+                result.Issues.Add("No output/label column found in CSV header");
+        }
+
+        /// <summary>
+        /// Validate image dataset
+        /// </summary>
+        private void ValidateImageDataset(DatasetValidationResult result)
+        {
+            var datasetDir = Path.GetDirectoryName(TrainingDatasetPath);
+            var imageExtensions = new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif" };
+
+            if (Directory.Exists(datasetDir))
+            {
+                var imageFiles = Directory.GetFiles(datasetDir, "*.*", SearchOption.AllDirectories)
+                    .Where(f => imageExtensions.Contains(Path.GetExtension(f).ToLower()))
+                    .ToList();
+
+                result.ExampleCount = imageFiles.Count;
+
+                if (imageFiles.Count == 0)
+                {
+                    result.Issues.Add("No image files found in dataset directory");
+                }
+            }
+            else
+            {
+                result.Issues.Add("Dataset directory not found");
+            }
+        }
+
+        /// <summary>
+        /// Validate audio dataset
+        /// </summary>
+        private void ValidateAudioDataset(DatasetValidationResult result)
+        {
+            var datasetDir = Path.GetDirectoryName(TrainingDatasetPath);
+            var audioExtensions = new[] { ".wav", ".mp3", ".flac", ".ogg", ".m4a" };
+
+            if (Directory.Exists(datasetDir))
+            {
+                var audioFiles = Directory.GetFiles(datasetDir, "*.*", SearchOption.AllDirectories)
+                    .Where(f => audioExtensions.Contains(Path.GetExtension(f).ToLower()))
+                    .ToList();
+
+                result.ExampleCount = audioFiles.Count;
+
+                if (audioFiles.Count == 0)
+                {
+                    result.Issues.Add("No audio files found in dataset directory");
+                }
+            }
+            else
+            {
+                result.Issues.Add("Dataset directory not found");
+            }
+        }
+
+        /// <summary>
+        /// Validate dataset compatibility with selected model
+        /// </summary>
+        private void ValidateDatasetModelCompatibility(DatasetValidationResult result)
+        {
+            if (SelectedTrainingModel == null) return;
+
+            var modelType = SelectedTrainingModel.InputType;
+            var datasetFormat = result.DetectedFormat;
+
+            var isCompatible = (modelType, datasetFormat) switch
+            {
+                (ModelInputType.Text, "JSONL (Text)") => true,
+                (ModelInputType.Text, "CSV") => true,
+                (ModelInputType.Image, "Image Classification") => true,
+                (ModelInputType.Audio, "Audio Classification") => true,
+                _ => false
+            };
+
+            if (!isCompatible)
+            {
+                result.Issues.Add($"Dataset format '{datasetFormat}' may not be compatible with {modelType} model");
+                result.Status = "Warning";
+            }
+        }
+
+        /// <summary>
         /// Reset training state to initial values
         /// </summary>
         private void ResetTrainingState()
@@ -6255,6 +7815,582 @@ namespace CSimple.ViewModels
             TrainingStatus = "Ready";
             TrainingEta = string.Empty;
             TrainingElapsed = string.Empty;
+            SelectedAlignmentTechnique = "Fine-tuning";
+            SelectedTrainingMode = "Align Pretrained Model";
+            SelectedModelArchitecture = "Transformer";
+            SelectedDatasetFormat = "Auto-detect";
+            UseAdvancedConfig = false;
+            CustomHyperparameters = string.Empty;
+        }
+
+        #endregion
+
+        #region Python Training Integration
+
+        /// <summary>
+        /// Save the training configuration to a JSON file that can be used by external training scripts
+        /// </summary>
+        public async Task SaveTrainingConfigurationAsync()
+        {
+            try
+            {
+                var config = new
+                {
+                    TrainingMode = SelectedTrainingMode,
+                    AlignmentTechnique = SelectedAlignmentTechnique,
+                    ModelArchitecture = SelectedModelArchitecture,
+                    DatasetFormat = SelectedDatasetFormat,
+                    FineTuningMethod = SelectedFineTuningMethod,
+                    LearningRate = 0.0001, // Default value
+                    Epochs = 3, // Default value
+                    BatchSize = 4, // Default value
+                    UseAdvancedConfig = UseAdvancedConfig,
+                    CustomHyperparameters = CustomHyperparameters
+                };
+
+                var configDirectory = Path.Combine(FileSystem.AppDataDirectory, "Training", "Configs");
+                Directory.CreateDirectory(configDirectory);
+
+                var configFile = Path.Combine(configDirectory, $"training_config_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+                var jsonString = System.Text.Json.JsonSerializer.Serialize(config, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+                await File.WriteAllTextAsync(configFile, jsonString);
+
+                Debug.WriteLine($"Training configuration saved to: {configFile}");
+                await ShowAlert("Configuration Saved", $"Training configuration saved to:\n{configFile}", "OK");
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error saving training configuration", ex);
+                await ShowAlert("Save Error", $"Failed to save configuration: {ex.Message}", "OK");
+            }
+        }
+
+        /// <summary>
+        /// Execute the Python training script with current configuration
+        /// </summary>
+        public async Task ExecutePythonTrainingAsync()
+        {
+            try
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Starting Python training execution");
+
+                // First save the current configuration
+                var config = new
+                {
+                    TrainingMode = SelectedTrainingMode,
+                    AlignmentTechnique = SelectedAlignmentTechnique,
+                    ModelArchitecture = SelectedModelArchitecture,
+                    DatasetFormat = SelectedDatasetFormat,
+                    FineTuningMethod = SelectedFineTuningMethod,
+                    LearningRate = 0.0001, // Default value
+                    Epochs = 3, // Default value
+                    BatchSize = 4, // Default value
+                    UseAdvancedConfig = UseAdvancedConfig,
+                    CustomHyperparameters = CustomHyperparameters
+                };
+
+                var tempDirectory = Path.Combine(FileSystem.AppDataDirectory, "Training", "Temp");
+                Directory.CreateDirectory(tempDirectory);
+
+                var configFile = Path.Combine(tempDirectory, "current_config.json");
+                var jsonString = System.Text.Json.JsonSerializer.Serialize(config, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                await File.WriteAllTextAsync(configFile, jsonString);
+
+                // Save architecture specification if training from scratch
+                string architectureSpecFile = null;
+                if (SelectedTrainingMode == "Train From Scratch")
+                {
+                    architectureSpecFile = Path.Combine(tempDirectory, "architecture_spec.json");
+                    var defaultArchSpec = new
+                    {
+                        Type = SelectedModelArchitecture,
+                        HiddenSize = 768,
+                        Layers = 12,
+                        AttentionHeads = 12,
+                        VocabSize = 50000,
+                        MaxSequenceLength = 512,
+                        CustomParameters = new Dictionary<string, object>()
+                    };
+                    var archSpec = System.Text.Json.JsonSerializer.Serialize(defaultArchSpec, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                    await File.WriteAllTextAsync(architectureSpecFile, archSpec);
+                }
+
+                // Prepare script paths
+                var scriptsDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "Resources", "Scripts");
+                scriptsDirectory = Path.GetFullPath(scriptsDirectory);
+
+                var pythonScript = Path.Combine(scriptsDirectory, "model_training_alignment.py");
+                var batchScript = Path.Combine(scriptsDirectory, "run_training.bat");
+                var powershellScript = Path.Combine(scriptsDirectory, "run_training.ps1");
+
+                // Validate that we have required paths
+                if (string.IsNullOrEmpty(TrainingDatasetPath))
+                {
+                    await ShowAlert("Missing Dataset", "Please specify a training dataset path.", "OK");
+                    return;
+                }
+
+                // Create output directory
+                var outputDirectory = Path.Combine(FileSystem.AppDataDirectory, "Training", "Output", $"model_{DateTime.Now:yyyyMMdd_HHmmss}");
+                Directory.CreateDirectory(outputDirectory);
+
+                // Determine execution method based on training mode
+                string modelPath = SelectedTrainingMode == "Align Pretrained Model" ? "model_path_placeholder" : null;
+
+                // Try PowerShell first, then batch file, then direct Python
+                bool executionStarted = false;
+                string executionMethod = "";
+
+                if (File.Exists(powershellScript))
+                {
+                    try
+                    {
+                        var psArgs = new List<string>
+                        {
+                            "-ExecutionPolicy", "Bypass",
+                            "-File", $"\"{powershellScript}\"",
+                            "-ConfigFile", $"\"{configFile}\"",
+                            "-DatasetPath", $"\"{TrainingDatasetPath}\"",
+                            "-OutputPath", $"\"{outputDirectory}\""
+                        };
+
+                        if (!string.IsNullOrEmpty(modelPath))
+                        {
+                            psArgs.AddRange(new[] { "-ModelPath", $"\"{modelPath}\"" });
+                        }
+
+                        if (!string.IsNullOrEmpty(architectureSpecFile))
+                        {
+                            psArgs.AddRange(new[] { "-ArchitectureSpec", $"\"{architectureSpecFile}\"" });
+                        }
+
+                        var psProcess = new Process
+                        {
+                            StartInfo = new ProcessStartInfo
+                            {
+                                FileName = "powershell.exe",
+                                Arguments = string.Join(" ", psArgs),
+                                UseShellExecute = false,
+                                RedirectStandardOutput = true,
+                                RedirectStandardError = true,
+                                CreateNoWindow = true,
+                                WorkingDirectory = scriptsDirectory
+                            }
+                        };
+
+                        psProcess.Start();
+                        executionStarted = true;
+                        executionMethod = "PowerShell";
+
+                        // Don't wait for completion - let it run in background
+                        await ShowAlert("Training Started",
+                            $"Python training started using {executionMethod}\n\n" +
+                            $"Config: {configFile}\n" +
+                            $"Dataset: {TrainingDatasetPath}\n" +
+                            $"Output: {outputDirectory}\n\n" +
+                            "Check the console or training.log for progress.", "OK");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"PowerShell execution failed: {ex.Message}");
+                    }
+                }
+
+                if (!executionStarted && File.Exists(batchScript))
+                {
+                    try
+                    {
+                        var arguments = new List<string>
+                        {
+                            $"\"{configFile}\"",
+                            string.IsNullOrEmpty(modelPath) ? "\"\"" : $"\"{modelPath}\"",
+                            $"\"{TrainingDatasetPath}\"",
+                            $"\"{outputDirectory}\""
+                        };
+
+                        if (!string.IsNullOrEmpty(architectureSpecFile))
+                        {
+                            arguments.Add($"\"{architectureSpecFile}\"");
+                        }
+
+                        var batchProcess = new Process
+                        {
+                            StartInfo = new ProcessStartInfo
+                            {
+                                FileName = batchScript,
+                                Arguments = string.Join(" ", arguments),
+                                UseShellExecute = true,
+                                WorkingDirectory = scriptsDirectory
+                            }
+                        };
+
+                        batchProcess.Start();
+                        executionStarted = true;
+                        executionMethod = "Batch Script";
+
+                        await ShowAlert("Training Started",
+                            $"Python training started using {executionMethod}\n\n" +
+                            $"Config: {configFile}\n" +
+                            $"Dataset: {TrainingDatasetPath}\n" +
+                            $"Output: {outputDirectory}\n\n" +
+                            "Check the console window for progress.", "OK");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Batch script execution failed: {ex.Message}");
+                    }
+                }
+
+                if (!executionStarted && File.Exists(pythonScript))
+                {
+                    try
+                    {
+                        var pythonArgs = new List<string>
+                        {
+                            $"\"{pythonScript}\"",
+                            "--config", $"\"{configFile}\"",
+                            "--dataset_path", $"\"{TrainingDatasetPath}\"",
+                            "--output_path", $"\"{outputDirectory}\""
+                        };
+
+                        if (!string.IsNullOrEmpty(modelPath))
+                        {
+                            pythonArgs.AddRange(new[] { "--model_path", $"\"{modelPath}\"" });
+                        }
+
+                        if (!string.IsNullOrEmpty(architectureSpecFile))
+                        {
+                            pythonArgs.AddRange(new[] { "--architecture_spec", $"\"{architectureSpecFile}\"" });
+                        }
+
+                        var pythonProcess = new Process
+                        {
+                            StartInfo = new ProcessStartInfo
+                            {
+                                FileName = "python",
+                                Arguments = string.Join(" ", pythonArgs),
+                                UseShellExecute = true,
+                                WorkingDirectory = scriptsDirectory
+                            }
+                        };
+
+                        pythonProcess.Start();
+                        executionStarted = true;
+                        executionMethod = "Direct Python";
+
+                        await ShowAlert("Training Started",
+                            $"Python training started using {executionMethod}\n\n" +
+                            $"Config: {configFile}\n" +
+                            $"Dataset: {TrainingDatasetPath}\n" +
+                            $"Output: {outputDirectory}\n\n" +
+                            "Check the console for progress.", "OK");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Direct Python execution failed: {ex.Message}");
+                    }
+                }
+
+                if (!executionStarted)
+                {
+                    await ShowAlert("Execution Failed",
+                        "Could not start Python training. Please ensure:\n\n" +
+                        "1. Python is installed and in PATH\n" +
+                        "2. Training scripts are available\n" +
+                        "3. Required Python packages are installed\n\n" +
+                        $"Scripts directory: {scriptsDirectory}", "OK");
+                }
+                else
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Python training started using {executionMethod}");
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError("Error executing Python training", ex);
+                await ShowAlert("Execution Error", $"Failed to start Python training: {ex.Message}", "OK");
+            }
+        }
+
+        #endregion
+
+        #region ActionPage Integration Methods
+
+        /// <summary>
+        /// Refresh available action sessions from captured data
+        /// </summary>
+        private async Task RefreshActionSessionsAsync()
+        {
+            try
+            {
+                AvailableActionSessions.Clear();
+
+                // Get action sessions from captured data directory
+                var sessionsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CSimple", "CapturedActions");
+
+                if (Directory.Exists(sessionsDirectory))
+                {
+                    var sessionFiles = Directory.GetFiles(sessionsDirectory, "*.json", SearchOption.AllDirectories);
+
+                    foreach (var sessionFile in sessionFiles)
+                    {
+                        try
+                        {
+                            var json = await File.ReadAllTextAsync(sessionFile);
+                            var actionGroup = System.Text.Json.JsonSerializer.Deserialize<ActionGroup>(json);
+
+                            if (actionGroup != null)
+                            {
+                                AvailableActionSessions.Add(actionGroup);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error loading action session {sessionFile}: {ex.Message}");
+                        }
+                    }
+                }
+
+                // Sort by timestamp descending (newest first)
+                var sortedSessions = AvailableActionSessions.OrderByDescending(s => s.CreatedAt).ToList();
+                AvailableActionSessions.Clear();
+                foreach (var session in sortedSessions)
+                {
+                    AvailableActionSessions.Add(session);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error refreshing action sessions: {ex.Message}");
+                await ShowAlert("Error", $"Failed to refresh action sessions: {ex.Message}", "OK");
+            }
+        }
+
+        /// <summary>
+        /// Process recorded actions into training dataset
+        /// </summary>
+        private async Task ProcessRecordedActionsAsync()
+        {
+            try
+            {
+                if (SelectedActionSession == null)
+                {
+                    await ShowAlert("Error", "Please select an action session first.", "OK");
+                    return;
+                }
+
+                // Validate percentage split
+                var totalPercentage = TrainingDataPercentage + ValidationDataPercentage + TestDataPercentage;
+                if (totalPercentage != 100)
+                {
+                    await ShowAlert("Error", $"Dataset split percentages must sum to 100%. Current total: {totalPercentage}%", "OK");
+                    return;
+                }
+
+                // Check if any input sources are selected
+                if (!IncludeScreenImages && !IncludeWebcamImages && !IncludePcAudio && !IncludeWebcamAudio)
+                {
+                    await ShowAlert("Error", "Please select at least one input source.", "OK");
+                    return;
+                }
+
+                IsTraining = true;
+                TrainingStatus = "Processing recorded actions...";
+                TrainingProgress = 0.0;
+
+                // Create dataset from selected action session
+                var dataset = await CreateDatasetFromActionSessionAsync(SelectedActionSession);
+
+                if (dataset != null)
+                {
+                    TrainingStatus = "Recorded actions processed successfully";
+                    TrainingProgress = 100.0;
+
+                    await ShowAlert("Success",
+                        $"Processed {dataset.TotalFrames} frames from action session.\nDataset saved to: {dataset.OutputPath}", "OK");
+                }
+                else
+                {
+                    TrainingStatus = "Failed to process recorded actions";
+                    await ShowAlert("Error", "Failed to process the recorded action session.", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                TrainingStatus = $"Error: {ex.Message}";
+                Debug.WriteLine($"Error processing recorded actions: {ex.Message}");
+                await ShowAlert("Error", $"Failed to process recorded actions: {ex.Message}", "OK");
+            }
+            finally
+            {
+                IsTraining = false;
+            }
+        }
+
+        /// <summary>
+        /// Create dataset from action session
+        /// </summary>
+        private async Task<RecordedActionDataset> CreateDatasetFromActionSessionAsync(ActionGroup actionSession)
+        {
+            try
+            {
+                var dataset = new RecordedActionDataset();
+                var outputDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "CSimple", "TrainingDatasets", $"ActionSession_{DateTime.Now:yyyyMMdd_HHmmss}");
+
+                Directory.CreateDirectory(outputDirectory);
+                dataset.OutputPath = outputDirectory;
+
+                // Process each captured action in the session
+                // For now, create a simple mock structure based on available properties
+                var actions = new List<object>();
+                if (actionSession.ActionArray != null)
+                {
+                    actions.AddRange(actionSession.ActionArray.Cast<object>());
+                }
+
+                foreach (var action in actions)
+                {
+                    var frame = new RecordedActionFrame
+                    {
+                        Timestamp = actionSession.CreatedAt ?? DateTime.Now
+                    };
+
+                    // For demo purposes, create placeholder paths
+                    var basePath = Path.GetDirectoryName(outputDirectory);
+                    var actionId = Guid.NewGuid().ToString();
+
+                    // Create placeholder file paths (these would be real in actual implementation)
+                    if (IncludeScreenImages)
+                    {
+                        var screenPath = Path.Combine(basePath, "screenshots", $"{actionId}_screen.jpg");
+                        if (File.Exists(screenPath))
+                            frame.ScreenImage = await File.ReadAllBytesAsync(screenPath);
+                    }
+
+                    // Store the target actions (what the model should predict)
+                    frame.Actions = new List<object> { action };
+                    frame.Metadata["ActionType"] = actionSession.ActionType ?? "Unknown";
+                    frame.Metadata["UserIntention"] = actionSession.Description ?? "";
+
+                    dataset.Frames.Add(frame);
+                }
+
+                dataset.TotalFrames = dataset.Frames.Count;
+                dataset.Duration = TimeSpan.FromMinutes(5); // Default duration since we don't have actual timing
+                dataset.Metadata["SourceSession"] = actionSession.ActionName ?? "Unknown Session";
+                dataset.Metadata["InputSources"] = new
+                {
+                    ScreenImages = IncludeScreenImages,
+                    WebcamImages = IncludeWebcamImages,
+                    PcAudio = IncludePcAudio,
+                    WebcamAudio = IncludeWebcamAudio
+                };
+
+                // Split dataset into training/validation/test sets
+                await SplitAndSaveDatasetAsync(dataset, outputDirectory);
+
+                return dataset;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error creating dataset from action session: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Split dataset into training/validation/test sets
+        /// </summary>
+        private async Task SplitAndSaveDatasetAsync(RecordedActionDataset dataset, string outputDirectory)
+        {
+            try
+            {
+                var totalFrames = dataset.Frames.Count;
+                var trainingCount = (int)(totalFrames * TrainingDataPercentage / 100.0);
+                var validationCount = (int)(totalFrames * ValidationDataPercentage / 100.0);
+                var testCount = totalFrames - trainingCount - validationCount;
+
+                // Shuffle frames for random distribution
+                var random = new Random();
+                var shuffledFrames = dataset.Frames.OrderBy(x => random.Next()).ToList();
+
+                // Split into sets
+                var trainingFrames = shuffledFrames.Take(trainingCount).ToList();
+                var validationFrames = shuffledFrames.Skip(trainingCount).Take(validationCount).ToList();
+                var testFrames = shuffledFrames.Skip(trainingCount + validationCount).ToList();
+
+                // Save each set
+                await SaveDatasetSplitAsync(trainingFrames, Path.Combine(outputDirectory, "training"), "training");
+                if (validationFrames.Any())
+                    await SaveDatasetSplitAsync(validationFrames, Path.Combine(outputDirectory, "validation"), "validation");
+                if (testFrames.Any())
+                    await SaveDatasetSplitAsync(testFrames, Path.Combine(outputDirectory, "test"), "test");
+
+                // Save metadata
+                var metadata = new
+                {
+                    TotalFrames = totalFrames,
+                    TrainingFrames = trainingCount,
+                    ValidationFrames = validationCount,
+                    TestFrames = testCount,
+                    SourceMetadata = dataset.Metadata,
+                    CreatedAt = DateTime.Now
+                };
+
+                var metadataJson = System.Text.Json.JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true });
+                await File.WriteAllTextAsync(Path.Combine(outputDirectory, "metadata.json"), metadataJson);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error splitting and saving dataset: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Save a dataset split to directory
+        /// </summary>
+        private async Task SaveDatasetSplitAsync(List<RecordedActionFrame> frames, string directory, string splitName)
+        {
+            try
+            {
+                Directory.CreateDirectory(directory);
+
+                for (int i = 0; i < frames.Count; i++)
+                {
+                    var frame = frames[i];
+                    var frameDirectory = Path.Combine(directory, $"frame_{i:D6}");
+                    Directory.CreateDirectory(frameDirectory);
+
+                    // Save media files
+                    if (frame.ScreenImage != null)
+                        await File.WriteAllBytesAsync(Path.Combine(frameDirectory, "screen.jpg"), frame.ScreenImage);
+                    if (frame.WebcamImage != null)
+                        await File.WriteAllBytesAsync(Path.Combine(frameDirectory, "webcam.jpg"), frame.WebcamImage);
+                    if (frame.PcAudio != null)
+                        await File.WriteAllBytesAsync(Path.Combine(frameDirectory, "pc_audio.wav"), frame.PcAudio);
+                    if (frame.WebcamAudio != null)
+                        await File.WriteAllBytesAsync(Path.Combine(frameDirectory, "webcam_audio.wav"), frame.WebcamAudio);
+
+                    // Save action labels/targets
+                    var frameData = new
+                    {
+                        Timestamp = frame.Timestamp,
+                        Actions = frame.Actions,
+                        Metadata = frame.Metadata
+                    };
+
+                    var frameJson = System.Text.Json.JsonSerializer.Serialize(frameData, new JsonSerializerOptions { WriteIndented = true });
+                    await File.WriteAllTextAsync(Path.Combine(frameDirectory, "labels.json"), frameJson);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving dataset split {splitName}: {ex.Message}");
+                throw;
+            }
         }
 
         #endregion
@@ -6339,5 +8475,99 @@ namespace CSimple.ViewModels
         public int TotalCycles { get; set; }
         public TimeSpan TotalActiveTime { get; set; }
         public Dictionary<string, object> SessionMetadata { get; set; } = new();
+    }
+
+    // Training and Dataset Validation Support Classes
+    public class DatasetValidationResult
+    {
+        public string DetectedFormat { get; set; } = "";
+        public string Status { get; set; } = "Unknown";
+        public List<string> Issues { get; set; } = new();
+        public int ExampleCount { get; set; } = 0;
+        public Dictionary<string, object> Metadata { get; set; } = new();
+    }
+
+    public class TrainingConfiguration
+    {
+        public string TrainingMode { get; set; } = "Align Pretrained Model";
+        public string AlignmentTechnique { get; set; } = "Fine-tuning";
+        public string ModelArchitecture { get; set; } = "Transformer";
+        public string DatasetFormat { get; set; } = "Auto-detect";
+        public string FineTuningMethod { get; set; } = "LoRA";
+        public double LearningRate { get; set; } = 0.0001;
+        public int Epochs { get; set; } = 3;
+        public int BatchSize { get; set; } = 4;
+        public bool UseAdvancedConfig { get; set; } = false;
+        public string CustomHyperparameters { get; set; } = "";
+        public Dictionary<string, object> AdvancedSettings { get; set; } = new();
+    }
+
+    public class ModelArchitectureSpec
+    {
+        public string Name { get; set; } = "";
+        public string Type { get; set; } = "Transformer";
+        public int Layers { get; set; } = 12;
+        public int HiddenSize { get; set; } = 768;
+        public int AttentionHeads { get; set; } = 12;
+        public int VocabSize { get; set; } = 50000;
+        public int MaxSequenceLength { get; set; } = 512;
+        public Dictionary<string, object> CustomParameters { get; set; } = new();
+    }
+
+    public class TrainingMetrics
+    {
+        public double Loss { get; set; }
+        public double ValidationLoss { get; set; }
+        public double Accuracy { get; set; }
+        public double ValidationAccuracy { get; set; }
+        public double LearningRate { get; set; }
+        public int Epoch { get; set; }
+        public int Step { get; set; }
+        public DateTime Timestamp { get; set; } = DateTime.Now;
+        public Dictionary<string, double> CustomMetrics { get; set; } = new();
+    }
+
+    public class TrainingPhase
+    {
+        public string Name { get; set; }
+        public int Steps { get; set; }
+        public TimeSpan StepDuration { get; set; }
+
+        public TrainingPhase(string name, int steps, TimeSpan stepDuration)
+        {
+            Name = name;
+            Steps = steps;
+            StepDuration = stepDuration;
+        }
+    }
+
+    // ActionPage Integration Support Classes
+    public class ActionSessionDisplayModel
+    {
+        public string DisplayName { get; set; }
+        public ActionGroup ActionGroup { get; set; }
+        public DateTime Timestamp { get; set; }
+        public int ActionCount { get; set; }
+        public TimeSpan Duration { get; set; }
+    }
+
+    public class RecordedActionDataset
+    {
+        public List<RecordedActionFrame> Frames { get; set; } = new();
+        public Dictionary<string, object> Metadata { get; set; } = new();
+        public string OutputPath { get; set; } = "";
+        public int TotalFrames { get; set; }
+        public TimeSpan Duration { get; set; }
+    }
+
+    public class RecordedActionFrame
+    {
+        public DateTime Timestamp { get; set; }
+        public byte[] ScreenImage { get; set; }
+        public byte[] WebcamImage { get; set; }
+        public byte[] PcAudio { get; set; }
+        public byte[] WebcamAudio { get; set; }
+        public List<object> Actions { get; set; } = new(); // Changed from InputAction to object
+        public Dictionary<string, object> Metadata { get; set; } = new();
     }
 }

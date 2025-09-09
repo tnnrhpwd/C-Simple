@@ -16,7 +16,10 @@ namespace CSimple.Services
         #region Events
         public event Action<string> InputCaptured;
         public event Action<string> DebugMessageLogged;
+
+#pragma warning disable CS0067 // Event is never used
         public event Action<string> TouchInputCaptured; // New event for touch input
+#pragma warning restore CS0067
         #endregion
 
         #region Properties
@@ -41,8 +44,6 @@ namespace CSimple.Services
         private bool _middleButtonDown = false;
 
         // Track raw mouse movement for more accurate replay
-        private int _accumulatedDeltaX = 0;
-        private int _accumulatedDeltaY = 0;
         private Stopwatch _mouseMoveTimer = new Stopwatch();
         private readonly object _inputQueueLock = new object();
 
@@ -264,8 +265,6 @@ namespace CSimple.Services
                 _leftMouseDown = false;
                 _rightMouseDown = false;
                 _middleButtonDown = false;
-                _accumulatedDeltaX = 0;
-                _accumulatedDeltaY = 0;
                 _mouseMoveTimer.Restart();
 
                 // Reset touch tracking
@@ -655,7 +654,6 @@ namespace CSimple.Services
 
                     // Check for button events
                     bool actionNeeded = true;
-                    ushort buttonCode = 0;
                     DateTime downTime = DateTime.MinValue;
 
                     switch (wParamInt)

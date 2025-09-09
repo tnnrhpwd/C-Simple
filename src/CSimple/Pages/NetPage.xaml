@@ -538,7 +538,7 @@
                             </CollectionView.ItemsLayout>
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="models:NeuralNetworkModel">
-                                    <Frame BorderColor="{AppThemeBinding Light={StaticResource MidGray}, Dark={StaticResource Background_Mid}}"
+                                    <Frame BorderColor="{Binding IsDownloaded, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#0078D4|#28A745}"
                                            Padding="{StaticResource CardContentPadding}"
                                            Margin="{StaticResource MarginTiny}"
                                            CornerRadius="{StaticResource CornerRadiusSmall}">
@@ -562,19 +562,19 @@
                                                             HeightRequest="10"
                                                             StrokeShape="RoundRectangle 5"
                                                             ToolTipProperties.Text="{Binding IsActive, StringFormat='Active: {0}'}" />
-                                                    <!-- Download Status Indicator -->
-                                                    <Border BackgroundColor="{Binding IsDownloaded, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#2B0B98|#D3D3D3}"
-                                                            WidthRequest="10"
-                                                            HeightRequest="10"
-                                                            StrokeShape="RoundRectangle 5"
-                                                            ToolTipProperties.Text="{Binding IsDownloaded, StringFormat='Downloaded: {0}'}" />
                                                     <!-- Status Text Labels -->
                                                     <Label Text="{Binding IsActive, StringFormat='Active: {0}'}"
                                                            FontSize="{StaticResource FontSizeCaption}"
                                                            TextColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#0078D4|#808080}" />
+                                                    <!-- Download Status Indicator -->
+                                                    <Border BackgroundColor="{Binding IsDownloaded, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#28A745|#D3D3D3}"
+                                                            WidthRequest="10"
+                                                            HeightRequest="10"
+                                                            StrokeShape="RoundRectangle 5"
+                                                            ToolTipProperties.Text="{Binding IsDownloaded, StringFormat='Downloaded: {0}'}" />
                                                     <Label Text="{Binding IsDownloaded, StringFormat='Downloaded: {0}'}"
                                                            FontSize="{StaticResource FontSizeCaption}"
-                                                           TextColor="{Binding IsDownloaded, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#2B0B98|#808080}" />
+                                                           TextColor="{Binding IsDownloaded, Converter={StaticResource BoolToColorConverter}, ConverterParameter=#28A745|#808080}" />
                                                 </StackLayout>
                                             </VerticalStackLayout>
                                             <!-- Input Type Dropdown -->
@@ -763,9 +763,19 @@
                                FontSize="{StaticResource FontSizeSubtitle}"
                                FontAttributes="Bold"
                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-                        <!-- Model Selection -->
+                        <!-- Training Mode Selection -->
                         <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                            <Label Text="1. Select Pretrained Model (Text-to-Text only)"
+                            <Label Text="Select Training Mode"
+                                   FontAttributes="Bold"
+                                   FontSize="{StaticResource FontSizeSmall}" />
+                            <Picker ItemsSource="{Binding TrainingModes}"
+                                    SelectedItem="{Binding SelectedTrainingMode}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}" />
+                        </VerticalStackLayout>
+                        <!-- Pretrained Model Selection (Only for Alignment Mode) -->
+                        <VerticalStackLayout Spacing="{StaticResource SpacingSmall}"
+                                             IsVisible="{Binding IsPretrainedModelMode}">
+                            <Label Text="Select Pretrained Model (All Types Supported)"
                                    FontAttributes="Bold"
                                    FontSize="{StaticResource FontSizeSmall}" />
                             <Grid ColumnDefinitions="*,Auto"
@@ -786,99 +796,311 @@
                                         WidthRequest="120" />
                             </Grid>
                         </VerticalStackLayout>
-                        <!-- Dataset Curation -->
-                        <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                            <Label Text="2. Curate Training Datasets"
+                        <!-- Model Architecture Selection (Only for Training from Scratch) -->
+                        <VerticalStackLayout Spacing="{StaticResource SpacingSmall}"
+                                             IsVisible="{Binding IsTrainingFromScratchMode}">
+                            <Label Text="Select Model Architecture"
                                    FontAttributes="Bold"
                                    FontSize="{StaticResource FontSizeSmall}" />
-                            <!-- Training Dataset (Required) -->
-                            <Grid ColumnDefinitions="*,Auto,Auto"
+                            <Grid ColumnDefinitions="*,Auto"
                                   ColumnSpacing="{StaticResource SpacingSmall}">
-                                <VerticalStackLayout Grid.Column="0"
-                                                     VerticalOptions="Center">
-                                    <Label Text="{Binding TrainingDatasetPath, TargetNullValue='No training dataset selected'}"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           LineBreakMode="TailTruncation" />
-                                    <Label Text="Training dataset (required)"
-                                           FontSize="{StaticResource FontSizeCaption}"
-                                           TextColor="{StaticResource TextSecondary}" />
-                                </VerticalStackLayout>
+                                <Picker Grid.Column="0"
+                                        ItemsSource="{Binding ModelArchitectures}"
+                                        SelectedItem="{Binding SelectedModelArchitecture}"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}" />
                                 <Button Grid.Column="1"
-                                        Text="Select Training Dataset"
-                                        Command="{Binding SelectTrainingDatasetCommand}"
-                                        BackgroundColor="Transparent"
-                                        BorderColor="{StaticResource Primary}"
-                                        BorderWidth="2"
-                                        TextColor="{StaticResource Primary}"
-                                        FontSize="{StaticResource FontSizeSmall}"
-                                        WidthRequest="160" />
-                                <Button Grid.Column="2"
-                                        Text="Create New"
-                                        Command="{Binding CreateDatasetCommand}"
+                                        Text="Configure"
+                                        Command="{Binding SelectModelArchitectureCommand}"
                                         BackgroundColor="Transparent"
                                         BorderColor="{StaticResource Tertiary}"
                                         BorderWidth="2"
                                         TextColor="{StaticResource Tertiary}"
-                                        FontSize="{StaticResource FontSizeSmall}"
                                         WidthRequest="100" />
                             </Grid>
-                            <!-- Validation Dataset (Optional) -->
-                            <Grid ColumnDefinitions="*,Auto"
-                                  ColumnSpacing="{StaticResource SpacingSmall}">
-                                <VerticalStackLayout Grid.Column="0"
-                                                     VerticalOptions="Center">
-                                    <Label Text="{Binding ValidationDatasetPath, TargetNullValue='No validation dataset selected'}"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           LineBreakMode="TailTruncation" />
-                                    <Label Text="Validation dataset (optional)"
-                                           FontSize="{StaticResource FontSizeCaption}"
-                                           TextColor="{StaticResource TextSecondary}" />
-                                </VerticalStackLayout>
-                                <Button Grid.Column="1"
-                                        Text="Select Validation Dataset"
-                                        Command="{Binding SelectValidationDatasetCommand}"
-                                        BackgroundColor="Transparent"
-                                        BorderColor="{StaticResource Secondary}"
-                                        BorderWidth="2"
-                                        TextColor="{StaticResource Secondary}"
-                                        FontSize="{StaticResource FontSizeSmall}"
-                                        WidthRequest="180" />
-                            </Grid>
-                            <!-- Test Dataset (Optional) -->
-                            <Grid ColumnDefinitions="*,Auto"
-                                  ColumnSpacing="{StaticResource SpacingSmall}">
-                                <VerticalStackLayout Grid.Column="0"
-                                                     VerticalOptions="Center">
-                                    <Label Text="{Binding TestDatasetPath, TargetNullValue='No test dataset selected'}"
-                                           FontSize="{StaticResource FontSizeSmall}"
-                                           LineBreakMode="TailTruncation" />
-                                    <Label Text="Test dataset (optional)"
-                                           FontSize="{StaticResource FontSizeCaption}"
-                                           TextColor="{StaticResource TextSecondary}" />
-                                </VerticalStackLayout>
-                                <Button Grid.Column="1"
-                                        Text="Select Test Dataset"
-                                        Command="{Binding SelectTestDatasetCommand}"
-                                        BackgroundColor="Transparent"
-                                        BorderColor="{StaticResource Secondary}"
-                                        BorderWidth="2"
-                                        TextColor="{StaticResource Secondary}"
-                                        FontSize="{StaticResource FontSizeSmall}"
-                                        WidthRequest="160" />
-                            </Grid>
                         </VerticalStackLayout>
-                        <!-- Fine-Tuning Method -->
-                        <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                            <Label Text="3. Choose Fine-Tuning Method"
+                        <!-- Alignment Technique Selection (Only for Pretrained Models) -->
+                        <VerticalStackLayout Spacing="{StaticResource SpacingSmall}"
+                                             IsVisible="{Binding IsPretrainedModelMode}">
+                            <Label Text="Choose Alignment Technique"
+                                   FontAttributes="Bold"
+                                   FontSize="{StaticResource FontSizeSmall}" />
+                            <Picker ItemsSource="{Binding AlignmentTechniques}"
+                                    SelectedItem="{Binding SelectedAlignmentTechnique}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}" />
+                        </VerticalStackLayout>
+                        <!-- Fine-Tuning Method (Only for some alignment techniques) -->
+                        <VerticalStackLayout Spacing="{StaticResource SpacingSmall}"
+                                             IsVisible="{Binding IsPretrainedModelMode}">
+                            <Label Text="Choose Fine-Tuning Method"
                                    FontAttributes="Bold"
                                    FontSize="{StaticResource FontSizeSmall}" />
                             <Picker ItemsSource="{Binding FineTuningMethods}"
                                     SelectedItem="{Binding SelectedFineTuningMethod}"
                                     BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}" />
                         </VerticalStackLayout>
+                        <!-- Dataset Configuration -->
+                        <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
+                            <Label Text="Configure Training Data"
+                                   FontAttributes="Bold"
+                                   FontSize="{StaticResource FontSizeSmall}" />
+                            <!-- Dataset Source Selection -->
+                            <Frame BorderColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
+                                   CornerRadius="{StaticResource CornerRadiusSmall}"
+                                   Padding="{StaticResource CardContentPadding}">
+                                <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                                    <Label Text="Data Source"
+                                           FontAttributes="Bold"
+                                           FontSize="{StaticResource FontSizeCaption}" />
+                                    <Grid ColumnDefinitions="*,*"
+                                          ColumnSpacing="{StaticResource SpacingSmall}">
+                                        <RadioButton Grid.Column="0"
+                                                     Content="Use Recorded Actions"
+                                                     IsChecked="{Binding UseRecordedActionsForTraining}"
+                                                     FontSize="{StaticResource FontSizeSmall}" />
+                                        <RadioButton Grid.Column="1"
+                                                     Content="Use Custom Dataset"
+                                                     IsChecked="{Binding UseRecordedActionsForTraining, Converter={StaticResource InverseBoolConverter}}"
+                                                     FontSize="{StaticResource FontSizeSmall}" />
+                                    </Grid>
+                                </VerticalStackLayout>
+                            </Frame>
+                            <!-- Recorded Actions Configuration -->
+                            <Frame IsVisible="{Binding UseRecordedActionsForTraining}"
+                                   BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                   CornerRadius="{StaticResource CornerRadiusSmall}"
+                                   Padding="{StaticResource CardContentPadding}">
+                                <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
+                                    <Label Text="Recorded Actions Training Setup"
+                                           FontAttributes="Bold"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                    <!-- Action Session Selection -->
+                                    <Grid ColumnDefinitions="*,Auto"
+                                          ColumnSpacing="{StaticResource SpacingSmall}">
+                                        <VerticalStackLayout Grid.Column="0">
+                                            <Label Text="Select Action Session"
+                                                   FontSize="{StaticResource FontSizeCaption}"
+                                                   TextColor="{StaticResource TextSecondary}" />
+                                            <Picker ItemsSource="{Binding AvailableActionSessions}"
+                                                    SelectedItem="{Binding SelectedActionSession}"
+                                                    ItemDisplayBinding="{Binding ActionName}"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="1"
+                                                Text="Refresh"
+                                                Command="{Binding RefreshActionSessionsCommand}"
+                                                BackgroundColor="Transparent"
+                                                BorderColor="{StaticResource Secondary}"
+                                                BorderWidth="2"
+                                                TextColor="{StaticResource Secondary}"
+                                                FontSize="{StaticResource FontSizeSmall}"
+                                                WidthRequest="80"
+                                                VerticalOptions="End" />
+                                    </Grid>
+                                    <!-- Input Selection -->
+                                    <Label Text="Select Input Sources (What the model should learn from)"
+                                           FontAttributes="Bold"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           Margin="0,10,0,0" />
+                                    <Grid ColumnDefinitions="*,*"
+                                          RowDefinitions="Auto,Auto"
+                                          ColumnSpacing="{StaticResource SpacingSmall}"
+                                          RowSpacing="{StaticResource SpacingTiny}">
+                                        <CheckBox Grid.Column="0"
+                                                  Grid.Row="0"
+                                                  IsChecked="{Binding IncludeScreenImages}"
+                                                  Color="{StaticResource Primary}" />
+                                        <Label Grid.Column="0"
+                                               Grid.Row="0"
+                                               Text="Screen Images"
+                                               FontSize="{StaticResource FontSizeCaption}"
+                                               VerticalOptions="Center"
+                                               Margin="30,0,0,0" />
+                                        <CheckBox Grid.Column="1"
+                                                  Grid.Row="0"
+                                                  IsChecked="{Binding IncludeWebcamImages}"
+                                                  Color="{StaticResource Primary}" />
+                                        <Label Grid.Column="1"
+                                               Grid.Row="0"
+                                               Text="Webcam Images"
+                                               FontSize="{StaticResource FontSizeCaption}"
+                                               VerticalOptions="Center"
+                                               Margin="30,0,0,0" />
+                                        <CheckBox Grid.Column="0"
+                                                  Grid.Row="1"
+                                                  IsChecked="{Binding IncludePcAudio}"
+                                                  Color="{StaticResource Primary}" />
+                                        <Label Grid.Column="0"
+                                               Grid.Row="1"
+                                               Text="PC Audio"
+                                               FontSize="{StaticResource FontSizeCaption}"
+                                               VerticalOptions="Center"
+                                               Margin="30,0,0,0" />
+                                        <CheckBox Grid.Column="1"
+                                                  Grid.Row="1"
+                                                  IsChecked="{Binding IncludeWebcamAudio}"
+                                                  Color="{StaticResource Primary}" />
+                                        <Label Grid.Column="1"
+                                               Grid.Row="1"
+                                               Text="Webcam Audio"
+                                               FontSize="{StaticResource FontSizeCaption}"
+                                               VerticalOptions="Center"
+                                               Margin="30,0,0,0" />
+                                    </Grid>
+                                    <!-- Output Target -->
+                                    <Label Text="Output Target (What the model should predict)"
+                                           FontAttributes="Bold"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           Margin="0,10,0,0" />
+                                    <Label Text="Mouse and Keyboard Actions"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           TextColor="{StaticResource TextSecondary}"
+                                           Padding="10,5"
+                                           BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}" />
+                                    <!-- Dataset Split Configuration -->
+                                    <Label Text="Dataset Split Configuration"
+                                           FontAttributes="Bold"
+                                           FontSize="{StaticResource FontSizeCaption}"
+                                           Margin="0,10,0,0" />
+                                    <Grid ColumnDefinitions="*,*,*"
+                                          ColumnSpacing="{StaticResource SpacingSmall}">
+                                        <VerticalStackLayout Grid.Column="0">
+                                            <Label Text="Training %"
+                                                   FontSize="{StaticResource FontSizeCaption}"
+                                                   HorizontalOptions="Center" />
+                                            <Entry Text="{Binding TrainingDataPercentage}"
+                                                   Keyboard="Numeric"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   HorizontalTextAlignment="Center" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="1">
+                                            <Label Text="Validation %"
+                                                   FontSize="{StaticResource FontSizeCaption}"
+                                                   HorizontalOptions="Center" />
+                                            <Entry Text="{Binding ValidationDataPercentage}"
+                                                   Keyboard="Numeric"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   HorizontalTextAlignment="Center" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="2">
+                                            <Label Text="Test %"
+                                                   FontSize="{StaticResource FontSizeCaption}"
+                                                   HorizontalOptions="Center" />
+                                            <Entry Text="{Binding TestDataPercentage}"
+                                                   Keyboard="Numeric"
+                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                   HorizontalTextAlignment="Center" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                    <Button Text="Process Recorded Actions"
+                                            Command="{Binding ProcessRecordedActionsCommand}"
+                                            BackgroundColor="Transparent"
+                                            BorderColor="{StaticResource Primary}"
+                                            BorderWidth="2"
+                                            TextColor="{StaticResource Primary}"
+                                            Margin="0,10,0,0" />
+                                </VerticalStackLayout>
+                            </Frame>
+                            <!-- Custom Dataset Configuration -->
+                            <VerticalStackLayout IsVisible="{Binding UseRecordedActionsForTraining, Converter={StaticResource InverseBoolConverter}}"
+                                                 Spacing="{StaticResource SpacingSmall}">
+                                <!-- Dataset Format Selection -->
+                                <Grid ColumnDefinitions="*,Auto"
+                                      ColumnSpacing="{StaticResource SpacingSmall}">
+                                    <Picker Grid.Column="0"
+                                            ItemsSource="{Binding DatasetFormats}"
+                                            SelectedItem="{Binding SelectedDatasetFormat}"
+                                            BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}" />
+                                    <Button Grid.Column="1"
+                                            Text="Validate"
+                                            Command="{Binding ValidateDatasetCommand}"
+                                            BackgroundColor="Transparent"
+                                            BorderColor="{StaticResource Warning}"
+                                            BorderWidth="2"
+                                            TextColor="{StaticResource Warning}"
+                                            FontSize="{StaticResource FontSizeSmall}"
+                                            WidthRequest="80" />
+                                </Grid>
+                                <!-- Training Dataset (Required) -->
+                                <Grid ColumnDefinitions="*,Auto,Auto"
+                                      ColumnSpacing="{StaticResource SpacingSmall}">
+                                    <VerticalStackLayout Grid.Column="0"
+                                                         VerticalOptions="Center">
+                                        <Label Text="{Binding TrainingDatasetPath, TargetNullValue='No training dataset selected'}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               LineBreakMode="TailTruncation" />
+                                        <Label Text="Training dataset (required)"
+                                               FontSize="{StaticResource FontSizeCaption}"
+                                               TextColor="{StaticResource TextSecondary}" />
+                                    </VerticalStackLayout>
+                                    <Button Grid.Column="1"
+                                            Text="Select Training Dataset"
+                                            Command="{Binding SelectTrainingDatasetCommand}"
+                                            BackgroundColor="Transparent"
+                                            BorderColor="{StaticResource Primary}"
+                                            BorderWidth="2"
+                                            TextColor="{StaticResource Primary}"
+                                            FontSize="{StaticResource FontSizeSmall}"
+                                            WidthRequest="160" />
+                                    <Button Grid.Column="2"
+                                            Text="Create New"
+                                            Command="{Binding CreateDatasetCommand}"
+                                            BackgroundColor="Transparent"
+                                            BorderColor="{StaticResource Tertiary}"
+                                            BorderWidth="2"
+                                            TextColor="{StaticResource Tertiary}"
+                                            FontSize="{StaticResource FontSizeSmall}"
+                                            WidthRequest="100" />
+                                </Grid>
+                                <!-- Validation Dataset (Optional) -->
+                                <Grid ColumnDefinitions="*,Auto"
+                                      ColumnSpacing="{StaticResource SpacingSmall}">
+                                    <VerticalStackLayout Grid.Column="0"
+                                                         VerticalOptions="Center">
+                                        <Label Text="{Binding ValidationDatasetPath, TargetNullValue='No validation dataset selected'}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               LineBreakMode="TailTruncation" />
+                                        <Label Text="Validation dataset (optional)"
+                                               FontSize="{StaticResource FontSizeCaption}"
+                                               TextColor="{StaticResource TextSecondary}" />
+                                    </VerticalStackLayout>
+                                    <Button Grid.Column="1"
+                                            Text="Select Validation Dataset"
+                                            Command="{Binding SelectValidationDatasetCommand}"
+                                            BackgroundColor="Transparent"
+                                            BorderColor="{StaticResource Secondary}"
+                                            BorderWidth="2"
+                                            TextColor="{StaticResource Secondary}"
+                                            FontSize="{StaticResource FontSizeSmall}"
+                                            WidthRequest="180" />
+                                </Grid>
+                                <!-- Test Dataset (Optional) -->
+                                <Grid ColumnDefinitions="*,Auto"
+                                      ColumnSpacing="{StaticResource SpacingSmall}">
+                                    <VerticalStackLayout Grid.Column="0"
+                                                         VerticalOptions="Center">
+                                        <Label Text="{Binding TestDatasetPath, TargetNullValue='No test dataset selected'}"
+                                               FontSize="{StaticResource FontSizeSmall}"
+                                               LineBreakMode="TailTruncation" />
+                                        <Label Text="Test dataset (optional)"
+                                               FontSize="{StaticResource FontSizeCaption}"
+                                               TextColor="{StaticResource TextSecondary}" />
+                                    </VerticalStackLayout>
+                                    <Button Grid.Column="1"
+                                            Text="Select Test Dataset"
+                                            Command="{Binding SelectTestDatasetCommand}"
+                                            BackgroundColor="Transparent"
+                                            BorderColor="{StaticResource Secondary}"
+                                            BorderWidth="2"
+                                            TextColor="{StaticResource Secondary}"
+                                            FontSize="{StaticResource FontSizeSmall}"
+                                            WidthRequest="160" />
+                                </Grid>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
                         <!-- Hyperparameters -->
                         <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                            <Label Text="4. Set Hyperparameters"
+                            <Label Text="Set Hyperparameters"
                                    FontAttributes="Bold"
                                    FontSize="{StaticResource FontSizeSmall}" />
                             <Grid ColumnDefinitions="*,*,*"
@@ -905,17 +1127,41 @@
                                            FontSize="{StaticResource FontSizeSmall}" />
                                 </VerticalStackLayout>
                             </Grid>
+                            <!-- Advanced Configuration Toggle -->
+                            <Grid ColumnDefinitions="*,Auto"
+                                  ColumnSpacing="{StaticResource SpacingSmall}"
+                                  Margin="0,10,0,0">
+                                <Label Grid.Column="0"
+                                       Text="Advanced Configuration"
+                                       VerticalOptions="Center"
+                                       FontSize="{StaticResource FontSizeSmall}" />
+                                <Switch Grid.Column="1"
+                                        IsToggled="{Binding UseAdvancedConfig}"
+                                        OnColor="{StaticResource Primary}" />
+                            </Grid>
+                            <!-- Advanced Configuration Section -->
+                            <VerticalStackLayout IsVisible="{Binding UseAdvancedConfig}"
+                                                 Spacing="{StaticResource SpacingSmall}">
+                                <Label Text="Custom Hyperparameters (JSON format)"
+                                       FontSize="{StaticResource FontSizeCaption}"
+                                       TextColor="{StaticResource TextSecondary}" />
+                                <Editor Text="{Binding CustomHyperparameters}"
+                                        Placeholder="Enter custom hyperparameters in JSON format..."
+                                        HeightRequest="80"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
+                                        FontSize="{StaticResource FontSizeSmall}" />
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
-                        <!-- New Model Name -->
+                        <!-- Model Naming and Training Execution -->
                         <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                            <Label Text="5. Name Your Aligned Model"
+                            <Label Text="{Binding IsTrainingFromScratchMode, Converter={StaticResource BoolToTextConverter}, ConverterParameter=Name Your New Model|Name Your Aligned Model}"
                                    FontAttributes="Bold"
                                    FontSize="{StaticResource FontSizeSmall}" />
                             <Grid ColumnDefinitions="*,Auto"
                                   ColumnSpacing="{StaticResource SpacingSmall}">
                                 <Entry Grid.Column="0"
                                        Text="{Binding NewModelName}"
-                                       Placeholder="Enter name for the new aligned model..."
+                                       Placeholder="{Binding IsTrainingFromScratchMode, Converter={StaticResource BoolToTextConverter}, ConverterParameter=Enter name for the new model...|Enter name for the aligned model...}"
                                        BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}" />
                                 <Button Grid.Column="1"
                                         Text="{Binding IsTraining, Converter={StaticResource BoolToTextConverter}, ConverterParameter=Stop Training|Start Training}"
@@ -928,13 +1174,35 @@
                                         WidthRequest="120" />
                             </Grid>
                         </VerticalStackLayout>
+                        <!-- Training Progress Display -->
+                        <VerticalStackLayout Spacing="{StaticResource SpacingSmall}"
+                                             IsVisible="{Binding IsTraining}">
+                            <Label Text="Training Progress"
+                                   FontAttributes="Bold"
+                                   FontSize="{StaticResource FontSizeSmall}" />
+                            <ProgressBar Progress="{Binding TrainingProgress}"
+                                         ProgressColor="{StaticResource Primary}" />
+                            <Label Text="{Binding TrainingStatus}"
+                                   FontSize="{StaticResource FontSizeCaption}"
+                                   HorizontalTextAlignment="Center" />
+                            <Grid ColumnDefinitions="*,*"
+                                  ColumnSpacing="{StaticResource SpacingSmall}">
+                                <Label Grid.Column="0"
+                                       Text="{Binding TrainingElapsed, StringFormat='Elapsed: {0}'}"
+                                       FontSize="{StaticResource FontSizeCaption}" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding TrainingEta, StringFormat='ETA: {0}'}"
+                                       FontSize="{StaticResource FontSizeCaption}"
+                                       HorizontalTextAlignment="End" />
+                            </Grid>
+                        </VerticalStackLayout>
                         <!-- Training Progress -->
                         <Frame IsVisible="{Binding IsTraining}"
                                BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundSecondary}, Dark={StaticResource BackgroundDark}}"
                                CornerRadius="{StaticResource CornerRadiusSmall}"
                                Padding="{StaticResource CardContentPadding}">
                             <VerticalStackLayout Spacing="{StaticResource SpacingSmall}">
-                                <Label Text="Training Progress"
+                                <Label Text="{Binding IsTrainingFromScratchMode, Converter={StaticResource BoolToTextConverter}, ConverterParameter=Training Progress (From Scratch)|Training Progress (Alignment)}"
                                        FontAttributes="Bold"
                                        FontSize="{StaticResource FontSizeSmall}" />
                                 <ProgressBar Progress="{Binding TrainingProgress}"
