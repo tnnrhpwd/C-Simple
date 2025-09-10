@@ -279,7 +279,7 @@ namespace CSimple.ViewModels
             get
             {
                 if (ActiveModelsCount == 0)
-                    return "No active models - activate a model to start chatting";
+                    return "Please activate a model to start chatting";
 
                 var supportedTypes = new List<string>();
                 if (SupportsTextInput) supportedTypes.Add("Text");
@@ -292,11 +292,30 @@ namespace CSimple.ViewModels
                 if (HasSelectedMedia)
                 {
                     if (HasSelectedImage && HasSelectedAudio)
-                        return "🎛️ Multimodal: Text + Image + Audio";
+                    {
+                        if (!SupportsImageInput && !SupportsAudioInput)
+                            return "❌ Selected media types not supported - please activate Image and Audio models";
+                        else if (!SupportsImageInput)
+                            return "❌ Image not supported - please activate an Image model";
+                        else if (!SupportsAudioInput)
+                            return "❌ Audio not supported - please activate an Audio model";
+                        else
+                            return "🎛️ Multimodal: Text + Image + Audio";
+                    }
                     else if (HasSelectedImage)
-                        return "🖼️ Vision Mode: Text + Image";
+                    {
+                        if (!SupportsImageInput)
+                            return "❌ Image not supported - please activate an Image model";
+                        else
+                            return "🖼️ Vision Mode: Text + Image";
+                    }
                     else if (HasSelectedAudio)
-                        return "🎧 Audio Mode: Text + Audio";
+                    {
+                        if (!SupportsAudioInput)
+                            return "❌ Audio not supported - please activate an Audio model";
+                        else
+                            return "🎧 Audio Mode: Text + Audio";
+                    }
                 }
 
                 return $"💬 Available: {string.Join(", ", supportedTypes)}";
@@ -419,7 +438,10 @@ namespace CSimple.ViewModels
         public int RunningProcesses => 0; // Placeholder for running processes count
         public int ActiveInputNodesCount => 0; // Placeholder
         public int ConnectedModelsCount => ActiveModelsCount;
-        public bool CanSendGoal => !string.IsNullOrWhiteSpace(_userGoalInput) && !string.IsNullOrEmpty(_selectedPipeline);
+        public bool CanSendGoal => !string.IsNullOrWhiteSpace(_userGoalInput) &&
+                                  !string.IsNullOrEmpty(_selectedPipeline) &&
+                                  ActiveModelsCount > 0 &&
+                                  SupportsTextInput; // For pipeline text input
 
         // Model Training/Alignment Properties
         public NeuralNetworkModel SelectedTrainingModel
@@ -2170,6 +2192,7 @@ namespace CSimple.ViewModels
                     CurrentModelStatus = $"Model '{model.Name}' activated";
                     StartModelMonitoring(model); // Simulate starting monitoring
                     OnPropertyChanged(nameof(ActiveModelsCount)); // Notify count changed
+                    OnPropertyChanged(nameof(CanSendGoal)); // Pipeline can send goal state may have changed
 
                     // Save the active state to persist across app restarts
                     SavePersistedModelsDebounced();
@@ -2196,6 +2219,7 @@ namespace CSimple.ViewModels
                     modelToRemove.IsActive = false; // Update model state
                     CurrentModelStatus = $"Model '{model.Name}' deactivated";
                     OnPropertyChanged(nameof(ActiveModelsCount)); // Notify count changed
+                    OnPropertyChanged(nameof(CanSendGoal)); // Pipeline can send goal state may have changed
 
                     // Save the inactive state to persist across app restarts
                     SavePersistedModelsDebounced();
@@ -2773,6 +2797,7 @@ namespace CSimple.ViewModels
 
                 // Update UI property notifications
                 OnPropertyChanged(nameof(ActiveModelsCount));
+                OnPropertyChanged(nameof(CanSendGoal)); // Pipeline can send goal state may have changed
 
                 if (modelsToActivate.Count > 0)
                 {
@@ -2996,6 +3021,7 @@ namespace CSimple.ViewModels
 
                 // Update UI properties
                 OnPropertyChanged(nameof(ActiveModelsCount));
+                OnPropertyChanged(nameof(CanSendGoal)); // Pipeline can send goal state may have changed
 
                 // Update all download button texts to reflect actual disk states
                 UpdateAllModelsDownloadButtonText();
@@ -3983,6 +4009,33 @@ namespace CSimple.ViewModels
 
             try
             {
+                // Check if we have active models to process the goal
+                if (ActiveModelsCount == 0)
+                {
+                    PipelineChatMessages.Add(new ChatMessage
+                    {
+                        Content = "No active models available. Please activate a model first to process your input.",
+                        IsFromUser = false,
+                        Timestamp = DateTime.Now
+                    });
+                    UserGoalInput = string.Empty;
+                    return;
+                }
+
+                // Check if we have the right type of model for text input
+                if (!SupportsTextInput)
+                {
+                    var activeModelTypes = ActiveModels.Select(m => m.InputType.ToString()).Distinct().ToList();
+                    PipelineChatMessages.Add(new ChatMessage
+                    {
+                        Content = $"Please activate a Text model to process text input. Currently active model types: {string.Join(", ", activeModelTypes)}",
+                        IsFromUser = false,
+                        Timestamp = DateTime.Now
+                    });
+                    UserGoalInput = string.Empty;
+                    return;
+                }
+
                 // Add user message to pipeline chat
                 PipelineChatMessages.Add(new ChatMessage
                 {
@@ -3994,18 +4047,87 @@ namespace CSimple.ViewModels
                 // Clear input
                 UserGoalInput = string.Empty;
 
-                // Simulate AI response (placeholder)
-                await Task.Delay(1000);
-                PipelineChatMessages.Add(new ChatMessage
+                // Add a "thinking" message
+                var thinkingMessage = new ChatMessage
                 {
-                    Content = $"Processing goal '{goal}' with pipeline '{SelectedPipeline}'. Intelligence mode: {(IsIntelligenceActive ? "Active" : "Inactive")}",
+                    Content = $"Processing with pipeline '{SelectedPipeline}' using {ActiveModelsCount} active model(s)...",
                     IsFromUser = false,
                     Timestamp = DateTime.Now
-                });
+                };
+                PipelineChatMessages.Add(thinkingMessage);
+
+                // Process the goal with activated models using the same logic as regular chat
+                var activeModel = GetBestActiveModel();
+                if (activeModel != null)
+                {
+                    // Use the model communication service to process the goal
+                    var tempChatMessages = new ObservableCollection<ChatMessage>();
+
+                    await _modelCommunicationService.CommunicateWithModelAsync(goal,
+                        activeModel,
+                        tempChatMessages,
+                        _pythonExecutablePath,
+                        _huggingFaceScriptPath,
+                        ShowAlert,
+                        () => Task.CompletedTask,
+                        async () => await _modelExecutionService.InstallAcceleratePackageAsync(_pythonExecutablePath),
+                        (modelId) => "Consider using smaller models for better CPU performance.",
+                        async (modelId, inputText, model) =>
+                        {
+                            string localModelPath = GetLocalModelPath(modelId);
+                            return await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(modelId, inputText, model, _pythonExecutablePath, _huggingFaceScriptPath, localModelPath);
+                        });
+
+                    // Remove the thinking message
+                    PipelineChatMessages.Remove(thinkingMessage);
+
+                    // Add the actual model response to pipeline chat
+                    if (tempChatMessages.Count > 0)
+                    {
+                        var response = tempChatMessages.LastOrDefault(m => !m.IsFromUser);
+                        if (response != null)
+                        {
+                            PipelineChatMessages.Add(new ChatMessage
+                            {
+                                Content = $"[{activeModel.Name}]: {response.Content}",
+                                IsFromUser = false,
+                                Timestamp = DateTime.Now
+                            });
+                        }
+                    }
+                    else
+                    {
+                        // Remove thinking message if no response was generated
+                        PipelineChatMessages.Remove(thinkingMessage);
+                        PipelineChatMessages.Add(new ChatMessage
+                        {
+                            Content = $"No response generated from model '{activeModel.Name}'. The model may need more time or the input may not be suitable.",
+                            IsFromUser = false,
+                            Timestamp = DateTime.Now
+                        });
+                    }
+                }
+                else
+                {
+                    // Remove thinking message and show error
+                    PipelineChatMessages.Remove(thinkingMessage);
+                    PipelineChatMessages.Add(new ChatMessage
+                    {
+                        Content = "No suitable active model found to process the input.",
+                        IsFromUser = false,
+                        Timestamp = DateTime.Now
+                    });
+                }
             }
             catch (Exception ex)
             {
                 HandleError("Error sending goal", ex);
+                PipelineChatMessages.Add(new ChatMessage
+                {
+                    Content = $"Error processing goal: {ex.Message}",
+                    IsFromUser = false,
+                    Timestamp = DateTime.Now
+                });
             }
         }
 
