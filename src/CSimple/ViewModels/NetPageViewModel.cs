@@ -513,37 +513,61 @@ namespace CSimple.ViewModels
         public bool UseRecordedActionsForTraining
         {
             get => _useRecordedActionsForTraining;
-            set => SetProperty(ref _useRecordedActionsForTraining, value);
+            set => SetProperty(ref _useRecordedActionsForTraining, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(CanStartTraining));
+                OnPropertyChanged(nameof(CanToggleTraining));
+            });
         }
 
         public ActionGroup SelectedActionSession
         {
             get => _selectedActionSession;
-            set => SetProperty(ref _selectedActionSession, value);
+            set => SetProperty(ref _selectedActionSession, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(CanStartTraining));
+                OnPropertyChanged(nameof(CanToggleTraining));
+            });
         }
 
         public bool IncludeScreenImages
         {
             get => _includeScreenImages;
-            set => SetProperty(ref _includeScreenImages, value);
+            set => SetProperty(ref _includeScreenImages, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(CanStartTraining));
+                OnPropertyChanged(nameof(CanToggleTraining));
+            });
         }
 
         public bool IncludeWebcamImages
         {
             get => _includeWebcamImages;
-            set => SetProperty(ref _includeWebcamImages, value);
+            set => SetProperty(ref _includeWebcamImages, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(CanStartTraining));
+                OnPropertyChanged(nameof(CanToggleTraining));
+            });
         }
 
         public bool IncludePcAudio
         {
             get => _includePcAudio;
-            set => SetProperty(ref _includePcAudio, value);
+            set => SetProperty(ref _includePcAudio, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(CanStartTraining));
+                OnPropertyChanged(nameof(CanToggleTraining));
+            });
         }
 
         public bool IncludeWebcamAudio
         {
             get => _includeWebcamAudio;
-            set => SetProperty(ref _includeWebcamAudio, value);
+            set => SetProperty(ref _includeWebcamAudio, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(CanStartTraining));
+                OnPropertyChanged(nameof(CanToggleTraining));
+            });
         }
 
         public int TrainingDataPercentage
@@ -628,16 +652,77 @@ namespace CSimple.ViewModels
         }
 
         // Computed properties for training
-        public bool CanStartTraining =>
-            !IsTraining &&
-            ((IsPretrainedModelMode && SelectedTrainingModel != null) || IsTrainingFromScratchMode) &&
-            !string.IsNullOrWhiteSpace(TrainingDatasetPath) &&
-            !string.IsNullOrWhiteSpace(NewModelName);
+        public bool CanStartTraining
+        {
+            get
+            {
+                // Basic requirements: not currently training and have model/mode selected
+                if (IsTraining)
+                {
+                    Debug.WriteLine("CanStartTraining: false - Already training");
+                    return false;
+                }
 
-        public bool CanToggleTraining =>
-            IsTraining || ((IsPretrainedModelMode && SelectedTrainingModel != null) || IsTrainingFromScratchMode) &&
-            !string.IsNullOrWhiteSpace(TrainingDatasetPath) &&
-            !string.IsNullOrWhiteSpace(NewModelName);
+                if (!IsPretrainedModelMode && !IsTrainingFromScratchMode)
+                {
+                    Debug.WriteLine("CanStartTraining: false - No training mode selected");
+                    return false;
+                }
+
+                if (IsPretrainedModelMode && SelectedTrainingModel == null)
+                {
+                    Debug.WriteLine("CanStartTraining: false - Pretrained mode but no model selected");
+                    return false;
+                }
+
+                if (string.IsNullOrWhiteSpace(NewModelName))
+                {
+                    Debug.WriteLine("CanStartTraining: false - No model name provided");
+                    return false;
+                }
+
+                // For recorded actions training, check if we have action session and input sources
+                if (UseRecordedActionsForTraining)
+                {
+                    if (SelectedActionSession == null)
+                    {
+                        Debug.WriteLine("CanStartTraining: false - Using recorded actions but no action session selected");
+                        return false;
+                    }
+
+                    if (!IncludeScreenImages && !IncludeWebcamImages && !IncludePcAudio && !IncludeWebcamAudio)
+                    {
+                        Debug.WriteLine("CanStartTraining: false - Using recorded actions but no input sources selected");
+                        return false;
+                    }
+
+                    Debug.WriteLine("CanStartTraining: true - Recorded actions mode with valid settings");
+                    return true;
+                }
+
+                // For custom dataset training, check if we have dataset path
+                if (string.IsNullOrWhiteSpace(TrainingDatasetPath))
+                {
+                    Debug.WriteLine("CanStartTraining: false - Custom dataset mode but no dataset path");
+                    return false;
+                }
+
+                Debug.WriteLine("CanStartTraining: true - Custom dataset mode with valid path");
+                return true;
+            }
+        }
+
+        public bool CanToggleTraining
+        {
+            get
+            {
+                // If already training, always allow stopping
+                if (IsTraining) return true;
+
+                // Otherwise, use the same logic as CanStartTraining
+                return CanStartTraining;
+            }
+        }
 
         public string TrainingModelName => SelectedTrainingModel?.Name ?? (IsTrainingFromScratchMode ? "New Model Architecture" : "No model selected");
 
@@ -6734,6 +6819,40 @@ namespace CSimple.ViewModels
         }
 
         /// <summary>
+        /// Get appropriate error message for why training cannot start
+        /// </summary>
+        private string GetCannotStartTrainingMessage()
+        {
+            if (IsTraining)
+                return "Training is already in progress.";
+
+            if (!IsPretrainedModelMode && !IsTrainingFromScratchMode)
+                return "Please select a training mode.";
+
+            if (IsPretrainedModelMode && SelectedTrainingModel == null)
+                return "Please select a pretrained model for alignment.";
+
+            if (string.IsNullOrWhiteSpace(NewModelName))
+                return "Please provide a name for the new model.";
+
+            if (UseRecordedActionsForTraining)
+            {
+                if (SelectedActionSession == null)
+                    return "Please select an action session to use for training.";
+
+                if (!IncludeScreenImages && !IncludeWebcamImages && !IncludePcAudio && !IncludeWebcamAudio)
+                    return "Please select at least one input source (screen, webcam, or audio).";
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(TrainingDatasetPath))
+                    return "Please select a training dataset file.";
+            }
+
+            return "Unknown error preventing training from starting.";
+        }
+
+        /// <summary>
         /// Start the model training/alignment process
         /// </summary>
         private async Task StartTrainingAsync()
@@ -6742,15 +6861,35 @@ namespace CSimple.ViewModels
             {
                 if (!CanStartTraining)
                 {
-                    var message = IsTrainingFromScratchMode
-                        ? "Please provide training dataset and name for the new model."
-                        : "Please select a model, training dataset, and provide a name for the new model.";
+                    var message = GetCannotStartTrainingMessage();
                     await ShowAlert("Cannot Start Training", message, "OK");
                     return;
                 }
 
                 IsTraining = true;
                 TrainingProgress = 0.0;
+
+                // Handle recorded actions training
+                if (UseRecordedActionsForTraining)
+                {
+                    TrainingStatus = "Processing recorded actions to create dataset...";
+                    await Task.Delay(500); // Brief delay to show the status
+
+                    // Process recorded actions into a dataset first
+                    var dataset = await CreateDatasetFromActionSessionAsync(SelectedActionSession);
+                    if (dataset == null)
+                    {
+                        IsTraining = false;
+                        TrainingStatus = "Failed to process recorded actions";
+                        await ShowAlert("Training Failed", "Failed to process the recorded action session into a training dataset.", "OK");
+                        return;
+                    }
+
+                    // Set the dataset path for the training process
+                    TrainingDatasetPath = dataset.OutputPath;
+                    TrainingStatus = $"Dataset created successfully. Starting {(IsTrainingFromScratchMode ? "training" : "alignment")}...";
+                    await Task.Delay(1000); // Brief delay to show the status
+                }
                 TrainingStatus = IsTrainingFromScratchMode
                     ? $"Initializing {SelectedModelArchitecture} architecture training..."
                     : $"Initializing {SelectedAlignmentTechnique} alignment...";
@@ -7377,17 +7516,27 @@ namespace CSimple.ViewModels
         {
             try
             {
+                Debug.WriteLine($"ToggleTrainingAsync called. IsTraining: {IsTraining}, CanToggleTraining: {CanToggleTraining}");
+                Debug.WriteLine($"UseRecordedActionsForTraining: {UseRecordedActionsForTraining}");
+                Debug.WriteLine($"SelectedActionSession: {SelectedActionSession?.ActionName ?? "null"}");
+                Debug.WriteLine($"NewModelName: '{NewModelName}'");
+                Debug.WriteLine($"SelectedTrainingModel: {SelectedTrainingModel?.Name ?? "null"}");
+                Debug.WriteLine($"TrainingDatasetPath: '{TrainingDatasetPath}'");
+
                 if (IsTraining)
                 {
+                    Debug.WriteLine("Stopping training...");
                     await StopTrainingAsync();
                 }
                 else
                 {
+                    Debug.WriteLine("Starting training...");
                     await StartTrainingAsync();
                 }
             }
             catch (Exception ex)
             {
+                Debug.WriteLine($"Error in ToggleTrainingAsync: {ex.Message}");
                 HandleError("Error toggling training", ex);
             }
         }
