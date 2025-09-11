@@ -46,7 +46,18 @@ namespace CSimple.Models
 
         // HuggingFace specific properties
         public bool IsHuggingFaceReference { get; set; } = false;
-        public string HuggingFaceModelId { get; set; }        // Download button text property with change notification
+        public string HuggingFaceModelId { get; set; }
+
+        // Aligned model properties
+        public bool IsAlignedModel { get; set; } = false;
+        public string ParentModelId { get; set; }
+        public string ParentModelName { get; set; }
+        public string AlignmentTechnique { get; set; }
+        public DateTime? AlignmentDate { get; set; }
+
+        // Computed property for display
+        public string ModelOrigin => IsAlignedModel ? $"Aligned from {ParentModelName}" : (IsHuggingFaceReference ? "HuggingFace" : "Custom");
+        public string ModelTypeDisplay => IsAlignedModel ? $"Aligned ({AlignmentTechnique})" : Type.ToString();        // Download button text property with change notification
         public string DownloadButtonText
         {
             get => _downloadButtonText;
@@ -110,6 +121,8 @@ namespace CSimple.Models
                 {
                     _isDownloaded = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(ShowDeleteButton));
+                    OnPropertyChanged(nameof(ShowTrainButton));
                     // Update button text based on download status
                     DownloadButtonText = value ? "Remove from Device" : "Download to Device";
                 }
@@ -118,6 +131,12 @@ namespace CSimple.Models
 
         // Helper property for UI binding (0-100 percentage)
         public string DownloadProgressPercentage => $"{DownloadProgress:P0}";
+
+        // Property to control delete button visibility - show for all models that are downloaded or custom
+        public bool ShowDeleteButton => IsDownloaded || !IsHuggingFaceReference;
+
+        // Property to control train button visibility - show for all downloaded models
+        public bool ShowTrainButton => IsDownloaded || !IsHuggingFaceReference;
 
         // Full property implementation for InputType with notification
         public ModelInputType InputType

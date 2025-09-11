@@ -6,6 +6,31 @@ using System.Runtime.CompilerServices;
 
 namespace CSimple.Models
 {
+    public enum ChatMode
+    {
+        Standard,
+        Testing,
+        ConsoleLogging,
+        ModelTesting
+    }
+
+    public enum MessageType
+    {
+        Standard,
+        TestInput,
+        TestOutput,
+        TestResult,
+        ConsoleLog,
+        ConsoleError,
+        ConsoleWarning,
+        ConsoleInfo,
+        SystemStatus,
+        ModelTest,
+        ModelTestResult,
+        IntelligenceLog,
+        PipelineExecution
+    }
+
     public class ChatMessage : INotifyPropertyChanged
     {
         private string _content;
@@ -16,6 +41,10 @@ namespace CSimple.Models
         private string _llmSource; // New: local or api
         private bool _isEditing;
         private bool _includeInHistory = true; // New: whether to include this message in chat history for models
+        private MessageType _messageType = MessageType.Standard;
+        private ChatMode _chatMode = ChatMode.Standard;
+        private string _testId;
+        private Dictionary<string, object> _metadata = new();
 
         public string Content
         {
@@ -73,9 +102,111 @@ namespace CSimple.Models
             set => SetProperty(ref _includeInHistory, value);
         }
 
+        public MessageType MessageType
+        {
+            get => _messageType;
+            set => SetProperty(ref _messageType, value, onChanged: () =>
+            {
+                OnPropertyChanged(nameof(MessageTypeIcon));
+                OnPropertyChanged(nameof(MessageTypeColor));
+                OnPropertyChanged(nameof(MessageTypeDescription));
+            });
+        }
+
+        public ChatMode ChatMode
+        {
+            get => _chatMode;
+            set => SetProperty(ref _chatMode, value);
+        }
+
+        public string TestId
+        {
+            get => _testId;
+            set => SetProperty(ref _testId, value);
+        }
+
+        public Dictionary<string, object> Metadata
+        {
+            get => _metadata;
+            set => SetProperty(ref _metadata, value ?? new Dictionary<string, object>());
+        }
+
         public string FormattedTimestamp => Timestamp.ToString("HH:mm");
 
         public string DisplayName => IsFromUser ? "You" : (string.IsNullOrEmpty(ModelName) ? "Assistant" : ModelName);
+
+        public string MessageTypeIcon
+        {
+            get
+            {
+                return MessageType switch
+                {
+                    MessageType.TestInput => "🧪",
+                    MessageType.TestOutput => "📊",
+                    MessageType.TestResult => "✅",
+                    MessageType.ConsoleLog => "📝",
+                    MessageType.ConsoleError => "❌",
+                    MessageType.ConsoleWarning => "⚠️",
+                    MessageType.ConsoleInfo => "ℹ️",
+                    MessageType.SystemStatus => "🔧",
+                    MessageType.ModelTest => "🤖",
+                    MessageType.ModelTestResult => "🎯",
+                    MessageType.IntelligenceLog => "🧠",
+                    MessageType.PipelineExecution => "⚙️",
+                    _ => "💬"
+                };
+            }
+        }
+
+        public string MessageTypeColor
+        {
+            get
+            {
+                return MessageType switch
+                {
+                    MessageType.TestInput => "#2196F3",
+                    MessageType.TestOutput => "#4CAF50",
+                    MessageType.TestResult => "#8BC34A",
+                    MessageType.ConsoleLog => "#607D8B",
+                    MessageType.ConsoleError => "#F44336",
+                    MessageType.ConsoleWarning => "#FF9800",
+                    MessageType.ConsoleInfo => "#2196F3",
+                    MessageType.SystemStatus => "#9C27B0",
+                    MessageType.ModelTest => "#FF5722",
+                    MessageType.ModelTestResult => "#E91E63",
+                    MessageType.IntelligenceLog => "#673AB7",
+                    MessageType.PipelineExecution => "#795548",
+                    _ => "#757575"
+                };
+            }
+        }
+
+        public string MessageTypeDescription
+        {
+            get
+            {
+                return MessageType switch
+                {
+                    MessageType.TestInput => "Test Input",
+                    MessageType.TestOutput => "Test Output",
+                    MessageType.TestResult => "Test Result",
+                    MessageType.ConsoleLog => "Console Log",
+                    MessageType.ConsoleError => "Error",
+                    MessageType.ConsoleWarning => "Warning",
+                    MessageType.ConsoleInfo => "Info",
+                    MessageType.SystemStatus => "System Status",
+                    MessageType.ModelTest => "Model Test",
+                    MessageType.ModelTestResult => "Model Result",
+                    MessageType.IntelligenceLog => "Intelligence Log",
+                    MessageType.PipelineExecution => "Pipeline Execution",
+                    _ => "Message"
+                };
+            }
+        }
+
+        public bool IsTestMessage => MessageType == MessageType.TestInput || MessageType == MessageType.TestOutput || MessageType == MessageType.TestResult || MessageType == MessageType.ModelTest || MessageType == MessageType.ModelTestResult;
+        public bool IsConsoleMessage => MessageType == MessageType.ConsoleLog || MessageType == MessageType.ConsoleError || MessageType == MessageType.ConsoleWarning || MessageType == MessageType.ConsoleInfo || MessageType == MessageType.IntelligenceLog;
+        public bool IsSystemMessage => MessageType == MessageType.SystemStatus || MessageType == MessageType.PipelineExecution;
 
         public string ModelDisplayNameWithSource
         {
@@ -135,6 +266,7 @@ namespace CSimple.Models
         {
             Timestamp = DateTime.Now;
         }
+
         public ChatMessage(string content, bool isFromUser, string modelName = null, string llmSource = null, bool includeInHistory = true) : this()
         {
             Content = content;
@@ -142,6 +274,41 @@ namespace CSimple.Models
             ModelName = modelName;
             LLMSource = llmSource;
             IncludeInHistory = includeInHistory;
+        }
+
+        public ChatMessage(string content, bool isFromUser, MessageType messageType, ChatMode chatMode = ChatMode.Standard, string testId = null, string modelName = null, string llmSource = null, bool includeInHistory = true) : this(content, isFromUser, modelName, llmSource, includeInHistory)
+        {
+            MessageType = messageType;
+            ChatMode = chatMode;
+            TestId = testId;
+        }
+
+        // Helper methods for creating specific message types
+        public static ChatMessage CreateTestInput(string content, string testId, string modelName = null)
+        {
+            return new ChatMessage(content, true, MessageType.TestInput, ChatMode.Testing, testId, modelName);
+        }
+
+        public static ChatMessage CreateTestOutput(string content, string testId, string modelName = null)
+        {
+            return new ChatMessage(content, false, MessageType.TestOutput, ChatMode.Testing, testId, modelName);
+        }
+
+        public static ChatMessage CreateTestResult(string content, string testId, bool passed)
+        {
+            var message = new ChatMessage(content, false, MessageType.TestResult, ChatMode.Testing, testId);
+            message.Metadata["TestPassed"] = passed;
+            return message;
+        }
+
+        public static ChatMessage CreateConsoleLog(string content, MessageType logType = MessageType.ConsoleLog)
+        {
+            return new ChatMessage(content, false, logType, ChatMode.ConsoleLogging);
+        }
+
+        public static ChatMessage CreateSystemStatus(string content, string modelName = null)
+        {
+            return new ChatMessage(content, false, MessageType.SystemStatus, ChatMode.Standard, null, modelName);
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

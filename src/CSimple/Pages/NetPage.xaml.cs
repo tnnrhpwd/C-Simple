@@ -43,6 +43,41 @@ namespace CSimple.Pages
             _viewModel.PickFile = async () => await FilePicker.Default.PickAsync(new PickOptions()); _viewModel.NavigateTo = async (route) => await Shell.Current.GoToAsync(route);
             _viewModel.ShowModelSelectionDialog = ShowHuggingFaceModelSelection; // Custom method for this UI
             _viewModel.ShowDownloadedModelSelectionDialog = ShowDownloadedModelSelection; // Custom method for downloaded model selection
+
+            // Set up scroll to training section functionality
+            _viewModel.ScrollToTrainingSection = () =>
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    try
+                    {
+                        // Find the training section frame
+                        var trainingSection = FindByName("TrainingSection") as Frame;
+                        var mainScrollView = FindByName("MainScrollView") as ScrollView;
+
+                        if (trainingSection != null && mainScrollView != null)
+                        {
+                            // Calculate the position of the training section and scroll to it
+                            mainScrollView.ScrollToAsync(trainingSection, ScrollToPosition.Start, true);
+                            Debug.WriteLine("✅ Scrolled to training section using TrainingSection frame");
+                        }
+                        else if (mainScrollView != null)
+                        {
+                            // Fallback: scroll to bottom where training section usually is
+                            mainScrollView.ScrollToAsync(0, double.MaxValue, true);
+                            Debug.WriteLine("✅ Scrolled to bottom of main scroll view (training section area)");
+                        }
+                        else
+                        {
+                            Debug.WriteLine("⚠️ Could not find main scroll view for navigation");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"❌ Error scrolling to training section: {ex.Message}");
+                    }
+                });
+            };
             // Set up chat scroll functionality
             _viewModel.ScrollToBottom = () =>
             {

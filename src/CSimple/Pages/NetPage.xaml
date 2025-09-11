@@ -23,7 +23,7 @@
         <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
     </ContentPage.Resources>
     <ContentPage.Content>
-        <ScrollView>
+        <ScrollView x:Name="MainScrollView">
             <VerticalStackLayout Padding="{StaticResource PagePadding}"
                                  Spacing="{StaticResource SpacingLarge}">
                 <Label Text="Neural Network Hub"
@@ -543,7 +543,7 @@
                                            Margin="{StaticResource MarginTiny}"
                                            CornerRadius="{StaticResource CornerRadiusSmall}">
                                         <!-- Use Grid for better layout with the new dropdown -->
-                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto"
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                                               ColumnSpacing="{StaticResource SpacingSmall}">
                                             <VerticalStackLayout Grid.Column="0">
                                                 <Label Text="{Binding Name}"
@@ -644,15 +644,27 @@
                                             <!-- Train/Refine Button -->
                                             <Button Grid.Column="4"
                                                     Text="Train"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=GoToOrientCommand}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=TrainModelCommand}"
                                                     CommandParameter="{Binding .}"
                                                     BackgroundColor="Transparent"
                                                     BorderColor="{StaticResource Primary}"
                                                     BorderWidth="2"
                                                     TextColor="{StaticResource Primary}"
-                                                    VerticalOptions="Center" />
-                                            <!-- Activate/Deactivate Button with dynamic text and color -->
+                                                    VerticalOptions="Center"
+                                                    IsVisible="{Binding ShowTrainButton}" />
+                                            <!-- Delete Model Button (for non-HuggingFace models) -->
                                             <Button Grid.Column="5"
+                                                    Text="Delete"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=DeleteModelCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    BackgroundColor="Transparent"
+                                                    BorderColor="{StaticResource Error}"
+                                                    BorderWidth="2"
+                                                    TextColor="{StaticResource Error}"
+                                                    VerticalOptions="Center"
+                                                    IsVisible="{Binding ShowDeleteButton}" />
+                                            <!-- Activate/Deactivate Button with dynamic text and color -->
+                                            <Button Grid.Column="6"
                                                     Text="{Binding IsActive, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Deactivate|Activate'}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=ToggleModelActivationCommand}"
                                                     CommandParameter="{Binding .}"
@@ -662,7 +674,7 @@
                                                     TextColor="{StaticResource Primary}"
                                                     VerticalOptions="Center" />
                                             <!-- Open in File Explorer Button -->
-                                            <Button Grid.Column="6"
+                                            <Button Grid.Column="7"
                                                     Text="File Explorer"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:NetPageViewModel}}, Path=OpenModelInExplorerCommand}"
                                                     CommandParameter="{Binding .}"
@@ -755,7 +767,8 @@
                     </VerticalStackLayout>
                 </Frame>
                 <!-- Model Training/Alignment Section -->
-                <Frame BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                <Frame x:Name="TrainingSection"
+                       BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                        CornerRadius="{StaticResource CornerRadiusLarge}"
                        Padding="{StaticResource CardPadding}">
                     <VerticalStackLayout Spacing="{StaticResource SpacingMedium}">
