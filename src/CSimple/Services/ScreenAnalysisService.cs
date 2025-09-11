@@ -35,7 +35,7 @@ namespace CSimple.Services
             try
             {
                 Debug.WriteLine($"[ScreenAnalysis] Searching for UI element: {elementDescription}");
-                
+
                 // Take a screenshot for analysis
                 var screenshot = await CaptureScreenAsync();
                 if (screenshot == null)
@@ -46,9 +46,9 @@ namespace CSimple.Services
 
                 // Analyze the screenshot for the requested element
                 var elementLocation = await AnalyzeScreenshotForElementAsync(screenshot, elementDescription, context);
-                
+
                 screenshot.Dispose(); // Clean up memory
-                
+
                 if (elementLocation.HasValue)
                 {
                     Debug.WriteLine($"[ScreenAnalysis] Found element at {elementLocation.Value}");
@@ -104,25 +104,25 @@ namespace CSimple.Services
                 try
                 {
                     var description = elementDescription.ToLowerInvariant();
-                    
+
                     // Simple heuristic-based UI element detection
                     // This is a basic implementation - could be enhanced with OCR or ML
-                    
+
                     if (description.Contains("button"))
                     {
                         return FindButtonLikeElement(screenshot, description);
                     }
-                    
+
                     if (description.Contains("menu") || description.Contains("dropdown"))
                     {
                         return FindMenuLikeElement(screenshot, description);
                     }
-                    
+
                     if (description.Contains("icon"))
                     {
                         return FindIconLikeElement(screenshot, description);
                     }
-                    
+
                     if (description.Contains("text") || description.Contains("label"))
                     {
                         return FindTextLikeElement(screenshot, description);
@@ -148,13 +148,13 @@ namespace CSimple.Services
             {
                 // Look for rectangular regions with button-like characteristics
                 var candidates = new List<Rectangle>();
-                
+
                 // Simple edge detection to find rectangular regions
                 var edgeRegions = DetectRectangularRegions(screenshot);
-                
+
                 // Filter for button-like sizes (typically 50-300 pixels wide, 20-60 pixels tall)
-                candidates = edgeRegions.Where(r => 
-                    r.Width >= 50 && r.Width <= 300 && 
+                candidates = edgeRegions.Where(r =>
+                    r.Width >= 50 && r.Width <= 300 &&
                     r.Height >= 20 && r.Height <= 60).ToList();
 
                 if (candidates.Any())
@@ -183,7 +183,7 @@ namespace CSimple.Services
             {
                 // Menus are typically in the top area of windows or applications
                 var topRegion = new Rectangle(0, 0, screenshot.Width, screenshot.Height / 4);
-                
+
                 // Look for menu-like regions (horizontal rectangles in top area)
                 var menuRegions = DetectRectangularRegions(screenshot)
                     .Where(r => r.Y < topRegion.Height && r.Width > 100 && r.Height < 40)
@@ -215,7 +215,7 @@ namespace CSimple.Services
             {
                 // Icons are typically small square regions
                 var iconRegions = DetectRectangularRegions(screenshot)
-                    .Where(r => r.Width >= 16 && r.Width <= 64 && 
+                    .Where(r => r.Width >= 16 && r.Width <= 64 &&
                                r.Height >= 16 && r.Height <= 64 &&
                                Math.Abs(r.Width - r.Height) <= 10) // Nearly square
                     .ToList();
@@ -287,17 +287,17 @@ namespace CSimple.Services
         private List<Rectangle> DetectRectangularRegions(Bitmap screenshot)
         {
             var regions = new List<Rectangle>();
-            
+
             try
             {
                 // Simple implementation - could be enhanced with proper edge detection algorithms
                 // For now, return some sample regions for testing
-                
+
                 // Sample common UI regions
                 regions.Add(new Rectangle(20, 20, 100, 30));   // Top-left button area
                 regions.Add(new Rectangle(screenshot.Width - 120, 20, 100, 30)); // Top-right button area
                 regions.Add(new Rectangle(screenshot.Width / 2 - 50, screenshot.Height - 60, 100, 40)); // Bottom center button
-                
+
                 return regions;
             }
             catch (Exception ex)
@@ -320,7 +320,7 @@ namespace CSimple.Services
                     if (screenshot == null) return new List<Color>();
 
                     var colors = new Dictionary<Color, int>();
-                    
+
                     // Sample colors from the region
                     for (int x = region.X; x < region.X + region.Width && x < screenshot.Width; x += 5)
                     {
@@ -335,7 +335,7 @@ namespace CSimple.Services
                     }
 
                     screenshot.Dispose();
-                    
+
                     // Return top 5 most common colors
                     return colors.OrderByDescending(c => c.Value)
                                 .Take(5)

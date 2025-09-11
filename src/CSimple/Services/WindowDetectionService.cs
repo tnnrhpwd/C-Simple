@@ -52,10 +52,10 @@ namespace CSimple.Services
             try
             {
                 Debug.WriteLine($"[WindowDetection] Searching for window: {windowName}");
-                
+
                 await Task.Run(() => RefreshWindowList());
-                
-                var window = _detectedWindows.FirstOrDefault(w => 
+
+                var window = _detectedWindows.FirstOrDefault(w =>
                     w.Title.ToLowerInvariant().Contains(windowName.ToLowerInvariant()));
 
                 if (window != null)
@@ -64,7 +64,7 @@ namespace CSimple.Services
                         window.Bounds.Left + window.Bounds.Width / 2,
                         window.Bounds.Top + window.Bounds.Height / 2
                     );
-                    
+
                     Debug.WriteLine($"[WindowDetection] Found window '{window.Title}' at center {center}");
                     return center;
                 }
@@ -87,8 +87,8 @@ namespace CSimple.Services
             try
             {
                 await Task.Run(() => RefreshWindowList());
-                
-                var window = _detectedWindows.FirstOrDefault(w => 
+
+                var window = _detectedWindows.FirstOrDefault(w =>
                     w.Title.ToLowerInvariant().Contains(windowName.ToLowerInvariant()));
 
                 return window?.Bounds;
@@ -108,8 +108,8 @@ namespace CSimple.Services
             try
             {
                 await Task.Run(() => RefreshWindowList());
-                
-                var window = _detectedWindows.FirstOrDefault(w => 
+
+                var window = _detectedWindows.FirstOrDefault(w =>
                     w.Title.ToLowerInvariant().Contains(windowName.ToLowerInvariant()));
 
                 if (window != null)
@@ -152,7 +152,7 @@ namespace CSimple.Services
         {
             _detectedWindows.Clear();
             EnumWindows(EnumWindowCallback, IntPtr.Zero);
-            
+
             Debug.WriteLine($"[WindowDetection] Found {_detectedWindows.Count} visible windows");
             foreach (var window in _detectedWindows.Take(5)) // Log first 5 for debugging
             {
@@ -172,13 +172,13 @@ namespace CSimple.Services
 
                 var title = new System.Text.StringBuilder(256);
                 GetWindowText(hWnd, title, title.Capacity);
-                
+
                 if (string.IsNullOrWhiteSpace(title.ToString()))
                     return true; // Skip windows without titles
 
                 if (GetWindowRect(hWnd, out RECT rect))
                 {
-                    var bounds = new Rectangle(rect.Left, rect.Top, 
+                    var bounds = new Rectangle(rect.Left, rect.Top,
                         rect.Right - rect.Left, rect.Bottom - rect.Top);
 
                     // Filter out very small windows (likely UI elements)
@@ -210,8 +210,8 @@ namespace CSimple.Services
             try
             {
                 await Task.Run(() => RefreshWindowList());
-                
-                return _detectedWindows.Where(w => 
+
+                return _detectedWindows.Where(w =>
                     w.Title.ToLowerInvariant().Contains(partialTitle.ToLowerInvariant())).ToList();
             }
             catch (Exception ex)
@@ -233,7 +233,7 @@ namespace CSimple.Services
                     return null;
 
                 await Task.Run(() => RefreshWindowList());
-                
+
                 return _detectedWindows.FirstOrDefault(w => w.Handle == foregroundWindow);
             }
             catch (Exception ex)

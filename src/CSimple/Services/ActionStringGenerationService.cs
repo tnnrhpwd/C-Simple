@@ -32,7 +32,7 @@ namespace CSimple.Services
             try
             {
                 Debug.WriteLine($"[ActionStringGeneration] Processing command: {textCommand}");
-                
+
                 var actionCommand = ParseTextCommand(textCommand);
                 if (actionCommand == null)
                 {
@@ -72,7 +72,7 @@ namespace CSimple.Services
         private ActionCommand ParseTextCommand(string textCommand)
         {
             var command = textCommand.ToLowerInvariant().Trim();
-            
+
             // Mouse actions
             if (command.Contains("double click"))
             {
@@ -83,7 +83,7 @@ namespace CSimple.Services
                     TargetDescription = ExtractTarget(command)
                 };
             }
-            
+
             if (command.Contains("click") || command.Contains("left click"))
             {
                 return new ActionCommand
@@ -93,7 +93,7 @@ namespace CSimple.Services
                     TargetDescription = ExtractTarget(command)
                 };
             }
-            
+
             if (command.Contains("right click"))
             {
                 return new ActionCommand
@@ -270,7 +270,7 @@ namespace CSimple.Services
             try
             {
                 var target = actionCommand.TargetDescription;
-                
+
                 // Try window detection first
                 if (target.Contains("window"))
                 {
@@ -317,7 +317,7 @@ namespace CSimple.Services
         {
             // Remove common words to extract application name
             var cleanTarget = target.Replace("window", "").Replace("the", "").Trim();
-            
+
             // Common application mappings
             var appMappings = new Dictionary<string, string>
             {

@@ -21,7 +21,7 @@ namespace CSimple.Services
             // Create required services for ActionService
             var dataService = new DataService();
             FileService actualFileService;
-            
+
             if (fileService != null)
             {
                 actualFileService = fileService;
@@ -31,9 +31,9 @@ namespace CSimple.Services
                 var appPathService = new AppPathService();
                 actualFileService = new FileService(appPathService);
             }
-            
+
             var appModeService = new CSimple.Services.AppModeService.AppModeService();
-            
+
             _actionService = new ActionService(dataService, actualFileService, appModeService);
             _windowDetectionService = new WindowDetectionService();
         }
@@ -71,7 +71,7 @@ namespace CSimple.Services
 
                 // Execute the action using the existing ActionService
                 var success = await _actionService.ToggleSimulateActionGroupAsync(actionGroup);
-                
+
                 Debug.WriteLine($"[ActionExecution] Action execution result: {success}");
                 return success;
             }
@@ -218,13 +218,13 @@ namespace CSimple.Services
                 };
 
                 var secondClick = await CreateClickActionsAsync(secondClickData, 0x0201, 0x0202);
-                
+
                 // Adjust timestamps for second click
                 foreach (var action in secondClick)
                 {
                     action.Timestamp = ((DateTime)action.Timestamp).AddMilliseconds(200);
                 }
-                
+
                 actions.AddRange(secondClick);
 
                 Debug.WriteLine($"[ActionExecution] Created double click actions at ({actionData.X}, {actionData.Y})");
@@ -267,7 +267,7 @@ namespace CSimple.Services
             try
             {
                 var keyCode = GetKeyCodeFromString(actionData.KeyCode);
-                
+
                 // Key down
                 actions.Add(new ActionItem
                 {
@@ -312,7 +312,7 @@ namespace CSimple.Services
                 foreach (char c in actionData.Text)
                 {
                     var keyCode = GetKeyCodeFromChar(c);
-                    
+
                     // Key down
                     actions.Add(new ActionItem
                     {

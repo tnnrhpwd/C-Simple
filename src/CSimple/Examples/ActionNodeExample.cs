@@ -46,15 +46,15 @@ namespace CSimple.Examples
                 {
                     // Generate executable action string
                     var actionString = await _actionStringService.GenerateExecutableActionString(output, planContext);
-                    
+
                     if (!string.IsNullOrEmpty(actionString))
                     {
                         Console.WriteLine($"Generated Action String: {actionString}");
-                        
+
                         // Execute the action (in a real scenario)
                         // var success = await _actionExecutionService.ExecuteActionStringAsync(actionString);
                         // Console.WriteLine($"Execution Result: {success}");
-                        
+
                         Console.WriteLine("✅ Action generation successful");
                     }
                     else
@@ -75,16 +75,16 @@ namespace CSimple.Examples
         public async Task OrientPagePipelineExample()
         {
             Console.WriteLine("\n=== OrientPage Pipeline Example ===");
-            
+
             // Simulate pipeline with Goal → Plan → Action flow
             Console.WriteLine("1. Goal Model Output: 'Launch Minecraft and start playing'");
             Console.WriteLine("2. Plan Model Output: 'Step 1: Double click Minecraft icon\\nStep 2: Wait for loading\\nStep 3: Click Single Player\\nStep 4: Create New World'");
             Console.WriteLine("3. Action Model Output: 'double click on Minecraft window'");
-            
+
             // In the enhanced system, this would happen automatically:
             var actionOutput = "double click on Minecraft window";
             var planContext = "Step 1: Double click Minecraft icon\nStep 2: Wait for loading\nStep 3: Click Single Player\nStep 4: Create New World";
-            
+
             var actionString = await _actionStringService.GenerateExecutableActionString(actionOutput, planContext);
             Console.WriteLine($"4. Generated Action String: {actionString}");
             Console.WriteLine("5. Action automatically executed when ActionsEnabled=true");
@@ -96,14 +96,14 @@ namespace CSimple.Examples
         public async Task NetPagePipelineChatExample()
         {
             Console.WriteLine("\n=== NetPage Pipeline Chat Example ===");
-            
+
             Console.WriteLine("User Input: 'Please open calculator and calculate 5+3'");
             Console.WriteLine("Pipeline processes through Goal → Plan → Action models...");
-            
+
             // Simulate action model output in pipeline
             var pipelineActionOutput = "click on calculator button";
             var actionString = await _actionStringService.GenerateExecutableActionString(pipelineActionOutput);
-            
+
             Console.WriteLine($"Pipeline Generated: {actionString}");
             Console.WriteLine("Pipeline Chat: '🎯 Generated action string from model output'");
             Console.WriteLine("Pipeline Chat: '✅ Action executed successfully'");

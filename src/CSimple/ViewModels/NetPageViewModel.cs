@@ -6023,7 +6023,7 @@ namespace CSimple.ViewModels
             {
                 // Use the new action string generation service
                 var actionString = await _actionStringGenerationService.GenerateExecutableActionString(modelOutput);
-                
+
                 if (string.IsNullOrEmpty(actionString))
                 {
                     Debug.WriteLine("Intelligence: Could not generate executable action string from model output");

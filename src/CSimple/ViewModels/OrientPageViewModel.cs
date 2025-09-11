@@ -3337,7 +3337,7 @@ namespace CSimple.ViewModels
                     if (ActionsEnabled)
                     {
                         Debug.WriteLine($"🎯 [ExecuteModelForStepAsync] Action-classified model '{modelNode.Name}' produced output. ActionsEnabled=true, proceeding with automated action generation and execution.");
-                        
+
                         // Execute action generation and simulation in background
                         _ = Task.Run(async () => await ProcessActionModelOutputAsync(modelNode, result, stepIndex, actionItems));
                     }
@@ -4480,31 +4480,31 @@ namespace CSimple.ViewModels
 
                 // Get context from connected nodes (especially Plan nodes)
                 var planContext = await GetPlanContextAsync(actionNode, stepIndex);
-                
+
                 // Generate executable action string from the model output
                 var actionString = await _actionStringGenerationService.GenerateExecutableActionString(result, planContext);
-                
+
                 if (string.IsNullOrEmpty(actionString))
                 {
                     Debug.WriteLine($"⚠️ [ProcessActionModelOutput] Could not generate executable action string from output: {result}");
-                    
+
                     // Store the original text output as fallback
                     actionNode.SetStepOutput(stepIndex + 1, "text", $"[Action Generation Failed] {result}");
                     return;
                 }
 
                 Debug.WriteLine($"✅ [ProcessActionModelOutput] Generated action string: {actionString}");
-                
+
                 // Store the action string as the step output instead of the original text
                 actionNode.SetStepOutput(stepIndex + 1, "action", actionString);
-                
+
                 // Execute the action string
                 var executionSuccess = await _actionExecutionService.ExecuteActionStringAsync(actionString);
-                
+
                 if (executionSuccess)
                 {
                     Debug.WriteLine($"🎯 [ProcessActionModelOutput] Successfully executed action for '{actionNode.Name}' step {stepIndex + 1}");
-                    
+
                     // Update the output to indicate successful execution
                     var updatedOutput = $"[EXECUTED] {actionString}";
                     actionNode.SetStepOutput(stepIndex + 1, "action", updatedOutput);
@@ -4512,7 +4512,7 @@ namespace CSimple.ViewModels
                 else
                 {
                     Debug.WriteLine($"❌ [ProcessActionModelOutput] Failed to execute action for '{actionNode.Name}' step {stepIndex + 1}");
-                    
+
                     // Update the output to indicate execution failure but keep the action string
                     var updatedOutput = $"[EXECUTION FAILED] {actionString}";
                     actionNode.SetStepOutput(stepIndex + 1, "action", updatedOutput);
@@ -4522,7 +4522,7 @@ namespace CSimple.ViewModels
             {
                 Debug.WriteLine($"❌ [ProcessActionModelOutput] Error processing action model output: {ex.Message}");
                 Debug.WriteLine($"🔍 [ProcessActionModelOutput] Stack trace: {ex.StackTrace}");
-                
+
                 // Store error information
                 actionNode.SetStepOutput(stepIndex + 1, "text", $"[Action Processing Error] {ex.Message}");
             }
@@ -4536,10 +4536,10 @@ namespace CSimple.ViewModels
             try
             {
                 var planContext = new StringBuilder();
-                
+
                 // Look for Plan-classified nodes that might provide context
                 var planNodes = Nodes.Where(n => n.Classification == "Plan").ToList();
-                
+
                 foreach (var planNode in planNodes)
                 {
                     // Get the plan output for the same step
@@ -4552,7 +4552,7 @@ namespace CSimple.ViewModels
 
                 // Also check for Goal nodes for additional context
                 var goalNodes = Nodes.Where(n => n.Classification == "Goal").ToList();
-                
+
                 foreach (var goalNode in goalNodes)
                 {
                     var goalOutput = goalNode.GetStepOutput(stepIndex + 1);
@@ -4564,7 +4564,7 @@ namespace CSimple.ViewModels
 
                 var context = planContext.ToString();
                 Debug.WriteLine($"📋 [GetPlanContext] Plan context for action node '{actionNode.Name}': {context}");
-                
+
                 return context;
             }
             catch (Exception ex)
