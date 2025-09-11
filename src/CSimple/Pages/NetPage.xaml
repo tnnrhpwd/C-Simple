@@ -128,19 +128,22 @@
                                                        Margin="50,0,0,0"
                                                        HorizontalOptions="End">
                                                     <VerticalStackLayout>
-                                                        <Label Text="You"
-                                                               FontSize="{StaticResource FontSizeCaption}"
-                                                               FontAttributes="Bold"
-                                                               TextColor="{StaticResource TextOnTertiary}"
-                                                               HorizontalOptions="End" />
+                                                        <HorizontalStackLayout Spacing="{StaticResource SpacingSmall}">
+                                                            <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
+                                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                                   TextColor="{StaticResource TextOnTertiary}"
+                                                                   Opacity="0.7"
+                                                                   HorizontalOptions="Start" />
+                                                            <Label Text="You"
+                                                                   FontSize="{StaticResource FontSizeSmall}"
+                                                                   FontAttributes="Bold"
+                                                                   TextColor="{StaticResource TextOnTertiary}"
+                                                                   HorizontalOptions="End" />
+                                                        </HorizontalStackLayout>
                                                         <Label Text="{Binding Content}"
+                                                               FontSize="{StaticResource FontSizeSmall}"
                                                                TextColor="{StaticResource TextOnTertiary}"
                                                                LineBreakMode="WordWrap" />
-                                                        <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}"
-                                                               FontSize="{StaticResource FontSizeCaption}"
-                                                               TextColor="{StaticResource TextOnTertiary}"
-                                                               Opacity="0.7"
-                                                               HorizontalOptions="End" />
                                                     </VerticalStackLayout>
                                                 </Frame>
                                                 <!-- AI Response (Left-aligned) -->
