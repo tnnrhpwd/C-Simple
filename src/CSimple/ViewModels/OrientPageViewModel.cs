@@ -43,6 +43,8 @@ namespace CSimple.ViewModels
         private readonly IActionReviewNavigationService _actionReviewNavigationService; // Added for action review navigation functionality
         private readonly IModelLoadingManagementService _modelLoadingManagementService; // Added for model loading and management
         private readonly IFileManagementService _fileManagementService; // Added for file management operations
+        private readonly ActionStringGenerationService _actionStringGenerationService; // Added for action string generation
+        private readonly ActionExecutionService _actionExecutionService; // Added for action execution
 
         // --- Properties ---
         public ObservableCollection<NodeViewModel> Nodes { get; } = new ObservableCollection<NodeViewModel>();
@@ -474,6 +476,8 @@ namespace CSimple.ViewModels
             _modelLoadingManagementService = modelLoadingManagementService; // Initialize model loading management service
             _actionReviewNavigationService = actionReviewNavigationService; // Initialize action review navigation service
             _fileManagementService = fileManagementService; // Initialize file management service
+            _actionStringGenerationService = new ActionStringGenerationService(); // Initialize action string generation service
+            _actionExecutionService = new ActionExecutionService(_fileService); // Initialize action execution service with FileService
 
             // Subscribe to the execution status tracking service's property changed events
             _executionStatusTrackingService.PropertyChanged += OnExecutionStatusTrackingServicePropertyChanged;
@@ -3332,11 +3336,10 @@ namespace CSimple.ViewModels
 
                     if (ActionsEnabled)
                     {
-                        Debug.WriteLine($"🎯 [ExecuteModelForStepAsync] Action-classified model '{modelNode.Name}' produced output. ActionsEnabled=true, proceeding with automated simulation (if applicable).");
-                        // TODO: Here you would implement the logic to trigger automated action simulation based on the model output
-                        // This could involve parsing the model output to extract actionable commands and then
-                        // calling ActionService.ToggleSimulateActionGroupAsync() or similar methods
-                        // For now, this serves as the control point for automated action simulation
+                        Debug.WriteLine($"🎯 [ExecuteModelForStepAsync] Action-classified model '{modelNode.Name}' produced output. ActionsEnabled=true, proceeding with automated action generation and execution.");
+                        
+                        // Execute action generation and simulation in background
+                        _ = Task.Run(async () => await ProcessActionModelOutputAsync(modelNode, result, stepIndex, actionItems));
                     }
                     else
                     {
@@ -4462,47 +4465,113 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 💾 [UpdatePipelineWithCompressedStateAsync] Pipeline state saved with compression metadata");
             }
         }
-    }
 
-    // Supporting data classes for memory compression
-    public class MemoryPersonalityProfile
-    {
-        public string Name { get; set; }
-        public string Version { get; set; }
-        public List<CompressionRule> CompressionRules { get; set; } = new List<CompressionRule>();
-        public PreservationSettings PreservationSettings { get; set; } = new PreservationSettings();
-    }
 
-    public class CompressionRule
-    {
-        public string Type { get; set; }
-        public int Priority { get; set; }
-        public float Threshold { get; set; }
-        public string Description { get; set; }
-    }
 
-    public class PreservationSettings
-    {
-        public bool PreserveCriticalNodes { get; set; } = true;
-        public bool PreserveUserData { get; set; } = true;
-        public bool PreserveClassifications { get; set; } = true;
-        public float MinimumEfficiencyThreshold { get; set; } = 0.05f;
-    }
+        /// <summary>
+        /// Processes action model output to generate and execute action strings
+        /// </summary>
+        private async Task ProcessActionModelOutputAsync(NodeViewModel actionNode, string result, int stepIndex, List<ActionItem> actionItems)
+        {
+            try
+            {
+                Debug.WriteLine($"🚀 [ProcessActionModelOutput] Processing action model '{actionNode.Name}' output for step {stepIndex + 1}");
+                Debug.WriteLine($"📝 [ProcessActionModelOutput] Model output: {result?.Substring(0, Math.Min(result?.Length ?? 0, 200))}...");
 
-    public class PipelineMemoryAnalysis
-    {
-        public int TotalNodes { get; set; }
-        public int TotalConnections { get; set; }
-        public int TotalTokens { get; set; }
-        public int RedundantConnections { get; set; }
-        public float MemoryEfficiency { get; set; }
-    }
+                // Get context from connected nodes (especially Plan nodes)
+                var planContext = await GetPlanContextAsync(actionNode, stepIndex);
+                
+                // Generate executable action string from the model output
+                var actionString = await _actionStringGenerationService.GenerateExecutableActionString(result, planContext);
+                
+                if (string.IsNullOrEmpty(actionString))
+                {
+                    Debug.WriteLine($"⚠️ [ProcessActionModelOutput] Could not generate executable action string from output: {result}");
+                    
+                    // Store the original text output as fallback
+                    actionNode.SetStepOutput(stepIndex + 1, "text", $"[Action Generation Failed] {result}");
+                    return;
+                }
 
-    public class CompressionResult
-    {
-        public int TokensReduced { get; set; }
-        public float EfficiencyGain { get; set; }
-        public bool CompressionSuccessful { get; set; }
-        public List<string> RulesApplied { get; set; } = new List<string>();
+                Debug.WriteLine($"✅ [ProcessActionModelOutput] Generated action string: {actionString}");
+                
+                // Store the action string as the step output instead of the original text
+                actionNode.SetStepOutput(stepIndex + 1, "action", actionString);
+                
+                // Execute the action string
+                var executionSuccess = await _actionExecutionService.ExecuteActionStringAsync(actionString);
+                
+                if (executionSuccess)
+                {
+                    Debug.WriteLine($"🎯 [ProcessActionModelOutput] Successfully executed action for '{actionNode.Name}' step {stepIndex + 1}");
+                    
+                    // Update the output to indicate successful execution
+                    var updatedOutput = $"[EXECUTED] {actionString}";
+                    actionNode.SetStepOutput(stepIndex + 1, "action", updatedOutput);
+                }
+                else
+                {
+                    Debug.WriteLine($"❌ [ProcessActionModelOutput] Failed to execute action for '{actionNode.Name}' step {stepIndex + 1}");
+                    
+                    // Update the output to indicate execution failure but keep the action string
+                    var updatedOutput = $"[EXECUTION FAILED] {actionString}";
+                    actionNode.SetStepOutput(stepIndex + 1, "action", updatedOutput);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ [ProcessActionModelOutput] Error processing action model output: {ex.Message}");
+                Debug.WriteLine($"🔍 [ProcessActionModelOutput] Stack trace: {ex.StackTrace}");
+                
+                // Store error information
+                actionNode.SetStepOutput(stepIndex + 1, "text", $"[Action Processing Error] {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Gets plan context from connected Plan nodes to help with coordinate resolution
+        /// </summary>
+        private async Task<string> GetPlanContextAsync(NodeViewModel actionNode, int stepIndex)
+        {
+            try
+            {
+                var planContext = new StringBuilder();
+                
+                // Look for Plan-classified nodes that might provide context
+                var planNodes = Nodes.Where(n => n.Classification == "Plan").ToList();
+                
+                foreach (var planNode in planNodes)
+                {
+                    // Get the plan output for the same step
+                    var planOutput = planNode.GetStepOutput(stepIndex + 1);
+                    if (!string.IsNullOrEmpty(planOutput.Value))
+                    {
+                        planContext.AppendLine($"Plan from {planNode.Name}: {planOutput.Value}");
+                    }
+                }
+
+                // Also check for Goal nodes for additional context
+                var goalNodes = Nodes.Where(n => n.Classification == "Goal").ToList();
+                
+                foreach (var goalNode in goalNodes)
+                {
+                    var goalOutput = goalNode.GetStepOutput(stepIndex + 1);
+                    if (!string.IsNullOrEmpty(goalOutput.Value))
+                    {
+                        planContext.AppendLine($"Goal from {goalNode.Name}: {goalOutput.Value}");
+                    }
+                }
+
+                var context = planContext.ToString();
+                Debug.WriteLine($"📋 [GetPlanContext] Plan context for action node '{actionNode.Name}': {context}");
+                
+                return context;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ [GetPlanContext] Error getting plan context: {ex.Message}");
+                return string.Empty;
+            }
+        }
     }
 }
