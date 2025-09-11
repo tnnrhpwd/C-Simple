@@ -3565,7 +3565,7 @@ namespace CSimple.ViewModels
         private void CycleChatMode()
         {
             var previousMode = CurrentChatMode;
-            
+
             CurrentChatMode = CurrentChatMode switch
             {
                 ChatMode.Standard => ChatMode.ModelTesting,
@@ -3594,15 +3594,15 @@ namespace CSimple.ViewModels
                 case ChatMode.ModelTesting when !HasAnyRecentModels:
                     AddPipelineChatMessage("💡 Tip: Activate models in the main chat first to enable model testing", false, MessageType.ConsoleInfo);
                     break;
-                    
+
                 case ChatMode.ConsoleLogging:
                     AddPipelineChatMessage("💡 Tip: Type 'help' to see available console commands", false, MessageType.ConsoleInfo);
                     break;
-                    
+
                 case ChatMode.Testing:
                     AddPipelineChatMessage("💡 Tip: Send any message to execute a test scenario", false, MessageType.ConsoleInfo);
                     break;
-                    
+
                 case ChatMode.Standard when string.IsNullOrEmpty(SelectedPipeline):
                     AddPipelineChatMessage("💡 Tip: Select a pipeline above to enable goal processing", false, MessageType.ConsoleInfo);
                     break;
@@ -3698,7 +3698,7 @@ namespace CSimple.ViewModels
             try
             {
                 var testId = $"test_{++_modelTestCounter}_{DateTime.Now:HHmmss}";
-                
+
                 // Provide detailed feedback about model selection
                 var inputAnalysis = AnalyzeInputContent(message);
                 AddPipelineChatMessage($"🎯 Input Analysis: {inputAnalysis.Reasoning} (Confidence: {inputAnalysis.Confidence:P0})", false, MessageType.SystemStatus);
@@ -3711,10 +3711,10 @@ namespace CSimple.ViewModels
 
                 // Enhanced result display
                 AddPipelineChatMessage($"📊 Result ({duration.TotalMilliseconds:F0}ms): {result}", false, MessageType.ModelTestResult, testId, selectedModel.Name);
-                
+
                 // Update model usage statistics
                 selectedModel.LastUsed = DateTime.Now;
-                
+
                 // Provide follow-up suggestions
                 if (duration.TotalSeconds > 5)
                 {
@@ -3724,7 +3724,7 @@ namespace CSimple.ViewModels
             catch (Exception ex)
             {
                 AddPipelineChatMessage($"❌ Model test failed: {ex.Message}", false, MessageType.ModelTestResult);
-                
+
                 // Suggest alternative models if available
                 var alternativeModels = ActiveModels.Where(m => m.Id != selectedModel.Id).ToList();
                 if (alternativeModels.Any())
@@ -3747,7 +3747,7 @@ namespace CSimple.ViewModels
             {
                 var sessionDuration = DateTime.Now - _currentSessionStartTime;
                 var sessionInfo = _currentIntelligenceSessionId != null ? $" (Session: {_currentIntelligenceSessionId.ToString()[..8]})" : "";
-                
+
                 AddPipelineChatMessage($"🧠 Intelligence Status: ACTIVE{sessionInfo} - Duration: {sessionDuration:hh\\:mm\\:ss}", false, MessageType.IntelligenceLog);
                 AddPipelineChatMessage($"📊 Pipeline: {SelectedPipeline ?? "None"} | Nodes: {PipelineNodeCount} | Connections: {PipelineConnectionCount}", false, MessageType.IntelligenceLog);
                 AddPipelineChatMessage($"🎛️ Recording Settings: Mouse={RecordMouseInputs}, Keyboard={RecordKeyboardInputs}", false, MessageType.IntelligenceLog);
@@ -3758,9 +3758,9 @@ namespace CSimple.ViewModels
                 {
                     var recentModels = new List<string>();
                     if (HasRecentTextModel) recentModels.Add($"Text: {MostRecentTextModel.Name}");
-                    if (HasRecentImageModel) recentModels.Add($"Image: {MostRecentImageModel.Name}");  
+                    if (HasRecentImageModel) recentModels.Add($"Image: {MostRecentImageModel.Name}");
                     if (HasRecentAudioModel) recentModels.Add($"Audio: {MostRecentAudioModel.Name}");
-                    
+
                     AddPipelineChatMessage($"⭐ Recent Models: {string.Join(" | ", recentModels)}", false, MessageType.IntelligenceLog);
                 }
 
@@ -3768,10 +3768,10 @@ namespace CSimple.ViewModels
                 if (!string.IsNullOrEmpty(SelectedPipeline))
                 {
                     var processingStatus = _isProcessingIntelligence ? "🟢 Processing" : "🟡 Idle";
-                    var lastExecution = _lastPipelineExecution != DateTime.MinValue 
-                        ? $"Last: {(DateTime.Now - _lastPipelineExecution).TotalSeconds:F0}s ago" 
+                    var lastExecution = _lastPipelineExecution != DateTime.MinValue
+                        ? $"Last: {(DateTime.Now - _lastPipelineExecution).TotalSeconds:F0}s ago"
                         : "Never";
-                    
+
                     AddPipelineChatMessage($"⚙️ Pipeline Status: {processingStatus} | {lastExecution} | Cycles: {_intelligenceCycleCount}", false, MessageType.PipelineExecution);
                 }
 
@@ -3787,7 +3787,7 @@ namespace CSimple.ViewModels
 
             // Enhanced command processing with intelligent suggestions
             await ProcessConsoleCommandsAsync(message);
-            
+
             // Provide contextual suggestions based on current state
             await ProvideModeSpecificSuggestionsAsync(message);
         }
@@ -3800,7 +3800,7 @@ namespace CSimple.ViewModels
             await Task.Delay(1); // Prevent compiler warning
 
             var lowerMessage = message.ToLowerInvariant();
-            
+
             // Suggest mode switches based on user intent
             if ((lowerMessage.Contains("test") || lowerMessage.Contains("try")) && CurrentChatMode != ChatMode.ModelTesting)
             {
@@ -3847,13 +3847,13 @@ namespace CSimple.ViewModels
             if (string.IsNullOrEmpty(SelectedPipeline))
             {
                 AddPipelineChatMessage("⚠️ No pipeline selected. Pipeline operations are limited.", false, MessageType.ConsoleWarning);
-                
+
                 // Suggest actions based on message content
                 if (await ShouldTriggerIntelligentResponseAsync(message))
                 {
                     AddPipelineChatMessage("💡 Suggestion: Select a pipeline above or switch to Model Testing mode for direct model interaction", false, MessageType.SystemStatus);
                 }
-                
+
                 AddPipelineChatMessage($"📝 Message logged: {message}", false, MessageType.ConsoleLog);
                 return;
             }
@@ -3874,7 +3874,7 @@ namespace CSimple.ViewModels
             {
                 // Enhanced pipeline logging with context
                 AddPipelineChatMessage($"📝 Pipeline Console: {message}", false, MessageType.ConsoleLog);
-                
+
                 // Log intelligence state if active
                 if (IsIntelligenceActive)
                 {
@@ -3892,7 +3892,7 @@ namespace CSimple.ViewModels
             await Task.Delay(1); // Prevent compiler warning
 
             var lowerMessage = message.ToLowerInvariant();
-            
+
             // Goal-oriented keywords that suggest pipeline execution
             var pipelineKeywords = new[]
             {
@@ -3967,17 +3967,17 @@ namespace CSimple.ViewModels
 
             // Priority 2: Content-based analysis for text inputs
             var analysisResult = AnalyzeInputContent(input);
-            
+
             switch (analysisResult.RecommendedInputType)
             {
                 case ModelInputType.Image when HasRecentImageModel:
                     Debug.WriteLine($"Content analysis suggests image model: {MostRecentImageModel.Name}");
                     return MostRecentImageModel;
-                    
+
                 case ModelInputType.Audio when HasRecentAudioModel:
                     Debug.WriteLine($"Content analysis suggests audio model: {MostRecentAudioModel.Name}");
                     return MostRecentAudioModel;
-                    
+
                 case ModelInputType.Text when HasRecentTextModel:
                     Debug.WriteLine($"Content analysis suggests text model: {MostRecentTextModel.Name}");
                     return MostRecentTextModel;
@@ -4005,26 +4005,26 @@ namespace CSimple.ViewModels
                 return (ModelInputType.Text, 0.5, "Empty input defaults to text");
 
             var lowerInput = input.ToLowerInvariant();
-            
+
             // Image-related keywords
             var imageKeywords = new[] { "image", "picture", "photo", "visual", "see", "look", "analyze picture", "describe image", "vision", "ocr", "read text" };
             var imageScore = imageKeywords.Count(keyword => lowerInput.Contains(keyword));
-            
+
             // Audio-related keywords  
             var audioKeywords = new[] { "audio", "sound", "music", "voice", "speech", "listen", "hear", "transcribe", "whisper", "wav", "mp3" };
             var audioScore = audioKeywords.Count(keyword => lowerInput.Contains(keyword));
-            
+
             // Text processing keywords (higher baseline)
             var textKeywords = new[] { "text", "write", "generate", "explain", "analyze", "summarize", "question", "answer", "help" };
             var textScore = textKeywords.Count(keyword => lowerInput.Contains(keyword)) + 1; // +1 baseline for text
-            
+
             // Determine recommendation
             if (imageScore > audioScore && imageScore > textScore)
                 return (ModelInputType.Image, Math.Min(imageScore * 0.3, 0.9), $"Found {imageScore} image-related keywords");
-            
+
             if (audioScore > textScore)
                 return (ModelInputType.Audio, Math.Min(audioScore * 0.3, 0.9), $"Found {audioScore} audio-related keywords");
-            
+
             return (ModelInputType.Text, Math.Min(textScore * 0.2 + 0.3, 0.9), $"Text input with {textScore} text-related keywords");
         }
 
@@ -4069,7 +4069,7 @@ namespace CSimple.ViewModels
                 var previousState = IsIntelligenceActive;
                 IsIntelligenceActive = !IsIntelligenceActive;
                 AddPipelineChatMessage($"🎯 Intelligence recording {(IsIntelligenceActive ? "STARTED" : "STOPPED")}", false, MessageType.SystemStatus);
-                
+
                 if (IsIntelligenceActive && !previousState)
                 {
                     AddPipelineChatMessage($"📋 Session started with {ActiveModelsCount} active models and pipeline: {SelectedPipeline ?? "None"}", false, MessageType.SystemStatus);
@@ -4145,13 +4145,13 @@ namespace CSimple.ViewModels
         private async Task DisplaySystemStatusAsync()
         {
             await Task.Delay(1); // Prevent compiler warning
-            
+
             AddPipelineChatMessage("📊 === SYSTEM STATUS ===", false, MessageType.ConsoleInfo);
             AddPipelineChatMessage($"🧠 Intelligence: {(IsIntelligenceActive ? "ACTIVE" : "INACTIVE")} | Mode: {ChatModeDescription}", false, MessageType.ConsoleInfo);
             AddPipelineChatMessage($"🤖 Models: {ActiveModelsCount} active, {AvailableModels.Count} total", false, MessageType.ConsoleInfo);
             AddPipelineChatMessage($"⚙️ Pipeline: {SelectedPipeline ?? "None"} ({PipelineNodeCount} nodes, {PipelineConnectionCount} connections)", false, MessageType.ConsoleInfo);
             AddPipelineChatMessage($"💾 Memory: {GC.GetTotalMemory(false) / (1024 * 1024):F0} MB | Session: {_sessionId}", false, MessageType.ConsoleInfo);
-            
+
             if (IsIntelligenceActive)
             {
                 var duration = DateTime.Now - _currentSessionStartTime;
@@ -4165,9 +4165,9 @@ namespace CSimple.ViewModels
         private async Task DisplayModelInformationAsync()
         {
             await Task.Delay(1); // Prevent compiler warning
-            
+
             AddPipelineChatMessage("🤖 === MODEL INFORMATION ===", false, MessageType.ConsoleInfo);
-            
+
             if (HasAnyRecentModels)
             {
                 if (HasRecentTextModel)
@@ -4181,7 +4181,7 @@ namespace CSimple.ViewModels
             {
                 AddPipelineChatMessage("⚠️ No recent models available", false, MessageType.ConsoleWarning);
             }
-            
+
             if (ActiveModelsCount > 0)
             {
                 var modelTypes = ActiveModels.GroupBy(m => m.InputType).ToDictionary(g => g.Key, g => g.Count());
@@ -4196,15 +4196,15 @@ namespace CSimple.ViewModels
         private async Task DisplayPipelineInformationAsync()
         {
             await Task.Delay(1); // Prevent compiler warning
-            
+
             AddPipelineChatMessage("⚙️ === PIPELINE INFORMATION ===", false, MessageType.ConsoleInfo);
             AddPipelineChatMessage($"📁 Available: {AvailablePipelinesCount} pipelines", false, MessageType.ConsoleInfo);
-            
+
             if (!string.IsNullOrEmpty(SelectedPipeline))
             {
                 AddPipelineChatMessage($"🎯 Selected: {SelectedPipeline}", false, MessageType.ConsoleInfo);
                 AddPipelineChatMessage($"📊 Structure: {PipelineNodeCount} nodes, {PipelineConnectionCount} connections", false, MessageType.ConsoleInfo);
-                
+
                 if (_lastPipelineExecution != DateTime.MinValue)
                 {
                     var timeSince = DateTime.Now - _lastPipelineExecution;
@@ -4223,7 +4223,7 @@ namespace CSimple.ViewModels
         private async Task DisplayHelpInformationAsync()
         {
             await Task.Delay(1); // Prevent compiler warning
-            
+
             AddPipelineChatMessage("❓ === CONSOLE COMMANDS ===", false, MessageType.ConsoleInfo);
             AddPipelineChatMessage("🎯 toggle intelligence - Start/stop intelligence recording", false, MessageType.ConsoleInfo);
             AddPipelineChatMessage("🔄 refresh pipelines - Reload available pipelines", false, MessageType.ConsoleInfo);
@@ -4244,23 +4244,23 @@ namespace CSimple.ViewModels
         private async Task DisplayPerformanceInformationAsync()
         {
             await Task.Delay(1); // Prevent compiler warning
-            
+
             AddPipelineChatMessage("⚡ === PERFORMANCE METRICS ===", false, MessageType.ConsoleInfo);
-            
+
             var memoryMB = GC.GetTotalMemory(false) / (1024 * 1024);
             var sessionUptime = DateTime.Now - _sessionStartTime;
-            
+
             AddPipelineChatMessage($"💾 Memory: {memoryMB:F0} MB", false, MessageType.ConsoleInfo);
             AddPipelineChatMessage($"⏱️ Session Uptime: {sessionUptime:d\\d\\ hh\\:mm\\:ss}", false, MessageType.ConsoleInfo);
             AddPipelineChatMessage($"🔄 Intelligence Cycles: {_intelligenceCycleCount}", false, MessageType.ConsoleInfo);
             AddPipelineChatMessage($"💬 Pipeline Messages: {PipelineChatMessages.Count}", false, MessageType.ConsoleInfo);
-            
+
             if (IsIntelligenceActive)
             {
                 var activeDuration = DateTime.Now - _currentSessionStartTime;
                 AddPipelineChatMessage($"🧠 Intelligence Active: {activeDuration:hh\\:mm\\:ss}", false, MessageType.ConsoleInfo);
             }
-            
+
             // Model usage statistics
             if (ActiveModelsCount > 0)
             {
@@ -4310,35 +4310,35 @@ namespace CSimple.ViewModels
                     // Analyze input and determine optimal model
                     var inputAnalysis = AnalyzeInputContent(message);
                     var model = await DetermineOptimalModelForInputAsync(message);
-                    
+
                     if (model != null)
                     {
                         AddPipelineChatMessage($"🔍 Intelligence Analysis: {inputAnalysis.Reasoning}", false, MessageType.SystemStatus);
                         AddPipelineChatMessage($"🤖 Processing with {model.Name} ({model.InputType})...", false, MessageType.PipelineExecution);
-                        
+
                         var startTime = DateTime.Now;
                         var testId = $"pipeline_{DateTime.Now:HHmmss}";
                         var result = await ExecuteModelTestAsync(model, message, testId);
                         var duration = DateTime.Now - startTime;
-                        
+
                         AddPipelineChatMessage($"📊 Intelligence Result ({duration.TotalMilliseconds:F0}ms): {result}", false, MessageType.PipelineExecution, testId, model.Name);
-                        
+
                         // Update intelligence cycle count
                         _intelligenceCycleCount++;
-                        
+
                         // Log to intelligence history if intelligence is active
                         if (IsIntelligenceActive)
                         {
                             AddPipelineChatMessage($"🧠 Intelligence Cycle #{_intelligenceCycleCount} completed successfully", false, MessageType.IntelligenceLog);
                         }
-                        
+
                         return;
                     }
                 }
 
                 // Fallback when no models are available
                 AddPipelineChatMessage("🔄 No suitable models available for intelligent processing", false, MessageType.SystemStatus);
-                
+
                 if (ActiveModelsCount == 0)
                 {
                     AddPipelineChatMessage("💡 Tip: Activate models in the main chat to enable intelligent pipeline responses", false, MessageType.ConsoleInfo);
@@ -5481,40 +5481,100 @@ namespace CSimple.ViewModels
                 AddPipelineChatMessage("⏸️ Intelligence recording STOPPED", false);
                 Debug.WriteLine("Intelligence: Stopping intelligent pipeline execution");
 
-                // Cancel intelligence processing loop
-                _intelligenceProcessingCts?.Cancel();
-                _intelligenceProcessingCts?.Dispose();
-                _intelligenceProcessingCts = null;
+                // Cancel intelligence processing loop with proper timeout
+                if (_intelligenceProcessingCts != null)
+                {
+                    try
+                    {
+                        _intelligenceProcessingCts.Cancel();
 
-                // Stop screen capture
-                StopScreenCapture();
+                        // Wait briefly for graceful shutdown
+                        if (_currentPipelineTask != null && !_currentPipelineTask.IsCompleted)
+                        {
+                            try
+                            {
+                                _currentPipelineTask.Wait(TimeSpan.FromSeconds(2));
+                            }
+                            catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is TaskCanceledException || e is OperationCanceledException))
+                            {
+                                // Expected cancellation exceptions - ignore
+                                Debug.WriteLine("Intelligence: Pipeline task cancelled gracefully");
+                            }
+                        }
 
-                // Stop audio recording just like ObservePage
+                        _intelligenceProcessingCts.Dispose();
+                        _intelligenceProcessingCts = null;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Intelligence: Error during processing cancellation: {ex.Message}");
+                    }
+                }
+
+                // Stop screen capture with proper error handling
+                try
+                {
+                    StopScreenCapture();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Intelligence: Error stopping screen capture: {ex.Message}");
+                }
+
+                // Stop audio recording with proper error handling
                 if (_audioCaptureService != null)
                 {
-                    // Stop PC audio recording (system audio)
-                    _audioCaptureService.StopPCAudioRecording();
-                    Debug.WriteLine("Intelligence: Stopped PC audio recording");
+                    try
+                    {
+                        // Stop PC audio recording (system audio)
+                        _audioCaptureService.StopPCAudioRecording();
+                        Debug.WriteLine("Intelligence: Stopped PC audio recording");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Intelligence: Error stopping PC audio: {ex.Message}");
+                    }
 
-                    // Stop webcam audio recording (microphone)
-                    _audioCaptureService.StopWebcamAudioRecording();
-                    Debug.WriteLine("Intelligence: Stopped webcam audio recording");
+                    try
+                    {
+                        // Stop webcam audio recording (microphone)
+                        _audioCaptureService.StopWebcamAudioRecording();
+                        Debug.WriteLine("Intelligence: Stopped webcam audio recording");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Intelligence: Error stopping webcam audio: {ex.Message}");
+                    }
                 }
 
-                // Stop webcam image recording just like ObservePage
+                // Stop webcam image recording with proper error handling
                 if (_intelligenceWebcamCts != null)
                 {
-                    _intelligenceWebcamCts.Cancel();
-                    _intelligenceWebcamCts.Dispose();
-                    _intelligenceWebcamCts = null;
-                    Debug.WriteLine("Intelligence: Stopped webcam image recording");
+                    try
+                    {
+                        _intelligenceWebcamCts.Cancel();
+                        _intelligenceWebcamCts.Dispose();
+                        _intelligenceWebcamCts = null;
+                        Debug.WriteLine("Intelligence: Stopped webcam image recording");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Intelligence: Error stopping webcam capture: {ex.Message}");
+                    }
                 }
 
-                // Stop input capture service if available
+                // Stop input capture service with proper error handling
                 if (_inputCaptureService != null)
                 {
-                    _inputCaptureService.StopCapturing();
-                    Debug.WriteLine("Intelligence: Stopped keyboard/input capture");
+                    try
+                    {
+                        _inputCaptureService.StopCapturing();
+                        Debug.WriteLine("Intelligence: Stopped keyboard/input capture");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Intelligence: Error stopping input capture: {ex.Message}");
+                    }
                 }
 
                 // Stop mouse tracking if available
@@ -5672,10 +5732,23 @@ namespace CSimple.ViewModels
                             await Task.Delay((int)remainingTime, cancellationToken);
                         }
                     }
+                    catch (OperationCanceledException)
+                    {
+                        // Expected cancellation during shutdown - don't log as error
+                        Debug.WriteLine("Intelligence: Pipeline loop cancelled");
+                        break;
+                    }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Intelligence processing error: {ex.Message}");
-                        AddPipelineChatMessage($"⚠️ Processing error: {ex.Message}", false);
+                        AddPipelineChatMessage($"⚠️ Processing error: {ex.Message}", false, MessageType.SystemStatus);
+
+                        // Check if we should stop due to repeated errors
+                        if (!IsIntelligenceActive || cancellationToken.IsCancellationRequested)
+                        {
+                            break;
+                        }
+
                         await Task.Delay(1000, cancellationToken); // Prevent rapid error loops
                     }
                     finally
@@ -5910,14 +5983,20 @@ namespace CSimple.ViewModels
                     var output = actionNode.GetStepOutput(1);
                     Debug.WriteLine($"[NetPage Pipeline] Processing action node '{actionNode.Name}' with output: '{output.Value ?? "NULL"}'");
 
-                    if (!string.IsNullOrEmpty(output.Value))
+                    if (!string.IsNullOrEmpty(output.Value) && !output.Value.Equals("NULL", StringComparison.OrdinalIgnoreCase))
                     {
                         // Parse the action output and simulate corresponding actions
                         await SimulateActionsFromModelOutput(output.Value, actionService, cancellationToken);
                     }
                     else
                     {
-                        Debug.WriteLine($"[NetPage Pipeline] Skipping action node '{actionNode.Name}' - no output");
+                        Debug.WriteLine($"[NetPage Pipeline] Skipping action node '{actionNode.Name}' - no output (model may not be loaded or active)");
+
+                        // Add informative message for NULL outputs
+                        if (output.Value == "NULL" || string.IsNullOrEmpty(output.Value))
+                        {
+                            AddPipelineChatMessage($"⚠️ Action model '{actionNode.Name}' produced no output - check if model is properly loaded", false, MessageType.SystemStatus);
+                        }
                     }
                 }
             }
@@ -6691,13 +6770,14 @@ namespace CSimple.ViewModels
         /// </summary>
         private async Task ExecuteEnhancedPipelineWithData(List<byte[]> screenshots, List<byte[]> audioData, List<string> textData, CancellationToken cancellationToken)
         {
+            var pipelineName = _selectedPipeline ?? "Default Pipeline";
             Debug.WriteLine($"[NetPage Pipeline] ===== STARTING PIPELINE EXECUTION =====");
-            Debug.WriteLine($"[NetPage Pipeline] Pipeline: '{_selectedPipeline ?? "Unknown"}'");
+            Debug.WriteLine($"[NetPage Pipeline] Pipeline: '{pipelineName}'");
             Debug.WriteLine($"[NetPage Pipeline] Input Data: {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs");
 
             var executionRecord = new PipelineExecutionRecord
             {
-                PipelineName = _selectedPipeline ?? "Unknown",
+                PipelineName = pipelineName,
                 Timestamp = DateTime.Now
             };
 
@@ -6721,28 +6801,131 @@ namespace CSimple.ViewModels
                 var systemInput = PrepareEnhancedSystemInputForPipeline(screenshots, audioData, textData);
 
                 // Execute the pipeline with the comprehensive input
-                var pipelineData = AvailablePipelineData.FirstOrDefault(p => p.Name == _selectedPipeline);
+                PipelineData pipelineData = null;
+
+                // First try to get the selected pipeline
+                if (!string.IsNullOrEmpty(_selectedPipeline))
+                {
+                    pipelineData = AvailablePipelineData.FirstOrDefault(p => p.Name == _selectedPipeline);
+                }
+
+                // If no pipeline found or none selected, try to get any available pipeline with models
+                if (pipelineData?.Nodes == null && AvailablePipelineData.Any())
+                {
+                    pipelineData = AvailablePipelineData.FirstOrDefault(p => p.Nodes?.Count > 0);
+                    if (pipelineData != null)
+                    {
+                        Debug.WriteLine($"[NetPage Pipeline] Using fallback pipeline: '{pipelineData.Name}'");
+                        pipelineName = pipelineData.Name;
+                        executionRecord.PipelineName = pipelineName;
+                    }
+                }
+
                 if (pipelineData?.Nodes != null)
                 {
                     // Convert SerializableNode and SerializableConnection to ViewModels
                     var nodeViewModels = new ObservableCollection<NodeViewModel>(pipelineData.Nodes.Select(n => n.ToViewModel()));
-                    var connectionViewModels = new ObservableCollection<ConnectionViewModel>(pipelineData.Connections.Select(c => c.ToViewModel()));
+                    var connectionViewModels = new ObservableCollection<ConnectionViewModel>(pipelineData.Connections?.Select(c => c.ToViewModel()) ?? new List<ConnectionViewModel>());
+
+                    Debug.WriteLine($"[NetPage Pipeline] Loaded pipeline '{pipelineName}' with {nodeViewModels.Count} nodes and {connectionViewModels.Count} connections");
+
+                    // Validate pipeline structure
+                    var modelNodes = nodeViewModels.Where(n => n.Type == NodeType.Model).ToList();
+                    if (modelNodes.Count == 0)
+                    {
+                        Debug.WriteLine($"[NetPage Pipeline] WARNING: No model nodes found in pipeline");
+                        AddPipelineChatMessage("⚠️ Pipeline has no model nodes to execute", false);
+                        executionRecord.Success = false;
+                        executionRecord.Result = "No model nodes found";
+                        return;
+                    }
 
                     // Add the system input to any input nodes with enhanced context
                     foreach (var inputNode in nodeViewModels.Where(n => n.Type == NodeType.Input))
                     {
                         inputNode.SetStepOutput(1, "text", systemInput); // Enhanced system input with memory integration
-                        // Debug.WriteLine($"[NetPage Pipeline] Set input for node '{inputNode.Name}': '{systemInput}'");
+                        Debug.WriteLine($"[NetPage Pipeline] Set input for node '{inputNode.Name}': {(systemInput?.Length > 100 ? systemInput.Substring(0, 100) + "..." : systemInput ?? "null")}");
                     }
 
-                    // Debug.WriteLine($"[NetPage Pipeline] Executing pipeline with {nodeViewModels.Count} nodes and {connectionViewModels.Count} connections");
+                    Debug.WriteLine($"[NetPage Pipeline] Executing pipeline with {nodeViewModels.Count} nodes and {connectionViewModels.Count} connections");
 
-                    var executionResults = await _pipelineExecutionService.ExecuteAllModelsAsync(
-                        nodeViewModels,
-                        connectionViewModels,
-                        1, // currentActionStep
-                        null // showAlert callback
-                    );
+                    // Check the pipeline's concurrent render setting
+                    bool concurrentRender = pipelineData.ConcurrentRender;
+                    string renderMode = concurrentRender ? "concurrent" : "sequential";
+                    Debug.WriteLine($"[NetPage Pipeline] Using {renderMode} execution mode (ConcurrentRender: {concurrentRender})");
+
+                    (int successCount, int skippedCount) executionResults;
+
+                    try
+                    {
+                        if (concurrentRender)
+                        {
+                            // Use regular execution for concurrent mode
+                            executionResults = await _pipelineExecutionService.ExecuteAllModelsAsync(
+                                nodeViewModels,
+                                connectionViewModels,
+                                1, // currentActionStep
+                                null // showAlert callback
+                            );
+                        }
+                        else
+                        {
+                            // For sequential mode, we need to create empty caches for the optimized method
+                            var emptyModelCache = new Dictionary<string, NeuralNetworkModel>();
+                            var emptyInputCache = new Dictionary<string, string>();
+
+                            // Pre-populate the model cache with available models
+                            foreach (var node in nodeViewModels.Where(n => n.Type == NodeType.Model))
+                            {
+                                var model = AvailableModels?.FirstOrDefault(m =>
+                                    m.Name == node.Name ||
+                                    m.Name == node.ModelPath ||
+                                    node.ModelPath?.Contains(m.Name) == true);
+
+                                if (model != null)
+                                {
+                                    emptyModelCache[node.Id] = model;
+                                }
+                            }
+
+                            Debug.WriteLine($"[NetPage Pipeline] Created model cache with {emptyModelCache.Count} models for sequential execution");
+
+                            if (emptyModelCache.Count == 0)
+                            {
+                                Debug.WriteLine($"[NetPage Pipeline] WARNING: No models found for sequential execution, falling back to concurrent mode");
+                                executionResults = await _pipelineExecutionService.ExecuteAllModelsAsync(
+                                    nodeViewModels,
+                                    connectionViewModels,
+                                    1, // currentActionStep
+                                    null // showAlert callback
+                                );
+                            }
+                            else
+                            {
+                                executionResults = await _pipelineExecutionService.ExecuteAllModelsOptimizedAsync(
+                                    nodeViewModels,
+                                    connectionViewModels,
+                                    1, // currentActionStep
+                                    emptyModelCache, // preloadedModelCache
+                                    emptyInputCache, // precomputedInputCache
+                                    null, // showAlert callback
+                                    null, // onGroupsInitialized
+                                    null, // onGroupStarted
+                                    null, // onGroupCompleted
+                                    concurrentRender // Use pipeline's setting
+                                );
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[NetPage Pipeline] ERROR during execution: {ex.Message}");
+                        Debug.WriteLine($"[NetPage Pipeline] Exception details: {ex}");
+                        AddPipelineChatMessage($"❌ Pipeline execution failed: {ex.Message}", false);
+                        executionRecord.Success = false;
+                        executionRecord.Result = $"Execution error: {ex.Message}";
+                        return;
+                    }
 
                     Debug.WriteLine($"[NetPage Pipeline] Pipeline execution completed: {executionResults.successCount} successful, {executionResults.skippedCount} skipped");
 
@@ -6766,8 +6949,18 @@ namespace CSimple.ViewModels
                 }
                 else
                 {
-                    var errorMessage = $"⚠️ Pipeline data not found for '{_selectedPipeline}'";
+                    var errorMessage = $"⚠️ No valid pipeline found. Available pipelines: {AvailablePipelineData.Count}";
                     AddPipelineChatMessage(errorMessage, false);
+                    Debug.WriteLine($"[NetPage Pipeline] ERROR: {errorMessage}");
+
+                    if (AvailablePipelineData.Any())
+                    {
+                        foreach (var pipe in AvailablePipelineData)
+                        {
+                            Debug.WriteLine($"[NetPage Pipeline] Available: '{pipe.Name}' ({pipe.Nodes?.Count ?? 0} nodes)");
+                        }
+                    }
+
                     executionRecord.Success = false;
                     executionRecord.Result = errorMessage;
                 }
@@ -6796,7 +6989,7 @@ namespace CSimple.ViewModels
                     }
                 }
 
-                // Debug.WriteLine($"Intelligence: Pipeline execution recorded - {executionRecord.PipelineName} ({executionRecord.ExecutionTime:F0}ms, Success: {executionRecord.Success})");
+                Debug.WriteLine($"Intelligence: Pipeline execution recorded - {executionRecord.PipelineName} ({executionRecord.ExecutionTime:F0}ms, Success: {executionRecord.Success})");
             }
         }
 
@@ -6810,57 +7003,69 @@ namespace CSimple.ViewModels
             try
             {
                 // Add timestamp and session info
-                // systemObservations.Add($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-                // systemObservations.Add($"Intelligence Session: Active since {_lastDataClearTime:HH:mm:ss}");
+                systemObservations.Add($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                systemObservations.Add($"Intelligence Session: Active since {_lastDataClearTime:HH:mm:ss}");
 
                 // Add data summary
-                // systemObservations.Add($"Visual Data: {screenshots.Count} screenshots captured");
-                // systemObservations.Add($"Audio Data: {audioData.Count} audio samples captured");
-                // systemObservations.Add($"Text Data: {textData.Count} input events captured");
+                systemObservations.Add($"Visual Data: {screenshots.Count} screenshots captured");
+                systemObservations.Add($"Audio Data: {audioData.Count} audio samples captured");
+                systemObservations.Add($"Text Data: {textData.Count} input events captured");
 
                 // Add sample visual data descriptions (in a real implementation, you'd analyze the actual screenshots)
                 if (screenshots.Count > 0)
                 {
-                    // systemObservations.Add("Visual Context: Screen content captured and available for analysis");
-                    // systemObservations.Add($"Most recent screenshot: {System.Text.Encoding.UTF8.GetString(screenshots.Last()).Substring(0, Math.Min(50, screenshots.Last().Length))}...");
+                    systemObservations.Add("Visual Context: Screen content captured and available for analysis");
+                    systemObservations.Add($"Latest screenshot captured: {screenshots.Count} images available for processing");
                 }
 
                 // Add audio context
                 if (audioData.Count > 0)
                 {
-                    // systemObservations.Add("Audio Context: System audio data captured and available for analysis");
-                    // systemObservations.Add($"Audio samples from: {DateTime.Now.AddSeconds(-audioData.Count):HH:mm:ss} to {DateTime.Now:HH:mm:ss}");
+                    systemObservations.Add("Audio Context: System audio data captured and available for analysis");
+                    systemObservations.Add($"Audio samples from: {DateTime.Now.AddSeconds(-audioData.Count):HH:mm:ss} to {DateTime.Now:HH:mm:ss}");
                 }
 
                 // Add text/input context
                 if (textData.Count > 0)
                 {
-                    // systemObservations.Add("Input Context: User input activity captured");
-                    // foreach (var textItem in textData.TakeLast(5)) // Last 5 text inputs
-                    // {
-                    //     systemObservations.Add($"Input: {textItem}");
-                    // }
+                    systemObservations.Add("Input Context: User input activity captured");
+                    foreach (var textItem in textData.TakeLast(5)) // Last 5 text inputs
+                    {
+                        systemObservations.Add($"Input: {textItem}");
+                    }
                 }
 
                 // Add system status and model info
-                // systemObservations.Add($"Active Models: {ActiveModels.Count}");
-                // systemObservations.Add($"Selected Pipeline: {_selectedPipeline}");
+                systemObservations.Add($"Active Models: {ActiveModels.Count}");
+                systemObservations.Add($"Selected Pipeline: {_selectedPipeline}");
 
                 // Add recent pipeline chat context for continuity
-                // var recentMessages = PipelineChatMessages.TakeLast(3).Select(m => $"Previous: {m.Content}");
-                // systemObservations.AddRange(recentMessages);
+                var recentMessages = PipelineChatMessages.TakeLast(3).Select(m => $"Previous: {m.Content}");
+                systemObservations.AddRange(recentMessages);
 
                 // Add comprehensive instruction for the AI
-                // systemObservations.Add("");
-                // systemObservations.Add("INSTRUCTION: Analyze the provided visual, audio, and input data to determine the most appropriate action(s) to take. Consider the current system state, user activity patterns, and provide specific actionable outputs including mouse clicks, keyboard inputs, or other interactions as needed.");
+                systemObservations.Add("");
+                systemObservations.Add("INSTRUCTION: Analyze the provided visual, audio, and input data to determine the most appropriate action(s) to take. Consider the current system state, user activity patterns, and provide specific actionable outputs including mouse clicks, keyboard inputs, or other interactions as needed.");
+
+                // Ensure we always return meaningful content even if no data is captured
+                if (systemObservations.Count <= 5) // Only timestamp, session, and empty data counts
+                {
+                    systemObservations.Add("System is monitoring for user activity and input");
+                    systemObservations.Add("Waiting for meaningful user interactions to process");
+                    systemObservations.Add("Currently in intelligence mode - ready to analyze and respond to user actions");
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error preparing enhanced system input: {ex.Message}");
                 systemObservations.Add($"Error gathering comprehensive system data: {ex.Message}");
+                // Ensure we still provide some content for the model
+                systemObservations.Add("System monitoring active - waiting for user activity to analyze");
             }
 
-            return string.Join("\n", systemObservations);
+            var result = string.Join("\n", systemObservations);
+            Debug.WriteLine($"[NetPage Pipeline] Prepared system input ({result.Length} chars): {(result.Length > 200 ? result.Substring(0, 200) + "..." : result)}");
+            return result;
         }
 
         // Method to handle audio capture events
@@ -7330,11 +7535,24 @@ namespace CSimple.ViewModels
 
             _currentIntelligenceSession.ActionArray.Add(stopActionItem);
 
-            // Include all accumulated input events from recording buffer
+            // FIXED: Only include meaningful actions, not every mouse movement
             if (_intelligenceRecordingBuffer != null && _intelligenceRecordingBuffer.Count > 0)
             {
-                _currentIntelligenceSession.ActionArray.AddRange(_intelligenceRecordingBuffer);
-                // Debug.WriteLine($"Intelligence: Including {_intelligenceRecordingBuffer.Count} recorded input events in session");
+                // Filter for only meaningful events (clicks, significant key presses, etc.)
+                var meaningfulEvents = _intelligenceRecordingBuffer
+                    .Where(action => IsMeaningfulAction(action))
+                    .ToList();
+
+                if (meaningfulEvents.Count > 0)
+                {
+                    _currentIntelligenceSession.ActionArray.AddRange(meaningfulEvents);
+                    Debug.WriteLine($"Intelligence: Including {meaningfulEvents.Count} meaningful input events out of {_intelligenceRecordingBuffer.Count} total events");
+                }
+                else
+                {
+                    Debug.WriteLine($"Intelligence: No meaningful actions found in {_intelligenceRecordingBuffer.Count} recorded events");
+                }
+
                 _intelligenceRecordingBuffer.Clear();
             }
 
@@ -7390,6 +7608,30 @@ namespace CSimple.ViewModels
             // Clear current session
             _currentIntelligenceSession = null;
             _currentIntelligenceSessionId = null;
+        }
+
+        /// <summary>
+        /// Filter for meaningful actions to avoid saving every mouse movement
+        /// </summary>
+        private bool IsMeaningfulAction(ActionItem action)
+        {
+            switch (action.EventType)
+            {
+                case 0x0201: // WM_LBUTTONDOWN
+                case 0x0202: // WM_LBUTTONUP
+                case 0x0204: // WM_RBUTTONDOWN
+                case 0x0205: // WM_RBUTTONUP
+                case 0x0207: // WM_MBUTTONDOWN
+                case 0x0208: // WM_MBUTTONUP
+                case 0x0100: // WM_KEYDOWN
+                case 0x0101: // WM_KEYUP
+                    return true; // These are meaningful interactions
+                case 0x0200: // WM_MOUSEMOVE
+                    // Only include mouse moves that cover significant distance
+                    return false; // Skip mouse movements to reduce noise
+                default:
+                    return false; // Skip other events
+            }
         }
 
         /// <summary>
@@ -11037,6 +11279,16 @@ Generated by CSimple Model Alignment System
         #endregion
 
         #endregion
+    }
+
+    // Intelligence Input Data Structure
+    public class IntelligenceInputData
+    {
+        public List<byte[]> ScreenImages { get; set; } = new();
+        public List<byte[]> WebcamImages { get; set; } = new();
+        public List<byte[]> AudioSamples { get; set; } = new();
+        public List<string> TextInputs { get; set; } = new();
+        public List<object> InputEvents { get; set; } = new();
     }
 
     // Supporting Data Structures for Enhanced Intelligence

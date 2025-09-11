@@ -380,23 +380,66 @@ namespace CSimple.Services
         {
             try
             {
+                // Check if file exists and has valid size
+                var fileInfo = new FileInfo(filePath);
+                if (!fileInfo.Exists || fileInfo.Length < 1024) // Minimum 1KB for valid audio file
+                {
+                    Debug.Print($"MFCC extraction skipped: File too small or doesn't exist ({fileInfo.Length} bytes)");
+                    return;
+                }
+
                 using var waveFile = new WaveFileReader(filePath);
+
+                // Validate audio properties
+                if (waveFile.SampleCount == 0 || waveFile.WaveFormat.SampleRate < 8000)
+                {
+                    Debug.Print($"MFCC extraction skipped: Invalid audio format (SampleCount: {waveFile.SampleCount}, SampleRate: {waveFile.WaveFormat.SampleRate})");
+                    return;
+                }
+
                 var samples = new float[waveFile.SampleCount];
                 int sampleIndex = 0;
                 var buffer = new byte[waveFile.WaveFormat.SampleRate * waveFile.WaveFormat.BlockAlign];
                 int samplesRead;
-                while ((samplesRead = waveFile.Read(buffer, 0, buffer.Length)) > 0)
+
+                while ((samplesRead = waveFile.Read(buffer, 0, buffer.Length)) > 0 && sampleIndex < samples.Length)
                 {
-                    for (int i = 0; i < samplesRead; i += waveFile.WaveFormat.BlockAlign)
+                    for (int i = 0; i < samplesRead && sampleIndex < samples.Length; i += waveFile.WaveFormat.BlockAlign)
                     {
-                        samples[sampleIndex++] = BitConverter.ToSingle(buffer, i);
+                        // Validate buffer bounds before reading
+                        if (i + 4 <= buffer.Length)
+                        {
+                            try
+                            {
+                                samples[sampleIndex++] = BitConverter.ToSingle(buffer, i);
+                            }
+                            catch (ArgumentException)
+                            {
+                                // Handle case where buffer is not aligned properly
+                                Debug.Print($"MFCC buffer alignment issue at index {i}, stopping extraction");
+                                break;
+                            }
+                        }
                     }
+                }
+
+                // Ensure we have enough samples for MFCC processing
+                if (sampleIndex < 1024) // Minimum samples needed for meaningful MFCC
+                {
+                    Debug.Print($"MFCC extraction skipped: Not enough samples ({sampleIndex})");
+                    return;
+                }
+
+                // Trim samples array to actual size
+                if (sampleIndex < samples.Length)
+                {
+                    Array.Resize(ref samples, sampleIndex);
                 }
 
                 int sampleRate = waveFile.WaveFormat.SampleRate;
                 int featureCount = 13;
-                int frameSize = 512;
-                int hopSize = 256;
+                int frameSize = Math.Min(512, samples.Length / 4); // Adaptive frame size
+                int hopSize = frameSize / 2;
 
                 var mfccExtractor = new MfccExtractor(new MfccOptions
                 {
@@ -408,21 +451,30 @@ namespace CSimple.Services
 
                 var mfccs = mfccExtractor.ComputeFrom(samples);
 
-                string mfccFilePath = Path.Combine(Path.GetDirectoryName(filePath), Path.GetFileNameWithoutExtension(filePath) + "_MFCCs.csv");
-
-                using (var writer = new StreamWriter(mfccFilePath))
+                if (mfccs?.Count > 0)
                 {
-                    foreach (var vector in mfccs)
-                    {
-                        writer.WriteLine(string.Join(",", vector));
-                    }
-                }
+                    string mfccFilePath = Path.Combine(Path.GetDirectoryName(filePath), Path.GetFileNameWithoutExtension(filePath) + "_MFCCs.csv");
 
-                Debug.Print($"MFCCs saved to: {mfccFilePath}");
+                    using (var writer = new StreamWriter(mfccFilePath))
+                    {
+                        foreach (var vector in mfccs)
+                        {
+                            writer.WriteLine(string.Join(",", vector));
+                        }
+                    }
+
+                    Debug.Print($"MFCCs saved to: {mfccFilePath}");
+                }
+                else
+                {
+                    Debug.Print("MFCC extraction resulted in no features");
+                }
             }
             catch (Exception ex)
             {
                 Debug.Print($"Error extracting MFCCs: {ex.Message}");
+                // Log additional details for debugging
+                Debug.Print($"MFCC extraction failed for file: {filePath}");
             }
         }
 

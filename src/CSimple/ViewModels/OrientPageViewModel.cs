@@ -364,8 +364,8 @@ namespace CSimple.ViewModels
             }
         }
 
-        public string ConcurrentRenderText => ConcurrentRenderEnabled ? "Concurrent Render" : "Sequential Render";
-        public string ConcurrentRenderColor => ConcurrentRenderEnabled ? "#4CAF50" : "#333333"; // Green when concurrent, orange when sequential
+        public string ConcurrentRenderText => ConcurrentRenderEnabled ? "Sequential Render: Disabled" : "Sequential Render: Enabled";
+        public string ConcurrentRenderColor => ConcurrentRenderEnabled ? "#4CAF50" : "#FF9800"; // Green when concurrent, orange when sequential
 
         private List<string> _executionResults = new List<string>();
         public ObservableCollection<string> ExecutionResults { get; } = new ObservableCollection<string>();        // Add these properties and fields for Action Review functionality
