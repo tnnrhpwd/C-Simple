@@ -1126,50 +1126,35 @@ namespace CSimple.Services
             {
                 // Note: Node execution state is managed at group level for proper visual feedback coordination
 
-                Debug.WriteLine($"🔄 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Computing input for {modelNode.Name} dynamically");
-
-                // Get connected input nodes (both input nodes and model nodes)
+                // Computing input for model dynamically
                 var connectedInputNodes = _ensembleModelService.GetConnectedInputNodes(modelNode, nodes, connections);
-                Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Found {connectedInputNodes.Count} connected input nodes for model '{modelNode.Name}'");
-
-                // Debug: Show all nodes and connections for troubleshooting
                 var allNodes = nodes.ToList();
-                var allConnections = connections.ToList();
-                Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Total nodes: {allNodes.Count}, Total connections: {allConnections.Count}");
-                Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Input nodes: {allNodes.Count(n => n.Type == NodeType.Input)}, Model nodes: {allNodes.Count(n => n.Type == NodeType.Model)}");
 
-                foreach (var inputNode in allNodes.Where(n => n.Type == NodeType.Input))
-                {
-                    Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Input node '{inputNode.Name}' (ID: {inputNode.Id}) has {inputNode.ActionSteps?.Count ?? 0} action steps");
-                }
+                // Detailed logging commented out to reduce console spam
+                // Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Total nodes: {allNodes.Count}, Total connections: {allConnections.Count}");
+                // foreach (var inputNode in allNodes.Where(n => n.Type == NodeType.Input))
+                // {
+                //     Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Input node '{inputNode.Name}' (ID: {inputNode.Id}) has {inputNode.ActionSteps?.Count ?? 0} action steps");
+                // }
 
-                foreach (var connection in allConnections.Where(c => c.TargetNodeId == modelNode.Id))
-                {
-                    Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Connection to model '{modelNode.Name}': Source ID {connection.SourceNodeId} -> Target ID {connection.TargetNodeId}");
-                }
-
-                // For Intelligence Mode, also include all input nodes that have content, even if not explicitly connected
+                // Include all input nodes with content for Intelligence Mode
                 var allInputNodes = allNodes.Where(n => n.Type == NodeType.Input).ToList();
                 var allInputNodesWithContent = new List<NodeViewModel>();
 
                 foreach (var inputNode in allInputNodes)
                 {
-                    var (contentType, content) = inputNode.GetStepContent(1); // Check step 1 for content
+                    var (contentType, content) = inputNode.GetStepContent(1);
                     if (!string.IsNullOrEmpty(content))
                     {
-                        Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Found content in '{inputNode.Name}': {content.Substring(0, Math.Min(100, content.Length))}...");
                         allInputNodesWithContent.Add(inputNode);
                     }
                 }
 
-                // Use all input nodes with content if we have any, otherwise fall back to connected nodes
+                // Use all input nodes with content if available
                 var inputNodesToUse = allInputNodesWithContent.Count > 0 ? allInputNodesWithContent : connectedInputNodes;
-                Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Using {inputNodesToUse.Count} input nodes (connected: {connectedInputNodes.Count}, with content: {allInputNodesWithContent.Count})");
 
                 if (inputNodesToUse.Count == 0)
                 {
-
-                    Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] No connected inputs for {modelNode.Name}");
                     return false;
                 }
 
@@ -1180,41 +1165,29 @@ namespace CSimple.Services
                 foreach (var inputNode in inputNodesToUse)
                 {
                     var (contentType, content) = inputNode.GetStepContent(stepIndex);
-                    Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Getting content from '{inputNode.Name}' for step {stepIndex}: Type='{contentType}', Content length={content?.Length ?? 0}");
-
                     if (!string.IsNullOrEmpty(content))
                     {
-                        Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Content from '{inputNode.Name}': {content.Substring(0, Math.Min(200, content.Length))}...");
                         if (contentType?.ToLowerInvariant() == "image" || contentType?.ToLowerInvariant() == "audio")
                         {
-                            stepContents.Add(content); // Direct file path
+                            stepContents.Add(content);
                         }
                         else
                         {
-                            stepContents.Add($"{inputNode.Name}: {content}"); // Use safe formatting without brackets
+                            stepContents.Add($"{inputNode.Name}: {content}");
                         }
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] No content from '{inputNode.Name}' for step {stepIndex}");
                     }
                 }
 
                 if (stepContents.Count == 0)
                 {
-                    Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] No valid content found for {modelNode.Name}");
                     return false;
                 }
 
-                // Combine step contents using ensemble method
+                // Combine step contents and append classification text
                 string combinedInput = _ensembleModelService.CombineStepContents(stepContents, modelNode.SelectedEnsembleMethod);
-
-                // Append classification text if present
                 combinedInput = AppendClassificationText(combinedInput, modelNode);
 
-                Debug.WriteLine($"🤖 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] Executing {modelNode.Name} with dynamic input ({combinedInput?.Length ?? 0} chars)");
-
-                // Execute the model with dynamically computed input (now with classification text)
+                // Execute the model with dynamically computed input
                 string result = await _ensembleModelService.ExecuteModelWithInput(model, combinedInput);
 
                 if (!string.IsNullOrEmpty(result))

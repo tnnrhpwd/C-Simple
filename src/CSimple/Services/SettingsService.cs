@@ -745,5 +745,25 @@ namespace CSimple.Services
             Preferences.Set("IntelligenceAutoExecutionEnabled", enabled);
             Debug.WriteLine($"Intelligence auto-execution set to: {enabled}");
         }
+
+        /// <summary>
+        /// Gets the initial delay before first pipeline execution in milliseconds
+        /// </summary>
+        public int GetIntelligenceInitialDelayMs()
+        {
+            return Preferences.Get("IntelligenceInitialDelayMs", 5000);
+        }
+
+        /// <summary>
+        /// Sets the initial delay before first pipeline execution in milliseconds
+        /// </summary>
+        public void SetIntelligenceInitialDelayMs(int delayMs)
+        {
+            if (delayMs < 1000) delayMs = 1000; // Minimum 1 second
+            if (delayMs > 30000) delayMs = 30000; // Maximum 30 seconds
+
+            Preferences.Set("IntelligenceInitialDelayMs", delayMs);
+            Debug.WriteLine($"Intelligence initial delay set to: {delayMs}ms");
+        }
     }
 }

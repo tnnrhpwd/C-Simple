@@ -45,6 +45,7 @@ namespace CSimple.ViewModels
         private readonly PipelineExecutionService _pipelineExecutionService; // Add pipeline execution service
         private readonly ActionStringGenerationService _actionStringGenerationService; // Add action string generation service
         private readonly ActionExecutionService _actionExecutionService; // Add action execution service
+        private readonly WindowDetectionService _windowDetectionService; // Add window detection service for system context
         // Consider injecting navigation and dialog services for better testability
 
         // Debounce mechanism for saving to prevent excessive saves
@@ -1214,6 +1215,7 @@ namespace CSimple.ViewModels
             _screenCaptureService = screenCaptureService; // Optional dependency for webcam image capture
             _actionStringGenerationService = new ActionStringGenerationService(); // Initialize action string generation service
             _actionExecutionService = new ActionExecutionService(_fileService); // Initialize action execution service with FileService
+            _windowDetectionService = new WindowDetectionService(); // Initialize window detection service
 
             // Configure the media selection service UI delegates
             _mediaSelectionService.ShowAlert = ShowAlert;
@@ -5442,18 +5444,39 @@ namespace CSimple.ViewModels
                     Debug.WriteLine("Intelligence: Started webcam audio recording");
                 }
 
-                // Start webcam image recording just like ObservePage
-                if (_screenCaptureService != null)
+                // Check if pipeline is sequential first
+                bool isSequentialMode = false;
+                if (!string.IsNullOrEmpty(_selectedPipeline))
+                {
+                    var pipelineData = AvailablePipelineData.FirstOrDefault(p => p.Name == _selectedPipeline);
+                    isSequentialMode = pipelineData != null && !pipelineData.ConcurrentRender;
+                }
+
+                // Only start continuous webcam image recording for concurrent mode
+                if (!isSequentialMode && _screenCaptureService != null)
                 {
                     _intelligenceWebcamCts = new CancellationTokenSource();
                     string actionName = $"Intelligence_{DateTime.Now:HHmmss}"; // Action name for file saving
                     int intelligenceIntervalMs = _settingsService.GetIntelligenceIntervalMs();
                     Task.Run(() => _screenCaptureService.StartWebcamCapture(_intelligenceWebcamCts.Token, actionName, intelligenceIntervalMs), _intelligenceWebcamCts.Token);
-                    Debug.WriteLine($"Intelligence: Started webcam image recording with interval {intelligenceIntervalMs}ms");
+                    Debug.WriteLine($"Intelligence: Started continuous webcam image recording with interval {intelligenceIntervalMs}ms");
+                }
+                else if (isSequentialMode)
+                {
+                    Debug.WriteLine("Intelligence: Sequential mode - webcam images will be captured on demand only");
                 }
 
-                // Start screen capture for visual input
-                StartScreenCapture();
+                if (isSequentialMode)
+                {
+                    // Sequential execution - capture screenshots on demand only
+                    Debug.WriteLine("Intelligence: Sequential mode detected - using on-demand screenshot capture");
+                }
+                else
+                {
+                    // Concurrent execution - use continuous screen capture
+                    StartScreenCapture();
+                    Debug.WriteLine("Intelligence: Concurrent mode detected - using continuous screen capture");
+                }
 
                 // Start intelligent pipeline processing loop
                 Task.Run(async () => await IntelligentPipelineLoop(_intelligenceProcessingCts.Token))
@@ -5612,22 +5635,34 @@ namespace CSimple.ViewModels
         {
             try
             {
-                // Initialize screen capture service if not already done
-                var screenCaptureService = ServiceProvider.GetService<ScreenCaptureService>();
+                // Use the injected service first, then fallback to ServiceProvider
+                var screenCaptureService = _screenCaptureService ?? ServiceProvider.GetService<ScreenCaptureService>();
 
                 if (screenCaptureService != null)
                 {
                     screenCaptureService.StartPreviewMode();
-                    Debug.WriteLine("Intelligence: Started screen capture for pipeline processing");
+                    Debug.WriteLine("Intelligence: Started screen capture preview mode for pipeline processing");
+
+                    // Also start continuous screen capture for the intelligence system
+                    var actionName = $"Intelligence_{DateTime.Now:HHmmss}";
+                    Task.Run(() => screenCaptureService.StartScreenCapture(_intelligenceProcessingCts?.Token ?? CancellationToken.None, actionName))
+                        .ContinueWith(t =>
+                        {
+                            if (t.IsFaulted)
+                            {
+                                Debug.WriteLine($"Intelligence: Screen capture task failed: {t.Exception?.GetBaseException().Message}");
+                            }
+                        });
+                    // Debug.WriteLine($"Intelligence: Started continuous screen capture with action name '{actionName}'");
                 }
                 else
                 {
-                    Debug.WriteLine("Intelligence: Screen capture service not available");
+                    Debug.WriteLine("Intelligence: Screen capture service not available - cannot capture screenshots");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error starting screen capture: {ex.Message}");
+                Debug.WriteLine($"Intelligence: Error starting screen capture: {ex.Message}");
             }
         }
 
@@ -5638,13 +5673,23 @@ namespace CSimple.ViewModels
         {
             try
             {
-                var screenCaptureService = ServiceProvider.GetService<ScreenCaptureService>();
-                screenCaptureService?.StopPreviewMode();
-                Debug.WriteLine("Intelligence: Stopped screen capture");
+                var screenCaptureService = _screenCaptureService ?? ServiceProvider.GetService<ScreenCaptureService>();
+                if (screenCaptureService != null)
+                {
+                    screenCaptureService.StopPreviewMode();
+                    Debug.WriteLine("Intelligence: Stopped screen capture preview mode");
+
+                    // The continuous screen capture will be stopped by the cancellation token
+                    Debug.WriteLine("Intelligence: Continuous screen capture will stop via cancellation token");
+                }
+                else
+                {
+                    Debug.WriteLine("Intelligence: Screen capture service not available for stopping");
+                }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error stopping screen capture: {ex.Message}");
+                Debug.WriteLine($"Intelligence: Error stopping screen capture: {ex.Message}");
             }
         }
 
@@ -5653,10 +5698,60 @@ namespace CSimple.ViewModels
         /// </summary>
         private async Task IntelligentPipelineLoop(CancellationToken cancellationToken)
         {
-            Debug.WriteLine("Intelligence: Starting enhanced intelligent pipeline loop");
+            Debug.WriteLine("Intelligence: Starting sequential pipeline loop");
 
             try
             {
+                // Check if we're in sequential mode - if so, skip initial delay
+                bool isSequentialMode = false;
+                if (!string.IsNullOrEmpty(_selectedPipeline))
+                {
+                    var pipelineData = AvailablePipelineData.FirstOrDefault(p => p.Name == _selectedPipeline);
+                    isSequentialMode = pipelineData != null && !pipelineData.ConcurrentRender;
+                }
+
+                if (isSequentialMode)
+                {
+                    // Sequential mode: Start immediately with first capture cycle
+                    AddPipelineChatMessage("🎯 Sequential mode: Starting immediate processing", false);
+                }
+                else
+                {
+                    // Concurrent mode: Use initial delay for sufficient data capture
+                    int InitialDelayMs = _settingsService.GetIntelligenceInitialDelayMs();
+                    const int MinimumScreenshotsRequired = 2;
+                    int MaxInitialWaitMs = Math.Max(InitialDelayMs * 2, 10000);
+
+                    AddPipelineChatMessage($"⏳ Initializing data capture - waiting {InitialDelayMs / 1000}s for visual context...", false);
+
+                    var initialWaitStart = DateTime.Now;
+                    bool sufficientDataCaptured = false;
+
+                    while ((DateTime.Now - initialWaitStart).TotalMilliseconds < MaxInitialWaitMs && !cancellationToken.IsCancellationRequested)
+                    {
+                        await CaptureComprehensiveSystemState(cancellationToken);
+
+                        if ((DateTime.Now - initialWaitStart).TotalMilliseconds >= InitialDelayMs)
+                        {
+                            var (initialScreenshots, initialAudio, initialText) = GetAccumulatedSystemData();
+                            if (initialScreenshots.Count >= MinimumScreenshotsRequired)
+                            {
+                                sufficientDataCaptured = true;
+                                AddPipelineChatMessage($"✅ Visual context ready ({initialScreenshots.Count} screenshots captured)", false);
+                                break;
+                            }
+                        }
+
+                        await Task.Delay(500, cancellationToken);
+                    }
+
+                    if (!sufficientDataCaptured && !cancellationToken.IsCancellationRequested)
+                    {
+                        AddPipelineChatMessage("⚠️ Proceeding with limited visual context", false);
+                    }
+                }
+
+                // SEQUENTIAL EXECUTION: Collect inputs for 1 second → Process → Skip accumulated → Repeat
                 while (!cancellationToken.IsCancellationRequested && IsIntelligenceActive)
                 {
                     // Get current settings
@@ -5670,21 +5765,21 @@ namespace CSimple.ViewModels
                     }
 
                     // Check if we should prevent concurrent processing
-                    bool shouldProcess = false;
-                    bool currentTaskRunning = false;
-
+                    bool shouldContinue = false;
                     lock (_intelligenceProcessingLock)
                     {
-                        currentTaskRunning = _currentPipelineTask != null && !_currentPipelineTask.IsCompleted;
-
-                        if (!_isProcessingIntelligence && !currentTaskRunning)
+                        var currentTaskRunning = _currentPipelineTask != null && !_currentPipelineTask.IsCompleted;
+                        if (_isProcessingIntelligence || currentTaskRunning)
+                        {
+                            shouldContinue = true;
+                        }
+                        else
                         {
                             _isProcessingIntelligence = true;
-                            shouldProcess = true;
                         }
                     }
 
-                    if (!shouldProcess)
+                    if (shouldContinue)
                     {
                         await Task.Delay(100, cancellationToken);
                         continue;
@@ -5692,59 +5787,58 @@ namespace CSimple.ViewModels
 
                     try
                     {
-                        var executionStartTime = DateTime.Now;
-                        var timeSinceLastExecution = executionStartTime - _lastPipelineExecution;
+                        // STEP 1: Capture ONE set of inputs for processing (no continuous collection during processing)
+                        Debug.WriteLine($"Intelligence: Starting sequential collection cycle at {DateTime.Now:HH:mm:ss.fff}");
 
-                        // Only execute if minimum interval has passed OR if there's no current task running
-                        if (timeSinceLastExecution.TotalMilliseconds >= minimumIntervalMs || !currentTaskRunning)
+                        // Capture screenshots ONCE for this cycle
+                        await CaptureScreenshotsOnce(cancellationToken);
+
+                        // Allow brief time for audio/input capture (but NO MORE screenshots during processing)
+                        var collectionDuration = Math.Min(1000, minimumIntervalMs); // 1 second max for sequential
+                        await Task.Delay(collectionDuration, cancellationToken);
+
+                        // STEP 2: Get collected data for processing
+                        var (screenshots, audioData, textData) = GetAccumulatedSystemData();
+
+                        // STEP 3: Process the collected data (only if we have visual data)
+                        if (screenshots.Count > 0)
                         {
-                            // Continuously collect system state data
-                            await CaptureComprehensiveSystemState(cancellationToken);
+                            Debug.WriteLine($"Intelligence: Processing {screenshots.Count} screenshots, {audioData.Count} audio, {textData.Count} text inputs");
 
-                            // Get all accumulated data since last processing
-                            var (screenshots, audioData, textData) = GetAccumulatedSystemData();
-
-                            // Execute pipeline with all collected data
-                            _currentPipelineTask = ExecuteEnhancedPipelineWithData(screenshots, audioData, textData, cancellationToken);
-                            await _currentPipelineTask;
-
-                            var executionDuration = DateTime.Now - executionStartTime;
-                            _lastPipelineExecution = DateTime.Now;
-
-                            // Debug.WriteLine($"Intelligence: Pipeline executed in {executionDuration.TotalMilliseconds}ms with {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs");
-
-                            // Clear processed data
-                            ClearAccumulatedData();
-
-                            // If execution took longer than minimum interval, process immediately accumulated data
-                            if (executionDuration.TotalMilliseconds > minimumIntervalMs)
+                            try
                             {
-                                // Debug.WriteLine($"Intelligence: Execution exceeded interval ({executionDuration.TotalMilliseconds}ms > {minimumIntervalMs}ms), processing accumulated data immediately");
-                                continue; // Skip delay and process immediately
+                                Debug.WriteLine($"[NetPage Pipeline] ===== STARTING PIPELINE EXECUTION =====");
+                                // Execute pipeline with collected data - NO INPUT COLLECTION DURING THIS TIME
+                                _currentPipelineTask = ExecuteEnhancedPipelineWithData(screenshots, audioData, textData, cancellationToken);
+                                await _currentPipelineTask;
+                                _lastPipelineExecution = DateTime.Now;
+
+                                Debug.WriteLine($"Intelligence: Processing completed successfully at {DateTime.Now:HH:mm:ss.fff}");
+                            }
+                            catch (Exception pipelineEx)
+                            {
+                                Debug.WriteLine($"Intelligence: Pipeline execution failed: {pipelineEx.Message}");
+                                AddPipelineChatMessage($"⚠️ Pipeline execution failed: {pipelineEx.Message}", false, MessageType.SystemStatus);
                             }
                         }
                         else
                         {
-                            // Continue collecting data while waiting for interval
-                            await CaptureComprehensiveSystemState(cancellationToken);
+                            Debug.WriteLine("Intelligence: No visual data captured, skipping processing");
                         }
 
-                        // Wait for remaining interval time
-                        var remainingTime = minimumIntervalMs - (DateTime.Now - executionStartTime).TotalMilliseconds;
-                        if (remainingTime > 0)
-                        {
-                            await Task.Delay((int)remainingTime, cancellationToken);
-                        }
+                        // STEP 4: Clear processed data to skip any inputs accumulated during processing
+                        ClearAccumulatedData();
+                        Debug.WriteLine($"Intelligence: Sequential cycle completed at {DateTime.Now:HH:mm:ss.fff}");
+
+                        Debug.WriteLine($"Intelligence: Sequential cycle complete, starting next cycle immediately");
                     }
                     catch (OperationCanceledException)
                     {
                         // Expected cancellation during shutdown - don't log as error
-                        Debug.WriteLine("Intelligence: Pipeline loop cancelled");
                         break;
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Intelligence processing error: {ex.Message}");
                         AddPipelineChatMessage($"⚠️ Processing error: {ex.Message}", false, MessageType.SystemStatus);
 
                         // Check if we should stop due to repeated errors
@@ -5766,19 +5860,14 @@ namespace CSimple.ViewModels
             }
             catch (OperationCanceledException)
             {
-                Debug.WriteLine("Intelligence: Pipeline loop cancelled");
+                // Expected cancellation
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Intelligence: Fatal pipeline loop error: {ex.Message}");
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     AddPipelineChatMessage($"❌ Intelligence loop error: {ex.Message}", false);
                 });
-            }
-            finally
-            {
-                Debug.WriteLine("Intelligence: Pipeline loop ended");
             }
         }
 
@@ -5795,7 +5884,7 @@ namespace CSimple.ViewModels
                 // 2. Get current application window info
                 // 3. Get recent keyboard/mouse activity
 
-                var screenCaptureService = ServiceProvider.GetService<ScreenCaptureService>();
+                var screenCaptureService = _screenCaptureService ?? ServiceProvider.GetService<ScreenCaptureService>();
                 screenCaptureService?.CaptureScreens($"Intelligence_{DateTime.Now:HHmmss}");
 
                 // Log the capture
@@ -5845,7 +5934,7 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"[NetPage Pipeline] Converted {nodes.Count} nodes and {connections.Count} connections");
 
                 // Prepare input data from system observations
-                var systemInput = PrepareSystemInputForPipeline(cancellationToken);
+                var systemInput = await PrepareSystemInputForPipeline(cancellationToken);
                 Debug.WriteLine($"[NetPage Pipeline] Prepared system input: '{systemInput}'");
 
                 // Add system input to input nodes
@@ -5879,43 +5968,69 @@ namespace CSimple.ViewModels
         /// <summary>
         /// Prepare system input data for pipeline processing
         /// </summary>
-        private string PrepareSystemInputForPipeline(CancellationToken cancellationToken)
+        private async Task<string> PrepareSystemInputForPipeline(CancellationToken cancellationToken)
         {
-            var systemObservations = new List<string>();
+            var systemInput = new List<string>();
 
             try
             {
-                // Add timestamp
-                systemObservations.Add($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                // Add AI Assistant System Prompt
+                systemInput.Add("=== PC AI ASSISTANT - ACTION GENERATION ===");
+                systemInput.Add("You are a PC automation assistant. Analyze the visual, audio, and input data to determine SPECIFIC actionable commands.");
+                systemInput.Add("");
 
-                // Add active application info (simplified)
-                systemObservations.Add("Active application: Current system state");
+                // Add supported actions list
+                systemInput.Add("SUPPORTED ACTIONS (respond with ONE of these only):");
+                systemInput.Add("• 'click on [target]' - Left click on UI element");
+                systemInput.Add("• 'right click on [target]' - Right click on UI element");
+                systemInput.Add("• 'double click on [target]' - Double click on UI element");
+                systemInput.Add("• 'type [text]' - Enter text");
+                systemInput.Add("• 'press [key]' - Press specific key (Enter, Escape, Tab, etc.)");
+                systemInput.Add("• 'scroll up' or 'scroll down' - Scroll in current window");
+                systemInput.Add("• 'open [application]' - Open specific application");
+                systemInput.Add("• 'none' - No action needed");
+                systemInput.Add("");
+
+                // Add current system state
+                systemInput.Add($"CURRENT STATE (Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}):");
+
+                // Add active application info
+                try
+                {
+                    var activeWindow = await _windowDetectionService?.GetActiveWindowAsync();
+                    systemInput.Add($"Active Window: {activeWindow?.Title ?? "Unknown"}");
+                }
+                catch
+                {
+                    systemInput.Add("Active Window: Unknown");
+                }
 
                 // Add recent input activity summary
                 if (_inputCaptureService != null)
                 {
                     var activeKeyCount = _inputCaptureService.GetActiveKeyCount();
-                    systemObservations.Add($"Active keys: {activeKeyCount}");
+                    systemInput.Add($"Keyboard Activity: {activeKeyCount} keys active");
                 }
 
-                // Add mouse position (simplified)
-                systemObservations.Add("Mouse activity: Available");
-
                 // Add system status
-                systemObservations.Add($"Intelligence mode: Active");
-                systemObservations.Add($"Active models: {ActiveModels.Count}");
+                systemInput.Add($"Intelligence Status: Sequential mode active");
+                systemInput.Add($"Available Models: {ActiveModels.Count}");
+                systemInput.Add("");
 
-                // Add any recent pipeline chat context
-                var recentMessages = PipelineChatMessages.TakeLast(3).Select(m => $"Recent: {m.Content}");
-                systemObservations.AddRange(recentMessages);
+                // Add strict instruction for response format
+                systemInput.Add("CRITICAL: RESPOND ONLY WITH THE ACTION COMMAND.");
+                systemInput.Add("Example responses: 'click on start button' OR 'type hello' OR 'none'");
+                systemInput.Add("FORBIDDEN: explanations, analysis, reasoning, code blocks, formatting");
+                systemInput.Add("MAXIMUM: 10 words only. JUST the action command.");
+                systemInput.Add("");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error preparing system input: {ex.Message}");
-                systemObservations.Add($"Error gathering system data: {ex.Message}");
+                systemInput.Add($"System Error: {ex.Message}");
             }
 
-            return string.Join("\n", systemObservations);
+            return string.Join("\n", systemInput);
         }
 
         /// <summary>
@@ -5989,6 +6104,17 @@ namespace CSimple.ViewModels
 
                     if (!string.IsNullOrEmpty(output.Value) && !output.Value.Equals("NULL", StringComparison.OrdinalIgnoreCase))
                     {
+                        // Extract clean action from verbose output
+                        var extractedAction = ExtractActionFromVerboseOutput(output.Value);
+                        Debug.WriteLine($"[NetPage Pipeline] Extracted clean action: '{extractedAction}'");
+
+                        // Update the action node's output with the clean extracted action
+                        if (!string.IsNullOrEmpty(extractedAction) && extractedAction != "none")
+                        {
+                            actionNode.SetStepOutput(1, "text", extractedAction);
+                            Debug.WriteLine($"[NetPage Pipeline] Updated action node '{actionNode.Name}' output to: '{extractedAction}'");
+                        }
+
                         // Parse the action output and simulate corresponding actions
                         await SimulateActionsFromModelOutput(output.Value, actionService, cancellationToken);
                     }
@@ -6016,24 +6142,30 @@ namespace CSimple.ViewModels
         /// </summary>
         private async Task SimulateActionsFromModelOutput(string modelOutput, ActionService actionService, CancellationToken cancellationToken)
         {
-            Debug.WriteLine($"[NetPage Pipeline] ===== SIMULATING ACTIONS FROM MODEL OUTPUT =====");
-            Debug.WriteLine($"[NetPage Pipeline] Model Output: '{modelOutput}'");
-
             try
             {
-                // Use the new action string generation service
-                var actionString = await _actionStringGenerationService.GenerateExecutableActionString(modelOutput);
+                // Extract actionable content from verbose model output
+                var extractedAction = ExtractActionFromVerboseOutput(modelOutput);
+                Debug.WriteLine($"[NetPage Pipeline] Extracted Action: '{extractedAction}'");
 
-                if (string.IsNullOrEmpty(actionString))
+                if (string.IsNullOrEmpty(extractedAction))
                 {
-                    Debug.WriteLine("Intelligence: Could not generate executable action string from model output");
-                    Debug.WriteLine("[NetPage Pipeline] Could not generate executable action string from model output");
-                    AddPipelineChatMessage($"⚠️ Could not interpret action from model output: {modelOutput}", false);
+                    AddPipelineChatMessage($"🤔 Model output contained no actionable commands", false, MessageType.SystemStatus);
                     return;
                 }
 
-                Debug.WriteLine($"[NetPage Pipeline] Generated action string: {actionString}");
-                AddPipelineChatMessage($"🎯 Generated action string from model output", false);
+                // Generate executable action string
+                var actionString = await _actionStringGenerationService.GenerateExecutableActionString(extractedAction);
+
+                if (string.IsNullOrEmpty(actionString))
+                {
+                    Debug.WriteLine("[NetPage Pipeline] Could not generate executable action string");
+                    AddPipelineChatMessage($"⚠️ Could not interpret action: {extractedAction}", false);
+                    return;
+                }
+
+                Debug.WriteLine($"[NetPage Pipeline] Generated action: {actionString}");
+                AddPipelineChatMessage($"🎯 Executing action: {extractedAction}", false);
 
                 // Execute the action using the new execution service
                 var success = await _actionExecutionService.ExecuteActionStringAsync(actionString);
@@ -6054,6 +6186,79 @@ namespace CSimple.ViewModels
                 Debug.WriteLine($"Error simulating actions: {ex.Message}");
                 AddPipelineChatMessage($"❌ Action simulation error: {ex.Message}", false);
             }
+        }
+
+        /// <summary>
+        /// Extract actionable commands from verbose model output
+        /// </summary>
+        private string ExtractActionFromVerboseOutput(string modelOutput)
+        {
+            if (string.IsNullOrEmpty(modelOutput))
+            {
+                return "none";
+            }
+
+            // Action patterns to look for (order matters - most specific first)
+            var actionPatterns = new[]
+            {
+                "click on", "right click on", "double click on", "left click on",
+                "type ", "press ", "scroll up", "scroll down",
+                "open ", "start ", "none", "no action"
+            };
+
+            // First try to find a short, clean action at the start or end
+            var cleanedOutput = modelOutput.Trim().ToLowerInvariant();
+
+            // Remove common wrapper text
+            cleanedOutput = cleanedOutput
+                .Replace("the best action is to ", "")
+                .Replace("action: ", "")
+                .Replace("answer:", "")
+                .Replace("response:", "")
+                .Replace("'", "")
+                .Replace("\"", "")
+                .Replace("```", "")
+                .Replace("\\boxed{", "")
+                .Replace("}", "")
+                .Trim();
+
+            // Split into lines and process each
+            var lines = cleanedOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var line in lines)
+            {
+                var trimmedLine = line.Trim();
+
+                // Skip very long lines (likely explanations)
+                if (trimmedLine.Length > 50) continue;
+
+                // Check if line starts with or contains action patterns
+                foreach (var pattern in actionPatterns)
+                {
+                    if (trimmedLine.StartsWith(pattern) || (trimmedLine.Contains(pattern) && trimmedLine.Length < 30))
+                    {
+                        // Return the cleaned action
+                        var action = trimmedLine.Length < 30 ? trimmedLine : pattern + " [target]";
+                        Debug.WriteLine($"[ExtractAction] Found action: '{action}'");
+                        return action;
+                    }
+                }
+            }
+
+            // Try single word lines that might be action keywords
+            foreach (var line in lines)
+            {
+                var trimmedLine = line.Trim();
+                if (trimmedLine.Length < 15 && (trimmedLine == "none" || trimmedLine.Contains("click") ||
+                    trimmedLine.Contains("type") || trimmedLine.Contains("press") || trimmedLine.Contains("scroll")))
+                {
+                    Debug.WriteLine($"[ExtractAction] Found simple action: '{trimmedLine}'");
+                    return trimmedLine;
+                }
+            }
+
+            // If no clear action found, default to none
+            return "none";
         }
 
         /// <summary>
@@ -6220,7 +6425,7 @@ namespace CSimple.ViewModels
                             // Periodically log buffer size for debugging
                             if (_intelligenceRecordingBuffer.Count % 50 == 0)
                             {
-                                Debug.WriteLine($"Intelligence: Recording buffer has {_intelligenceRecordingBuffer.Count} input events");
+                                // Debug.WriteLine($"Intelligence: Recording buffer has {_intelligenceRecordingBuffer.Count} input events");
                             }
                         }
                     }
@@ -6280,7 +6485,7 @@ namespace CSimple.ViewModels
                     // Log buffer growth periodically
                     if (_intelligenceRecordingBuffer.Count % 100 == 0)
                     {
-                        Debug.WriteLine($"Intelligence: Recording buffer now has {_intelligenceRecordingBuffer.Count} events (including mouse movement)");
+                        // Debug.WriteLine($"Intelligence: Recording buffer now has {_intelligenceRecordingBuffer.Count} events (including mouse movement)");
                     }
                 }
             }
@@ -6314,7 +6519,7 @@ namespace CSimple.ViewModels
                 _intelligenceRecordingBuffer.Add(touchActionItem);
 
                 AddPipelineChatMessage("👆 Touch input detected", false);
-                Debug.WriteLine($"Intelligence: Touch input received, added to recording buffer (total: {_intelligenceRecordingBuffer.Count})");
+                // Debug.WriteLine($"Intelligence: Touch input received, added to recording buffer (total: {_intelligenceRecordingBuffer.Count})");
             }
             catch (Exception ex)
             {
@@ -6360,11 +6565,11 @@ namespace CSimple.ViewModels
                     };
 
                     _currentIntelligenceSession.Files.Add(audioFile);
-                    Debug.WriteLine($"Intelligence: Attached audio file '{fileName}' to intelligence session");
+                    // Debug.WriteLine($"Intelligence: Attached audio file '{fileName}' to intelligence session");
                 }
 
                 AddPipelineChatMessage($"🎤 Audio captured: {fileName}", false);
-                Debug.WriteLine($"Intelligence: Audio file captured - {filePath}, added to recording buffer (total: {_intelligenceRecordingBuffer.Count})");
+                // Debug.WriteLine($"Intelligence: Audio file captured - {filePath}, added to recording buffer (total: {_intelligenceRecordingBuffer.Count})");
             }
             catch (Exception ex)
             {
@@ -6583,17 +6788,16 @@ namespace CSimple.ViewModels
         }
 
         /// <summary>
-        /// Capture comprehensive system state including screenshots, audio, and text data
+        /// Capture screenshots ONCE for sequential execution (no continuous capture)
         /// </summary>
-        private async Task CaptureComprehensiveSystemState(CancellationToken cancellationToken)
+        private async Task CaptureScreenshotsOnce(CancellationToken cancellationToken)
         {
             try
             {
                 var timestamp = DateTime.Now;
-                var contextData = new StringBuilder();
 
-                // 1. Enhanced Screenshot Capture with Actual Data
-                var screenCaptureService = ServiceProvider.GetService<ScreenCaptureService>();
+                // Get the screen capture service
+                var screenCaptureService = _screenCaptureService ?? ServiceProvider.GetService<ScreenCaptureService>();
                 if (screenCaptureService != null)
                 {
                     var screenshotPaths = await Task.Run(() =>
@@ -6601,25 +6805,42 @@ namespace CSimple.ViewModels
                         try
                         {
                             var captureName = $"Intelligence_{timestamp:HHmmss_fff}";
+
+                            // Capture screenshots ONCE for this sequential cycle
                             screenCaptureService.CaptureScreens(captureName);
+                            Debug.WriteLine($"Intelligence: CaptureScreens method completed for '{captureName}'");
+
+                            // Small delay to ensure file write completion
+                            Thread.Sleep(100);
 
                             // Get actual screenshot file paths
                             var screenshotDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "Screenshots");
+
+                            // Ensure directory exists
+                            if (!Directory.Exists(screenshotDir))
+                            {
+                                Directory.CreateDirectory(screenshotDir);
+                            }
+
                             if (Directory.Exists(screenshotDir))
                             {
-                                var latestFiles = Directory.GetFiles(screenshotDir, $"*{captureName}*")
+                                // Look for files created in the last 2 seconds (just for this capture)
+                                var cutoffTime = timestamp.AddSeconds(-2);
+                                var allFiles = Directory.GetFiles(screenshotDir, "*.png")
+                                    .Where(f => File.GetCreationTime(f) > cutoffTime)
                                     .OrderByDescending(f => File.GetCreationTime(f))
-                                    .Take(5) // Limit to latest 5 displays
+                                    .Take(5) // Take fewer files for sequential execution
                                     .ToArray();
-                                return latestFiles;
+
+                                return allFiles;
                             }
-                            return new string[0];
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"Error capturing screenshots: {ex.Message}");
-                            return new string[0];
+                            Debug.WriteLine($"Intelligence: Error capturing screenshots: {ex.Message}");
                         }
+
+                        return new string[0];
                     }, cancellationToken);
 
                     foreach (var screenshotPath in screenshotPaths)
@@ -6633,14 +6854,179 @@ namespace CSimple.ViewModels
                                 {
                                     _capturedScreenshots.Add(imageBytes);
                                 }
-                                contextData.AppendLine($"Screenshot captured: {Path.GetFileName(screenshotPath)} ({imageBytes.Length} bytes)");
                             }
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"Error reading screenshot file {screenshotPath}: {ex.Message}");
+                            Debug.WriteLine($"Intelligence: Error reading screenshot file {screenshotPath}: {ex.Message}");
                         }
                     }
+                }
+
+                // Capture audio data once (if available)
+                if (_audioCaptureService != null)
+                {
+                    try
+                    {
+                        var audioBuffer = await CaptureCurrentAudioBuffer(cancellationToken);
+                        if (audioBuffer != null && audioBuffer.Length > 0)
+                        {
+                            lock (_capturedDataLock)
+                            {
+                                _capturedAudioData.Add(audioBuffer);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error capturing audio: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in CaptureScreenshotsOnce: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Capture comprehensive system state including screenshots, audio, and text data
+        /// </summary>
+        private async Task CaptureComprehensiveSystemState(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var timestamp = DateTime.Now;
+                var contextData = new StringBuilder();
+
+                // 1. Enhanced Screenshot Capture with Actual Data
+                var screenCaptureService = _screenCaptureService;
+                if (screenCaptureService == null)
+                {
+                    Debug.WriteLine("Intelligence: ScreenCaptureService is not available (not injected)");
+                    screenCaptureService = ServiceProvider.GetService<ScreenCaptureService>();
+                    if (screenCaptureService == null)
+                    {
+                        Debug.WriteLine("Intelligence: ScreenCaptureService could not be resolved from ServiceProvider either");
+                    }
+                }
+                if (screenCaptureService != null)
+                {
+                    var screenshotPaths = await Task.Run(() =>
+                    {
+                        try
+                        {
+                            var captureName = $"Intelligence_{timestamp:HHmmss_fff}";
+
+                            // Debug: Log the capture attempt
+                            // Debug.WriteLine($"Intelligence: Attempting to capture screenshots with name '{captureName}'");
+                            // Debug.WriteLine($"Intelligence: ScreenCaptureService type: {screenCaptureService.GetType().Name}");
+
+                            // Try to capture screenshots
+                            screenCaptureService.CaptureScreens(captureName);
+                            Debug.WriteLine($"Intelligence: CaptureScreens method completed for '{captureName}'");
+
+                            // Small delay to ensure file write completion
+                            Thread.Sleep(100);
+
+                            // Get actual screenshot file paths
+                            var screenshotDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CSimple", "Resources", "Screenshots");
+                            Debug.WriteLine($"Intelligence: Looking for screenshots in directory: {screenshotDir}");
+
+                            // Ensure directory exists
+                            if (!Directory.Exists(screenshotDir))
+                            {
+                                Directory.CreateDirectory(screenshotDir);
+                                Debug.WriteLine($"Intelligence: Created screenshot directory: {screenshotDir}");
+                            }
+
+                            if (Directory.Exists(screenshotDir))
+                            {
+                                // Look for files created in the last 10 seconds
+                                var cutoffTime = timestamp.AddSeconds(-10);
+                                var allFiles = Directory.GetFiles(screenshotDir, "*.png")
+                                    .Where(f => File.GetCreationTime(f) > cutoffTime)
+                                    .OrderByDescending(f => File.GetCreationTime(f))
+                                    .Take(10) // Take more files to ensure we get them
+                                    .ToArray();
+
+                                Debug.WriteLine($"Intelligence: Found {allFiles.Length} recent screenshot files (last 10s)");
+
+                                // If we don't find recent files, look for the most recent files regardless of time
+                                if (allFiles.Length == 0)
+                                {
+                                    allFiles = Directory.GetFiles(screenshotDir, "*.png")
+                                        .OrderByDescending(f => File.GetCreationTime(f))
+                                        .Take(3) // Take the 3 most recent screenshots
+                                        .ToArray();
+                                    Debug.WriteLine($"Intelligence: Fallback - using {allFiles.Length} most recent screenshots");
+                                }
+
+                                // If we still have no screenshots, try to force a manual capture
+                                if (allFiles.Length == 0)
+                                {
+                                    Debug.WriteLine("Intelligence: No screenshots found, attempting manual capture fallback");
+                                    try
+                                    {
+                                        // Try to force capture using a more direct method
+                                        screenCaptureService.CaptureScreens($"Manual_{timestamp:HHmmss_fff}");
+                                        Thread.Sleep(200); // Give it more time
+
+                                        // Try again to find files
+                                        allFiles = Directory.GetFiles(screenshotDir, "*.png")
+                                            .OrderByDescending(f => File.GetCreationTime(f))
+                                            .Take(1)
+                                            .ToArray();
+                                        Debug.WriteLine($"Intelligence: Manual capture resulted in {allFiles.Length} screenshots");
+                                    }
+                                    catch (Exception manualEx)
+                                    {
+                                        Debug.WriteLine($"Intelligence: Manual capture failed: {manualEx.Message}");
+                                    }
+                                }
+
+                                return allFiles;
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"Intelligence: Could not create screenshot directory: {screenshotDir}");
+                                return new string[0];
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Intelligence: Error capturing screenshots: {ex.Message}");
+                            Debug.WriteLine($"Intelligence: Exception details: {ex}");
+                            return new string[0];
+                        }
+                    }, cancellationToken);
+
+                    Debug.WriteLine($"Intelligence: Processing {screenshotPaths.Length} screenshot files");
+
+                    foreach (var screenshotPath in screenshotPaths)
+                    {
+                        try
+                        {
+                            if (File.Exists(screenshotPath))
+                            {
+                                var imageBytes = await File.ReadAllBytesAsync(screenshotPath, cancellationToken);
+                                lock (_capturedDataLock)
+                                {
+                                    _capturedScreenshots.Add(imageBytes);
+                                }
+                                contextData.AppendLine($"Screenshot captured: {Path.GetFileName(screenshotPath)} ({imageBytes.Length} bytes)");
+                                Debug.WriteLine($"Intelligence: Successfully loaded screenshot: {Path.GetFileName(screenshotPath)} ({imageBytes.Length} bytes)");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Intelligence: Error reading screenshot file {screenshotPath}: {ex.Message}");
+                        }
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("Intelligence: ScreenCaptureService is null - cannot capture screenshots");
                 }
 
                 // 2. Enhanced Application Context Capture
@@ -6728,11 +7114,14 @@ namespace CSimple.ViewModels
         {
             lock (_capturedDataLock)
             {
-                return (
-                    new List<byte[]>(_capturedScreenshots),
-                    new List<byte[]>(_capturedAudioData),
-                    new List<string>(_capturedTextData)
-                );
+                var screenshots = new List<byte[]>(_capturedScreenshots);
+                var audioData = new List<byte[]>(_capturedAudioData);
+                var textData = new List<string>(_capturedTextData);
+
+                // Log data availability for debugging
+                Debug.WriteLine($"Intelligence: Data availability - Screenshots: {screenshots.Count}, Audio: {audioData.Count}, Text: {textData.Count}");
+
+                return (screenshots, audioData, textData);
             }
         }
 
@@ -6783,8 +7172,8 @@ namespace CSimple.ViewModels
                     return;
                 }
 
-                // Convert collected data to pipeline input format with enhanced memory context
-                var systemInput = PrepareEnhancedSystemInputForPipeline(screenshots, audioData, textData);
+                // Convert collected data to pipeline input format with action-focused AI assistant context
+                var systemInput = await PrepareSystemInputForPipeline(cancellationToken);
 
                 // Execute the pipeline with the comprehensive input
                 PipelineData pipelineData = null;
@@ -6992,16 +7381,25 @@ namespace CSimple.ViewModels
                 systemObservations.Add($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
                 systemObservations.Add($"Intelligence Session: Active since {_lastDataClearTime:HH:mm:ss}");
 
-                // Add data summary
+                // Add data summary with enhanced visual context information
                 systemObservations.Add($"Visual Data: {screenshots.Count} screenshots captured");
                 systemObservations.Add($"Audio Data: {audioData.Count} audio samples captured");
                 systemObservations.Add($"Text Data: {textData.Count} input events captured");
 
-                // Add sample visual data descriptions (in a real implementation, you'd analyze the actual screenshots)
+                // Add enhanced visual context based on captured data
                 if (screenshots.Count > 0)
                 {
                     systemObservations.Add("Visual Context: Screen content captured and available for analysis");
-                    systemObservations.Add($"Latest screenshot captured: {screenshots.Count} images available for processing");
+                    systemObservations.Add($"Visual Data Quality: {screenshots.Count} screenshots provide comprehensive screen context");
+
+                    // Calculate total visual data size for context
+                    var totalVisualDataSize = screenshots.Sum(s => s.Length);
+                    systemObservations.Add($"Visual Data Size: {totalVisualDataSize / 1024:N0} KB of screen capture data");
+                    systemObservations.Add($"Screenshot Timeline: Captured over {DateTime.Now.AddSeconds(-screenshots.Count):HH:mm:ss} to {DateTime.Now:HH:mm:ss} timeframe");
+                }
+                else
+                {
+                    systemObservations.Add("Visual Context: No visual data available - pipeline execution may have limited context");
                 }
 
                 // Add audio context

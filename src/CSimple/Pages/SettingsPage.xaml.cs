@@ -1308,11 +1308,15 @@ public partial class SettingsPage : ContentPage
             int intervalMs = _settingsService.GetIntelligenceIntervalMs();
             IntelligenceIntervalEntry.Text = intervalMs.ToString();
 
+            // Load initial delay setting
+            int initialDelayMs = _settingsService.GetIntelligenceInitialDelayMs();
+            IntelligenceInitialDelayEntry.Text = initialDelayMs.ToString();
+
             // Load auto-execution setting
             bool autoExecutionEnabled = _settingsService.GetIntelligenceAutoExecutionEnabled();
             IntelligenceAutoExecutionSwitch.IsToggled = autoExecutionEnabled;
 
-            Debug.WriteLine($"Loaded intelligence settings: interval={intervalMs}ms, auto-execution={autoExecutionEnabled}");
+            Debug.WriteLine($"Loaded intelligence settings: interval={intervalMs}ms, initial-delay={initialDelayMs}ms, auto-execution={autoExecutionEnabled}");
         }
         catch (Exception ex)
         {
@@ -1342,6 +1346,31 @@ public partial class SettingsPage : ContentPage
         catch (Exception ex)
         {
             Debug.WriteLine($"Error updating intelligence interval: {ex.Message}");
+        }
+    }
+
+    private void IntelligenceInitialDelay_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(e.NewTextValue))
+                return;
+
+            if (int.TryParse(e.NewTextValue, out int delayMs))
+            {
+                _settingsService.SetIntelligenceInitialDelayMs(delayMs);
+                Debug.WriteLine($"Intelligence initial delay updated to: {delayMs}ms");
+            }
+            else
+            {
+                // Reset to default if invalid input
+                IntelligenceInitialDelayEntry.Text = "5000";
+                _settingsService.SetIntelligenceInitialDelayMs(5000);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error updating intelligence initial delay: {ex.Message}");
         }
     }
 
