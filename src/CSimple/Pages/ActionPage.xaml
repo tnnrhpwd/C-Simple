@@ -131,7 +131,9 @@
                                 <CheckBox Grid.Column="0"
                                           IsChecked="{Binding IsSelected}"
                                           VerticalOptions="Center"
-                                          WidthRequest="40" />
+                                          WidthRequest="60"
+                                          HeightRequest="60"
+                                          Margin="8,8,12,8" />
                                 <!-- Action Info -->
                                 <StackLayout Grid.Column="1">
                                     <Grid ColumnDefinitions="*,Auto">
@@ -279,7 +281,8 @@
                     Command="{Binding ChainSelectedActionsCommand}"
                     BackgroundColor="#2196F3"
                     TextColor="White"
-                    IsEnabled="{Binding HasSelectedActions}"
+                    IsVisible="{Binding HasMultipleSelectedActions}"
+                    IsEnabled="{Binding HasMultipleSelectedActions}"
                     HorizontalOptions="Center"
                     Margin="0,0,10,0" />
             <Button Grid.Column="2"
@@ -289,7 +292,8 @@
                     Clicked="OnDeleteSelectedButtonClicked"
                     BackgroundColor="#FF5252"
                     TextColor="White"
-                    IsEnabled="{Binding HasSelectedActions, Mode=OneWay}"
+                    IsVisible="{Binding HasAtLeastOneSelectedAction}"
+                    IsEnabled="{Binding HasAtLeastOneSelectedAction}"
                     HorizontalOptions="Center"
                     Margin="0,0,10,0" />
             <Button Grid.Column="3"
@@ -297,7 +301,8 @@
                     Command="{Binding AddToTrainingCommand}"
                     BackgroundColor="#4CAF50"
                     TextColor="White"
-                    IsEnabled="{Binding HasSelectedActions}"
+                    IsVisible="{Binding HasAtLeastOneSelectedAction}"
+                    IsEnabled="{Binding HasAtLeastOneSelectedAction}"
                     HorizontalOptions="End" />
         </Grid>
     </Grid>

@@ -69,7 +69,7 @@ namespace CSimple.Pages
                     {
                         GroupedActionGroups = GroupActionsByCategory();
                     }
-                    OnPropertyChanged(nameof(HasSelectedActions));
+                    UpdateSelectionProperties();
                 }
             }
         }
@@ -182,6 +182,32 @@ namespace CSimple.Pages
                 // Debug.WriteLine($"HasSelectedActions called: {hasSelected} (ActionGroups count: {ActionGroups?.Count ?? 0})");
                 return hasSelected;
             }
+        }
+
+        // Properties for conditional button visibility
+        public bool HasMultipleSelectedActions
+        {
+            get
+            {
+                int selectedCount = ActionGroups?.Count(a => a.IsSelected) ?? 0;
+                return selectedCount >= 2;
+            }
+        }
+
+        public bool HasAtLeastOneSelectedAction
+        {
+            get
+            {
+                return ActionGroups?.Any(a => a.IsSelected) == true;
+            }
+        }
+
+        // Helper method to update all selection-related properties
+        private void UpdateSelectionProperties()
+        {
+            OnPropertyChanged(nameof(HasSelectedActions));
+            OnPropertyChanged(nameof(HasMultipleSelectedActions));
+            OnPropertyChanged(nameof(HasAtLeastOneSelectedAction));
         }
 
         // Track if data is being loaded to show loading indicator
@@ -451,7 +477,7 @@ namespace CSimple.Pages
                 // Update UI indicators
                 OnPropertyChanged(nameof(ShowEmptyMessage));
                 OnPropertyChanged(nameof(HasLocalItems));
-                OnPropertyChanged(nameof(HasSelectedActions));
+                UpdateSelectionProperties();
 
                 Debug.WriteLine($"Data refresh complete. Displaying {ActionGroups.Count} action groups and {LocalItems.Count} local items");
             }
@@ -484,6 +510,15 @@ namespace CSimple.Pages
         {
             try
             {
+                // Navigate to NetPage with parameter to scroll to general purpose models
+                await Shell.Current.GoToAsync("///net?scrollToModels=true");
+                
+                Debug.WriteLine("✅ Navigated to NetPage for model training with scroll parameter");
+                
+                return;
+
+                // Original training logic commented out - can be re-enabled if needed
+                /*
                 var trainingActions = ActionGroups.Where(a => a.IsPartOfTraining).ToList();
                 if (trainingActions.Count == 0)
                 {
@@ -528,15 +563,12 @@ namespace CSimple.Pages
                 await DisplayAlert("Model Training Complete",
                     $"Model '{modelName}' ({modelType}) has been trained with {trainingActions.Count} actions.",
                     "OK");
+                */
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", $"Failed to train model: {ex.Message}", "OK");
-                Debug.WriteLine($"Error training model: {ex.Message}");
-            }
-            finally
-            {
-                IsLoading = false;
+                await DisplayAlert("Error", $"Failed to navigate to model training: {ex.Message}", "OK");
+                Debug.WriteLine($"Error navigating to model training: {ex.Message}");
             }
         }
 
@@ -573,55 +605,243 @@ namespace CSimple.Pages
                 return;
             }
 
+            // Generate intelligent chain name based on selected actions
+            string suggestedName = GenerateChainName(selectedActions);
+            
             string chainName = await DisplayPromptAsync("Create Action Chain",
                 "Enter a name for this action chain:",
                 "Create", "Cancel",
-                "My Action Chain",
-                50,
-                Microsoft.Maui.Keyboard.Text); // Fix ambiguous reference
+                suggestedName,
+                100,
+                Microsoft.Maui.Keyboard.Text);
 
             if (string.IsNullOrEmpty(chainName))
                 return;
 
-            // Create the chain (in a real app, this would store the sequence)
-            foreach (var action in selectedActions)
+            try 
             {
-                action.IsChained = true;
-                action.ChainName = chainName;
+                IsLoading = true;
+
+                // Create new chained action that combines all selected actions
+                var chainedAction = await CreateChainedActionAsync(selectedActions, chainName);
+                
+                // Add the chained action to our collections
+                var chainedDataItem = new DataItem
+                {
+                    Data = new DataObject { ActionGroupObject = chainedAction }
+                };
+                
+                DataItems.Add(chainedDataItem);
+                ActionGroups.Add(chainedAction);
+                _allActionGroups.Add(chainedAction);
+
+                // Clear selections from original actions (but keep them)
+                foreach (var action in selectedActions)
+                {
+                    action.IsSelected = false;
+                }
+
+                // Save the changes
+                await SaveDataItemsToFile();
+
+                // Refresh the UI
+                UpdateActionGroupsFromDataItems();
+
+                await DisplayAlert("Chain Created",
+                    $"Action chain '{chainName}' created successfully with {selectedActions.Count} sub-actions.\n\nOriginal actions are preserved.",
+                    "OK");
             }
-
-            // Refresh the UI
-            UpdateActionGroupsFromDataItems();
-
-            await DisplayAlert("Chain Created",
-                $"Action chain '{chainName}' created with {selectedActions.Count} actions.",
-                "OK");
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error creating action chain: {ex.Message}");
+                await DisplayAlert("Error", "Failed to create action chain. Please try again.", "OK");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
-        private void AddSelectedActionsToTraining()
+        /// <summary>
+        /// Generates an intelligent name for chained actions based on their content
+        /// </summary>
+        private string GenerateChainName(List<ActionGroup> selectedActions)
+        {
+            try
+            {
+                var actionTypes = selectedActions.Select(a => a.ActionType?.Replace(" ", "")).Distinct().ToList();
+                var categories = selectedActions.Select(a => a.Category).Distinct().ToList();
+                
+                string baseName;
+                if (actionTypes.Count == 1 && !string.IsNullOrEmpty(actionTypes.First()))
+                {
+                    baseName = $"{actionTypes.First()} Chain";
+                }
+                else if (categories.Count == 1 && !string.IsNullOrEmpty(categories.First()))
+                {
+                    baseName = $"{categories.First()} Workflow";
+                }
+                else
+                {
+                    baseName = "Action Sequence";
+                }
+
+                string timestamp = DateTime.Now.ToString("MMdd_HHmm");
+                return $"{baseName} {timestamp}";
+            }
+            catch
+            {
+                return $"Action Chain {DateTime.Now:MMdd_HHmm}";
+            }
+        }
+
+        /// <summary>
+        /// Creates a new ActionGroup that represents a chain of the selected actions
+        /// </summary>
+        private async Task<ActionGroup> CreateChainedActionAsync(List<ActionGroup> selectedActions, string chainName)
+        {
+            // Create combined action array from all selected actions
+            var combinedActions = new List<ActionItem>();
+            var combinedModifiers = new List<ActionModifier>();
+            var combinedFiles = new List<ActionFile>();
+            
+            foreach (var action in selectedActions)
+            {
+                // Combine all action items from each action
+                if (action.ActionArray != null)
+                {
+                    combinedActions.AddRange(action.ActionArray);
+                }
+                
+                if (action.ActionModifiers != null)
+                {
+                    combinedModifiers.AddRange(action.ActionModifiers);
+                }
+                
+                if (action.Files != null)
+                {
+                    combinedFiles.AddRange(action.Files);
+                }
+            }
+
+            // Determine the most common category
+            var mostCommonCategory = selectedActions
+                .GroupBy(a => a.Category)
+                .OrderByDescending(g => g.Count())
+                .First().Key;
+
+            // Create the chained action
+            var chainedAction = new ActionGroup
+            {
+                Id = Guid.NewGuid(),
+                ActionName = chainName,
+                ActionArray = combinedActions,
+                ActionModifiers = combinedModifiers,
+                Files = combinedFiles,
+                Category = mostCommonCategory,
+                ActionType = "Action Chain",
+                CreatedAt = DateTime.Now,
+                Description = $"Chain of {selectedActions.Count} actions: {string.Join(", ", selectedActions.Select(a => a.ActionName))}",
+                IsChained = true,
+                ChainName = chainName,
+                UsageCount = 0,
+                SuccessRate = selectedActions.Average(a => a.SuccessRate),
+                IsPartOfTraining = false,
+                IsSelected = false,
+                IsLocal = false
+            };
+
+            // Generate formatted action array description
+            var actionNames = selectedActions.Select(a => a.ActionName).ToList();
+            chainedAction.ActionArrayFormatted = $"Chained sequence: {string.Join(" → ", actionNames)}";
+
+            return chainedAction;
+        }
+
+        private async void AddSelectedActionsToTraining()
         {
             var selectedActions = ActionGroups.Where(a => a.IsSelected).ToList();
 
             if (selectedActions.Count == 0)
             {
-                DisplayAlert("Add to Training",
+                await DisplayAlert("Add to Training",
                     "Please select at least one action to add to training data.",
                     "OK");
                 return;
             }
 
-            foreach (var action in selectedActions)
+            try
             {
-                action.IsPartOfTraining = true;
-                action.IsSelected = false; // Deselect after adding to training
+                IsLoading = true;
+                ActionGroup chainedAction = null;
+
+                // If multiple actions selected, chain them first
+                if (selectedActions.Count > 1)
+                {
+                    string chainName = GenerateChainName(selectedActions);
+                    chainName = await DisplayPromptAsync("Create Training Chain",
+                        "Enter a name for the training action chain:",
+                        "Create", "Cancel",
+                        chainName,
+                        100,
+                        Microsoft.Maui.Keyboard.Text);
+
+                    if (string.IsNullOrEmpty(chainName))
+                    {
+                        IsLoading = false;
+                        return;
+                    }
+
+                    // Create the chained action
+                    chainedAction = await CreateChainedActionAsync(selectedActions, chainName);
+                    
+                    // Add the chained action to our collections
+                    chainedAction.IsLocal = true; // Mark as local action
+                    var chainedDataItem = new DataItem
+                    {
+                        Data = new DataObject { ActionGroupObject = chainedAction }
+                    };
+                    
+                    DataItems.Add(chainedDataItem);
+                    ActionGroups.Add(chainedAction);
+                    _allActionGroups.Add(chainedAction);
+                }
+                else
+                {
+                    // Single action selected, use it directly
+                    chainedAction = selectedActions.First();
+                }
+
+                // Mark the action (chained or single) for training
+                chainedAction.IsPartOfTraining = true;
+
+                // Clear selections from all actions
+                foreach (var action in ActionGroups)
+                {
+                    action.IsSelected = false;
+                }
+
+                // Save changes
+                await SaveDataItemsToFile();
+
+                // Refresh the UI
+                UpdateActionGroupsFromDataItems();
+
+                // Navigate to NetPage with parameter to scroll to training section and auto-select the chained action
+                string actionId = chainedAction.Id.ToString();
+                await Shell.Current.GoToAsync($"///net?scrollToTraining=true&selectAction={actionId}");
+
+                Debug.WriteLine($"✅ Navigated to NetPage with training scroll and action selection: {actionId}");
             }
-
-            // Refresh the UI
-            UpdateActionGroupsFromDataItems();
-
-            DisplayAlert("Training Data Updated",
-                $"{selectedActions.Count} actions added to training data set.",
-                "OK");
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ Error adding to training: {ex.Message}");
+                await DisplayAlert("Error", "Failed to add actions to training. Please try again.", "OK");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
         // Completely revised delete method to ensure local actions are properly deleted 
@@ -706,7 +926,7 @@ namespace CSimple.Pages
 
                     // Update UI indicators
                     OnPropertyChanged(nameof(ShowEmptyMessage));
-                    OnPropertyChanged(nameof(HasSelectedActions));
+                    UpdateSelectionProperties();
                     OnPropertyChanged(nameof(HasLocalItems));
 
                     DebugOutput($"Action '{actionName}' successfully deleted.");
@@ -857,7 +1077,7 @@ namespace CSimple.Pages
                 OnPropertyChanged(nameof(LocalItems));
                 OnPropertyChanged(nameof(ShowEmptyMessage));
                 OnPropertyChanged(nameof(HasLocalItems));
-                OnPropertyChanged(nameof(HasSelectedActions));
+                UpdateSelectionProperties();
 
                 // Provide user feedback
                 string modeMessage = _appModeService?.CurrentMode == AppMode.Online ?
@@ -1090,7 +1310,7 @@ namespace CSimple.Pages
 
             OnPropertyChanged(nameof(ActionGroups));
             OnPropertyChanged(nameof(ShowEmptyMessage));
-            OnPropertyChanged(nameof(HasSelectedActions));
+            UpdateSelectionProperties();
             SortActionGroups();
         }
 
@@ -1390,7 +1610,7 @@ namespace CSimple.Pages
 
                     // Update UI
                     OnPropertyChanged(nameof(ShowEmptyMessage));
-                    OnPropertyChanged(nameof(HasSelectedActions));
+                    UpdateSelectionProperties();
                 }
             }
             catch (Exception ex)
@@ -1514,7 +1734,7 @@ namespace CSimple.Pages
                 // Update UI indicators
                 OnPropertyChanged(nameof(ActionGroups));
                 OnPropertyChanged(nameof(ShowEmptyMessage));
-                OnPropertyChanged(nameof(HasSelectedActions));
+                UpdateSelectionProperties();
                 OnPropertyChanged(nameof(HasLocalItems));
             }
             catch (Exception ex)
@@ -1553,7 +1773,7 @@ namespace CSimple.Pages
             finally
             {
                 // Force UI update for button state
-                OnPropertyChanged(nameof(HasSelectedActions));
+                UpdateSelectionProperties();
             }
         }
 
@@ -1570,8 +1790,8 @@ namespace CSimple.Pages
                 UnsubscribeFromSelectionChanges(e.OldItems.Cast<ActionGroup>());
             }
 
-            // Always update HasSelectedActions when collection changes
-            OnPropertyChanged(nameof(HasSelectedActions));
+            // Always update selection properties when collection changes
+            UpdateSelectionProperties();
         }
 
         // Subscribe to PropertyChanged events of each ActionGroup
@@ -1597,9 +1817,9 @@ namespace CSimple.Pages
         {
             if (e.PropertyName == nameof(ActionGroup.IsSelected))
             {
-                // Selection state changed, update HasSelectedActions
-                Debug.WriteLine("Action selection changed, updating HasSelectedActions");
-                OnPropertyChanged(nameof(HasSelectedActions));
+                // Selection state changed, update selection properties
+                Debug.WriteLine("Action selection changed, updating selection properties");
+                UpdateSelectionProperties();
             }
         }
     }

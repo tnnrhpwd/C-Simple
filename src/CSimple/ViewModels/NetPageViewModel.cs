@@ -4506,6 +4506,56 @@ namespace CSimple.ViewModels
         // Actions for UI navigation (to be set by view)
         public Action ScrollToBottom { get; set; }
         public Action ScrollToTrainingSection { get; set; }
+        public Action ScrollToGeneralPurposeModels { get; set; }
+
+        /// <summary>
+        /// Navigates to general purpose models section and scrolls to it
+        /// </summary>
+        public void NavigateToGeneralPurposeModels()
+        {
+            try
+            {
+                // Ensure general mode is active to show the models
+                IsGeneralModeActive = true;
+                OnPropertyChanged(nameof(IsGeneralModeActive));
+                
+                // Scroll to the general purpose models section
+                ScrollToGeneralPurposeModels?.Invoke();
+                
+                Debug.WriteLine("✅ Navigated to general purpose models section");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ Error navigating to general purpose models: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Selects a specific action for training by its ID
+        /// </summary>
+        public void SelectTrainingAction(string actionId)
+        {
+            try
+            {
+                Debug.WriteLine($"🎯 Attempting to select training action with ID: {actionId}");
+                
+                // This method would need to interface with the training section
+                // For now, we'll log the selection and potentially notify the UI
+                // The actual implementation would depend on how training actions are managed
+                
+                // TODO: Implement actual action selection in training UI
+                // This might involve:
+                // 1. Finding the action in available training data
+                // 2. Selecting it in a list/picker control
+                // 3. Updating training configuration to use this action
+                
+                Debug.WriteLine($"✅ Training action selection requested for ID: {actionId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ Error selecting training action: {ex.Message}");
+            }
+        }
 
         private void HandleError(string context, Exception ex)
         {

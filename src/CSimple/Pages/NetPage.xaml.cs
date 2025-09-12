@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 namespace CSimple.Pages
 {
     [XamlCompilation(XamlCompilationOptions.Compile)]
-    public partial class NetPage : ContentPage
+    public partial class NetPage : ContentPage, IQueryAttributable
     {
         private readonly NetPageViewModel _viewModel;
 
@@ -78,6 +78,42 @@ namespace CSimple.Pages
                     }
                 });
             };
+
+            // Set up scroll to general purpose models functionality
+            _viewModel.ScrollToGeneralPurposeModels = () =>
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    try
+                    {
+                        // Find the general purpose models label
+                        var generalModelsLabel = FindByName("GeneralPurposeModelsLabel") as Label;
+                        var mainScrollView = FindByName("MainScrollView") as ScrollView;
+
+                        if (generalModelsLabel != null && mainScrollView != null)
+                        {
+                            // Scroll to the general purpose models section
+                            mainScrollView.ScrollToAsync(generalModelsLabel, ScrollToPosition.Start, true);
+                            Debug.WriteLine("✅ Scrolled to general purpose models section");
+                        }
+                        else if (mainScrollView != null)
+                        {
+                            // Fallback: scroll to a reasonable position where models usually are
+                            mainScrollView.ScrollToAsync(0, 800, true);
+                            Debug.WriteLine("✅ Scrolled to estimated general purpose models area");
+                        }
+                        else
+                        {
+                            Debug.WriteLine("⚠️ Could not find main scroll view for navigation");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"❌ Error scrolling to general purpose models: {ex.Message}");
+                    }
+                });
+            };
+
             // Set up chat scroll functionality
             _viewModel.ScrollToBottom = () =>
             {
@@ -595,6 +631,37 @@ namespace CSimple.Pages
             {
                 Debug.WriteLine($"Error auto-activating recent compatible text model: {ex.Message}");
             }
+        }
+
+        public void ApplyQueryAttributes(IDictionary<string, object> query)
+        {
+            if (query == null) return;
+
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                await Task.Delay(1000); // Wait for page to fully render
+
+                // Handle scroll to general purpose models
+                if (query.ContainsKey("scrollToModels") && query["scrollToModels"].ToString() == "true")
+                {
+                    _viewModel?.NavigateToGeneralPurposeModels();
+                }
+
+                // Handle scroll to training section with optional action selection
+                if (query.ContainsKey("scrollToTraining") && query["scrollToTraining"].ToString() == "true")
+                {
+                    // Scroll to training section
+                    _viewModel?.ScrollToTrainingSection?.Invoke();
+
+                    // If there's an action to select, handle that too
+                    if (query.ContainsKey("selectAction"))
+                    {
+                        string actionId = query["selectAction"].ToString();
+                        await Task.Delay(500); // Additional delay for training section to be visible
+                        _viewModel?.SelectTrainingAction(actionId);
+                    }
+                }
+            });
         }
     }
 }

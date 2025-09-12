@@ -529,7 +529,8 @@
                             </CollectionView.ItemTemplate>
                         </CollectionView>
                         <!-- Available Models Section -->
-                        <Label Text="General Purpose Models"
+                        <Label x:Name="GeneralPurposeModelsLabel"
+                               Text="General Purpose Models"
                                FontAttributes="Bold"
                                IsVisible="{Binding IsGeneralModeActive}" />
                         <CollectionView ItemsSource="{Binding AvailableModels}"
