@@ -1246,12 +1246,11 @@ namespace CSimple.Pages
             return "Unknown";
         }
 
-        private async void AnimateImageChange(ImageSource newImage)
+        private void AnimateImageChange(ImageSource newImage)
         {
-            await this.ScaleTo(0.95, 150, Easing.CubicInOut);
+            // Simply update the image source without scaling animation to prevent UI bounce
             CapturedImageSource = newImage;
             OnPropertyChanged(nameof(CapturedImageSource));
-            await this.ScaleTo(1, 150, Easing.CubicInOut);
         }
 
         private async Task SaveNewActionGroup()
