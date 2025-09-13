@@ -269,10 +269,12 @@ namespace CSimple.Services
                         return processedInput.Substring("ENSEMBLE_PROCESSED:".Length);
                     }
                 }
-                // Check if this is multimodal input (vision-language models like GUI Owl)
-                else if (model.InputType == ModelInputType.Multimodal)
+                // Check if this is a multimodal model (vision-language like GUI Owl) or has multimodal input
+                else if (model.InputType == ModelInputType.Multimodal ||
+                         IsGuiOwlModel(model) ||
+                         (IsMultimodalInput(input) && IsVisionLanguageModel(model)))
                 {
-                    Debug.WriteLine($"🎯 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] Detected multimodal input for vision-language model, processing as structured input");
+                    Debug.WriteLine($"🎯 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] Processing multimodal input for vision-language model {model.Name}");
                     processedInput = await ProcessMultimodalInputAsync(model, input, connectedInputNodes ?? new List<NodeViewModel>());
 
                     // If it was processed as structured input, return the result directly
@@ -355,8 +357,7 @@ namespace CSimple.Services
         /// </summary>
         public string DetermineResultContentType(NeuralNetworkModel model, string result)
         {
-            Console.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Analyzing model: {model?.Name}, HF ID: {model?.HuggingFaceModelId}");
-            // Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Analyzing model: {model?.Name}, HF ID: {model?.HuggingFaceModelId}");
+            Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Analyzing model: {model?.Name}, HF ID: {model?.HuggingFaceModelId}");
 
             // Check if this is an image-to-text model based on the HuggingFace model ID or name
             if (model?.HuggingFaceModelId != null)
@@ -367,7 +368,6 @@ namespace CSimple.Services
                     modelId.Contains("vit-gpt2") ||
                     modelId.Contains("clip-interrogator"))
                 {
-                    Console.WriteLine($"🖼️➡️📝 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Detected image-to-text model, output type: text");
                     Debug.WriteLine($"🖼️➡️📝 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Detected image-to-text model, output type: text");
                     return "text";
                 }
@@ -380,7 +380,6 @@ namespace CSimple.Services
                  result.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
                  result.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase)))
             {
-                Console.WriteLine($"🎨 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Result looks like image file path, output type: image");
                 Debug.WriteLine($"🎨 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Result looks like image file path, output type: image");
                 return "image";
             }
@@ -392,14 +391,12 @@ namespace CSimple.Services
                  result.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) ||
                  result.EndsWith(".aac", StringComparison.OrdinalIgnoreCase)))
             {
-                Console.WriteLine($"🔊 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Result looks like audio file path, output type: audio");
                 Debug.WriteLine($"🔊 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Result looks like audio file path, output type: audio");
                 return "audio";
             }
 
             // Default to text for any other output
-            Console.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Defaulting to text output type");
-            // Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Defaulting to text output type");
+            Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Defaulting to text output type");
             return "text";
         }
 
@@ -668,10 +665,21 @@ namespace CSimple.Services
             if (string.IsNullOrEmpty(result))
                 return null;
 
+            // Check for common error patterns first
+            var trimmed = result.Trim();
+            if (trimmed.Contains("generation error:") || trimmed.Contains("Image features and image tokens do not match"))
+            {
+                // Return a clean error message for GUI Owl token mismatches
+                if (trimmed.Contains("Image features and image tokens do not match"))
+                {
+                    return "⚠️ GUI model processing error: Image format incompatibility detected. Please check input images.";
+                }
+                return $"⚠️ Model generation error: {trimmed.Substring(trimmed.IndexOf("error:") + 6).Trim()}";
+            }
+
             try
             {
                 // Look for JSON-like structures in the result
-                var trimmed = result.Trim();
 
                 // Check if it starts and ends with JSON markers
                 if ((trimmed.StartsWith("{") && trimmed.EndsWith("}")) ||
@@ -684,29 +692,118 @@ namespace CSimple.Services
                     // Handle different JSON structures commonly output by vision-language models
                     if (root.ValueKind == System.Text.Json.JsonValueKind.Object)
                     {
-                        // Look for common response fields
-                        if (root.TryGetProperty("response", out var response))
+                        // Look for common response fields in order of preference
+                        if (root.TryGetProperty("response", out var response) && !string.IsNullOrEmpty(response.GetString()))
                         {
                             return response.GetString();
                         }
-                        else if (root.TryGetProperty("text", out var text))
+                        else if (root.TryGetProperty("analysis", out var analysis) && !string.IsNullOrEmpty(analysis.GetString()))
                         {
-                            return text.GetString();
+                            return analysis.GetString();
                         }
-                        else if (root.TryGetProperty("caption", out var caption))
-                        {
-                            return caption.GetString();
-                        }
-                        else if (root.TryGetProperty("description", out var description))
+                        else if (root.TryGetProperty("description", out var description) && !string.IsNullOrEmpty(description.GetString()))
                         {
                             return description.GetString();
                         }
-                        else if (root.TryGetProperty("answer", out var answer))
+                        else if (root.TryGetProperty("text", out var text) && !string.IsNullOrEmpty(text.GetString()))
+                        {
+                            return text.GetString();
+                        }
+                        else if (root.TryGetProperty("caption", out var caption) && !string.IsNullOrEmpty(caption.GetString()))
+                        {
+                            return caption.GetString();
+                        }
+                        else if (root.TryGetProperty("answer", out var answer) && !string.IsNullOrEmpty(answer.GetString()))
                         {
                             return answer.GetString();
                         }
+                        else if (root.TryGetProperty("content", out var content) && !string.IsNullOrEmpty(content.GetString()))
+                        {
+                            return content.GetString();
+                        }
+                        else if (root.TryGetProperty("summary", out var summary) && !string.IsNullOrEmpty(summary.GetString()))
+                        {
+                            return summary.GetString();
+                        }
                         else
                         {
+                            // Check for GUI-specific structured fields (GUI Owl 7B format)
+                            var formattedResponse = new System.Text.StringBuilder();
+                            bool hasContent = false;
+
+                            // Primary GUI analysis fields
+                            if (root.TryGetProperty("main_application", out var mainApp) && !string.IsNullOrEmpty(mainApp.GetString()))
+                            {
+                                formattedResponse.AppendLine($"Main Application: {mainApp.GetString()}");
+                                hasContent = true;
+                            }
+                            if (root.TryGetProperty("application", out var app) && !string.IsNullOrEmpty(app.GetString()))
+                            {
+                                formattedResponse.AppendLine($"Application: {app.GetString()}");
+                                hasContent = true;
+                            }
+                            if (root.TryGetProperty("ui_elements", out var uiElements) && !string.IsNullOrEmpty(uiElements.GetString()))
+                            {
+                                formattedResponse.AppendLine($"UI Elements: {uiElements.GetString()}");
+                                hasContent = true;
+                            }
+                            if (root.TryGetProperty("elements", out var elements) && !string.IsNullOrEmpty(elements.GetString()))
+                            {
+                                formattedResponse.AppendLine($"Elements: {elements.GetString()}");
+                                hasContent = true;
+                            }
+                            if (root.TryGetProperty("content_summary", out var contentSummary) && !string.IsNullOrEmpty(contentSummary.GetString()))
+                            {
+                                formattedResponse.AppendLine($"Content: {contentSummary.GetString()}");
+                                hasContent = true;
+                            }
+                            if (root.TryGetProperty("content", out var contentProp) && !string.IsNullOrEmpty(contentProp.GetString()))
+                            {
+                                formattedResponse.AppendLine($"Content: {contentProp.GetString()}");
+                                hasContent = true;
+                            }
+                            if (root.TryGetProperty("user_focus", out var userFocus) && !string.IsNullOrEmpty(userFocus.GetString()))
+                            {
+                                formattedResponse.AppendLine($"User Focus: {userFocus.GetString()}");
+                                hasContent = true;
+                            }
+                            if (root.TryGetProperty("focus", out var focus) && !string.IsNullOrEmpty(focus.GetString()))
+                            {
+                                formattedResponse.AppendLine($"Focus: {focus.GetString()}");
+                                hasContent = true;
+                            }
+                            if (root.TryGetProperty("next_actions", out var nextActions) && !string.IsNullOrEmpty(nextActions.GetString()))
+                            {
+                                formattedResponse.AppendLine($"Suggested Actions: {nextActions.GetString()}");
+                                hasContent = true;
+                            }
+                            if (root.TryGetProperty("actions", out var actions) && !string.IsNullOrEmpty(actions.GetString()))
+                            {
+                                formattedResponse.AppendLine($"Actions: {actions.GetString()}");
+                                hasContent = true;
+                            }
+                            // Additional common GUI analysis fields
+                            if (root.TryGetProperty("screen_description", out var screenDesc) && !string.IsNullOrEmpty(screenDesc.GetString()))
+                            {
+                                formattedResponse.AppendLine($"Screen: {screenDesc.GetString()}");
+                                hasContent = true;
+                            }
+                            if (root.TryGetProperty("window_title", out var windowTitle) && !string.IsNullOrEmpty(windowTitle.GetString()))
+                            {
+                                formattedResponse.AppendLine($"Window: {windowTitle.GetString()}");
+                                hasContent = true;
+                            }
+                            if (root.TryGetProperty("task", out var task) && !string.IsNullOrEmpty(task.GetString()))
+                            {
+                                formattedResponse.AppendLine($"Task: {task.GetString()}");
+                                hasContent = true;
+                            }
+
+                            if (hasContent)
+                            {
+                                return formattedResponse.ToString().Trim();
+                            }
+
                             // If no standard field found, return formatted JSON
                             return System.Text.Json.JsonSerializer.Serialize(root, new System.Text.Json.JsonSerializerOptions
                             {
@@ -722,13 +819,29 @@ namespace CSimple.Services
                         {
                             if (item.ValueKind == System.Text.Json.JsonValueKind.String)
                             {
-                                items.Add(item.GetString());
+                                var itemString = item.GetString();
+                                if (!string.IsNullOrEmpty(itemString))
+                                {
+                                    items.Add(itemString);
+                                }
                             }
                             else if (item.ValueKind == System.Text.Json.JsonValueKind.Object)
                             {
                                 if (item.TryGetProperty("text", out var itemText))
                                 {
-                                    items.Add(itemText.GetString());
+                                    var textValue = itemText.GetString();
+                                    if (!string.IsNullOrEmpty(textValue))
+                                    {
+                                        items.Add(textValue);
+                                    }
+                                }
+                                else if (item.TryGetProperty("description", out var itemDesc))
+                                {
+                                    var descValue = itemDesc.GetString();
+                                    if (!string.IsNullOrEmpty(descValue))
+                                    {
+                                        items.Add(descValue);
+                                    }
                                 }
                                 else
                                 {
@@ -736,21 +849,66 @@ namespace CSimple.Services
                                 }
                             }
                         }
-                        return string.Join("\n", items);
+                        return items.Count > 0 ? string.Join("\n", items) : null;
                     }
                 }
 
                 // Look for embedded JSON in text (common in LLM outputs)
                 var jsonStart = result.IndexOf('{');
                 var jsonEnd = result.LastIndexOf('}');
-                if (jsonStart >= 0 && jsonEnd > jsonStart)
+                if (jsonStart >= 0 && jsonEnd > jsonStart && jsonEnd - jsonStart > 10)
                 {
                     var jsonPortion = result.Substring(jsonStart, jsonEnd - jsonStart + 1);
                     return TryParseJsonOutput(jsonPortion, modelName); // Recursive call
                 }
+
+                // Look for markdown-style JSON blocks
+                var markdownJsonStart = result.IndexOf("```json");
+                if (markdownJsonStart >= 0)
+                {
+                    var jsonContentStart = markdownJsonStart + 7; // Skip "```json"
+                    var markdownJsonEnd = result.IndexOf("```", jsonContentStart);
+                    if (markdownJsonEnd > jsonContentStart)
+                    {
+                        var jsonContent = result.Substring(jsonContentStart, markdownJsonEnd - jsonContentStart).Trim();
+                        return TryParseJsonOutput(jsonContent, modelName); // Recursive call
+                    }
+                }
             }
             catch (System.Text.Json.JsonException ex)
             {
+                // Try to extract partial JSON content for incomplete structures
+                try
+                {
+                    // Look for incomplete JSON - common with GUI models that may cut off mid-response
+                    var partialText = result.Trim();
+                    if (partialText.StartsWith("{") && !partialText.EndsWith("}"))
+                    {
+                        // Try to close the JSON and parse key fields
+                        var lastCommaIndex = partialText.LastIndexOf(',');
+                        if (lastCommaIndex > 0)
+                        {
+                            var partialJson = partialText.Substring(0, lastCommaIndex) + "}";
+                            using var partialDoc = System.Text.Json.JsonDocument.Parse(partialJson);
+                            var partialRoot = partialDoc.RootElement;
+
+                            // Extract any available content from partial JSON
+                            if (partialRoot.TryGetProperty("description", out var desc) && !string.IsNullOrEmpty(desc.GetString()))
+                            {
+                                return $"[Partial Response] {desc.GetString()}";
+                            }
+                            if (partialRoot.TryGetProperty("main_application", out var app) && !string.IsNullOrEmpty(app.GetString()))
+                            {
+                                return $"[Partial Response] Application: {app.GetString()}";
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // If partial parsing fails, continue with original error handling
+                }
+
                 Debug.WriteLine($"📋 [{DateTime.Now:HH:mm:ss.fff}] [TryParseJsonOutput] JSON parsing failed for {modelName}: {ex.Message}");
             }
             catch (Exception ex)
@@ -1343,60 +1501,40 @@ namespace CSimple.Services
         /// </summary>
         private string GetNodeContextDescription(string filePath, List<NodeViewModel> connectedInputNodes, string mediaType)
         {
-            Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Analyzing file: {filePath} for {mediaType}");
-
-            if (connectedInputNodes == null || connectedInputNodes.Count == 0)
-            {
-                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] No connected input nodes provided");
-            }
-            else
-            {
-                Debug.WriteLine($"📋 [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Connected nodes: {string.Join(", ", connectedInputNodes.Select(n => n.Name ?? "Unnamed"))}");
-            }
-
             // Enhanced fallback - try to infer from file path first (most reliable)
             string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
-            Debug.WriteLine($"📁 [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Filename without extension: {fileName}");
 
             // Check filename patterns first for better accuracy
             if (fileName.Contains("webcamaudio") || (fileName.Contains("webcam") && fileName.Contains("audio")))
             {
-                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Webcam Audio from filename");
                 return "Webcam Audio";
             }
             else if (fileName.Contains("webcamimage") || (fileName.Contains("webcam") && (fileName.Contains("image") || fileName.Contains("jpg") || fileName.Contains("png"))))
             {
-                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Webcam Image from filename");
                 return "Webcam Image";
             }
             else if (fileName.Contains("pcaudio") || (fileName.Contains("pc") && fileName.Contains("audio")))
             {
-                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected PC Audio from filename");
                 return "PC Audio";
             }
             else if (fileName.Contains("screencapture") || fileName.Contains("screenshot") || (fileName.Contains("screen") && (fileName.Contains("capture") || fileName.Contains("display"))))
             {
-                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Screen Image from filename");
                 return "Screen Image";
             }
             else if (fileName.Contains("microphone") || fileName.Contains("mic"))
             {
-                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Microphone Audio from filename");
                 return "Microphone Audio";
             }
             else if (fileName.Contains("webcam"))
             {
-                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected generic Webcam from filename");
                 return $"Webcam {mediaType}";
             }
             else if (fileName.Contains("screen"))
             {
-                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected generic Screen from filename");
                 return $"Screen {mediaType}";
             }
             else if (fileName.Contains("pc") || fileName.Contains("system") || fileName.Contains("desktop"))
             {
-                Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected generic PC from filename");
                 return $"PC {mediaType}";
             }
 
@@ -1412,11 +1550,6 @@ namespace CSimple.Services
             if (matchingNode != null)
             {
                 nodeName = matchingNode.Name ?? "Unknown";
-                Debug.WriteLine($"🔗 [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Found matching node: {nodeName}");
-            }
-            else
-            {
-                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] No matching node found for file");
             }
 
             // If we have a matching node, use its name with enhanced patterns
@@ -1427,37 +1560,30 @@ namespace CSimple.Services
                 // Add descriptive context based on node name with enhanced specificity
                 if (lowerNodeName.Contains("webcam") && lowerNodeName.Contains("audio"))
                 {
-                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Webcam Audio from node name");
                     return "Webcam Audio";
                 }
                 else if (lowerNodeName.Contains("webcam") && (lowerNodeName.Contains("image") || lowerNodeName.Contains("video")))
                 {
-                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Webcam Image from node name");
                     return "Webcam Image";
                 }
                 else if (lowerNodeName.Contains("webcam"))
                 {
-                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected generic Webcam from node name");
                     return $"Webcam {mediaType}";
                 }
                 else if (lowerNodeName.Contains("pc") && lowerNodeName.Contains("audio"))
                 {
-                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected PC Audio from node name");
                     return "PC Audio";
                 }
                 else if (lowerNodeName.Contains("system") && lowerNodeName.Contains("audio"))
                 {
-                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected System Audio from node name");
                     return "System Audio";
                 }
                 else if (lowerNodeName.Contains("desktop") && lowerNodeName.Contains("audio"))
                 {
-                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Desktop Audio from node name");
                     return "Desktop Audio";
                 }
                 else if (lowerNodeName.Contains("screen") && lowerNodeName.Contains("audio"))
                 {
-                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Detected Screen Audio from node name");
                     return "Screen Audio";
                 }
                 else if (lowerNodeName.Contains("screen") || lowerNodeName.Contains("screenshot"))
@@ -1647,6 +1773,24 @@ namespace CSimple.Services
         }
 
         /// <summary>
+        /// Detects if input contains mixed media (images, audio, text) that needs multimodal processing
+        /// </summary>
+        private bool IsMultimodalInput(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return false;
+
+            // Count different media types in the input
+            bool hasImages = input.Contains(".jpg") || input.Contains(".png") || input.Contains(".jpeg") || input.Contains(".bmp");
+            bool hasAudio = input.Contains(".wav") || input.Contains(".mp3") || input.Contains(".m4a") || input.Contains(".flac");
+            bool hasText = input.Contains("EventType") || input.Contains("Coordinates") || input.Contains("Mouse") || input.Contains("Keyboard");
+            bool hasMultiplePaths = input.Count(c => c == ',') >= 2; // Multiple comma-separated items
+
+            // Consider it multimodal if it has multiple media types or multiple file paths
+            return (hasImages && hasAudio) || (hasImages && hasText) || (hasAudio && hasText) ||
+                   (hasMultiplePaths && (hasImages || hasAudio));
+        }
+
+        /// <summary>
         /// Processes multimodal input for vision-language models like GUI Owl
         /// </summary>
         private async Task<string> ProcessMultimodalInputAsync(NeuralNetworkModel model, string input, List<NodeViewModel> connectedInputNodes)
@@ -1658,6 +1802,7 @@ namespace CSimple.Services
             }
 
             Debug.WriteLine($"🔀 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Processing multimodal input for vision-language model: {model.Name}");
+            Debug.WriteLine($"📋 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Input length: {input.Length}, first 200 chars: {input.Substring(0, Math.Min(200, input.Length))}...");
 
             try
             {
@@ -1665,6 +1810,7 @@ namespace CSimple.Services
                 var imagePaths = new List<string>();
                 var textInputs = new List<string>();
                 var audioPaths = new List<string>();
+                var audioTranscriptions = new List<string>();
                 var miscInputs = new List<string>();
 
                 // Split input by commas and categorize each component
@@ -1675,16 +1821,48 @@ namespace CSimple.Services
                     if (IsValidImagePath(component))
                     {
                         imagePaths.Add(component);
+                        Debug.WriteLine($"🖼️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Found image: {Path.GetFileName(component)}");
                     }
                     else if (IsValidAudioPath(component))
                     {
                         audioPaths.Add(component);
+                        Debug.WriteLine($"🎵 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Found audio: {Path.GetFileName(component)}");
                     }
                     else if (component.Contains("EventType") || component.Contains("Coordinates") ||
                              component.Contains("Mouse") || component.Contains("Keyboard"))
                     {
-                        // Parse interaction data
-                        textInputs.Add($"User Interaction: {component}");
+                        // Parse interaction data more clearly
+                        var interactionText = component.Replace("Mouse Text (Input):", "").Replace("Keyboard Text (Input):", "").Trim();
+                        if (interactionText.Contains("EventType"))
+                        {
+                            // Extract key information from interaction
+                            if (interactionText.Contains("LeftButtonDown"))
+                            {
+                                textInputs.Add("User Action: Left mouse click detected");
+                            }
+                            else if (interactionText.Contains("RightButtonDown"))
+                            {
+                                textInputs.Add("User Action: Right mouse click detected");
+                            }
+                            else if (interactionText.Contains("Coordinates"))
+                            {
+                                textInputs.Add("User Action: Mouse interaction detected");
+                            }
+                        }
+                        else
+                        {
+                            textInputs.Add($"User Interaction: {interactionText}");
+                        }
+                    }
+                    else if (component.Contains("PC Audio:") || component.Contains("Webcam Audio:"))
+                    {
+                        // Extract audio transcriptions
+                        var transcription = component.Substring(component.IndexOf(":") + 1).Trim();
+                        if (!string.IsNullOrEmpty(transcription) && transcription.Length > 3)
+                        {
+                            audioTranscriptions.Add(transcription);
+                            Debug.WriteLine($"🎤 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Found audio transcription: {transcription}");
+                        }
                     }
                     else if (component.Length > 10 && !component.Contains("\\") && !component.Contains("/"))
                     {
@@ -1697,24 +1875,36 @@ namespace CSimple.Services
                     }
                 }
 
-                Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Parsed input: {imagePaths.Count} images, {audioPaths.Count} audio, {textInputs.Count} text, {miscInputs.Count} misc");
+                Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Parsed input: {imagePaths.Count} images, {audioPaths.Count} audio files, {audioTranscriptions.Count} transcriptions, {textInputs.Count} text, {miscInputs.Count} misc");
 
-                // For vision-language models, prioritize the most recent/relevant image
+                // Select the most relevant image for analysis (prefer screen capture over webcam)
                 string primaryImagePath = null;
                 if (imagePaths.Count > 0)
                 {
-                    // Use the first image as primary (could be enhanced with timestamp-based selection)
-                    primaryImagePath = imagePaths[0];
+                    // Prioritize screen captures for GUI analysis
+                    var screenImage = imagePaths.FirstOrDefault(img => img.Contains("ScreenCapture") || img.Contains("Screenshot"));
+                    primaryImagePath = screenImage ?? imagePaths[0];
                     Debug.WriteLine($"📸 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Selected primary image: {Path.GetFileName(primaryImagePath)}");
                 }
 
-                // Build structured prompt for vision-language model
+                // Build enhanced structured prompt for GUI analysis
                 var promptBuilder = new System.Text.StringBuilder();
 
-                // Add context about the current screen/interaction state
+                // Add audio context if available
+                if (audioTranscriptions.Count > 0)
+                {
+                    promptBuilder.AppendLine("Audio Context:");
+                    foreach (var transcription in audioTranscriptions)
+                    {
+                        promptBuilder.AppendLine($"- \"{transcription}\"");
+                    }
+                    promptBuilder.AppendLine();
+                }
+
+                // Add interaction context
                 if (textInputs.Count > 0)
                 {
-                    promptBuilder.AppendLine("Current Context:");
+                    promptBuilder.AppendLine("User Interactions:");
                     foreach (var textInput in textInputs)
                     {
                         promptBuilder.AppendLine($"- {textInput}");
@@ -1722,19 +1912,26 @@ namespace CSimple.Services
                     promptBuilder.AppendLine();
                 }
 
-                // Add image analysis request
+                // Add specific GUI analysis instructions
                 if (!string.IsNullOrEmpty(primaryImagePath))
                 {
-                    promptBuilder.AppendLine("Please analyze the provided screen image and describe what you see. Focus on:");
-                    promptBuilder.AppendLine("- Main application or window visible");
-                    promptBuilder.AppendLine("- Key UI elements and their states");
-                    promptBuilder.AppendLine("- Any text or content that appears important");
-                    promptBuilder.AppendLine("- Current user activity or focus area");
+                    promptBuilder.AppendLine("Analyze the screen image and provide a structured response about:");
+                    promptBuilder.AppendLine("1. MAIN_APPLICATION: What application or window is currently active?");
+                    promptBuilder.AppendLine("2. UI_ELEMENTS: What key buttons, menus, or interface elements are visible?");
+                    promptBuilder.AppendLine("3. CONTENT_SUMMARY: What text or content is displayed on screen?");
+                    promptBuilder.AppendLine("4. USER_FOCUS: Where might the user's attention be directed?");
+                    promptBuilder.AppendLine("5. NEXT_ACTIONS: What actions could the user take next?");
+                    promptBuilder.AppendLine();
+                    promptBuilder.AppendLine("Provide concise, actionable insights about the current GUI state.");
+                }
+                else
+                {
+                    promptBuilder.AppendLine("No visual input available. Analyze the audio and interaction context to understand the current user session.");
                 }
 
                 var structuredPrompt = promptBuilder.ToString().Trim();
 
-                Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Built structured prompt: {structuredPrompt.Substring(0, Math.Min(100, structuredPrompt.Length))}...");
+                Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Built structured prompt ({structuredPrompt.Length} chars)");
 
                 // Execute the model with the primary image and structured prompt
                 var netPageViewModel = GetNetPageViewModel();
@@ -1747,32 +1944,78 @@ namespace CSimple.Services
                 string result;
                 if (!string.IsNullOrEmpty(primaryImagePath))
                 {
-                    // For vision-language models, combine image path with the structured prompt
-                    var combinedInput = $"{primaryImagePath}\n\nPrompt: {structuredPrompt}";
+                    // For vision-language models, use the primary image with structured prompt
+                    // The Python script expects: image_path + optional text prompt
+                    var combinedInput = $"{primaryImagePath}\n\n{structuredPrompt}";
+                    Debug.WriteLine($"🚀 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Executing {model.HuggingFaceModelId} with image: {Path.GetFileName(primaryImagePath)}");
                     result = await netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, combinedInput);
                 }
                 else
                 {
-                    // Text-only fallback
+                    // Text-only fallback (shouldn't happen for GUI Owl but handle gracefully)
                     result = await netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, structuredPrompt);
                 }
 
                 if (!string.IsNullOrEmpty(result))
                 {
                     Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Model execution successful, result length: {result.Length}");
+                    Debug.WriteLine($"📄 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Result preview: {result.Substring(0, Math.Min(150, result.Length))}...");
+
+                    // Try to parse JSON output first
+                    var jsonResult = TryParseJsonOutput(result, model.Name);
+                    if (!string.IsNullOrEmpty(jsonResult))
+                    {
+                        Debug.WriteLine($"📋 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Successfully parsed JSON output");
+                        return $"MULTIMODAL_PROCESSED:{jsonResult}";
+                    }
+
                     return $"MULTIMODAL_PROCESSED:{result}";
                 }
                 else
                 {
                     Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Model returned empty result");
-                    return "Vision-language model processing failed - no output generated";
+                    return "Vision-language model processing completed but returned no output";
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Error processing multimodal input: {ex.Message}");
-                return $"Vision-language model encountered error: {ex.Message}";
+                return $"Vision-language model encountered generation error: {ex.Message}";
             }
+        }
+
+        /// <summary>
+        /// Checks if the model is GUI Owl specifically
+        /// </summary>
+        private bool IsGuiOwlModel(NeuralNetworkModel model)
+        {
+            if (model == null) return false;
+
+            var modelName = (model.Name ?? "").ToLowerInvariant();
+            var modelId = (model.HuggingFaceModelId ?? "").ToLowerInvariant();
+
+            return modelName.Contains("gui owl") || modelName.Contains("gui-owl") ||
+                   modelId.Contains("gui-owl") || modelId.Contains("mplug/gui-owl");
+        }
+
+        /// <summary>
+        /// Checks if the model is a vision-language model that can process multimodal input
+        /// </summary>
+        private bool IsVisionLanguageModel(NeuralNetworkModel model)
+        {
+            if (model == null) return false;
+
+            var modelName = (model.Name ?? "").ToLowerInvariant();
+            var modelId = (model.HuggingFaceModelId ?? "").ToLowerInvariant();
+
+            // Check for common vision-language model patterns
+            return modelName.Contains("gui") || modelName.Contains("visual") || modelName.Contains("vision") ||
+                   modelName.Contains("llava") || modelName.Contains("blip") || modelName.Contains("clip") ||
+                   modelId.Contains("gui-owl") || modelId.Contains("llava") || modelId.Contains("blip") ||
+                   modelId.Contains("visual") || modelId.Contains("vision") ||
+                   // Exclude text-only models explicitly
+                   !(modelName.Contains("qwen") && !modelName.Contains("vl")) &&
+                   !(modelName.Contains("gpt") && !modelName.Contains("vision"));
         }
     }
 }
