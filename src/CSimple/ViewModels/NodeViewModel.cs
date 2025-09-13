@@ -501,8 +501,8 @@ namespace CSimple.ViewModels
                     }
                     else
                     {
-                        // Fallback to original logic
-                        audioSegmentPath = GetAudioSegment(DateTime.MinValue, DateTime.MinValue); // Simplified for now
+                        // Fallback: use current time to find the most recent audio files
+                        audioSegmentPath = FindClosestAudioFile(DateTime.Now);
                     }
 
                     if (!string.IsNullOrEmpty(audioSegmentPath))
@@ -805,7 +805,28 @@ namespace CSimple.ViewModels
 
             if (startTime == DateTime.MinValue || endTime == DateTime.MinValue)
             {
-                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] Invalid start or end time.");
+                // Handle the case where specific time ranges aren't provided
+                // Just find the most recent audio file for this node type
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] No specific time range provided, finding most recent audio file.");
+
+                // Use FindClosestAudioFile with current time to get the most recent file
+                string mostRecentFile = FindClosestAudioFile(DateTime.Now);
+                if (!string.IsNullOrEmpty(mostRecentFile))
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] Found most recent audio file: {mostRecentFile}");
+                    return mostRecentFile;
+                }
+
+                // If no specific file found, try SimulateAudioSegmentExtraction with a fallback directory
+                string fallbackDirectoryPath = GetFallbackAudioDirectoryPath();
+                if (!string.IsNullOrEmpty(fallbackDirectoryPath))
+                {
+                    // Create a dummy path for the directory so SimulateAudioSegmentExtraction can find files
+                    string dummyPath = Path.Combine(fallbackDirectoryPath, "dummy.wav");
+                    return SimulateAudioSegmentExtraction(dummyPath, startTime, endTime);
+                }
+
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.GetAudioSegment] No audio files found for node type.");
                 return null;
             }
 
@@ -841,7 +862,7 @@ namespace CSimple.ViewModels
 
             if (!Directory.Exists(directoryPath))
             {
-                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Directory does not exist: {directoryPath}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Directory does not exist: {directoryPath}");
                 return null;
             }
 
@@ -850,7 +871,7 @@ namespace CSimple.ViewModels
                 ? targetTime.ToLocalTime()
                 : targetTime;
 
-            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Target timestamp: {targetTime:yyyy-MM-dd HH:mm:ss.fff} -> {localTargetTime:yyyy-MM-dd HH:mm:ss.fff} Local");
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Target timestamp: {targetTime:yyyy-MM-dd HH:mm:ss.fff} -> {localTargetTime:yyyy-MM-dd HH:mm:ss.fff} Local");
 
             string closestFile = null;
             TimeSpan closestDifference = TimeSpan.MaxValue;
@@ -858,7 +879,10 @@ namespace CSimple.ViewModels
             try
             {
                 string[] files = Directory.GetFiles(directoryPath, filePattern);
-                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Found {files.Length} files in {directoryPath}.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Found {files.Length} files in {directoryPath}.");
+
+                // Create list with parsed timestamps for better analysis
+                var filesWithTimestamps = new List<(string FilePath, DateTime FileTime, string FileName)>();
 
                 foreach (string filePath in files)
                 {
@@ -876,44 +900,99 @@ namespace CSimple.ViewModels
                     }
                     else
                     {
-                        // Generic extraction - find last underscore
-                        int lastUnderscore = fileName.LastIndexOf('_');
-                        if (lastUnderscore > 0)
+                        // Generic extraction - find timestamp pattern
+                        var parts = fileName.Split('_');
+                        if (parts.Length >= 3)
                         {
-                            timestampPart = fileName.Substring(lastUnderscore + 1);
+                            timestampPart = $"{parts[1]}_{parts[2]}";
                         }
                     }
 
                     if (DateTime.TryParseExact(timestampPart, "yyyyMMdd_HHmmss", null, System.Globalization.DateTimeStyles.None, out DateTime fileTime))
                     {
-                        // Use local target time for comparison
-                        TimeSpan difference = TimeSpan.FromTicks(Math.Abs(fileTime.Ticks - localTargetTime.Ticks));
+                        filesWithTimestamps.Add((filePath, fileTime, fileName));
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [FindClosestAudioFile] Could not parse timestamp from: {fileName} (timestamp part: {timestampPart})");
+                    }
+                }
+
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [FindClosestAudioFile] Successfully parsed {filesWithTimestamps.Count} file timestamps");
+
+                // If we have files from today (same date as target), prioritize those
+                var todayFiles = filesWithTimestamps.Where(f => f.FileTime.Date == localTargetTime.Date).ToList();
+
+                if (todayFiles.Any())
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [FindClosestAudioFile] Found {todayFiles.Count} files from target date {localTargetTime.Date:yyyy-MM-dd}");
+
+                    foreach (var todayFile in todayFiles.OrderBy(f => Math.Abs((f.FileTime - localTargetTime).Ticks)))
+                    {
+                        TimeSpan difference = TimeSpan.FromTicks(Math.Abs(todayFile.FileTime.Ticks - localTargetTime.Ticks));
 
                         if (difference < closestDifference)
                         {
                             closestDifference = difference;
-                            closestFile = filePath;
-                            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] File {fileName} closer: FileTime={fileTime:yyyy-MM-dd HH:mm:ss.fff}, LocalTargetTime={localTargetTime:yyyy-MM-dd HH:mm:ss.fff}, Difference={difference.TotalMilliseconds}ms");
+                            closestFile = todayFile.FilePath;
+                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [FindClosestAudioFile] Today's file {todayFile.FileName} is closest: FileTime={todayFile.FileTime:yyyy-MM-dd HH:mm:ss.fff}, Difference={difference.TotalMilliseconds}ms");
+                        }
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [FindClosestAudioFile] No files found from target date {localTargetTime.Date:yyyy-MM-dd}, searching all files");
+
+                    // Search all files for the closest timestamp
+                    foreach (var file in filesWithTimestamps)
+                    {
+                        TimeSpan difference = TimeSpan.FromTicks(Math.Abs(file.FileTime.Ticks - localTargetTime.Ticks));
+
+                        if (difference < closestDifference)
+                        {
+                            closestDifference = difference;
+                            closestFile = file.FilePath;
+                            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [FindClosestAudioFile] File {file.FileName} is closest: FileTime={file.FileTime:yyyy-MM-dd HH:mm:ss.fff}, Difference={difference.TotalMilliseconds}ms");
                         }
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Error finding closest audio file: {ex.Message}");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Error finding closest audio file: {ex.Message}");
                 return null;
             }
 
             if (closestFile != null)
             {
-                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Found closest audio file: {closestFile}, difference: {closestDifference.TotalMilliseconds}ms");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] Found closest audio file: {closestFile}, difference: {closestDifference.TotalMilliseconds}ms");
             }
             else
             {
-                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] No suitable audio file found.");
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.FindClosestAudioFile] No suitable audio file found.");
             }
 
             return closestFile;
+        }
+
+        /// <summary>
+        /// Gets the fallback audio directory path based on the node's name and type
+        /// </summary>
+        private string GetFallbackAudioDirectoryPath()
+        {
+            if (this.Name.Contains("Webcam") && this.Name.Contains("Audio"))
+            {
+                return @"C:\Users\tanne\Documents\CSimple\Resources\WebcamAudio\";
+            }
+            else if (this.Name.Contains("PC") && this.Name.Contains("Audio"))
+            {
+                return @"C:\Users\tanne\Documents\CSimple\Resources\PCAudio\";
+            }
+            else
+            {
+                // Default fallback to PCAudio for generic audio requests
+                return @"C:\Users\tanne\Documents\CSimple\Resources\PCAudio\";
+            }
         }
 
         /// <summary>
@@ -1456,16 +1535,85 @@ namespace CSimple.ViewModels
         // Simulate audio segment extraction
         private string SimulateAudioSegmentExtraction(string fullPath, DateTime startTime, DateTime endTime)
         {
-            // This is a placeholder; replace with actual audio processing code
-            // For example, use NAudio library to read and write audio segments
-            // Ensure NAudio is installed: Install-Package NAudio
+            // Instead of creating fake segment files, return the actual existing audio file
+            // The Python script will handle the actual audio processing
 
-            // Simulate creating a segment file path
-            string segmentFileName = $"Segment_{startTime.Ticks}_{endTime.Ticks}.wav";
-            string segmentPath = Path.Combine(Path.GetDirectoryName(fullPath), segmentFileName);
+            // If the fullPath exists and is valid, return it directly
+            if (!string.IsNullOrEmpty(fullPath) && File.Exists(fullPath))
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SimulateAudioSegmentExtraction] Returning existing audio file: {fullPath}");
+                return fullPath;
+            }
 
-            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SimulateAudioSegmentExtraction] Simulated audio segment extraction from {fullPath} to {segmentPath} (Start: {startTime}, End: {endTime})");
-            return segmentPath;
+            // If fullPath doesn't exist, try to find the most recent audio file based on current date
+            string directoryPath = GetFallbackAudioDirectoryPath();
+
+            if (!Directory.Exists(directoryPath))
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SimulateAudioSegmentExtraction] Directory doesn't exist: {directoryPath}");
+                return null;
+            }
+
+            // Find the most recent .wav file that's not a segment file, prioritizing today's date
+            var today = DateTime.Now.Date;
+            var audioFiles = Directory.GetFiles(directoryPath, "*.wav")
+                .Where(f => !Path.GetFileName(f).StartsWith("Segment_", StringComparison.OrdinalIgnoreCase))
+                .Select(f => new { FilePath = f, FileName = Path.GetFileNameWithoutExtension(f), LastWrite = File.GetLastWriteTime(f) })
+                .ToList();
+
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [SimulateAudioSegmentExtraction] Found {audioFiles.Count} audio files in {directoryPath}");
+
+            // First, try to find files from today based on filename timestamps
+            var todayFiles = audioFiles.Where(f => TryExtractDateFromFilename(f.FileName, out DateTime fileDate) && fileDate.Date == today).ToList();
+
+            if (todayFiles.Any())
+            {
+                // Get the most recent file from today
+                var mostRecentTodayFile = todayFiles.OrderByDescending(f => TryExtractDateFromFilename(f.FileName, out DateTime fileDate) ? fileDate : DateTime.MinValue).First();
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SimulateAudioSegmentExtraction] Found today's audio file: {mostRecentTodayFile.FilePath}");
+                return mostRecentTodayFile.FilePath;
+            }
+
+            // If no files from today, get the most recent file by last write time
+            if (audioFiles.Any())
+            {
+                var mostRecentFile = audioFiles.OrderByDescending(f => f.LastWrite).First();
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SimulateAudioSegmentExtraction] Found most recent audio file: {mostRecentFile.FilePath} (LastWrite: {mostRecentFile.LastWrite})");
+                return mostRecentFile.FilePath;
+            }
+
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [NodeViewModel.SimulateAudioSegmentExtraction] No audio files found in directory: {directoryPath}");
+            return null;
+        }
+
+        /// <summary>
+        /// Tries to extract a DateTime from an audio filename pattern like PCAudio_20250913_120605.wav
+        /// </summary>
+        private bool TryExtractDateFromFilename(string filename, out DateTime extractedDate)
+        {
+            extractedDate = DateTime.MinValue;
+
+            try
+            {
+                // Handle patterns like PCAudio_20250913_120605 or WebcamAudio_20250913_120605
+                var parts = filename.Split('_');
+                if (parts.Length >= 3)
+                {
+                    string datePart = parts[1]; // 20250913
+                    string timePart = parts[2]; // 120605
+
+                    if (datePart.Length == 8 && timePart.Length >= 6)
+                    {
+                        return DateTime.TryParseExact($"{datePart}_{timePart.Substring(0, 6)}", "yyyyMMdd_HHmmss", null, System.Globalization.DateTimeStyles.None, out extractedDate);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [TryExtractDateFromFilename] Error parsing filename {filename}: {ex.Message}");
+            }
+
+            return false;
         }
 
         /// <summary>

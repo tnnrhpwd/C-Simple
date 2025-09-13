@@ -3573,7 +3573,8 @@ namespace CSimple.ViewModels
 
                         // Get step content for current step
                         int stepForNodeContent = CurrentActionStep + 1; // Convert to 1-based index
-                        var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
+                        // Use current time for finding the most recent audio files during model execution
+                        var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent, DateTime.Now);
 
                         if (contentType?.ToLowerInvariant() == "image" && !string.IsNullOrEmpty(contentValue))
                         {
@@ -3647,7 +3648,8 @@ namespace CSimple.ViewModels
 
                         // Get step content for current step
                         int stepForNodeContent = CurrentActionStep + 1; // Convert to 1-based index
-                        var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent);
+                        // Use current time for finding the most recent audio files during model execution
+                        var (contentType, contentValue) = inputNode.GetStepContent(stepForNodeContent, DateTime.Now);
 
                         Debug.WriteLine($"� [ExecuteGenerateAsync] Input node '{inputNode.Name}' content: Type='{contentType}', Value='{contentValue?.Substring(0, Math.Min(contentValue?.Length ?? 0, 100))}...'");
 

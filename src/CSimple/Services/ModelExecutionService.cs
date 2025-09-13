@@ -108,7 +108,12 @@ namespace CSimple.Services
                     argumentsBuilder.Append(" --offline_mode");
                 }
 
-                string arguments = argumentsBuilder.ToString();                // Optimized process setup
+                string arguments = argumentsBuilder.ToString();
+
+                // Log the exact command for debugging audio issues
+                Debug.WriteLine($"🐍 [{DateTime.Now:HH:mm:ss.fff}] [ModelExecutionService] Executing Python: {pythonExecutablePath} {arguments}");
+
+                // Optimized process setup
                 var processStartInfo = new ProcessStartInfo
                 {
                     FileName = pythonExecutablePath,
@@ -160,6 +165,15 @@ namespace CSimple.Services
                 string output = stdoutOutput.ToString();
                 string error = stderrOutput.ToString();
                 int exitCode = process.ExitCode;
+
+                // Log outputs for debugging audio issues
+                Debug.WriteLine($"🐍 [{DateTime.Now:HH:mm:ss.fff}] [ModelExecutionService] Python exit code: {exitCode}");
+                Debug.WriteLine($"🐍 [{DateTime.Now:HH:mm:ss.fff}] [ModelExecutionService] Python stdout length: {output?.Length ?? 0}");
+                Debug.WriteLine($"🐍 [{DateTime.Now:HH:mm:ss.fff}] [ModelExecutionService] Python stderr length: {error?.Length ?? 0}");
+                if (!string.IsNullOrEmpty(error))
+                {
+                    Debug.WriteLine($"🐍 [{DateTime.Now:HH:mm:ss.fff}] [ModelExecutionService] Python stderr: {error.Substring(0, Math.Min(500, error.Length))}");
+                }
 
                 if (exitCode != 0)
                 {

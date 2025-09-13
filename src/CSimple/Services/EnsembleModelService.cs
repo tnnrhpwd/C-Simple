@@ -281,6 +281,22 @@ namespace CSimple.Services
                     {
                         return processedInput.Substring("ENSEMBLE_PROCESSED:".Length);
                     }
+                    else
+                    {
+                        // Fallback: If async processing didn't work, try processing individual files
+                        Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] Async processing failed, falling back to first audio file");
+                        var audioPaths = ParseCombinedAudioInput(input);
+                        if (audioPaths.Count > 0 && IsValidAudioPath(audioPaths[0]))
+                        {
+                            processedInput = audioPaths[0];
+                            Debug.WriteLine($"🎧 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] Using first audio file: {processedInput}");
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] No valid audio paths found, using original input");
+                            processedInput = input;
+                        }
+                    }
                 }
                 else
                 {
@@ -465,6 +481,13 @@ namespace CSimple.Services
             if (result.StartsWith("ENSEMBLE_PROCESSED:"))
             {
                 result = result.Substring("ENSEMBLE_PROCESSED:".Length);
+            }
+
+            // Check if this is a properly formatted ensemble result (should be preserved as-is)
+            if (IsProperlyFormattedEnsembleResult(result))
+            {
+                Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Preserving properly formatted ensemble result");
+                return result.Trim();
             }
 
             // Much more aggressive cleaning - this result appears to be the concatenated ensemble input, not the actual model output
@@ -1106,9 +1129,20 @@ namespace CSimple.Services
                         }
 
                         // Execute model on individual audio
+                        Debug.WriteLine($"🎬 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Executing model {model.HuggingFaceModelId} with single audio path: {audioPath}");
                         var individualResult = await netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, audioPath);
+                        Debug.WriteLine($"🎬 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Model execution result length: {individualResult?.Length ?? 0}, first 100 chars: {individualResult?.Substring(0, Math.Min(100, individualResult?.Length ?? 0)) ?? "null"}");
+
                         if (!string.IsNullOrEmpty(individualResult))
                         {
+                            // Check for garbage output patterns that indicate model execution issues
+                            if (IsGarbageOutput(individualResult))
+                            {
+                                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Detected garbage output from audio {i + 1}, using fallback message");
+                                audioResults.Add($"{nodeContext}: Audio processed (no speech detected or transcription error)");
+                                continue;
+                            }
+
                             // Clean up the result - remove duplicate filename references and format properly
                             var cleanResult = individualResult;
 
@@ -1145,6 +1179,7 @@ namespace CSimple.Services
                     // Combine all individual results without extra wrapper text
                     var combinedResult = string.Join("\n\n", audioResults);
                     Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Successfully processed {audioResults.Count} audio files, combined result length: {combinedResult.Length}");
+                    Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [ProcessCombinedAudioInput] Combined result content: {combinedResult}");
 
                     // Return a special marker to indicate this is already processed
                     return $"ENSEMBLE_PROCESSED:{combinedResult}";
@@ -1337,9 +1372,84 @@ namespace CSimple.Services
             // Final fallback to generic description
             Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [GetNodeContextDescription] Using fallback: Source {mediaType}");
             return $"Source {mediaType}";
-        }        /// <summary>
-                 /// Detects if input looks like combined audio input
-                 /// </summary>
+        }
+
+        /// <summary>
+        /// Detects if result is properly formatted ensemble output that should be preserved
+        /// </summary>
+        private bool IsProperlyFormattedEnsembleResult(string result)
+        {
+            if (string.IsNullOrEmpty(result)) return false;
+
+            // Check for patterns that indicate this is a properly formatted ensemble result
+            // These should contain source labels followed by meaningful content
+            var lines = result.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+
+            // Should have multiple lines for ensemble results
+            if (lines.Length < 2) return false;
+
+            int validFormatLines = 0;
+            foreach (var line in lines)
+            {
+                var trimmedLine = line.Trim();
+                if (string.IsNullOrEmpty(trimmedLine)) continue;
+
+                // Check if line follows the pattern "Source Type: meaningful content"
+                if ((trimmedLine.StartsWith("PC Audio:") ||
+                     trimmedLine.StartsWith("Webcam Audio:") ||
+                     trimmedLine.StartsWith("Screen Image:") ||
+                     trimmedLine.StartsWith("Webcam Image:") ||
+                     trimmedLine.StartsWith("Source ")) &&
+                    trimmedLine.Contains(": ") &&
+                    trimmedLine.Length > 15) // Must have meaningful content after the colon
+                {
+                    validFormatLines++;
+                }
+            }
+
+            // Consider it properly formatted if at least 50% of lines follow the expected pattern
+            return validFormatLines >= lines.Length * 0.5 && validFormatLines >= 1;
+        }
+
+        /// <summary>
+        /// Detects if output looks like garbage/corrupted model output
+        /// </summary>
+        private bool IsGarbageOutput(string output)
+        {
+            if (string.IsNullOrEmpty(output)) return false;
+
+            // Check for patterns that indicate garbage output
+            var trimmedOutput = output.Trim();
+
+            // Pattern 1: Repeated numbers/dashes like "4-5-5-5-5-5..."
+            if (System.Text.RegularExpressions.Regex.IsMatch(trimmedOutput, @"^[\d\-]+$") && trimmedOutput.Length > 20)
+            {
+                return true;
+            }
+
+            // Pattern 2: Very repetitive character patterns
+            if (trimmedOutput.Length > 10)
+            {
+                var firstChar = trimmedOutput[0];
+                var sameCharCount = trimmedOutput.TakeWhile(c => c == firstChar || c == '-').Count();
+                if (sameCharCount > trimmedOutput.Length * 0.8) // 80% same character
+                {
+                    return true;
+                }
+            }
+
+            // Pattern 3: Extremely short output that doesn't make sense for audio transcription
+            if (trimmedOutput.Length < 5 && !trimmedOutput.ToLower().Contains("no") && !trimmedOutput.ToLower().Contains("error"))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Detects if input looks like combined audio input
+        /// </summary>
         private bool DetectCombinedAudioInput(string input)
         {
             if (string.IsNullOrEmpty(input)) return false;

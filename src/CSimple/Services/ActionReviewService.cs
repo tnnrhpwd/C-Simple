@@ -489,6 +489,18 @@ namespace CSimple.Services
                     return audioFile.Filename;
                 }
 
+                // For audio nodes specifically, try to find the most recent audio file based on the action timestamp
+                if (nodeVM.DataType == "audio" && actionItem.Timestamp is DateTime actionTimestamp)
+                {
+                    // Use the node's FindClosestAudioFile method to get the appropriate audio file
+                    string audioFilePath = nodeVM.FindClosestAudioFile(actionTimestamp);
+                    if (!string.IsNullOrEmpty(audioFilePath))
+                    {
+                        Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] Found timestamp-based audio file for {nodeVM.Name}: {audioFilePath}");
+                        return audioFilePath;
+                    }
+                }
+
                 // Debug.WriteLine($"[ActionReviewService.GetStepSpecificContent] No specific audio file found, returning action description");
                 return actionDescription;
             }
