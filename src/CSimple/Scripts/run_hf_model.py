@@ -179,6 +179,12 @@ def detect_model_type(model_id: str) -> str:
     """Detect the type of model based on the model ID."""
     model_id_lower = model_id.lower()
     
+    # Vision-Language models (multimodal) - check these first
+    if any(name in model_id_lower for name in ["gui-owl", "mplug", "owl", "llava", "instructblip", "minigpt", "blip2"]):
+        return "vision-language"
+    if "qwen" in model_id_lower and ("vl" in model_id_lower or "vision" in model_id_lower):
+        return "vision-language"
+    
     # Audio/Speech models
     if "whisper" in model_id_lower:
         return "automatic-speech-recognition"
@@ -533,6 +539,236 @@ def run_generic_tts(model_id: str, input_text: str, params: Dict[str, Any], loca
         return f"ERROR: Required library not installed: {e}. Try: pip install soundfile"
     except Exception as e:
         return f"ERROR: Generic TTS failed: {e}"
+
+
+def run_vision_language(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
+    """Run vision-language models that can process both images and text."""
+    try:
+        print(f"Processing vision-language with model: {model_id}", file=sys.stderr)
+        print(f"Raw input text received: {input_text}", file=sys.stderr)
+        
+        # Parse the multimodal input to extract images and text properly
+        image_paths = []
+        audio_paths = []
+        text_content = []
+        
+        # Split input by common delimiters first
+        input_parts = []
+        if ',' in input_text:
+            input_parts = input_text.split(',')
+        else:
+            input_parts = [input_text]
+        
+        print(f"Split input into {len(input_parts)} parts", file=sys.stderr)
+        
+        # Process each part to categorize as image, audio, or text
+        for i, part in enumerate(input_parts):
+            part = part.strip()
+            print(f"Processing part {i+1}: {part[:100]}...", file=sys.stderr)
+            
+            # Check if this part is an image file
+            if any(ext in part.lower() for ext in ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp']):
+                # Extract image path
+                import re
+                image_patterns = [
+                    r'([A-Z]:[^:,]+\.(jpg|jpeg|png|bmp|gif|tiff|webp))',  # Direct path match
+                    r':\s*([A-Z]:[^:,]+\.(jpg|jpeg|png|bmp|gif|tiff|webp))',  # After colon
+                ]
+                
+                for pattern in image_patterns:
+                    matches = re.findall(pattern, part, re.IGNORECASE)
+                    for match in matches:
+                        if isinstance(match, tuple):
+                            path = match[0].strip()
+                        else:
+                            path = match.strip()
+                        if path and os.path.exists(path):
+                            image_paths.append(path)
+                            print(f"Found image: {path}", file=sys.stderr)
+                            break
+            
+            # Check if this part is an audio file (should be excluded for vision-language models)
+            elif any(ext in part.lower() for ext in ['.wav', '.mp3', '.m4a', '.flac', '.ogg', '.aac']):
+                print(f"Ignoring audio file for vision-language model: {part[:50]}...", file=sys.stderr)
+                continue
+            
+            # Otherwise treat as text content
+            else:
+                # Clean up text content
+                clean_part = part.strip()
+                if clean_part and not clean_part.startswith('C:\\') and ':' in clean_part:
+                    # Extract meaningful text content
+                    if any(keyword in clean_part.lower() for keyword in ['mouse', 'keyboard', 'whisper', 'screen', 'webcam', 'audio', 'eventtype', 'action', 'coordinates']):
+                        text_content.append(clean_part)
+                        print(f"Added text content: {clean_part[:50]}...", file=sys.stderr)
+        
+        # Remove duplicates while preserving order
+        image_paths = list(dict.fromkeys(image_paths))
+        
+        # Combine text content
+        combined_text = '\n'.join(text_content) if text_content else ""
+        
+        print(f"Extracted {len(image_paths)} image(s) and text content: {combined_text[:100]}...", file=sys.stderr)
+        
+        if not image_paths:
+            return "ERROR: No valid image files found for vision-language processing"
+        
+        # Check required libraries
+        try:
+            from PIL import Image
+        except ImportError:
+            try:
+                print("Installing Pillow...", file=sys.stderr)
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "Pillow"], 
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                from PIL import Image
+            except Exception as e:
+                return f"ERROR: Failed to install/import Pillow: {e}"
+        
+        # Determine model path
+        if local_model_path and os.path.exists(local_model_path) and os.listdir(local_model_path):
+            model_path_to_use = local_model_path
+            print(f"Using valid local model path: {local_model_path}", file=sys.stderr)
+        else:
+            model_path_to_use = model_id
+            print(f"Using HuggingFace Hub model: {model_id} (local path invalid or empty)", file=sys.stderr)
+        
+        # Try different approaches for vision-language model loading
+        print("Loading vision-language model...", file=sys.stderr)
+        
+        # Approach 1: Try AutoModel (most general)
+        try:
+            from transformers import AutoModel, AutoTokenizer, AutoProcessor
+            
+            print("Attempting to load with AutoModel...", file=sys.stderr)
+            
+            # Load components
+            try:
+                processor = AutoProcessor.from_pretrained(
+                    model_path_to_use,
+                    trust_remote_code=params.get("trust_remote_code", True),
+                    local_files_only=bool(local_model_path and os.path.exists(local_model_path))
+                )
+                print("✓ Processor loaded", file=sys.stderr)
+            except Exception as e:
+                print(f"Warning: Could not load processor: {e}", file=sys.stderr)
+                processor = None
+            
+            # Load tokenizer as fallback
+            if not processor:
+                try:
+                    tokenizer = AutoTokenizer.from_pretrained(
+                        model_path_to_use,
+                        trust_remote_code=params.get("trust_remote_code", True),
+                        local_files_only=bool(local_model_path and os.path.exists(local_model_path))
+                    )
+                    print("✓ Tokenizer loaded as fallback", file=sys.stderr)
+                except Exception as e:
+                    print(f"Warning: Could not load tokenizer: {e}", file=sys.stderr)
+                    tokenizer = None
+            
+            # Load model
+            model_kwargs = {
+                "trust_remote_code": params.get("trust_remote_code", True),
+                "torch_dtype": torch.float32 if params.get("cpu_optimize", False) else torch.float16,
+                "device_map": "cpu" if params.get("cpu_optimize", False) else "auto",
+                "local_files_only": bool(local_model_path and os.path.exists(local_model_path))
+            }
+            
+            model = AutoModel.from_pretrained(model_path_to_use, **model_kwargs)
+            print("✓ Vision-language model loaded with AutoModel", file=sys.stderr)
+            
+            # Process the first image (GUI Owl typically works with single images)
+            main_image_path = image_paths[0]
+            image = Image.open(main_image_path).convert("RGB")
+            print(f"✓ Main image loaded: {image.size} pixels from {os.path.basename(main_image_path)}", file=sys.stderr)
+            
+            # Prepare the prompt for GUI interaction
+            prompt = f"Based on this screenshot and the following context, what actions should be taken?\n\nContext: {combined_text}\n\nPlease provide specific recommendations for interacting with this interface."
+            
+            # Process inputs
+            if processor:
+                inputs = processor(images=image, text=prompt, return_tensors="pt")
+            elif tokenizer:
+                # Fallback: use tokenizer only
+                inputs = tokenizer(prompt, return_tensors="pt")
+                # Note: This won't include image processing, but might work for some models
+            else:
+                return "ERROR: Could not load processor or tokenizer for vision-language model"
+            
+            # Generate response
+            with torch.no_grad():
+                # Try different generation approaches for vision-language models
+                try:
+                    # Approach 1: Standard generation
+                    if hasattr(model, 'generate'):
+                        outputs = model.generate(
+                            **inputs,
+                            max_new_tokens=params.get("max_length", 150),
+                            temperature=params.get("temperature", 0.7),
+                            do_sample=True,
+                            pad_token_id=processor.tokenizer.eos_token_id if processor and hasattr(processor, 'tokenizer') else (tokenizer.eos_token_id if tokenizer else None)
+                        )
+                        
+                        # Decode response
+                        if processor and hasattr(processor, 'decode'):
+                            response = processor.decode(outputs[0], skip_special_tokens=True)
+                        elif processor and hasattr(processor, 'tokenizer'):
+                            response = processor.tokenizer.decode(outputs[0], skip_special_tokens=True)
+                        elif tokenizer:
+                            response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+                        else:
+                            response = str(outputs[0])
+                        
+                        # Clean up response (remove the original prompt)
+                        if response.startswith(prompt):
+                            response = response[len(prompt):].strip()
+                        
+                        return response if response else "Vision-language model processed the input successfully."
+                    
+                    # Approach 2: Try forward pass if generate doesn't work
+                    elif hasattr(model, 'forward'):
+                        outputs = model(**inputs)
+                        
+                        # Extract logits and convert to text
+                        if hasattr(outputs, 'logits'):
+                            logits = outputs.logits
+                            predicted_ids = torch.argmax(logits, dim=-1)
+                            
+                            if processor and hasattr(processor, 'tokenizer'):
+                                response = processor.tokenizer.decode(predicted_ids[0], skip_special_tokens=True)
+                            elif tokenizer:
+                                response = tokenizer.decode(predicted_ids[0], skip_special_tokens=True)
+                            else:
+                                response = "Model processed input but could not decode response"
+                            
+                            return response
+                        else:
+                            return "Vision-language model processed input - forward pass completed successfully"
+                    
+                    else:
+                        return "Vision-language model loaded but does not support standard generation methods"
+                        
+                except Exception as gen_error:
+                    print(f"Generation error: {gen_error}", file=sys.stderr)
+                    return f"Vision-language model encountered generation error: {str(gen_error)}"
+            
+        except Exception as e:
+            error_msg = str(e)
+            print(f"AutoModel approach failed: {error_msg}", file=sys.stderr)
+            
+            # Check for specific error types and provide helpful messages
+            if "qwen2_5_vl" in error_msg.lower() and "automodelforvisual" in error_msg.lower():
+                return "ERROR: This GUI Owl model requires a newer version of transformers that supports Qwen2.5-VL architecture. Please update transformers: pip install transformers>=4.40.0"
+            elif "configuration" in error_msg.lower() and "unrecognized" in error_msg.lower():
+                return f"ERROR: Vision-language model architecture not supported in current transformers version. Consider updating transformers or using an alternative model."
+            else:
+                return f"ERROR: Vision-language model loading failed: {error_msg}"
+        
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Error in vision-language processing: {error_msg}", file=sys.stderr)
+        return f"ERROR: {error_msg}"
 
 
 def run_speech_recognition(model_id: str, input_text: str, params: Dict[str, Any], local_model_path: Optional[str] = None) -> str:
@@ -1266,7 +1502,9 @@ def main() -> int:
                 return 1
         
         # Direct dispatch for performance
-        if model_type == "text-generation":
+        if model_type == "vision-language":
+            result = run_vision_language(args.model_id, args.input, params, args.local_model_path)
+        elif model_type == "text-generation":
             result = run_text_generation(args.model_id, args.input, params, args.local_model_path)
         elif model_type == "automatic-speech-recognition":
             result = run_speech_recognition(args.model_id, args.input, params, args.local_model_path)

@@ -1410,14 +1410,8 @@ namespace CSimple.Services
 
                 if (resultContentType?.ToLowerInvariant() == "text" && !string.IsNullOrWhiteSpace(result))
                 {
-                    // Check for action classification (automatic TTS)
-                    if (modelNode?.Classification?.ToLowerInvariant() == "action")
-                    {
-                        shouldReadAloud = true;
-                        reason = "Action-classified model";
-                    }
-                    // Check for user-enabled autoplay toggle
-                    else if (modelNode?.ReadAloudOnCompletion == true)
+                    // Only read aloud if user explicitly enabled it - do not auto-play for action nodes
+                    if (modelNode?.ReadAloudOnCompletion == true)
                     {
                         shouldReadAloud = true;
                         reason = "User-enabled autoplay";

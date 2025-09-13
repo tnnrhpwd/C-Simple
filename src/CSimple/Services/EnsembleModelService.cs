@@ -269,6 +269,18 @@ namespace CSimple.Services
                         return processedInput.Substring("ENSEMBLE_PROCESSED:".Length);
                     }
                 }
+                // Check if this is multimodal input (vision-language models like GUI Owl)
+                else if (model.InputType == ModelInputType.Multimodal)
+                {
+                    Debug.WriteLine($"🎯 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] Detected multimodal input for vision-language model, processing as structured input");
+                    processedInput = await ProcessMultimodalInputAsync(model, input, connectedInputNodes ?? new List<NodeViewModel>());
+
+                    // If it was processed as structured input, return the result directly
+                    if (processedInput.StartsWith("MULTIMODAL_PROCESSED:"))
+                    {
+                        return processedInput.Substring("MULTIMODAL_PROCESSED:".Length);
+                    }
+                }
                 // Check if this is a multi-audio input that should be processed as ensemble
                 else if (DetectCombinedAudioInput(input) && model.InputType == ModelInputType.Audio)
                 {
@@ -477,6 +489,14 @@ namespace CSimple.Services
             // Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Processing result for {modelName}, length: {result.Length}");
             // Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] First 100 chars: {result.Substring(0, Math.Min(100, result.Length))}...");
 
+            // Try to parse as JSON first (for models that output structured data)
+            var jsonResult = TryParseJsonOutput(result, modelName);
+            if (!string.IsNullOrEmpty(jsonResult))
+            {
+                Debug.WriteLine($"📋 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Successfully parsed JSON output for {modelName}");
+                return jsonResult;
+            }
+
             // Remove ENSEMBLE_PROCESSED prefix if present
             if (result.StartsWith("ENSEMBLE_PROCESSED:"))
             {
@@ -638,9 +658,112 @@ namespace CSimple.Services
             string finalResult = cleanedLines.Count > 0 ? string.Join("\n", cleanedLines) : result;
             // Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Final cleaned result: {finalResult}");
             return finalResult;
-        }        /// <summary>
-                 /// Executes a single model node with optimized performance
-                 /// </summary>
+        }
+
+        /// <summary>
+        /// Attempts to parse JSON output from models like GUI Owl that may return structured data
+        /// </summary>
+        private string TryParseJsonOutput(string result, string modelName)
+        {
+            if (string.IsNullOrEmpty(result))
+                return null;
+
+            try
+            {
+                // Look for JSON-like structures in the result
+                var trimmed = result.Trim();
+
+                // Check if it starts and ends with JSON markers
+                if ((trimmed.StartsWith("{") && trimmed.EndsWith("}")) ||
+                    (trimmed.StartsWith("[") && trimmed.EndsWith("]")))
+                {
+                    // Try to parse as JSON
+                    using var document = System.Text.Json.JsonDocument.Parse(trimmed);
+                    var root = document.RootElement;
+
+                    // Handle different JSON structures commonly output by vision-language models
+                    if (root.ValueKind == System.Text.Json.JsonValueKind.Object)
+                    {
+                        // Look for common response fields
+                        if (root.TryGetProperty("response", out var response))
+                        {
+                            return response.GetString();
+                        }
+                        else if (root.TryGetProperty("text", out var text))
+                        {
+                            return text.GetString();
+                        }
+                        else if (root.TryGetProperty("caption", out var caption))
+                        {
+                            return caption.GetString();
+                        }
+                        else if (root.TryGetProperty("description", out var description))
+                        {
+                            return description.GetString();
+                        }
+                        else if (root.TryGetProperty("answer", out var answer))
+                        {
+                            return answer.GetString();
+                        }
+                        else
+                        {
+                            // If no standard field found, return formatted JSON
+                            return System.Text.Json.JsonSerializer.Serialize(root, new System.Text.Json.JsonSerializerOptions
+                            {
+                                WriteIndented = true
+                            });
+                        }
+                    }
+                    else if (root.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        // Handle array responses (multiple predictions, etc.)
+                        var items = new List<string>();
+                        foreach (var item in root.EnumerateArray())
+                        {
+                            if (item.ValueKind == System.Text.Json.JsonValueKind.String)
+                            {
+                                items.Add(item.GetString());
+                            }
+                            else if (item.ValueKind == System.Text.Json.JsonValueKind.Object)
+                            {
+                                if (item.TryGetProperty("text", out var itemText))
+                                {
+                                    items.Add(itemText.GetString());
+                                }
+                                else
+                                {
+                                    items.Add(item.ToString());
+                                }
+                            }
+                        }
+                        return string.Join("\n", items);
+                    }
+                }
+
+                // Look for embedded JSON in text (common in LLM outputs)
+                var jsonStart = result.IndexOf('{');
+                var jsonEnd = result.LastIndexOf('}');
+                if (jsonStart >= 0 && jsonEnd > jsonStart)
+                {
+                    var jsonPortion = result.Substring(jsonStart, jsonEnd - jsonStart + 1);
+                    return TryParseJsonOutput(jsonPortion, modelName); // Recursive call
+                }
+            }
+            catch (System.Text.Json.JsonException ex)
+            {
+                Debug.WriteLine($"📋 [{DateTime.Now:HH:mm:ss.fff}] [TryParseJsonOutput] JSON parsing failed for {modelName}: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"📋 [{DateTime.Now:HH:mm:ss.fff}] [TryParseJsonOutput] Unexpected error parsing JSON for {modelName}: {ex.Message}");
+            }
+
+            return null; // Not valid JSON or couldn't parse
+        }
+
+        /// <summary>
+        /// Executes a single model node with optimized performance
+        /// </summary>
         public async Task ExecuteSingleModelNodeAsync(NodeViewModel modelNode, NeuralNetworkModel correspondingModel,
             IEnumerable<NodeViewModel> nodes, IEnumerable<ConnectionViewModel> connections, int currentActionStep)
         {
@@ -1521,6 +1644,135 @@ namespace CSimple.Services
             var extension = Path.GetExtension(path).ToLowerInvariant();
             return extension == ".wav" || extension == ".mp3" || extension == ".m4a" ||
                    extension == ".flac" || extension == ".ogg" || extension == ".aac";
+        }
+
+        /// <summary>
+        /// Processes multimodal input for vision-language models like GUI Owl
+        /// </summary>
+        private async Task<string> ProcessMultimodalInputAsync(NeuralNetworkModel model, string input, List<NodeViewModel> connectedInputNodes)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Empty input provided");
+                return input;
+            }
+
+            Debug.WriteLine($"🔀 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Processing multimodal input for vision-language model: {model.Name}");
+
+            try
+            {
+                // Parse the combined input to separate images, text, and audio
+                var imagePaths = new List<string>();
+                var textInputs = new List<string>();
+                var audioPaths = new List<string>();
+                var miscInputs = new List<string>();
+
+                // Split input by commas and categorize each component
+                var components = input.Split(',').Select(c => c.Trim()).Where(c => !string.IsNullOrEmpty(c)).ToList();
+
+                foreach (var component in components)
+                {
+                    if (IsValidImagePath(component))
+                    {
+                        imagePaths.Add(component);
+                    }
+                    else if (IsValidAudioPath(component))
+                    {
+                        audioPaths.Add(component);
+                    }
+                    else if (component.Contains("EventType") || component.Contains("Coordinates") ||
+                             component.Contains("Mouse") || component.Contains("Keyboard"))
+                    {
+                        // Parse interaction data
+                        textInputs.Add($"User Interaction: {component}");
+                    }
+                    else if (component.Length > 10 && !component.Contains("\\") && !component.Contains("/"))
+                    {
+                        // Likely text content
+                        textInputs.Add(component);
+                    }
+                    else
+                    {
+                        miscInputs.Add(component);
+                    }
+                }
+
+                Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Parsed input: {imagePaths.Count} images, {audioPaths.Count} audio, {textInputs.Count} text, {miscInputs.Count} misc");
+
+                // For vision-language models, prioritize the most recent/relevant image
+                string primaryImagePath = null;
+                if (imagePaths.Count > 0)
+                {
+                    // Use the first image as primary (could be enhanced with timestamp-based selection)
+                    primaryImagePath = imagePaths[0];
+                    Debug.WriteLine($"📸 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Selected primary image: {Path.GetFileName(primaryImagePath)}");
+                }
+
+                // Build structured prompt for vision-language model
+                var promptBuilder = new System.Text.StringBuilder();
+
+                // Add context about the current screen/interaction state
+                if (textInputs.Count > 0)
+                {
+                    promptBuilder.AppendLine("Current Context:");
+                    foreach (var textInput in textInputs)
+                    {
+                        promptBuilder.AppendLine($"- {textInput}");
+                    }
+                    promptBuilder.AppendLine();
+                }
+
+                // Add image analysis request
+                if (!string.IsNullOrEmpty(primaryImagePath))
+                {
+                    promptBuilder.AppendLine("Please analyze the provided screen image and describe what you see. Focus on:");
+                    promptBuilder.AppendLine("- Main application or window visible");
+                    promptBuilder.AppendLine("- Key UI elements and their states");
+                    promptBuilder.AppendLine("- Any text or content that appears important");
+                    promptBuilder.AppendLine("- Current user activity or focus area");
+                }
+
+                var structuredPrompt = promptBuilder.ToString().Trim();
+
+                Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Built structured prompt: {structuredPrompt.Substring(0, Math.Min(100, structuredPrompt.Length))}...");
+
+                // Execute the model with the primary image and structured prompt
+                var netPageViewModel = GetNetPageViewModel();
+                if (netPageViewModel == null)
+                {
+                    Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] NetPageViewModel is null, returning original input");
+                    return input;
+                }
+
+                string result;
+                if (!string.IsNullOrEmpty(primaryImagePath))
+                {
+                    // For vision-language models, combine image path with the structured prompt
+                    var combinedInput = $"{primaryImagePath}\n\nPrompt: {structuredPrompt}";
+                    result = await netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, combinedInput);
+                }
+                else
+                {
+                    // Text-only fallback
+                    result = await netPageViewModel.ExecuteModelAsync(model.HuggingFaceModelId, structuredPrompt);
+                }
+
+                if (!string.IsNullOrEmpty(result))
+                {
+                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Model execution successful, result length: {result.Length}");
+                    return $"MULTIMODAL_PROCESSED:{result}";
+                }
+                else
+                {
+                    Debug.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Model returned empty result");
+                    return "Vision-language model processing failed - no output generated";
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ [{DateTime.Now:HH:mm:ss.fff}] [ProcessMultimodalInput] Error processing multimodal input: {ex.Message}");
+                return $"Vision-language model encountered error: {ex.Message}";
+            }
         }
     }
 }
