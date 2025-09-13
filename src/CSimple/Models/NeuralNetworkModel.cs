@@ -162,6 +162,7 @@ namespace CSimple.Models
             new ModelInputTypeDisplayItem { Value = ModelInputType.Text, DisplayName = "Text" },
             new ModelInputTypeDisplayItem { Value = ModelInputType.Image, DisplayName = "Image" },
             new ModelInputTypeDisplayItem { Value = ModelInputType.Audio, DisplayName = "Audio" },
+            new ModelInputTypeDisplayItem { Value = ModelInputType.Multimodal, DisplayName = "Multimodal (Vision + Text)" },
             new ModelInputTypeDisplayItem { Value = ModelInputType.Unknown, DisplayName = "Unknown" }
         };
 
@@ -186,6 +187,7 @@ namespace CSimple.Models
         Text,
         Image,
         Audio,
+        Multimodal,
         Unknown
     }
 }

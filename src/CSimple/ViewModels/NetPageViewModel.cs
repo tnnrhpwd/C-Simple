@@ -46,6 +46,7 @@ namespace CSimple.ViewModels
         private readonly ActionStringGenerationService _actionStringGenerationService; // Add action string generation service
         private readonly ActionExecutionService _actionExecutionService; // Add action execution service
         private readonly WindowDetectionService _windowDetectionService; // Add window detection service for system context
+        private readonly GuiAgentModelService _guiAgentModelService; // Add GUI agent model service for multimodal GUI automation
         // Consider injecting navigation and dialog services for better testability
 
         // Debounce mechanism for saving to prevent excessive saves
@@ -335,9 +336,10 @@ namespace CSimple.ViewModels
             (HasSelectedAudio && SupportsAudioInput);
 
         // Input mode intelligence based on active models
-        public bool SupportsTextInput => ActiveModels.Any(m => m.InputType == ModelInputType.Text);
-        public bool SupportsImageInput => ActiveModels.Any(m => m.InputType == ModelInputType.Image);
+        public bool SupportsTextInput => ActiveModels.Any(m => m.InputType == ModelInputType.Text || m.InputType == ModelInputType.Multimodal);
+        public bool SupportsImageInput => ActiveModels.Any(m => m.InputType == ModelInputType.Image || m.InputType == ModelInputType.Multimodal);
         public bool SupportsAudioInput => ActiveModels.Any(m => m.InputType == ModelInputType.Audio);
+        public bool SupportsMultimodalInput => ActiveModels.Any(m => m.InputType == ModelInputType.Multimodal);
 
         public string CurrentInputModeDescription
         {
@@ -347,6 +349,7 @@ namespace CSimple.ViewModels
                     return "Please activate a model to start chatting";
 
                 var supportedTypes = new List<string>();
+                if (SupportsMultimodalInput) supportedTypes.Add("Multimodal");
                 if (SupportsTextInput) supportedTypes.Add("Text");
                 if (SupportsImageInput) supportedTypes.Add("Image");
                 if (SupportsAudioInput) supportedTypes.Add("Audio");
@@ -1216,6 +1219,7 @@ namespace CSimple.ViewModels
             _actionStringGenerationService = new ActionStringGenerationService(); // Initialize action string generation service
             _actionExecutionService = new ActionExecutionService(_fileService); // Initialize action execution service with FileService
             _windowDetectionService = new WindowDetectionService(); // Initialize window detection service
+            _guiAgentModelService = new GuiAgentModelService(ServiceProvider.Current); // Initialize GUI agent model service
 
             // Configure the media selection service UI delegates
             _mediaSelectionService.ShowAlert = ShowAlert;
@@ -4435,6 +4439,7 @@ namespace CSimple.ViewModels
             var (filePath, fileName, fileType) = await _mediaSelectionService.SelectFileAsync(
                 SupportsImageInput,
                 SupportsAudioInput,
+                SupportsMultimodalInput,
                 ActiveModels);
 
             if (!string.IsNullOrEmpty(filePath))
@@ -4518,10 +4523,10 @@ namespace CSimple.ViewModels
                 // Ensure general mode is active to show the models
                 IsGeneralModeActive = true;
                 OnPropertyChanged(nameof(IsGeneralModeActive));
-                
+
                 // Scroll to the general purpose models section
                 ScrollToGeneralPurposeModels?.Invoke();
-                
+
                 Debug.WriteLine("✅ Navigated to general purpose models section");
             }
             catch (Exception ex)
@@ -4538,17 +4543,17 @@ namespace CSimple.ViewModels
             try
             {
                 Debug.WriteLine($"🎯 Attempting to select training action with ID: {actionId}");
-                
+
                 // This method would need to interface with the training section
                 // For now, we'll log the selection and potentially notify the UI
                 // The actual implementation would depend on how training actions are managed
-                
+
                 // TODO: Implement actual action selection in training UI
                 // This might involve:
                 // 1. Finding the action in available training data
                 // 2. Selecting it in a list/picker control
                 // 3. Updating training configuration to use this action
-                
+
                 Debug.WriteLine($"✅ Training action selection requested for ID: {actionId}");
             }
             catch (Exception ex)
@@ -4635,6 +4640,7 @@ namespace CSimple.ViewModels
                     OnPropertyChanged(nameof(SupportsTextInput));
                     OnPropertyChanged(nameof(SupportsImageInput));
                     OnPropertyChanged(nameof(SupportsAudioInput));
+                    OnPropertyChanged(nameof(SupportsMultimodalInput));
                     OnPropertyChanged(nameof(HasCompatibleMediaSelected));
                     OnPropertyChanged(nameof(CurrentInputModeDescription));
                     OnPropertyChanged(nameof(SupportedInputTypesText));
@@ -4924,6 +4930,7 @@ namespace CSimple.ViewModels
                     OnPropertyChanged(nameof(SupportsTextInput));
                     OnPropertyChanged(nameof(SupportsImageInput));
                     OnPropertyChanged(nameof(SupportsAudioInput));
+                    OnPropertyChanged(nameof(SupportsMultimodalInput));
                     OnPropertyChanged(nameof(SupportedInputTypesText));
                     CurrentModelStatus = "Model classifications updated";
                 }
@@ -6016,7 +6023,7 @@ namespace CSimple.ViewModels
         }
 
         /// <summary>
-        /// Prepare system input data for pipeline processing
+        /// Prepare system input data for pipeline processing - supports multimodal GUI agent models
         /// </summary>
         private async Task<string> PrepareSystemInputForPipeline(CancellationToken cancellationToken)
         {
@@ -6024,21 +6031,51 @@ namespace CSimple.ViewModels
 
             try
             {
-                // Add AI Assistant System Prompt
-                systemInput.Add("=== PC AI ASSISTANT - ACTION GENERATION ===");
-                systemInput.Add("You are a PC automation assistant. Analyze the visual, audio, and input data to determine SPECIFIC actionable commands.");
+                // Check if we have multimodal models active (like GUI-OWL-7B)
+                bool hasMultimodalModels = SupportsMultimodalInput;
+
+                if (hasMultimodalModels)
+                {
+                    // Enhanced prompt for GUI agent models
+                    systemInput.Add("=== GUI AGENT - VISION + TEXT AUTOMATION ===");
+                    systemInput.Add("You are an advanced GUI automation agent. Analyze the screen image and text context to determine precise UI interactions.");
+                    systemInput.Add("Focus on visible UI elements, current application state, and user intent.");
+                }
+                else
+                {
+                    // Standard AI Assistant System Prompt
+                    systemInput.Add("=== PC AI ASSISTANT - ACTION GENERATION ===");
+                    systemInput.Add("You are a PC automation assistant. Analyze the visual, audio, and input data to determine SPECIFIC actionable commands.");
+                }
                 systemInput.Add("");
 
-                // Add supported actions list
-                systemInput.Add("SUPPORTED ACTIONS (respond with ONE of these only):");
-                systemInput.Add("• 'click on [target]' - Left click on UI element");
-                systemInput.Add("• 'right click on [target]' - Right click on UI element");
-                systemInput.Add("• 'double click on [target]' - Double click on UI element");
-                systemInput.Add("• 'type [text]' - Enter text");
-                systemInput.Add("• 'press [key]' - Press specific key (Enter, Escape, Tab, etc.)");
-                systemInput.Add("• 'scroll up' or 'scroll down' - Scroll in current window");
-                systemInput.Add("• 'open [application]' - Open specific application");
-                systemInput.Add("• 'none' - No action needed");
+                // Add supported actions list (enhanced for GUI models)
+                if (hasMultimodalModels)
+                {
+                    systemInput.Add("AVAILABLE GUI ACTIONS (respond with ONE action only):");
+                    systemInput.Add("• 'click <element>' - Click on specific UI element (button, link, icon, etc.)");
+                    systemInput.Add("• 'right_click <element>' - Right-click on element for context menu");
+                    systemInput.Add("• 'double_click <element>' - Double-click on element (folders, files, etc.)");
+                    systemInput.Add("• 'type <text>' - Type text into focused input field");
+                    systemInput.Add("• 'key <key_name>' - Press key (enter, tab, escape, etc.)");
+                    systemInput.Add("• 'scroll <direction>' - Scroll up/down in current view");
+                    systemInput.Add("• 'drag <from> <to>' - Drag element from one location to another");
+                    systemInput.Add("• 'select <text>' - Select text or multiple items");
+                    systemInput.Add("• 'wait' - Wait for UI to load or change");
+                    systemInput.Add("• 'none' - No action needed");
+                }
+                else
+                {
+                    systemInput.Add("SUPPORTED ACTIONS (respond with ONE of these only):");
+                    systemInput.Add("• 'click on [target]' - Left click on UI element");
+                    systemInput.Add("• 'right click on [target]' - Right click on UI element");
+                    systemInput.Add("• 'double click on [target]' - Double click on UI element");
+                    systemInput.Add("• 'type [text]' - Enter text");
+                    systemInput.Add("• 'press [key]' - Press specific key (Enter, Escape, Tab, etc.)");
+                    systemInput.Add("• 'scroll up' or 'scroll down' - Scroll in current window");
+                    systemInput.Add("• 'open [application]' - Open specific application");
+                    systemInput.Add("• 'none' - No action needed");
+                }
                 systemInput.Add("");
 
                 // Add current system state
@@ -6067,11 +6104,19 @@ namespace CSimple.ViewModels
                 systemInput.Add($"Available Models: {ActiveModels.Count}");
                 systemInput.Add("");
 
-                // Add strict instruction for response format
-                systemInput.Add("CRITICAL: RESPOND ONLY WITH THE ACTION COMMAND.");
-                systemInput.Add("Example responses: 'click on start button' OR 'type hello' OR 'none'");
-                systemInput.Add("FORBIDDEN: explanations, analysis, reasoning, code blocks, formatting");
-                systemInput.Add("MAXIMUM: 10 words only. JUST the action command.");
+                // Add response format instructions (optimized for model type)
+                if (hasMultimodalModels)
+                {
+                    systemInput.Add("INSTRUCTION: Based on the screen image and context, output ONE precise action.");
+                    systemInput.Add("Format: Single command only (e.g., 'click login_button', 'type username', 'none')");
+                    systemInput.Add("NO explanations. NO analysis. ONE action command only.");
+                }
+                else
+                {
+                    systemInput.Add("INSTRUCTION: Respond with ONLY ONE action from the supported actions list above.");
+                    systemInput.Add("Format: Single command only (e.g., 'click on start button', 'type hello', 'none')");
+                    systemInput.Add("NO explanations. NO analysis. NO questions. ONE action command only.");
+                }
                 systemInput.Add("");
             }
             catch (Exception ex)
@@ -6248,28 +6293,55 @@ namespace CSimple.ViewModels
                 return "none";
             }
 
-            // Action patterns to look for (order matters - most specific first)
+            // If we have multimodal GUI agents active, use specialized parsing
+            if (SupportsMultimodalInput && ActiveModels.Any(m => _guiAgentModelService.IsGuiAgentModel(m)))
+            {
+                try
+                {
+                    var guiAction = _guiAgentModelService.ParseGuiAgentOutput(modelOutput);
+                    var legacyAction = _guiAgentModelService.ConvertToLegacyActionFormat(guiAction);
+                    Debug.WriteLine($"[ExtractAction] GUI Agent parsed: '{legacyAction}'");
+                    return legacyAction;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ExtractAction] GUI Agent parsing failed: {ex.Message}, falling back to legacy parsing");
+                }
+            }
+
+            // Action patterns to look for (enhanced for GUI agent models)
             var actionPatterns = new[]
             {
+                // GUI Agent patterns (most specific first)
+                "click ", "right_click ", "double_click ", "left_click ",
+                "drag ", "select ", "key ", "wait",
+                // Legacy patterns for compatibility
                 "click on", "right click on", "double click on", "left click on",
-                "type ", "press ", "scroll up", "scroll down",
+                "type ", "press ", "scroll up", "scroll down", "scroll ",
                 "open ", "start ", "none", "no action"
             };
 
             // First try to find a short, clean action at the start or end
             var cleanedOutput = modelOutput.Trim().ToLowerInvariant();
 
-            // Remove common wrapper text
+            // Remove common wrapper text (enhanced for GUI models)
             cleanedOutput = cleanedOutput
                 .Replace("the best action is to ", "")
                 .Replace("action: ", "")
                 .Replace("answer:", "")
                 .Replace("response:", "")
+                .Replace("output:", "")
+                .Replace("result:", "")
+                .Replace("step:", "")
+                .Replace("gui action:", "")
+                .Replace("ui action:", "")
                 .Replace("'", "")
                 .Replace("\"", "")
                 .Replace("```", "")
                 .Replace("\\boxed{", "")
                 .Replace("}", "")
+                .Replace("[", "")
+                .Replace("]", "")
                 .Trim();
 
             // Split into lines and process each
@@ -6295,12 +6367,15 @@ namespace CSimple.ViewModels
                 }
             }
 
-            // Try single word lines that might be action keywords
+            // Try single word lines that might be action keywords (enhanced for GUI)
             foreach (var line in lines)
             {
                 var trimmedLine = line.Trim();
-                if (trimmedLine.Length < 15 && (trimmedLine == "none" || trimmedLine.Contains("click") ||
-                    trimmedLine.Contains("type") || trimmedLine.Contains("press") || trimmedLine.Contains("scroll")))
+                if (trimmedLine.Length < 20 && (trimmedLine == "none" || trimmedLine == "wait" ||
+                    trimmedLine.Contains("click") || trimmedLine.Contains("type") ||
+                    trimmedLine.Contains("press") || trimmedLine.Contains("scroll") ||
+                    trimmedLine.Contains("key") || trimmedLine.Contains("drag") ||
+                    trimmedLine.Contains("select")))
                 {
                     Debug.WriteLine($"[ExtractAction] Found simple action: '{trimmedLine}'");
                     return trimmedLine;
@@ -7191,12 +7266,13 @@ namespace CSimple.ViewModels
         }
 
         /// <summary>
-        /// Execute pipeline with enhanced data processing
+        /// Execute pipeline with enhanced data processing for GUI agent models
+        /// Supports multimodal input processing with Whisper → GUI-OWL → Qwen workflow
         /// </summary>
         private async Task ExecuteEnhancedPipelineWithData(List<byte[]> screenshots, List<byte[]> audioData, List<string> textData, CancellationToken cancellationToken)
         {
             var pipelineName = _selectedPipeline ?? "Default Pipeline";
-            Debug.WriteLine($"[NetPage Pipeline] ===== STARTING PIPELINE EXECUTION =====");
+            Debug.WriteLine($"[NetPage Pipeline] ===== STARTING MULTIMODAL PIPELINE EXECUTION =====");
             Debug.WriteLine($"[NetPage Pipeline] Pipeline: '{pipelineName}'");
             Debug.WriteLine($"[NetPage Pipeline] Input Data: {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs");
 
@@ -7210,7 +7286,7 @@ namespace CSimple.ViewModels
 
             try
             {
-                AddPipelineChatMessage($"🎯 Processing pipeline with {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs", false);
+                AddPipelineChatMessage($"🎯 Processing multimodal pipeline with {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs", false);
 
                 // Get the pipeline execution service
                 if (_pipelineExecutionService == null)
@@ -7222,8 +7298,40 @@ namespace CSimple.ViewModels
                     return;
                 }
 
-                // Convert collected data to pipeline input format with action-focused AI assistant context
+                // Prepare system context for GUI automation
                 var systemInput = await PrepareSystemInputForPipeline(cancellationToken);
+
+                // Enhanced input preparation for GUI agent models with multimodal support
+                if (SupportsMultimodalInput)
+                {
+                    try
+                    {
+                        // Prepare GUI-specific context with screen and webcam data
+                        var guiContext = new Dictionary<string, object>
+                        {
+                            ["availableModels"] = ActiveModels.Count,
+                            ["pipelineName"] = pipelineName,
+                            ["captureTime"] = DateTime.Now,
+                            ["screenImages"] = screenshots.Count,
+                            ["audioSamples"] = audioData.Count,
+                            ["activeWindow"] = "Current application window",
+                            ["availableElements"] = "GUI elements detected via screen analysis"
+                        };
+
+                        var guiAgentInput = await _guiAgentModelService.PrepareGuiAgentInputAsync(
+                            screenshots,
+                            systemInput,
+                            guiContext);
+
+                        Debug.WriteLine($"[NetPage Pipeline] Enhanced GUI agent input prepared ({guiAgentInput.Length} chars)");
+                        systemInput = guiAgentInput; // Use enhanced input for GUI models
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[NetPage Pipeline] GUI agent input preparation failed: {ex.Message}");
+                        // Continue with standard input
+                    }
+                }
 
                 // Execute the pipeline with the comprehensive input
                 PipelineData pipelineData = null;
@@ -7265,12 +7373,10 @@ namespace CSimple.ViewModels
                         return;
                     }
 
-                    // Add the system input to any input nodes with enhanced context
-                    foreach (var inputNode in nodeViewModels.Where(n => n.Type == NodeType.Input))
-                    {
-                        inputNode.SetStepOutput(1, "text", systemInput); // Enhanced system input with memory integration
-                        Debug.WriteLine($"[NetPage Pipeline] Set input for node '{inputNode.Name}': {(systemInput?.Length > 100 ? systemInput.Substring(0, 100) + "..." : systemInput ?? "null")}");
-                    }
+                    // Enhanced input distribution for multimodal GUI agent pipeline
+                    SetupMultimodalPipelineInputs(nodeViewModels, systemInput, screenshots, audioData, textData);
+
+                    Debug.WriteLine($"[NetPage Pipeline] Multimodal inputs configured for {nodeViewModels.Count} nodes");
 
                     Debug.WriteLine($"[NetPage Pipeline] Executing pipeline with {nodeViewModels.Count} nodes and {connectionViewModels.Count} connections");
 
@@ -7544,6 +7650,60 @@ namespace CSimple.ViewModels
         }
 
         #region Enhanced Intelligence Helper Methods
+
+        /// <summary>
+        /// Setup multimodal pipeline inputs for GUI agent workflow
+        /// Distributes different input types to appropriate nodes
+        /// </summary>
+        private void SetupMultimodalPipelineInputs(ObservableCollection<NodeViewModel> nodes, string systemInput, List<byte[]> screenshots, List<byte[]> audioData, List<string> textData)
+        {
+            try
+            {
+                foreach (var inputNode in nodes.Where(n => n.Type == NodeType.Input))
+                {
+                    var nodeName = inputNode.Name.ToLowerInvariant();
+
+                    // Distribute inputs based on node names and data types
+                    if (nodeName.Contains("audio") && audioData.Count > 0)
+                    {
+                        // Set audio data for audio input nodes
+                        var audioDataSize = audioData.Sum(a => a.Length);
+                        inputNode.SetStepOutput(1, "audio", $"Audio data: {audioData.Count} samples, {audioDataSize / 1024:N0} KB");
+                        Debug.WriteLine($"[NetPage Pipeline] Set audio input for '{inputNode.Name}': {audioData.Count} samples");
+                    }
+                    else if (nodeName.Contains("screen") && screenshots.Count > 0)
+                    {
+                        // Set screen image data for screen input nodes
+                        var screenDataSize = screenshots.Sum(s => s.Length);
+                        inputNode.SetStepOutput(1, "image", $"Screen capture: {screenshots.Count} images, {screenDataSize / 1024:N0} KB");
+                        Debug.WriteLine($"[NetPage Pipeline] Set screen input for '{inputNode.Name}': {screenshots.Count} screenshots");
+                    }
+                    else if (nodeName.Contains("webcam") && screenshots.Count > 0)
+                    {
+                        // Use screenshots for webcam nodes as fallback (can be enhanced with actual webcam capture)
+                        var webcamDataSize = screenshots.Sum(s => s.Length);
+                        inputNode.SetStepOutput(1, "image", $"Webcam capture: {screenshots.Count} images, {webcamDataSize / 1024:N0} KB");
+                        Debug.WriteLine($"[NetPage Pipeline] Set webcam input for '{inputNode.Name}': {screenshots.Count} images");
+                    }
+                    else if (nodeName.Contains("system") || nodeName.Contains("context"))
+                    {
+                        // Set system context for context input nodes
+                        inputNode.SetStepOutput(1, "text", systemInput);
+                        Debug.WriteLine($"[NetPage Pipeline] Set system context for '{inputNode.Name}': {systemInput?.Length ?? 0} chars");
+                    }
+                    else
+                    {
+                        // Default: set enhanced system input for other input nodes
+                        inputNode.SetStepOutput(1, "text", systemInput);
+                        Debug.WriteLine($"[NetPage Pipeline] Set default input for '{inputNode.Name}': {systemInput?.Length ?? 0} chars");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[NetPage Pipeline] Error setting up multimodal inputs: {ex.Message}");
+            }
+        }
 
         /// <summary>
         /// Capture comprehensive application context

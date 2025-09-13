@@ -12,7 +12,7 @@ namespace CSimple.Services
     {
         Task<(string imagePath, string imageName)> SelectImageAsync();
         Task<(string audioPath, string audioName)> SelectAudioAsync();
-        Task<(string filePath, string fileName, string fileType)> SelectFileAsync(bool supportsImages, bool supportsAudio, IEnumerable<NeuralNetworkModel> activeModels);
+        Task<(string filePath, string fileName, string fileType)> SelectFileAsync(bool supportsImages, bool supportsAudio, bool supportsMultimodal, IEnumerable<NeuralNetworkModel> activeModels);
         Task CheckModelCompatibilityForMediaAsync(string mediaType, string fileName, IEnumerable<NeuralNetworkModel> activeModels);
 
         // Events for UI interaction
@@ -80,16 +80,16 @@ namespace CSimple.Services
             return (null, null);
         }
 
-        public async Task<(string filePath, string fileName, string fileType)> SelectFileAsync(bool supportsImages, bool supportsAudio, IEnumerable<NeuralNetworkModel> activeModels)
+        public async Task<(string filePath, string fileName, string fileType)> SelectFileAsync(bool supportsImages, bool supportsAudio, bool supportsMultimodal, IEnumerable<NeuralNetworkModel> activeModels)
         {
             try
             {
                 // If no models are active, show a message
-                if (!supportsImages && !supportsAudio)
+                if (!supportsImages && !supportsAudio && !supportsMultimodal)
                 {
                     await ShowAlert?.Invoke(
                         "No Compatible Models Active",
-                        "Please activate an image or audio model before uploading files.\n\n" +
+                        "Please activate an image, audio, or multimodal model before uploading files.\n\n" +
                         "You can activate models from the Model Management section above.",
                         "OK");
                     return (null, null, null);
@@ -100,11 +100,13 @@ namespace CSimple.Services
                 var supportedFormats = new List<string>();
                 var pickerTitle = "Select a file";
 
-                if (supportsImages && supportsAudio)
+                if ((supportsImages || supportsMultimodal) && supportsAudio)
                 {
-                    // Both image and audio models are active
+                    // Both image/multimodal and audio models are active
                     pickerTitle = "Select an image or audio file";
                     supportedFormats.AddRange(new[] { "Images: JPG, PNG, GIF, BMP, WebP, TIFF", "Audio: MP3, WAV, M4A, AAC, OGG, FLAC, WMA" });
+                    if (supportsMultimodal)
+                        supportedFormats.Add("Multimodal models support both image and text inputs");
 
                     fileTypeDict = new Dictionary<DevicePlatform, IEnumerable<string>>
                     {
@@ -115,11 +117,13 @@ namespace CSimple.Services
                         { DevicePlatform.macOS, new[] { "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "mp3", "wav", "m4a", "aac", "ogg", "flac", "wma" } },
                     };
                 }
-                else if (supportsImages)
+                else if (supportsImages || supportsMultimodal)
                 {
-                    // Only image models are active
-                    pickerTitle = "Select an image file";
+                    // Only image or multimodal models are active
+                    pickerTitle = supportsMultimodal ? "Select an image file (for multimodal model)" : "Select an image file";
                     supportedFormats.Add("Images: JPG, PNG, GIF, BMP, WebP, TIFF");
+                    if (supportsMultimodal)
+                        supportedFormats.Add("Note: Multimodal models also accept text prompts alongside images");
 
                     fileTypeDict = new Dictionary<DevicePlatform, IEnumerable<string>>
                     {

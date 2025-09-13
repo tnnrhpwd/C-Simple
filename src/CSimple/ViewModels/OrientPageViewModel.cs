@@ -1533,6 +1533,25 @@ namespace CSimple.ViewModels
 
             var tag = model.Pipeline_tag.ToLowerInvariant();
             var modelName = (model.Name ?? model.Id ?? "").ToLowerInvariant();
+            var modelId = (model.Id ?? "").ToLowerInvariant();
+
+            // GUI Agent Models (Vision + Text multimodal for UI automation)
+            if (modelName.Contains("gui-owl") || modelName.Contains("gui-agent") ||
+                modelName.Contains("screen-agent") || modelName.Contains("ui-agent") ||
+                modelId.Contains("gui-owl") || modelId.Contains("gui-agent") ||
+                tag.Contains("visual-question-answering") && (modelName.Contains("gui") || modelName.Contains("screen")))
+            {
+                return ModelInputType.Multimodal;
+            }
+
+            // General Multimodal Models (Vision + Text)
+            if (tag.Contains("visual-question-answering") || tag.Contains("image-text-to-text") ||
+                modelName.Contains("llava") || modelName.Contains("blip") || modelName.Contains("flamingo") ||
+                modelName.Contains("kosmos") || modelName.Contains("minigpt") || modelName.Contains("instructblip") ||
+                (modelName.Contains("chat") && modelName.Contains("vision")))
+            {
+                return ModelInputType.Multimodal;
+            }
 
             // Image models
             if (tag.Contains("image") || tag.Contains("vision") || tag.Contains("object-detection") ||

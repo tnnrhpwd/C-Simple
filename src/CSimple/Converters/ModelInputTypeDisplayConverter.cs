@@ -22,6 +22,7 @@ namespace CSimple.Converters
                     ModelInputType.Text => new ModelInputTypeDisplayItem { Value = ModelInputType.Text, DisplayName = "Text" },
                     ModelInputType.Image => new ModelInputTypeDisplayItem { Value = ModelInputType.Image, DisplayName = "Image" },
                     ModelInputType.Audio => new ModelInputTypeDisplayItem { Value = ModelInputType.Audio, DisplayName = "Audio" },
+                    ModelInputType.Multimodal => new ModelInputTypeDisplayItem { Value = ModelInputType.Multimodal, DisplayName = "Multimodal (Vision + Text)" },
                     ModelInputType.Unknown => new ModelInputTypeDisplayItem { Value = ModelInputType.Unknown, DisplayName = "Unknown" },
                     _ => new ModelInputTypeDisplayItem { Value = ModelInputType.Unknown, DisplayName = "Unknown" }
                 };

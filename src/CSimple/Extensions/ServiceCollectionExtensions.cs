@@ -84,6 +84,7 @@ namespace CSimple.Extensions
             services.AddSingleton<ModelCommunicationService>();
             services.AddSingleton<ModelExecutionService>();
             services.AddSingleton<ModelImportExportService>();
+            services.AddSingleton<GuiAgentModelService>();
 
             // Custom factory for InputCaptureService
             services.AddSingleton(sp =>
