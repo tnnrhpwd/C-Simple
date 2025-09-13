@@ -821,7 +821,7 @@ namespace CSimple.Services
             bool concurrentRender = true)
         {
             var totalStopwatch = Stopwatch.StartNew();
-            Debug.WriteLine($"⚡ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Using pre-computed optimizations");
+            // Debug.WriteLine($"⚡ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Using pre-computed optimizations");
 
             try
             {
@@ -843,7 +843,7 @@ namespace CSimple.Services
                     return (0, 0);
                 }
 
-                Debug.WriteLine($"🚀 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Found {availableModelNodes.Count} pre-loaded models");
+                // Debug.WriteLine($"🚀 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Found {availableModelNodes.Count} pre-loaded models");
 
                 // Use proper dependency-based execution grouping for multi-level dependencies
                 var executionGroups = BuildOptimizedExecutionGroups(availableModelNodes, connections);
@@ -872,7 +872,7 @@ namespace CSimple.Services
                             modelNode.ExecutionState = ViewModels.ExecutionState.Running;
                         }
                     });
-                    Debug.WriteLine($"🔶 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Group {currentGroupNumber}: Set {group.Count} nodes to Running state");
+                    // Debug.WriteLine($"🔶 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Group {currentGroupNumber}: Set {group.Count} nodes to Running state");
 
                     // Create execution tasks for all models in the group
                     var executionTasks = new List<Task<bool>>();
@@ -1004,13 +1004,13 @@ namespace CSimple.Services
                         else
                         {
                             // Execute models sequentially (new behavior)
-                            Debug.WriteLine($"⏩ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Group {currentGroupNumber}: Executing {executionTasks.Count} models sequentially");
+                            // Debug.WriteLine($"⏩ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Group {currentGroupNumber}: Executing {executionTasks.Count} models sequentially");
                             var results = new List<bool>();
 
                             for (int i = 0; i < executionTasks.Count; i++)
                             {
                                 var modelNode = group[i];
-                                Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Sequential execution: Starting model {i + 1}/{executionTasks.Count}: {modelNode.Name}");
+                                // Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Sequential execution: Starting model {i + 1}/{executionTasks.Count}: {modelNode.Name}");
 
                                 var result = await executionTasks[i].ConfigureAwait(false);
                                 results.Add(result);
@@ -1021,7 +1021,7 @@ namespace CSimple.Services
                                     if (result)
                                     {
                                         modelNode.ExecutionState = ViewModels.ExecutionState.Completed;
-                                        Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Sequential execution: {modelNode.Name} completed successfully");
+                                        // Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Sequential execution: {modelNode.Name} completed successfully");
                                     }
                                     else
                                     {
@@ -1035,7 +1035,7 @@ namespace CSimple.Services
                             successCount += results.Count(r => r);
                             skippedCount += results.Count(r => !r);
 
-                            Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Group {currentGroupNumber} sequential execution completed: {results.Count(r => r)} successful, {results.Count(r => !r)} failed");
+                            // Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Group {currentGroupNumber} sequential execution completed: {results.Count(r => r)} successful, {results.Count(r => !r)} failed");
                         }
                     }
 
@@ -1045,7 +1045,7 @@ namespace CSimple.Services
                 }
 
                 totalStopwatch.Stop();
-                Debug.WriteLine($"⚡ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Completed: {successCount} successful, {skippedCount} skipped in {totalStopwatch.ElapsedMilliseconds}ms");
+                // Debug.WriteLine($"⚡ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteAllModelsOptimizedAsync] Completed: {successCount} successful, {skippedCount} skipped in {totalStopwatch.ElapsedMilliseconds}ms");
 
                 return (successCount, skippedCount);
             }
@@ -1202,7 +1202,7 @@ namespace CSimple.Services
                     // Propagate output to connected File nodes for memory saving
                     await PropagateOutputToConnectedFileNodesAsync(modelNode, result, currentActionStep, connections, nodes);
 
-                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] {modelNode.Name} completed successfully");
+                    // Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithDynamicInputAsync] {modelNode.Name} completed successfully");
                     return true;
                 }
                 else

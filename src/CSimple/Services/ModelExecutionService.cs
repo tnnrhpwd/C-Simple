@@ -479,9 +479,9 @@ namespace CSimple.Services
             }
 
             // Debug the processing
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Original output lines: {lines.Length}");
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Filtered output lines: {filteredLines.Length}");
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Final cleaned output: '{cleanedOutput}'");
+            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Original output lines: {lines.Length}");
+            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Filtered output lines: {filteredLines.Length}");
+            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Final cleaned output: '{cleanedOutput}'");
 
             // Final validation
             if (string.IsNullOrWhiteSpace(cleanedOutput))

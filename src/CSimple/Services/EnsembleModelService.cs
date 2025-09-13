@@ -41,11 +41,11 @@ namespace CSimple.Services
 
         private NetPageViewModel GetNetPageViewModel()
         {
-            Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Attempting to get NetPageViewModel...");
+            // Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Attempting to get NetPageViewModel...");
 
             if (_netPageViewModel != null)
             {
-                Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Using cached NetPageViewModel");
+                // Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Using cached NetPageViewModel");
                 return _netPageViewModel;
             }
 
@@ -53,9 +53,9 @@ namespace CSimple.Services
             {
                 try
                 {
-                    Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Getting NetPageViewModel from service provider...");
+                    // Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Getting NetPageViewModel from service provider...");
                     var netPageViewModel = _serviceProvider.GetRequiredService<NetPageViewModel>();
-                    Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Successfully retrieved NetPageViewModel from service provider");
+                    // Debug.WriteLine($"✅ [{DateTime.Now:HH:mm:ss.fff}] [GetNetPageViewModel] Successfully retrieved NetPageViewModel from service provider");
                     return netPageViewModel;
                 }
                 catch (Exception ex)
@@ -186,13 +186,13 @@ namespace CSimple.Services
 
             if (isImageContent)
             {
-                Debug.WriteLine($"🖼️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected image content, combining {stepContents.Count} images using method: {ensembleMethod}");
+                // Debug.WriteLine($"🖼️ [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected image content, combining {stepContents.Count} images using method: {ensembleMethod}");
                 return CombineImageContents(stepContents, ensembleMethod);
             }
 
             if (isAudioContent)
             {
-                Debug.WriteLine($"🔊 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected audio content, combining {stepContents.Count} audio files using method: {ensembleMethod}");
+                // Debug.WriteLine($"🔊 [{DateTime.Now:HH:mm:ss.fff}] [CombineStepContents] Detected audio content, combining {stepContents.Count} audio files using method: {ensembleMethod}");
                 return CombineAudioContents(stepContents, ensembleMethod);
             }
 
@@ -235,7 +235,7 @@ namespace CSimple.Services
         /// </summary>
         public async Task<string> ExecuteModelWithInput(NeuralNetworkModel model, string input, List<NodeViewModel> connectedInputNodes = null)
         {
-            Debug.WriteLine($"🚀 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] CALLED with model: {model?.Name ?? "NULL"}, input length: {input?.Length ?? 0}");
+            // Debug.WriteLine($"🚀 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] CALLED with model: {model?.Name ?? "NULL"}, input length: {input?.Length ?? 0}");
 
             try
             {
@@ -311,7 +311,7 @@ namespace CSimple.Services
 
                 // Clean the result to remove concatenated ensemble input before returning
                 var cleanedResult = CleanModelResultForDisplay(rawResult, model.Name);
-                Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] Cleaned result for {model.Name}: {cleanedResult?.Substring(0, Math.Min(cleanedResult?.Length ?? 0, 100))}...");
+                // Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [ExecuteModelWithInput] Cleaned result for {model.Name}: {cleanedResult?.Substring(0, Math.Min(cleanedResult?.Length ?? 0, 100))}...");
 
                 return cleanedResult;
             }
@@ -328,7 +328,7 @@ namespace CSimple.Services
         public string DetermineResultContentType(NeuralNetworkModel model, string result)
         {
             Console.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Analyzing model: {model?.Name}, HF ID: {model?.HuggingFaceModelId}");
-            Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Analyzing model: {model?.Name}, HF ID: {model?.HuggingFaceModelId}");
+            // Debug.WriteLine($"🔍 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Analyzing model: {model?.Name}, HF ID: {model?.HuggingFaceModelId}");
 
             // Check if this is an image-to-text model based on the HuggingFace model ID or name
             if (model?.HuggingFaceModelId != null)
@@ -371,7 +371,7 @@ namespace CSimple.Services
 
             // Default to text for any other output
             Console.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Defaulting to text output type");
-            Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Defaulting to text output type");
+            // Debug.WriteLine($"📝 [{DateTime.Now:HH:mm:ss.fff}] [DetermineResultContentType] Defaulting to text output type");
             return "text";
         }
 
@@ -458,8 +458,8 @@ namespace CSimple.Services
             if (string.IsNullOrEmpty(result))
                 return result;
 
-            Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Processing result for {modelName}, length: {result.Length}");
-            Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] First 100 chars: {result.Substring(0, Math.Min(100, result.Length))}...");
+            // Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Processing result for {modelName}, length: {result.Length}");
+            // Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] First 100 chars: {result.Substring(0, Math.Min(100, result.Length))}...");
 
             // Remove ENSEMBLE_PROCESSED prefix if present
             if (result.StartsWith("ENSEMBLE_PROCESSED:"))
@@ -477,7 +477,7 @@ namespace CSimple.Services
                 result.Contains("Blip Image Captioning Base:") || result.Contains("Gpt2:") ||
                 result.Contains("Whisper Base:"))
             {
-                Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Detected concatenated ensemble result, performing aggressive extraction");
+                // Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Detected concatenated ensemble result, performing aggressive extraction");
 
                 // Split into sentences and look for the actual model output
                 var sentences = result.Split(new[] { '.', '!', '?' }, StringSplitOptions.RemoveEmptyEntries);
@@ -524,7 +524,7 @@ namespace CSimple.Services
                     if (!string.IsNullOrEmpty(cleanSentence) && cleanSentence.Length > 15 &&
                         !cleanSentence.Contains("Compress PNG") && !cleanSentence.Contains("hello 1124"))
                     {
-                        Debug.WriteLine($"🎯 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Extracted clean content: {cleanSentence}");
+                        // Debug.WriteLine($"🎯 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Extracted clean content: {cleanSentence}");
                         return cleanSentence;
                     }
                 }
@@ -613,7 +613,7 @@ namespace CSimple.Services
             }
 
             string finalResult = cleanedLines.Count > 0 ? string.Join("\n", cleanedLines) : result;
-            Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Final cleaned result: {finalResult}");
+            // Debug.WriteLine($"🧹 [{DateTime.Now:HH:mm:ss.fff}] [CleanModelResultForDisplay] Final cleaned result: {finalResult}");
             return finalResult;
         }        /// <summary>
                  /// Executes a single model node with optimized performance
@@ -711,7 +711,7 @@ namespace CSimple.Services
                 return stepContents[0];
             }
 
-            Debug.WriteLine($"🎨 [{DateTime.Now:HH:mm:ss.fff}] [CombineImageContents] Combining {stepContents.Count} images using method: {ensembleMethod}");
+            // Debug.WriteLine($"🎨 [{DateTime.Now:HH:mm:ss.fff}] [CombineImageContents] Combining {stepContents.Count} images using method: {ensembleMethod}");
 
             switch (ensembleMethod?.ToLower())
             {
@@ -740,7 +740,7 @@ namespace CSimple.Services
                 default:
                     // Default behavior: use all images in a comma-separated format
                     var defaultResult = string.Join(",", stepContents);
-                    Debug.WriteLine($"🔀 [{DateTime.Now:HH:mm:ss.fff}] [CombineImageContents] Default format: {defaultResult}");
+                    // Debug.WriteLine($"🔀 [{DateTime.Now:HH:mm:ss.fff}] [CombineImageContents] Default format: {defaultResult}");
                     return defaultResult;
             }
         }

@@ -153,10 +153,10 @@ namespace CSimple.Services
             _detectedWindows.Clear();
             EnumWindows(EnumWindowCallback, IntPtr.Zero);
 
-            Debug.WriteLine($"[WindowDetection] Found {_detectedWindows.Count} visible windows");
+            // Debug.WriteLine($"[WindowDetection] Found {_detectedWindows.Count} visible windows");
             foreach (var window in _detectedWindows.Take(5)) // Log first 5 for debugging
             {
-                Debug.WriteLine($"[WindowDetection] Window: '{window.Title}' - {window.Bounds}");
+                // Debug.WriteLine($"[WindowDetection] Window: '{window.Title}' - {window.Bounds}");
             }
         }
 

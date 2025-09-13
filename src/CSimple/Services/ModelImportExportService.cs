@@ -289,7 +289,7 @@ namespace CSimple.Services
             var modelDirectory = Path.Combine(FileSystem.AppDataDirectory, "Models", "HuggingFace", safeModelId);
             Directory.CreateDirectory(modelDirectory); // Ensure it exists
 
-            Debug.WriteLine($"[Model Directory] {modelId} -> {modelDirectory}");
+            // Debug.WriteLine($"[Model Directory] {modelId} -> {modelDirectory}");
             return modelDirectory;
         }
 

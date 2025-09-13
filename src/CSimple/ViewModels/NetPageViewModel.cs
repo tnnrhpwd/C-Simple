@@ -1418,14 +1418,69 @@ namespace CSimple.ViewModels
         }
 
         /// <summary>
-        /// Helper method to find corresponding model for pipeline execution
+        /// Helper method to find corresponding model for pipeline execution with robust matching logic
         /// </summary>
         private NeuralNetworkModel FindCorrespondingModel(NodeViewModel node)
         {
-            // Use this instance's AvailableModels directly since we're already in NetPageViewModel
-            return AvailableModels?.FirstOrDefault(m =>
-                m.Name.Equals(node.Name, StringComparison.OrdinalIgnoreCase) ||
-                m.HuggingFaceModelId.Contains(node.Name, StringComparison.OrdinalIgnoreCase));
+            if (AvailableModels == null) return null;
+
+            // First try exact match by ID (most precise) - check both Id and HuggingFaceModelId
+            // Prioritize active models if available
+            var exactIdMatch = AvailableModels
+                .Where(m => (!string.IsNullOrEmpty(m.Id) && m.Id == node.ModelPath) ||
+                           (!string.IsNullOrEmpty(m.HuggingFaceModelId) && m.HuggingFaceModelId == node.ModelPath))
+                .OrderByDescending(m => m.IsActive)
+                .FirstOrDefault();
+
+            if (exactIdMatch != null)
+            {
+                return exactIdMatch;
+            }
+
+            // Try matching by name (second best)
+            var nameMatch = AvailableModels
+                .Where(m => string.Equals(m.Name, node.Name, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(m => m.IsActive)
+                .FirstOrDefault();
+
+            if (nameMatch != null)
+            {
+                return nameMatch;
+            }
+
+            // Try fuzzy name matching (as a last resort)
+            string nodeName = node.Name.ToLowerInvariant();
+            var fuzzyMatch = AvailableModels
+                .Where(m => (m.Name != null && m.Name.ToLowerInvariant().Contains(nodeName)) ||
+                           (nodeName.Length > 5 && m.Name != null && nodeName.Contains(m.Name.ToLowerInvariant())))
+                .OrderByDescending(m => m.IsActive)
+                .FirstOrDefault();
+
+            return fuzzyMatch;
+        }
+
+        /// <summary>
+        /// Helper method to find model by ID with robust matching logic
+        /// </summary>
+        private NeuralNetworkModel FindModelById(string modelId)
+        {
+            if (AvailableModels == null || string.IsNullOrEmpty(modelId)) return null;
+
+            // First try exact match by ID fields
+            var exactIdMatch = AvailableModels.FirstOrDefault(m =>
+                m.HuggingFaceModelId == modelId ||
+                m.Id == modelId);
+
+            if (exactIdMatch != null)
+            {
+                return exactIdMatch;
+            }
+
+            // Try matching by name
+            var nameMatch = AvailableModels.FirstOrDefault(m =>
+                string.Equals(m.Name, modelId, StringComparison.OrdinalIgnoreCase));
+
+            return nameMatch;
         }        // Check if a model is downloaded by examining the actual directory size and essential files
         public bool IsModelDownloaded(string modelId)
         {
@@ -3294,7 +3349,7 @@ namespace CSimple.ViewModels
             Directory.CreateDirectory(modelDirectory); // Ensure it exists
 
             // Log the model directory for user awareness
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Model Directory] {modelId} -> {modelDirectory}");
+            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Model Directory] {modelId} -> {modelDirectory}");
 
             return modelDirectory;
         }
@@ -5025,9 +5080,9 @@ namespace CSimple.ViewModels
         // Public method to execute a model from OrientPageViewModel
         public async Task<string> ExecuteModelAsync(string modelId, string inputText)
         {
-            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
-            Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
-            Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Available models count: {AvailableModels?.Count ?? 0}");
+            // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] 🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
+            // Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Executing model: {modelId} with input length: {inputText?.Length ?? 0}");
+            // Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Available models count: {AvailableModels?.Count ?? 0}");
 
             try
             {
@@ -5036,7 +5091,7 @@ namespace CSimple.ViewModels
                 {
                     foreach (var availableModel in AvailableModels.Take(5)) // Show first 5 models
                     {
-                        Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Available model: ID='{availableModel.Id}', Name='{availableModel.Name}', HFModelId='{availableModel.HuggingFaceModelId}'");
+                        // Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Available model: ID='{availableModel.Id}', Name='{availableModel.Name}', HFModelId='{availableModel.HuggingFaceModelId}'");
                     }
                 }
                 else
@@ -5044,11 +5099,8 @@ namespace CSimple.ViewModels
                     Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] ERROR: AvailableModels is null!");
                 }
 
-                // Find the model in available models
-                var model = AvailableModels?.FirstOrDefault(m =>
-                    m.HuggingFaceModelId == modelId ||
-                    m.Name == modelId ||
-                    m.Id == modelId);
+                // Find the model in available models using improved matching logic
+                var model = FindModelById(modelId);
 
                 if (model == null)
                 {
@@ -5056,19 +5108,19 @@ namespace CSimple.ViewModels
                     throw new InvalidOperationException($"Model '{modelId}' not found in available models");
                 }
 
-                Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Found model: {model.Name} (HF ID: {model.HuggingFaceModelId})");
+                // Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Found model: {model.Name} (HF ID: {model.HuggingFaceModelId})");
 
                 // Use the existing model execution infrastructure
                 string localModelPath = GetLocalModelPath(modelId);
-                Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Local model path: {localModelPath ?? "null"}");
-                Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Python executable: {_pythonExecutablePath}");
-                Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] HF script path: {_huggingFaceScriptPath}");
+                // Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Local model path: {localModelPath ?? "null"}");
+                // Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] Python executable: {_pythonExecutablePath}");
+                // Debug.WriteLine($"🤖 [NetPageViewModel.ExecuteModelAsync] HF script path: {_huggingFaceScriptPath}");
 
                 var result = await _modelExecutionService.ExecuteHuggingFaceModelAsyncEnhanced(
                     modelId, inputText, model, _pythonExecutablePath, _huggingFaceScriptPath, localModelPath);
 
-                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [NetPageViewModel.ExecuteModelAsync] Model execution successful, result length: {result?.Length ?? 0}");
-                Debug.WriteLine($"✅ [NetPageViewModel.ExecuteModelAsync] Model execution successful, result length: {result?.Length ?? 0}");
+                // Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] ✅ [NetPageViewModel.ExecuteModelAsync] Model execution successful, result length: {result?.Length ?? 0}");
+                // Debug.WriteLine($"✅ [NetPageViewModel.ExecuteModelAsync] Model execution successful, result length: {result?.Length ?? 0}");
 
                 return result;
             }
@@ -5864,7 +5916,7 @@ namespace CSimple.ViewModels
 
                             try
                             {
-                                Debug.WriteLine($"[NetPage Pipeline] ===== STARTING PIPELINE EXECUTION =====");
+                                // Debug.WriteLine($"[NetPage Pipeline] ===== STARTING PIPELINE EXECUTION =====");
                                 // Execute pipeline with collected data - NO INPUT COLLECTION DURING THIS TIME
                                 _currentPipelineTask = ExecuteEnhancedPipelineWithData(screenshots, audioData, textData, cancellationToken);
                                 await _currentPipelineTask;
@@ -5960,8 +6012,8 @@ namespace CSimple.ViewModels
         /// </summary>
         private async Task ExecutePipelineWithObservedData(CancellationToken cancellationToken)
         {
-            Debug.WriteLine($"[NetPage Pipeline] ===== EXECUTING PIPELINE WITH OBSERVED DATA =====");
-            Debug.WriteLine($"[NetPage Pipeline] Selected Pipeline: '{_selectedPipeline ?? "None"}'");
+            // Debug.WriteLine($"[NetPage Pipeline] ===== EXECUTING PIPELINE WITH OBSERVED DATA =====");
+            // Debug.WriteLine($"[NetPage Pipeline] Selected Pipeline: '{_selectedPipeline ?? "None"}'");
 
             try
             {
@@ -5988,11 +6040,11 @@ namespace CSimple.ViewModels
                     _selectedPipelineData.Connections.Select(sc => sc.ToViewModel())
                 );
 
-                Debug.WriteLine($"[NetPage Pipeline] Converted {nodes.Count} nodes and {connections.Count} connections");
+                // Debug.WriteLine($"[NetPage Pipeline] Converted {nodes.Count} nodes and {connections.Count} connections");
 
                 // Prepare input data from system observations
                 var systemInput = await PrepareSystemInputForPipeline(cancellationToken);
-                Debug.WriteLine($"[NetPage Pipeline] Prepared system input: '{systemInput}'");
+                // Debug.WriteLine($"[NetPage Pipeline] Prepared system input: '{systemInput}'");
 
                 // Add system input to input nodes
                 foreach (var inputNode in nodes.Where(n => n.Type == NodeType.Input))
@@ -6008,7 +6060,7 @@ namespace CSimple.ViewModels
                 int successCount = result.successCount;
                 int skippedCount = result.skippedCount;
 
-                Debug.WriteLine($"[NetPage Pipeline] Execution result: {successCount} successful, {skippedCount} skipped");
+                // Debug.WriteLine($"[NetPage Pipeline] Execution result: {successCount} successful, {skippedCount} skipped");
 
                 // Process results and simulate actions
                 await ProcessPipelineResultsAndSimulateActions(nodes, cancellationToken);
@@ -6136,8 +6188,8 @@ namespace CSimple.ViewModels
             try
             {
                 // Console log all model node outputs for validation
-                Debug.WriteLine($"[NetPage Pipeline] ===== PIPELINE EXECUTION RESULTS =====");
-                Debug.WriteLine($"[NetPage Pipeline] Processing {nodes.Count} nodes:");
+                // Debug.WriteLine($"[NetPage Pipeline] ===== PIPELINE EXECUTION RESULTS =====");
+                // Debug.WriteLine($"[NetPage Pipeline] Processing {nodes.Count} nodes:");
 
                 foreach (var node in nodes)
                 {
@@ -6159,7 +6211,7 @@ namespace CSimple.ViewModels
                     else if (node.Type == NodeType.Output)
                     {
                         var output = node.GetStepOutput(1);
-                        Debug.WriteLine($"[NetPage Pipeline] Output Node: '{output.Value ?? "NULL"}'");
+                        // Debug.WriteLine($"[NetPage Pipeline] Output Node: '{output.Value ?? "NULL"}'");
                     }
 
                     // Debug.WriteLine($"[NetPage Pipeline] ---");
@@ -6182,7 +6234,7 @@ namespace CSimple.ViewModels
                      n.ModelPath?.ToLowerInvariant().Contains("classification") == true)
                 ).ToList();
 
-                Debug.WriteLine($"[NetPage Pipeline] Found {actionClassificationNodes.Count} action classification nodes");
+                // Debug.WriteLine($"[NetPage Pipeline] Found {actionClassificationNodes.Count} action classification nodes");
 
                 if (!actionClassificationNodes.Any())
                 {
@@ -6195,7 +6247,7 @@ namespace CSimple.ViewModels
                 foreach (var actionNode in actionClassificationNodes)
                 {
                     var output = actionNode.GetStepOutput(1);
-                    Debug.WriteLine($"[NetPage Pipeline] Processing action node '{actionNode.Name}' with output: '{output.Value ?? "NULL"}'");
+                    // Debug.WriteLine($"[NetPage Pipeline] Processing action node '{actionNode.Name}' with output: '{output.Value ?? "NULL"}'");
 
                     if (!string.IsNullOrEmpty(output.Value) && !output.Value.Equals("NULL", StringComparison.OrdinalIgnoreCase))
                     {
@@ -6215,7 +6267,7 @@ namespace CSimple.ViewModels
                     }
                     else
                     {
-                        Debug.WriteLine($"[NetPage Pipeline] Skipping action node '{actionNode.Name}' - no output (model may not be loaded or active)");
+                        // Debug.WriteLine($"[NetPage Pipeline] Skipping action node '{actionNode.Name}' - no output (model may not be loaded or active)");
 
                         // Add informative message for NULL outputs
                         if (output.Value == "NULL" || string.IsNullOrEmpty(output.Value))
@@ -7272,9 +7324,9 @@ namespace CSimple.ViewModels
         private async Task ExecuteEnhancedPipelineWithData(List<byte[]> screenshots, List<byte[]> audioData, List<string> textData, CancellationToken cancellationToken)
         {
             var pipelineName = _selectedPipeline ?? "Default Pipeline";
-            Debug.WriteLine($"[NetPage Pipeline] ===== STARTING MULTIMODAL PIPELINE EXECUTION =====");
-            Debug.WriteLine($"[NetPage Pipeline] Pipeline: '{pipelineName}'");
-            Debug.WriteLine($"[NetPage Pipeline] Input Data: {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs");
+            // Debug.WriteLine($"[NetPage Pipeline] ===== STARTING MULTIMODAL PIPELINE EXECUTION =====");
+            // Debug.WriteLine($"[NetPage Pipeline] Pipeline: '{pipelineName}'");
+            // Debug.WriteLine($"[NetPage Pipeline] Input Data: {screenshots.Count} screenshots, {audioData.Count} audio samples, {textData.Count} text inputs");
 
             var executionRecord = new PipelineExecutionRecord
             {
@@ -7360,7 +7412,7 @@ namespace CSimple.ViewModels
                     var nodeViewModels = new ObservableCollection<NodeViewModel>(pipelineData.Nodes.Select(n => n.ToViewModel()));
                     var connectionViewModels = new ObservableCollection<ConnectionViewModel>(pipelineData.Connections?.Select(c => c.ToViewModel()) ?? new List<ConnectionViewModel>());
 
-                    Debug.WriteLine($"[NetPage Pipeline] Loaded pipeline '{pipelineName}' with {nodeViewModels.Count} nodes and {connectionViewModels.Count} connections");
+                    // Debug.WriteLine($"[NetPage Pipeline] Loaded pipeline '{pipelineName}' with {nodeViewModels.Count} nodes and {connectionViewModels.Count} connections");
 
                     // Validate pipeline structure
                     var modelNodes = nodeViewModels.Where(n => n.Type == NodeType.Model).ToList();
@@ -7376,14 +7428,14 @@ namespace CSimple.ViewModels
                     // Enhanced input distribution for multimodal GUI agent pipeline
                     SetupMultimodalPipelineInputs(nodeViewModels, systemInput, screenshots, audioData, textData);
 
-                    Debug.WriteLine($"[NetPage Pipeline] Multimodal inputs configured for {nodeViewModels.Count} nodes");
+                    // Debug.WriteLine($"[NetPage Pipeline] Multimodal inputs configured for {nodeViewModels.Count} nodes");
 
-                    Debug.WriteLine($"[NetPage Pipeline] Executing pipeline with {nodeViewModels.Count} nodes and {connectionViewModels.Count} connections");
+                    // Debug.WriteLine($"[NetPage Pipeline] Executing pipeline with {nodeViewModels.Count} nodes and {connectionViewModels.Count} connections");
 
                     // Check the pipeline's concurrent render setting
                     bool concurrentRender = pipelineData.ConcurrentRender;
                     string renderMode = concurrentRender ? "concurrent" : "sequential";
-                    Debug.WriteLine($"[NetPage Pipeline] Using {renderMode} execution mode (ConcurrentRender: {concurrentRender})");
+                    // Debug.WriteLine($"[NetPage Pipeline] Using {renderMode} execution mode (ConcurrentRender: {concurrentRender})");
 
                     (int successCount, int skippedCount) executionResults;
 
@@ -7405,21 +7457,24 @@ namespace CSimple.ViewModels
                             var emptyModelCache = new Dictionary<string, NeuralNetworkModel>();
                             var emptyInputCache = new Dictionary<string, string>();
 
-                            // Pre-populate the model cache with available models
+                            // Pre-populate the model cache with available models using improved matching logic
                             foreach (var node in nodeViewModels.Where(n => n.Type == NodeType.Model))
                             {
-                                var model = AvailableModels?.FirstOrDefault(m =>
-                                    m.Name == node.Name ||
-                                    m.Name == node.ModelPath ||
-                                    node.ModelPath?.Contains(m.Name) == true);
+                                var model = FindCorrespondingModel(node);
 
                                 if (model != null)
                                 {
                                     emptyModelCache[node.Id] = model;
+                                    Debug.WriteLine($"[Pipeline Model Match] Found model '{model.Name}' for node '{node.Name}' (Path: {node.ModelPath})");
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($"[Pipeline Model Match] No model found for node '{node.Name}' (Path: {node.ModelPath})");
                                 }
                             }
 
-                            Debug.WriteLine($"[NetPage Pipeline] Created model cache with {emptyModelCache.Count} models for sequential execution");
+                            Debug.WriteLine($"[Pipeline Model Cache] Created model cache with {emptyModelCache.Count} models for sequential execution");
+                            Debug.WriteLine($"[Pipeline Model Cache] Available models: {AvailableModels?.Count ?? 0} total, Active: {AvailableModels?.Count(m => m.IsActive) ?? 0}");
 
                             if (emptyModelCache.Count == 0)
                             {
@@ -7458,7 +7513,7 @@ namespace CSimple.ViewModels
                         return;
                     }
 
-                    Debug.WriteLine($"[NetPage Pipeline] Pipeline execution completed: {executionResults.successCount} successful, {executionResults.skippedCount} skipped");
+                    // Debug.WriteLine($"[NetPage Pipeline] Pipeline execution completed: {executionResults.successCount} successful, {executionResults.skippedCount} skipped");
 
                     // Process results and simulate actions
                     await ProcessPipelineResultsAndSimulateActions(nodeViewModels, cancellationToken);
@@ -7669,21 +7724,21 @@ namespace CSimple.ViewModels
                         // Set audio data for audio input nodes
                         var audioDataSize = audioData.Sum(a => a.Length);
                         inputNode.SetStepOutput(1, "audio", $"Audio data: {audioData.Count} samples, {audioDataSize / 1024:N0} KB");
-                        Debug.WriteLine($"[NetPage Pipeline] Set audio input for '{inputNode.Name}': {audioData.Count} samples");
+                        // Debug.WriteLine($"[NetPage Pipeline] Set audio input for '{inputNode.Name}': {audioData.Count} samples");
                     }
                     else if (nodeName.Contains("screen") && screenshots.Count > 0)
                     {
                         // Set screen image data for screen input nodes
                         var screenDataSize = screenshots.Sum(s => s.Length);
                         inputNode.SetStepOutput(1, "image", $"Screen capture: {screenshots.Count} images, {screenDataSize / 1024:N0} KB");
-                        Debug.WriteLine($"[NetPage Pipeline] Set screen input for '{inputNode.Name}': {screenshots.Count} screenshots");
+                        // Debug.WriteLine($"[NetPage Pipeline] Set screen input for '{inputNode.Name}': {screenshots.Count} screenshots");
                     }
                     else if (nodeName.Contains("webcam") && screenshots.Count > 0)
                     {
                         // Use screenshots for webcam nodes as fallback (can be enhanced with actual webcam capture)
                         var webcamDataSize = screenshots.Sum(s => s.Length);
                         inputNode.SetStepOutput(1, "image", $"Webcam capture: {screenshots.Count} images, {webcamDataSize / 1024:N0} KB");
-                        Debug.WriteLine($"[NetPage Pipeline] Set webcam input for '{inputNode.Name}': {screenshots.Count} images");
+                        // Debug.WriteLine($"[NetPage Pipeline] Set webcam input for '{inputNode.Name}': {screenshots.Count} images");
                     }
                     else if (nodeName.Contains("system") || nodeName.Contains("context"))
                     {
@@ -7695,7 +7750,7 @@ namespace CSimple.ViewModels
                     {
                         // Default: set enhanced system input for other input nodes
                         inputNode.SetStepOutput(1, "text", systemInput);
-                        Debug.WriteLine($"[NetPage Pipeline] Set default input for '{inputNode.Name}': {systemInput?.Length ?? 0} chars");
+                        // Debug.WriteLine($"[NetPage Pipeline] Set default input for '{inputNode.Name}': {systemInput?.Length ?? 0} chars");
                     }
                 }
             }
